@@ -209,7 +209,7 @@ void FAnimationViewerContent::UpdateRootMotion() {
     Component->GetOwner()->SetActorTransform({});
 
     if (mPreviewMode == 2 && mSequence != nullptr) {
-        const Core::FTransform Motion{Instance->ExtractSequenceRootMotion(*mSequence, 0.0, GetPosition(), false)};
+        const FTransform Motion{Instance->ExtractSequenceRootMotion(*mSequence, 0.0, GetPosition(), false)};
         Component->GetOwner()->SetActorTransform(Engine::FAnimationRuntime::ApplyRootMotionToTransform(Motion, Component->GetTransform(), {}));
     }
 
@@ -224,13 +224,13 @@ void FAnimationViewerContent::SynchronizeScene() {
         return;
     }
 
-    const Core::FBox& BindBounds{Component->GetSkeletalMesh()->GetBounds()};
-    const Core::FMatrix World{Component->GetWorldMatrix()};
+    const FBox& BindBounds{Component->GetSkeletalMesh()->GetBounds()};
+    const FMatrix World{Component->GetWorldMatrix()};
 
     mBounds = BindBounds.Transformed(World);
 
-    for (const Core::FMatrix& Skin : Component->GetPose().GetSkinMatrices()) {
-        const Core::FBox Bounds{BindBounds.Transformed(Skin * World)};
+    for (const FMatrix& Skin : Component->GetPose().GetSkinMatrices()) {
+        const FBox Bounds{BindBounds.Transformed(Skin * World)};
 
         mBounds.mMinimum = mBounds.mMinimum.Min(Bounds.mMinimum);
         mBounds.mMaximum = mBounds.mMaximum.Max(Bounds.mMaximum);
@@ -243,7 +243,7 @@ void FAnimationViewerContent::SynchronizeScene() {
     }
 }
 
-const Core::FBox& FAnimationViewerContent::GetBounds() const {
+const FBox& FAnimationViewerContent::GetBounds() const {
     return mBounds;
 }
 

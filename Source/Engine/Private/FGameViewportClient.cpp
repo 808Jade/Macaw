@@ -48,7 +48,7 @@ namespace Engine {
     /**
      * @brief 실행 월드의 활성 카메라로 뷰포트 크기에 맞는 장면 뷰를 계산합니다.
      */
-    bool Engine::FGameViewportClient::CalcSceneView(const Core::FVector2& Size, Engine::FSceneView& View) const {
+    bool Engine::FGameViewportClient::CalcSceneView(const FVector2& Size, Engine::FSceneView& View) const {
         const Engine::UWorld* World{mEngine != nullptr ? mEngine->GetWorld(mWorld) : nullptr};
         const Engine::APlayerCameraManager* CameraManager{World != nullptr ? World->GetPlayerCameraManager() : nullptr};
 

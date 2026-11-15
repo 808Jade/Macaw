@@ -53,14 +53,14 @@ namespace Script {
          * @return 창 기준 픽셀 위치입니다.
          */
         UFUNCTION()
-        static Core::FVector2 GetMousePosition();
+        static FVector2 GetMousePosition();
 
         /**
          * @brief 이번 프레임의 마우스 이동량을 반환합니다.
          * @return 픽셀 단위 이동량입니다.
          */
         UFUNCTION()
-        static Core::FVector2 GetMouseDelta();
+        static FVector2 GetMouseDelta();
 
         /**
          * @brief 이번 프레임의 마우스 휠 이동량을 반환합니다.

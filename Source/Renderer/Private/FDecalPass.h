@@ -40,17 +40,17 @@ namespace Renderer {
             /**
              * @brief 깊이에서 월드 위치를 복원하는 뷰·투영 역행렬입니다.
              */
-            Core::FMatrix mInverseViewProjection{};
+            FMatrix mInverseViewProjection{};
 
             /**
              * @brief 월드 좌표를 데칼 투영 박스 좌표로 변환하는 역행렬입니다.
              */
-            Core::FMatrix mWorldToDecal{};
+            FMatrix mWorldToDecal{};
 
             /**
              * @brief 화면 너비·높이의 역수, 불투명도, 노멀 강도 순서의 셰이더 상수입니다.
              */
-            Core::FVector4 mScreenAndOpacity{};
+            FVector4 mScreenAndOpacity{};
 
             /**
              * @brief 색상 텍스처 존재·색상 출력 활성화 플래그와 예약 값입니다.
@@ -99,7 +99,7 @@ namespace Renderer {
          * @param Height 출력 또는 UI 영역의 높이(픽셀)입니다.
          * @return 출력 크기로 제한한 시저 사각형입니다.
          */
-        static D3D11_RECT GetScissor(const Core::FMatrix& DecalToClip, Core::Uint32 Width, Core::Uint32 Height);
+        static D3D11_RECT GetScissor(const FMatrix& DecalToClip, Core::Uint32 Width, Core::Uint32 Height);
 
     private:
 

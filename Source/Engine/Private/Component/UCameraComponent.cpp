@@ -43,7 +43,7 @@ namespace Engine {
     /**
      * @brief 카메라의 월드 변환과 시야각으로 뷰·투영 행렬을 계산합니다.
      */
-    bool Engine::UCameraComponent::GetCameraView(const Core::FVector2& Size, Engine::FSceneView& View) const {
+    bool Engine::UCameraComponent::GetCameraView(const FVector2& Size, Engine::FSceneView& View) const {
         return GetTransform().IsValid() && GetCameraViewInfo().CalcSceneView(Size, View);
     }
 

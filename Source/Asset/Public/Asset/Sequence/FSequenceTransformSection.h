@@ -104,7 +104,7 @@ namespace Asset {
          * @param[in] Base 키가 없는 채널에 사용할 기준 변환입니다.
          * @return 키가 있는 채널만 기준 변환에 덮어쓴 결과입니다.
          */
-        Core::FTransform Evaluate(double Tick, const Core::FTransform& Base) const;
+        FTransform Evaluate(double Tick, const FTransform& Base) const;
 
         /**
          * @brief 아카이브 모드에 따라 구간과 키가 있는 채널을 읽거나 저장합니다.

@@ -57,14 +57,14 @@ namespace Engine {
          * @brief 광원의 RGBA 색상을 반환합니다.
          * @return 컴포넌트가 소유한 RGBA 색상 값의 참조입니다.
          */
-        const Core::FVector4& GetLightColor() const;
+        const FVector4& GetLightColor() const;
 
         /**
          * @brief 광원의 RGBA 색상을 검증하고 변경합니다.
          * @param[in] Color 각 성분이 0 이상 1 이하인 유한한 RGBA 색상입니다.
          * @return 입력값을 수락하고 상태를 갱신하면 true이며 잘못된 값이면 false입니다.
          */
-        bool SetLightColor(const Core::FVector4& Color);
+        bool SetLightColor(const FVector4& Color);
 
         /**
          * @brief 현재 컴포넌트의 조명·그림자 설정으로 렌더 프록시를 생성합니다.
@@ -82,7 +82,7 @@ namespace Engine {
          * @param[in] Transform 광원에 적용할 월드 변환입니다.
          * @return 변환을 적용하면 true이며 유효하지 않은 변환이면 false입니다.
          */
-        bool SetTransform(const Core::FTransform& Transform) override;
+        bool SetTransform(const FTransform& Transform) override;
 
         /**
          * @brief 렌더 장면의 광원 등록과 아이콘 참조를 해제하고 컴포넌트를 등록 해제합니다.
@@ -124,7 +124,7 @@ namespace Engine {
          * @brief 광원의 RGBA 색상입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetLightColor, Setter = SetLightColor)
-        Core::FVector4 mLightColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mLightColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 에디터에 표시할 광원 아이콘 텍스처의 비소유 주소입니다.

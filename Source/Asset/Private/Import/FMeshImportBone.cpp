@@ -14,7 +14,7 @@ namespace Asset {
     /**
      * @brief 본의 이름·부모·바인드 포즈를 지정해 생성합니다.
      */
-    Asset::FMeshImportBone::FMeshImportBone(Core::FString Name, Core::Int32 ParentIndex, const Core::FMatrix& BindPose)
+    Asset::FMeshImportBone::FMeshImportBone(Core::FString Name, Core::Int32 ParentIndex, const FMatrix& BindPose)
 		: mName{std::move(Name)},
 		  mParentIndex{ParentIndex},
 		  mBindPose{BindPose} {
@@ -37,7 +37,7 @@ namespace Asset {
     /**
      * @brief 바인드 포즈를 조회합니다.
      */
-    const Core::FMatrix& Asset::FMeshImportBone::GetBindPose() const {
+    const FMatrix& Asset::FMeshImportBone::GetBindPose() const {
         return mBindPose;
     }
 

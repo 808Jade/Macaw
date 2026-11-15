@@ -48,7 +48,7 @@ namespace Core {
          * @param[in,out] Hit 교차 성공 시 충돌 정보 또는 교점을 기록합니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool IntersectPlane(const Core::FRay& Ray, const Core::FVector& Point, const Core::FVector& Normal, Core::FVector& Hit);
+        bool IntersectPlane(const FRay& Ray, const FVector& Point, const FVector& Normal, FVector& Hit);
 
         /**
          * @brief 광선과 삼각형의 교차를 검사하여 광선상의 거리를 구합니다.
@@ -59,7 +59,7 @@ namespace Core {
          * @param[in,out] Distance 교차 성공 시 광선상의 거리를 기록합니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool IntersectTriangle(const Core::FRay& Ray, const Core::FVector& A, const Core::FVector& B, const Core::FVector& C, float& Distance);
+        bool IntersectTriangle(const FRay& Ray, const FVector& A, const FVector& B, const FVector& C, float& Distance);
 
         /**
          * @brief 월드 위치를 뷰포트 픽셀 좌표로 투영합니다.
@@ -69,7 +69,7 @@ namespace Core {
          * @param[in,out] Screen 뷰포트 기준 픽셀 좌표입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool Project(const Core::FVector& Position, const Core::FMatrix& ViewProjection, const Core::FVector2& Size, Core::FVector2& Screen);
+        bool Project(const FVector& Position, const FMatrix& ViewProjection, const FVector2& Size, FVector2& Screen);
 
         /**
          * @brief 뷰포트 픽셀 좌표에서 월드 공간 피킹 광선을 생성합니다.
@@ -79,7 +79,7 @@ namespace Core {
          * @param[in,out] Ray 교차를 검사하거나 역투영 결과를 기록할 광선입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool Deproject(const Core::FVector2& Screen, const Core::FVector2& Size, const Core::FMatrix& ViewProjection, Core::FRay& Ray);
+        bool Deproject(const FVector2& Screen, const FVector2& Size, const FMatrix& ViewProjection, FRay& Ray);
 
         /**
          * @brief 2차원 점에서 유한 선분까지의 최단 거리를 구합니다.
@@ -88,7 +88,7 @@ namespace Core {
          * @param[in] End 선분 끝점입니다.
          * @return 연산을 적용한 새 값입니다.
          */
-        float DistanceToSegment(const Core::FVector2& Point, const Core::FVector2& Start, const Core::FVector2& End);
+        float DistanceToSegment(const FVector2& Point, const FVector2& Start, const FVector2& End);
     }
 
 }

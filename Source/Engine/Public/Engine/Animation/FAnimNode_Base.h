@@ -89,7 +89,7 @@ namespace Engine {
         /**
          * @brief 스켈레톤 본 인덱스 순서의 로컬 변환입니다. 스켈레톤이 없으면 비어 있습니다.
          */
-        Core::TArray<Core::FTransform> mPose{};
+        Core::TArray<FTransform> mPose{};
 
     private:
 
@@ -263,7 +263,7 @@ namespace Engine {
          * @brief 최근 갱신에서 계산한 루트 모션 증분을 반환합니다.
          * @return 노드 또는 인스턴스의 이동·회전 증분이며 없으면 항등 변환입니다.
          */
-        virtual Core::FTransform GetRootMotionDelta() const;
+        virtual FTransform GetRootMotionDelta() const;
 
         /**
          * @brief 노드 종류의 표시 이름을 반환합니다.

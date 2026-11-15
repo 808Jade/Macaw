@@ -55,10 +55,10 @@ namespace HeaderTool {
          * @brief 엔진 구조체와 ABI·C# 구조체 대응 표입니다.
          */
         const std::map<std::string, FStructType> sStructTypes{
-            {"Core::FVector2", {"Script::Abi::FVector2", "Vector2"}},
-            {"Core::FVector", {"Script::Abi::FVector3", "Vector3"}},
-            {"Core::FQuat", {"Script::Abi::FQuat", "Quaternion"}},
-            {"Core::FTransform", {"Script::Abi::FTransform", "Transform"}},
+            {"FVector2", {"Script::Abi::FVector2", "Vector2"}},
+            {"FVector", {"Script::Abi::FVector3", "Vector3"}},
+            {"FQuat", {"Script::Abi::FQuat", "Quaternion"}},
+            {"FTransform", {"Script::Abi::FTransform", "Transform"}},
             {"Engine::FWorldHit", {"Script::Abi::FWorldHit", "RaycastHit"}},
             {"Script::FScriptValue", {"Script::FScriptValue", "ScriptValue"}},
         };

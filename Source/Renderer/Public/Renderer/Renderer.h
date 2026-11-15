@@ -147,7 +147,7 @@ namespace Renderer {
          * @param Error 실패 원인을 기록할 출력 문자열입니다.
          * @return 호출자가 소유하는 출력 텍스처이며 실패하면 nullptr이고 Error에 원인을 기록합니다.
          */
-        std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Core::Uint32 Width, Core::Uint32 Height, const Core::FVector4& Region, Core::FString& Error) override;
+        std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Core::Uint32 Width, Core::Uint32 Height, const FVector4& Region, Core::FString& Error) override;
 
         /**
          * @brief 기존 오프스크린 렌더 타깃을 새 픽셀 크기로 변경합니다.
@@ -257,7 +257,7 @@ namespace Renderer {
          * @param[out] Maximum 계산한 최대 경계 좌표입니다.
          * @return 조건을 만족하면 true입니다.
          */
-        bool GetTextBounds(const Core::FString& Text, Core::FVector2& Minimum, Core::FVector2& Maximum) const override;
+        bool GetTextBounds(const Core::FString& Text, FVector2& Minimum, FVector2& Maximum) const override;
 
         /**
          * @brief 머티리얼별 GPU 파이프라인을 반환합니다.
@@ -553,12 +553,12 @@ namespace Renderer {
         /**
          * @brief 뷰·투영 상수 버퍼입니다.
          */
-        RenderCore::TConstantBuffer<Core::FMatrix> mViewBuffer{};
+        RenderCore::TConstantBuffer<FMatrix> mViewBuffer{};
 
         /**
          * @brief 화면 크기와 역수를 전달하는 선분 상수 버퍼입니다.
          */
-        RenderCore::TConstantBuffer<Core::FVector4> mLineViewBuffer{};
+        RenderCore::TConstantBuffer<FVector4> mLineViewBuffer{};
 
         /**
          * @brief 보조 선분용 동적 정점 버퍼입니다.

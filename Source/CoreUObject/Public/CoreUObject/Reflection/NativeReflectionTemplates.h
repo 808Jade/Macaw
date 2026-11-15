@@ -40,23 +40,23 @@ namespace CoreUObject {
             return CoreUObject::EPropertyType::String;
         } else if constexpr (std::is_same_v<T, Core::FGuid>) {
             return CoreUObject::EPropertyType::Guid;
-        } else if constexpr (std::is_same_v<T, Core::FVector2>) {
+        } else if constexpr (std::is_same_v<T, FVector2>) {
             return CoreUObject::EPropertyType::Vector2;
-        } else if constexpr (std::is_same_v<T, Core::FVector>) {
+        } else if constexpr (std::is_same_v<T, FVector>) {
             return CoreUObject::EPropertyType::Vector;
-        } else if constexpr (std::is_same_v<T, Core::FVector4>) {
+        } else if constexpr (std::is_same_v<T, FVector4>) {
             return CoreUObject::EPropertyType::Vector4;
-        } else if constexpr (std::is_same_v<T, Core::FQuat>) {
+        } else if constexpr (std::is_same_v<T, FQuat>) {
             return CoreUObject::EPropertyType::Quat;
-        } else if constexpr (std::is_same_v<T, Core::FRotator>) {
+        } else if constexpr (std::is_same_v<T, FRotator>) {
             return CoreUObject::EPropertyType::Rotator;
-        } else if constexpr (std::is_same_v<T, Core::FMatrix>) {
+        } else if constexpr (std::is_same_v<T, FMatrix>) {
             return CoreUObject::EPropertyType::Matrix;
-        } else if constexpr (std::is_same_v<T, Core::FTransform>) {
+        } else if constexpr (std::is_same_v<T, FTransform>) {
             return CoreUObject::EPropertyType::Transform;
-        } else if constexpr (std::is_same_v<T, Core::FBox>) {
+        } else if constexpr (std::is_same_v<T, FBox>) {
             return CoreUObject::EPropertyType::Box;
-        } else if constexpr (std::is_same_v<T, Core::FRay>) {
+        } else if constexpr (std::is_same_v<T, FRay>) {
             return CoreUObject::EPropertyType::Ray;
         } else if constexpr (CoreUObject::TIsObjectRef<T>::value || std::is_same_v<T, CoreUObject::FObjectReference>) {
             return CoreUObject::EPropertyType::ObjectReference;
@@ -72,7 +72,7 @@ namespace CoreUObject {
      */
     template <typename T>
     const CoreUObject::UStruct* GetNativeStruct() {
-        if constexpr (!std::is_same_v<T, Core::FGuid> && !std::is_same_v<T, Core::FMatrix> && CoreUObject::GetNativePropertyType<T>() != CoreUObject::EPropertyType::Opaque && requires { T::StaticStruct(); }) {
+        if constexpr (!std::is_same_v<T, Core::FGuid> && !std::is_same_v<T, FMatrix> && CoreUObject::GetNativePropertyType<T>() != CoreUObject::EPropertyType::Opaque && requires { T::StaticStruct(); }) {
             return T::StaticStruct();
         } else {
             return nullptr;

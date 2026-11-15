@@ -17,7 +17,7 @@
 
 namespace Asset {
 
-    void UBlendSpace1D::GetSamplesToBlend(const Core::FVector& Input, Core::TArray<Asset::FBlendSampleWeight>& OutWeights) const {
+    void UBlendSpace1D::GetSamplesToBlend(const FVector& Input, Core::TArray<Asset::FBlendSampleWeight>& OutWeights) const {
         OutWeights.clear();
 
         const auto& Samples{GetSamples()};

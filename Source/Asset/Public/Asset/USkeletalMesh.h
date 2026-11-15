@@ -108,7 +108,7 @@ namespace Asset {
          * @brief 바인드 형상의 로컬 경계를 반환합니다.
          * @return 공유 경계 상자입니다.
          */
-        const Core::FBox& GetBounds() const;
+        const FBox& GetBounds() const;
 
         /**
          * @brief 정점 수를 반환합니다.

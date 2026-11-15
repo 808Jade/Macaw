@@ -21,7 +21,7 @@ namespace Engine {
         /**
          * @brief 텍스트를 그릴 월드 위치입니다.
          */
-        Core::FVector mPosition{};
+        FVector mPosition{};
 
         /**
          * @brief UTF-8 문자열입니다.
@@ -31,7 +31,7 @@ namespace Engine {
         /**
          * @brief 표시할 RGBA 색상입니다.
          */
-        Core::FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 텍스트의 글자 크기입니다.
@@ -41,7 +41,7 @@ namespace Engine {
         /**
          * @brief 가로·세로 크기 배율입니다.
          */
-        Core::FVector2 mScale{1.0f, 1.0f};
+        FVector2 mScale{1.0f, 1.0f};
 
         /**
          * @brief 텍스트 크기를 화면 픽셀 단위로 유지할지 여부입니다.

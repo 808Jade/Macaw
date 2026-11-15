@@ -72,7 +72,7 @@ namespace Editor {
             /**
              * @brief 드래그를 시작할 때 기록한 공간 컴포넌트의 월드 변환입니다.
              */
-            Core::FTransform mTransform{};
+            FTransform mTransform{};
         };
 
     public:
@@ -108,7 +108,7 @@ namespace Editor {
          * @param[in] View 입력 해석이나 그리기에 사용할 카메라 뷰입니다.
          * @return 선택 액터와 기즈모 축을 나타내며 편집할 수 없거나 유효한 루트 또는 적중 축이 없으면 빈 프록시입니다.
          */
-        Engine::FHitProxy HitTest(const Core::FVector2& Mouse, const Engine::FSceneView& View) const;
+        Engine::FHitProxy HitTest(const FVector2& Mouse, const Engine::FSceneView& View) const;
 
         /**
          * @brief 기즈모 핸들과 드래그 피드백을 그리기 요청에 추가합니다.
@@ -139,7 +139,7 @@ namespace Editor {
          * @brief 선택 상태에 대응하는 현재 월드 피벗을 반환합니다.
          * @return 현재 사용자 피벗 또는 선택 대상의 기준 위치입니다.
          */
-        Core::FVector GetPivot() const;
+        FVector GetPivot() const;
 
         /**
          * @brief 현재 드래그가 피벗 위치만 변경하는 작업인지 검사합니다.
@@ -180,7 +180,7 @@ namespace Editor {
          * @param[in] Index 축 인덱스(0=X, 1=Y, 2=Z)입니다.
          * @return 선택한 좌표 공간에 맞는 기즈모 단위 축을 구합니다.입니다.
          */
-        Core::FVector GetAxis(const Core::FTransform& Transform, Core::Int32 Index) const;
+        FVector GetAxis(const FTransform& Transform, Core::Int32 Index) const;
 
         /**
          * @brief 선택 축과 대상의 시작 변환을 저장하고 드래그 평면을 구성합니다.
@@ -246,7 +246,7 @@ namespace Editor {
         /**
          * @brief 드래그 시작 시 대상 변환입니다.
          */
-        Core::FTransform mStartTransform{};
+        FTransform mStartTransform{};
 
         /**
          * @brief 드래그 시작 시 기록한 편집 대상과 원본 변환입니다.
@@ -266,12 +266,12 @@ namespace Editor {
         /**
          * @brief 현재 선택에서 유지할 사용자 지정 월드 피벗입니다.
          */
-        Core::FVector mPivot{};
+        FVector mPivot{};
 
         /**
          * @brief 취소 시 복원할 드래그 이전 사용자 피벗입니다.
          */
-        Core::FVector mOriginalPivot{};
+        FVector mOriginalPivot{};
 
         /**
          * @brief 현재 선택 세대에 적용할 사용자 피벗을 보관하는지 여부입니다.

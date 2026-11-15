@@ -153,10 +153,10 @@ namespace Core::Math {
      * @param[in] Roll X축 주위 회전각입니다.
      * @return 도 단위로 변환한 오일러 회전입니다.
      */
-    inline Core::FRotator MakeRotator(Core::FAngle Pitch, Core::FAngle Yaw, Core::FAngle Roll) {
+    inline FRotator MakeRotator(Core::FAngle Pitch, Core::FAngle Yaw, Core::FAngle Roll) {
         using namespace Core::Literals;
 
-        return Core::FRotator{Pitch / 1_deg, Yaw / 1_deg, Roll / 1_deg};
+        return FRotator{Pitch / 1_deg, Yaw / 1_deg, Roll / 1_deg};
     }
 
     /**
@@ -164,7 +164,7 @@ namespace Core::Math {
      * @param[in] Rotation 오일러 회전입니다.
      * @return Pitch 각도입니다.
      */
-    inline Core::FAngle GetPitch(const Core::FRotator& Rotation) {
+    inline Core::FAngle GetPitch(const FRotator& Rotation) {
         using namespace Core::Literals;
 
         return Rotation.pitch * 1_deg;
@@ -175,7 +175,7 @@ namespace Core::Math {
      * @param[in] Rotation 오일러 회전입니다.
      * @return Yaw 각도입니다.
      */
-    inline Core::FAngle GetYaw(const Core::FRotator& Rotation) {
+    inline Core::FAngle GetYaw(const FRotator& Rotation) {
         using namespace Core::Literals;
 
         return Rotation.yaw * 1_deg;
@@ -186,7 +186,7 @@ namespace Core::Math {
      * @param[in] Rotation 오일러 회전입니다.
      * @return Roll 각도입니다.
      */
-    inline Core::FAngle GetRoll(const Core::FRotator& Rotation) {
+    inline Core::FAngle GetRoll(const FRotator& Rotation) {
         using namespace Core::Literals;
 
         return Rotation.roll * 1_deg;

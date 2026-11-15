@@ -20,12 +20,12 @@ namespace Engine {
         /**
          * @brief 뷰포트 기준 마우스 픽셀 좌표입니다.
          */
-        Core::FVector2 mMouse{};
+        FVector2 mMouse{};
 
         /**
          * @brief 이전 프레임 이후 마우스 이동량입니다.
          */
-        Core::FVector2 mDelta{};
+        FVector2 mDelta{};
 
         /**
          * @brief 마우스 휠 이동량입니다.

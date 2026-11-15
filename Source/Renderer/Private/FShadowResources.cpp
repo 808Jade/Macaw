@@ -65,8 +65,8 @@ namespace Renderer {
          * @param[in] Direction 광원이 비추는 월드 공간 방향입니다.
          * @return 안정적인 LookTo() 계산에 사용할 월드 Y축 또는 Z축입니다.
          */
-        Core::FVector LightUp(const Core::FVector& Direction) {
-            return std::abs(Direction.z) > 0.95f ? Core::FVector{0.0f, 1.0f, 0.0f} : Core::FVector{0.0f, 0.0f, 1.0f};
+        FVector LightUp(const FVector& Direction) {
+            return std::abs(Direction.z) > 0.95f ? FVector{0.0f, 1.0f, 0.0f} : FVector{0.0f, 0.0f, 1.0f};
         }
 
         /**
@@ -84,32 +84,32 @@ namespace Renderer {
     /**
      * @brief 캐스케이드 구간과 그림자 생성 물체의 깊이를 포함하는 텍셀 정렬 방향광 행렬을 만듭니다.
      */
-    Core::FMatrix Renderer::FShadowResources::MakeDirectionalMatrix(const Engine::FSceneView& View, const Core::FVector& Direction, float NearDistance, float FarDistance, Core::Uint32 Resolution, std::span<const Core::FBox> CasterBounds) {
-        const Core::FVector Forward{View.mForward.Normalized()};
-        const Core::FVector Center{View.mLocation + Forward * ((NearDistance + FarDistance) * 0.5f)};
+    FMatrix Renderer::FShadowResources::MakeDirectionalMatrix(const Engine::FSceneView& View, const FVector& Direction, float NearDistance, float FarDistance, Core::Uint32 Resolution, std::span<const FBox> CasterBounds) {
+        const FVector Forward{View.mForward.Normalized()};
+        const FVector Center{View.mLocation + Forward * ((NearDistance + FarDistance) * 0.5f)};
         const float FarX{(View.mOrthographic ? 1.0f : FarDistance) / View.mProjection(0, 0)};
         const float FarY{(View.mOrthographic ? 1.0f : FarDistance) / View.mProjection(1, 1)};
         const float HalfDepth{(FarDistance - NearDistance) * 0.5f};
         const float Radius{std::ceil(std::sqrt(FarX * FarX + FarY * FarY + HalfDepth * HalfDepth) * 16.0f) / 16.0f * static_cast<float>(Resolution) / static_cast<float>(Resolution - 2)};
-        const Core::FMatrix Rotation{Core::FMatrix::LookTo({}, Direction, LightUp(Direction))};
-        const Core::FVector4 LightCenter{Core::FVector4{Center, 1.0f} * Rotation};
+        const FMatrix Rotation{FMatrix::LookTo({}, Direction, LightUp(Direction))};
+        const FVector4 LightCenter{FVector4{Center, 1.0f} * Rotation};
         const float Texel{2.0f * Radius / static_cast<float>(Resolution)};
         const float CenterX{std::round(LightCenter.x / Texel) * Texel};
         const float CenterY{std::round(LightCenter.y / Texel) * Texel};
         float MinimumZ{LightCenter.z - Radius};
         float MaximumZ{LightCenter.z + Radius};
 
-        for (const Core::FBox& Bounds : CasterBounds) {
+        for (const FBox& Bounds : CasterBounds) {
             for (Core::Index_t Corner{}; Corner < 8; ++Corner) {
-                const Core::FVector Point{(Corner & 1) ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Corner & 2) ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Corner & 4) ? Bounds.mMaximum.z : Bounds.mMinimum.z};
-                const Core::FVector4 LightPoint{Core::FVector4{Point, 1.0f} * Rotation};
+                const FVector Point{(Corner & 1) ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Corner & 2) ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Corner & 4) ? Bounds.mMaximum.z : Bounds.mMinimum.z};
+                const FVector4 LightPoint{FVector4{Point, 1.0f} * Rotation};
 
                 MinimumZ = std::min(MinimumZ, LightPoint.z - 0.1f);
                 MaximumZ = std::max(MaximumZ, LightPoint.z + 0.1f);
             }
         }
 
-        Core::FMatrix Projection{Core::FMatrix::Orthographic(2.0f * Radius, 2.0f * Radius, MinimumZ, MaximumZ)};
+        FMatrix Projection{FMatrix::Orthographic(2.0f * Radius, 2.0f * Radius, MinimumZ, MaximumZ)};
 
         Projection(3, 0) = -CenterX / Radius;
         Projection(3, 1) = -CenterY / Radius;
@@ -120,15 +120,15 @@ namespace Renderer {
     /**
      * @brief 광원의 그림자 맵이 현재 뷰의 화면에 영향을 줄 수 있는지 검사합니다.
      */
-    bool Renderer::FShadowResources::AffectsView(const Engine::FLightSceneProxy& Light, std::span<const Core::FBox> Receivers, std::span<const Core::FBox> Casters) {
+    bool Renderer::FShadowResources::AffectsView(const Engine::FLightSceneProxy& Light, std::span<const FBox> Receivers, std::span<const FBox> Casters) {
         if (Light.mType == Engine::ELightType::Directional) {
             return !Receivers.empty() && !Casters.empty();
         }
 
-        const Core::FVector& Center{Light.mPosition};
+        const FVector& Center{Light.mPosition};
         const float Radius{Light.mAttenuationRadius};
-        const Core::FMatrix SpotMatrix{Light.mType == Engine::ELightType::Spot ? Core::FMatrix::LookTo(Center, Light.mDirection, LightUp(Light.mDirection)) * Core::FMatrix::Perspective(std::clamp(Light.mOuterConeAngle * 2.0f, 1.0f, 179.0f), 1.0f, std::min(0.05f, Radius * 0.01f), Radius) : Core::FMatrix{}};
-        const auto IsInRange{[&](const Core::FBox& Bounds) {
+        const FMatrix SpotMatrix{Light.mType == Engine::ELightType::Spot ? FMatrix::LookTo(Center, Light.mDirection, LightUp(Light.mDirection)) * FMatrix::Perspective(std::clamp(Light.mOuterConeAngle * 2.0f, 1.0f, 179.0f), 1.0f, std::min(0.05f, Radius * 0.01f), Radius) : FMatrix{}};
+        const auto IsInRange{[&](const FBox& Bounds) {
             if (Light.mType == Engine::ELightType::Spot) {
                 return Renderer::FMeshPass::IsVisible(SpotMatrix, Bounds);
             }
@@ -208,8 +208,8 @@ namespace Renderer {
         mTiles.clear();
         mLightRanges.assign(Scene.GetLights().size(), {});
 
-        Core::TArray<Core::FBox> CasterBounds{};
-        Core::TArray<Core::FBox> ReceiverBounds{};
+        Core::TArray<FBox> CasterBounds{};
+        Core::TArray<FBox> ReceiverBounds{};
 
         for (const Renderer::FScenePrimitive& Primitive : Scene.GetPrimitives()) {
             if (Primitive.mProxy.mSprite.has_value() || Primitive.mProxy.mText.has_value()) {
@@ -324,7 +324,7 @@ namespace Renderer {
                     Map.mCascade = {PreviousSplit, Split, BlendStart, 0.0f};
 
                     // 회전 행렬이 정규 직교이므로 행 길이가 곧 직교 투영의 축별 배율입니다.
-                    const Core::FMatrix& Matrix{Map.mViewProjection};
+                    const FMatrix& Matrix{Map.mViewProjection};
                     const float WidthScale{std::sqrt(Matrix(0, 0) * Matrix(0, 0) + Matrix(1, 0) * Matrix(1, 0) + Matrix(2, 0) * Matrix(2, 0))};
                     const float DepthScale{std::sqrt(Matrix(0, 2) * Matrix(0, 2) + Matrix(1, 2) * Matrix(1, 2) + Matrix(2, 2) * Matrix(2, 2))};
 
@@ -332,12 +332,12 @@ namespace Renderer {
                     PreviousBlend = BlendStart;
                     PreviousSplit = Split;
                 } else {
-                    const std::array<Core::FVector, 6> Directions{{{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}};
-                    const Core::FVector Direction{Light.mType == Engine::ELightType::Point ? Directions[Face] : Light.mDirection};
+                    const std::array<FVector, 6> Directions{{{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}};
+                    const FVector Direction{Light.mType == Engine::ELightType::Point ? Directions[Face] : Light.mDirection};
                     const float NearPlane{std::min(0.05f, Light.mAttenuationRadius * 0.01f)};
                     const float FieldOfView{Light.mType == Engine::ELightType::Point ? 90.0f : std::clamp(Light.mOuterConeAngle * 2.0f, 1.0f, 179.0f)};
 
-                    Map.mViewProjection = Core::FMatrix::LookTo(Light.mPosition, Direction, LightUp(Direction)) * Core::FMatrix::Perspective(FieldOfView, 1.0f, NearPlane, Light.mAttenuationRadius);
+                    Map.mViewProjection = FMatrix::LookTo(Light.mPosition, Direction, LightUp(Direction)) * FMatrix::Perspective(FieldOfView, 1.0f, NearPlane, Light.mAttenuationRadius);
                     Map.mSoftness = {Light.mShadowSourceRadius, 0.5f / std::tan(FieldOfView * 0.5f * 3.14159265f / 180.0f), NearPlane, Light.mAttenuationRadius};
                 }
 
@@ -506,7 +506,7 @@ namespace Renderer {
 
         Context->OMSetRenderTargets(0, nullptr, nullptr);
 
-        const std::array<Core::FVector4, 3> ViewData{{{Family.mView.mLocation, 0.0f}, {Family.mView.mForward, 0.0f}, {static_cast<float>(mSettings.mFilter), static_cast<float>(mSettings.mPCFSize / 2), mSettings.mPCSSMaxFilterTexels, 0.0f}}};
+        const std::array<FVector4, 3> ViewData{{{Family.mView.mLocation, 0.0f}, {Family.mView.mForward, 0.0f}, {static_cast<float>(mSettings.mFilter), static_cast<float>(mSettings.mPCFSize / 2), mSettings.mPCSSMaxFilterTexels, 0.0f}}};
 
         mViewBuffer.Update(Context, ViewData);
         mEnabled = true;
@@ -523,7 +523,7 @@ namespace Renderer {
      * @brief 그림자 맵 하나의 깊이를 기록할 아틀라스 타일 타깃을 반환합니다.
      */
     Renderer::FPassTarget Renderer::FShadowResources::GetTarget(Core::Index_t Index) const {
-        const Core::FVector4& Rectangle{mMaps[Index].mAtlasRectangle};
+        const FVector4& Rectangle{mMaps[Index].mAtlasRectangle};
         Renderer::FPassTarget Target{};
         Target.mDepth = mAtlas->GetDepthStencilView();
         Target.mViewport = {Rectangle.x * AtlasSize, Rectangle.y * AtlasSize, Rectangle.z * AtlasSize, Rectangle.w * AtlasSize, 0.0f, 1.0f};

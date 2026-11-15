@@ -51,7 +51,7 @@ namespace Editor {
     /**
      * @brief 선택한 좌표 공간에 맞는 기즈모 단위 축을 구합니다.
      */
-    Core::FVector Editor::FTransformGizmo::GetAxis(const Core::FTransform& Transform, Core::Int32 Index) const {
+    FVector Editor::FTransformGizmo::GetAxis(const FTransform& Transform, Core::Int32 Index) const {
         return mClient->GetGizmoSpace() == Editor::EGizmoSpace::Local ? Transform.TransformVectorNoScale(Editor::FGizmoCore::GetUnitAxes()[Index]) : Editor::FGizmoCore::GetUnitAxes()[Index];
     }
 
@@ -74,7 +74,7 @@ namespace Editor {
     /**
      * @brief 그리는 메시의 CPU 레이 교차 판정으로 선택 액터의 기즈모 HitProxy를 구합니다.
      */
-    Engine::FHitProxy Editor::FTransformGizmo::HitTest(const Core::FVector2& Mouse, const Engine::FSceneView& View) const {
+    Engine::FHitProxy Editor::FTransformGizmo::HitTest(const FVector2& Mouse, const Engine::FSceneView& View) const {
         const Engine::USceneComponent* Target{GetPrimaryTarget()};
 
         if (!mContext->CanEditWorld() || Target == nullptr) {
@@ -121,7 +121,7 @@ namespace Editor {
             return;
         }
 
-        const Core::FVector2 MouseDelta{Input->mMouse - mCore.GetStartMouse()};
+        const FVector2 MouseDelta{Input->mMouse - mCore.GetStartMouse()};
 
         if (!std::isfinite(MouseDelta.x) || !std::isfinite(MouseDelta.y)) {
             return;
@@ -157,13 +157,13 @@ namespace Editor {
             return;
         }
 
-        const Core::FVector& StartPivot{mCore.GetStartPivot()};
+        const FVector& StartPivot{mCore.GetStartPivot()};
 
         if (mCore.GetDragMode() == Editor::EGizmoMode::Rotate) {
-            const Core::FQuat Rotation{mCore.GetRotation()};
+            const FQuat Rotation{mCore.GetRotation()};
 
             for (const FTargetState& State : mTargets) {
-                Core::FTransform Desired{State.mTransform};
+                FTransform Desired{State.mTransform};
                 Desired.mLocation = StartPivot + Rotation * (Desired.mLocation - StartPivot);
                 Desired.mRotation = (Rotation * Desired.mRotation).Normalized();
 
@@ -179,7 +179,7 @@ namespace Editor {
 
         if (mCore.GetDragMode() == Editor::EGizmoMode::Scale) {
             const Core::Int32 ActiveAxis{static_cast<Core::Int32>(mCore.GetActiveAxis())};
-            const std::array<Core::FVector, 3>& DragAxes{mCore.GetDragAxes()};
+            const std::array<FVector, 3>& DragAxes{mCore.GetDragAxes()};
             const float Delta{mCore.GetScaleDelta()};
             const float Uniform{std::max(0.001f, 1.0f + Delta)};
             const auto Primary{mStartTransform.mScale.ToArray()};
@@ -192,7 +192,7 @@ namespace Editor {
             }
 
             for (const FTargetState& State : mTargets) {
-                Core::FTransform Desired{State.mTransform};
+                FTransform Desired{State.mTransform};
                 auto Scale{Desired.mScale.ToArray()};
 
                 for (Core::Int32 Index{}; Index < 3; ++Index) {
@@ -203,7 +203,7 @@ namespace Editor {
 
                 Desired.mScale = {Scale[0], Scale[1], Scale[2]};
 
-                const Core::FVector Offset{State.mTransform.mLocation - StartPivot};
+                const FVector Offset{State.mTransform.mLocation - StartPivot};
 
                 Desired.mLocation = StartPivot;
 
@@ -221,7 +221,7 @@ namespace Editor {
             return;
         }
 
-        const Core::FVector& Delta{mCore.GetTranslation()};
+        const FVector& Delta{mCore.GetTranslation()};
 
         if (mPivotOnly || mHadPivot) {
             mPivot = StartPivot + Delta;
@@ -234,7 +234,7 @@ namespace Editor {
         }
 
         for (const FTargetState& State : mTargets) {
-            Core::FTransform Desired{State.mTransform};
+            FTransform Desired{State.mTransform};
             Desired.mLocation += Delta;
 
             if (!mContext->ApplyTransform(State.mObject, Desired, true)) {
@@ -336,14 +336,14 @@ namespace Editor {
     /**
      * @brief 선택 상태에 대응하는 현재 월드 피벗을 반환합니다.
      */
-    Core::FVector Editor::FTransformGizmo::GetPivot() const {
+    FVector Editor::FTransformGizmo::GetPivot() const {
         if (IsDragging()) {
             return mCore.GetStartPivot() + mCore.GetTranslation();
         }
 
         const Engine::USceneComponent* Target{GetPrimaryTarget()};
 
-        return mHasPivot && mPivotRevision == mContext->GetSelectionRevision() ? mPivot : Target != nullptr ? Target->GetTransform().mLocation : Core::FVector{};
+        return mHasPivot && mPivotRevision == mContext->GetSelectionRevision() ? mPivot : Target != nullptr ? Target->GetTransform().mLocation : FVector{};
     }
 
     /**

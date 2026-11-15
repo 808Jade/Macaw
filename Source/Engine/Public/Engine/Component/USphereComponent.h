@@ -29,7 +29,7 @@ namespace Engine {
          * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::FBox CalcLocalBounds() const override;
+        FBox CalcLocalBounds() const override;
 
         /**
          * @brief 구의 로컬 반지름을 설정합니다.

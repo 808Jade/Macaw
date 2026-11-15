@@ -130,7 +130,7 @@ bool FMeshViewerContent::IsReady() const {
     return mTexture != nullptr || (mScene.GetScene() != nullptr && (mMesh != nullptr || mSkeleton != nullptr));
 }
 
-const Core::FBox& FMeshViewerContent::GetBounds() const {
+const FBox& FMeshViewerContent::GetBounds() const {
     return mBounds;
 }
 
@@ -152,11 +152,11 @@ void FMeshViewerContent::Synchronize() {
     if (mMesh == nullptr) {
         if (mSkeleton != nullptr && !mSkeleton->GetGlobalBindPoses().empty()) {
             const auto& Transforms{mSkeleton->GetGlobalBindPoses()};
-            const Core::FVector First{Transforms.front().TransformPosition({})};
+            const FVector First{Transforms.front().TransformPosition({})};
             mBounds = {First, First};
 
-            for (const Core::FMatrix& Transform : Transforms) {
-                const Core::FVector Joint{Transform.TransformPosition({})};
+            for (const FMatrix& Transform : Transforms) {
+                const FVector Joint{Transform.TransformPosition({})};
 
                 mBounds.mMinimum = mBounds.mMinimum.Min(Joint);
                 mBounds.mMaximum = mBounds.mMaximum.Max(Joint);
@@ -166,7 +166,7 @@ void FMeshViewerContent::Synchronize() {
             mSkeletonShapes = BuildBoneShapes(mSkeleton->GetBones(), Transforms, Radius);
 
             for (const FBoneShape& Shape : mSkeletonShapes) {
-                const Core::FBox Bounds{Engine::GetEditorMesh(Shape.GetMesh()).GetBounds().Transformed(Shape.GetWorld())};
+                const FBox Bounds{Engine::GetEditorMesh(Shape.GetMesh()).GetBounds().Transformed(Shape.GetWorld())};
 
                 mBounds.mMinimum = mBounds.mMinimum.Min(Bounds.mMinimum);
                 mBounds.mMaximum = mBounds.mMaximum.Max(Bounds.mMaximum);
@@ -197,7 +197,7 @@ void FMeshViewerContent::Synchronize() {
 void FMeshViewerContent::BuildOverlay(Engine::FPrimitiveDrawInterface& Overlay, float) const {
     if (mMesh == nullptr && mSkeleton != nullptr) {
         for (const FBoneShape& Shape : mSkeletonShapes) {
-            const Core::FVector4 Color{Shape.GetMesh() == Engine::EEditorMesh::Sphere ? Core::FVector4{0.88f, 0.92f, 1.0f, 1.0f} : Core::FVector4{0.49f, 0.7f, 0.9f, 1.0f}};
+            const FVector4 Color{Shape.GetMesh() == Engine::EEditorMesh::Sphere ? FVector4{0.88f, 0.92f, 1.0f, 1.0f} : FVector4{0.49f, 0.7f, 0.9f, 1.0f}};
 
             Overlay.DrawMesh({Shape.GetMesh(), Shape.GetWorld(), Color});
         }

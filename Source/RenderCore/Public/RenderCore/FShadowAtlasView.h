@@ -28,7 +28,7 @@ namespace RenderCore {
         /**
          * @brief 보호 여백을 포함한 타일의 아틀라스 UV 시작점과 크기입니다.
          */
-        Core::FVector4 mRectangle{};
+        FVector4 mRectangle{};
 
         /**
          * @brief 점광원 큐브 면 또는 방향광 캐스케이드의 0 기반 번호입니다.

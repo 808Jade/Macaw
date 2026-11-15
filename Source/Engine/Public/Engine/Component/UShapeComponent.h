@@ -91,19 +91,19 @@ namespace Engine {
          * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        virtual Core::FBox CalcLocalBounds() const = 0;
+        virtual FBox CalcLocalBounds() const = 0;
 
         /**
          * @brief 컴포넌트 변환을 적용한 월드 충돌 경계를 계산합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::FBox CalcBounds() const;
+        FBox CalcBounds() const;
 
         /**
          * @brief 월드 공간의 축 정렬 경계 상자를 반환합니다.
          * @return 월드 공간의 축 정렬 경계 상자입니다.
          */
-        Core::FBox GetWorldBounds() const override;
+        FBox GetWorldBounds() const override;
 
         /**
          * @brief 표시할 프리미티브 메시 종류를 반환합니다.
@@ -137,14 +137,14 @@ namespace Engine {
          * @brief 충돌 도형을 표시할 RGBA 색상을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector4& GetShapeColor() const;
+        const FVector4& GetShapeColor() const;
 
         /**
          * @brief 충돌 도형을 표시할 RGBA 색상을 설정합니다.
          * @param[in] Color 적용할 색상입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetShapeColor(const Core::FVector4& Color);
+        bool SetShapeColor(const FVector4& Color);
 
         /**
          * @brief 선택한 경우에만 보조 충돌 도형을 그릴지 검사합니다.
@@ -176,7 +176,7 @@ namespace Engine {
          * @brief 충돌 도형을 표시할 RGBA 색상입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetShapeColor, Setter = SetShapeColor)
-        Core::FVector4 mShapeColor{223.0f / 255.0f, 149.0f / 255.0f, 157.0f / 255.0f, 1.0f};
+        FVector4 mShapeColor{223.0f / 255.0f, 149.0f / 255.0f, 157.0f / 255.0f, 1.0f};
 
         /**
          * @brief 선택한 경우에만 충돌 도형을 표시할지 여부입니다.

@@ -56,27 +56,27 @@ namespace Engine {
          * @brief 실행 시작에 사용할 초기 속도 설정을 반환합니다.
          * @return InitialVelocityInLocalSpace 설정에 따라 해석되는 월드 단위/초 속도의 읽기 전용 참조입니다.
          */
-        const Core::FVector& GetInitialVelocity() const;
+        const FVector& GetInitialVelocity() const;
 
         /**
          * @brief 유한한 초기 속도를 저장하며 현재 실행 중인 속도는 즉시 바꾸지 않습니다.
          * @param[in] Velocity 유한한 월드 단위/초 속도 벡터입니다.
          * @return 모든 성분이 유한하면 true이며 그렇지 않으면 false입니다.
          */
-        bool SetInitialVelocity(const Core::FVector& Velocity);
+        bool SetInitialVelocity(const FVector& Velocity);
 
         /**
          * @brief 현재 월드 공간 발사체 속도를 조회합니다.
          * @return 컴포넌트가 보관하는 월드 단위/초 속도의 읽기 전용 참조입니다.
          */
-        const Core::FVector& GetVelocity() const;
+        const FVector& GetVelocity() const;
 
         /**
          * @brief 현재 월드 속도를 설정하고 최대 속도로 제한한 뒤 정지 상태를 해제합니다.
          * @param[in] Velocity 유한한 월드 단위/초 속도 벡터입니다.
          * @return 모든 성분이 유한하면 true이며 그렇지 않으면 false입니다.
          */
-        bool SetVelocity(const Core::FVector& Velocity);
+        bool SetVelocity(const FVector& Velocity);
 
         /**
          * @brief 속도 크기의 상한을 반환합니다.
@@ -135,7 +135,7 @@ namespace Engine {
          * @brief 게임 실행 시작 시 적용할 초기 속도이며 월드 단위/초입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetInitialVelocity, Setter = SetInitialVelocity)
-        Core::FVector mInitialVelocity{10.0f, 0.0f, 5.0f};
+        FVector mInitialVelocity{10.0f, 0.0f, 5.0f};
 
         /**
          * @brief 발사체 속도 크기의 상한이며 0이면 제한하지 않습니다.
@@ -164,7 +164,7 @@ namespace Engine {
         /**
          * @brief 현재 월드 공간 속도이며 실행 시작·중력·속도 제한에 따라 갱신됩니다.
          */
-        Core::FVector mVelocity{};
+        FVector mVelocity{};
 
         /**
          * @brief 정지 요청 또는 EndPlay 이후 이동 적분을 생략할지 나타냅니다.

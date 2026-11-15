@@ -20,7 +20,7 @@ namespace Engine {
         return Result;
     }
 
-    bool Engine::FMinimalViewInfo::CalcSceneView(const Core::FVector2& Size, Engine::FSceneView& View) const {
+    bool Engine::FMinimalViewInfo::CalcSceneView(const FVector2& Size, Engine::FSceneView& View) const {
         if (!std::isfinite(Size.x) || !std::isfinite(Size.y) || Size.x <= 0.0f || Size.y <= 0.0f || !mLocation.IsFinite() || !mRotation.IsFinite() || !std::isfinite(mFieldOfView) || mFieldOfView <= 0.0f || mFieldOfView >= 180.0f) {
             return false;
         }
@@ -30,8 +30,8 @@ namespace Engine {
         CameraView.mForward = mRotation.ForwardVector();
         CameraView.mSize = Size;
         CameraView.mFieldOfView = mFieldOfView;
-        CameraView.mView = Core::FMatrix::LookTo(CameraView.mLocation, CameraView.mForward, mRotation.UpVector());
-        CameraView.mProjection = Core::FMatrix::Perspective(mFieldOfView, Size.x / Size.y, 0.05f, 10000.0f);
+        CameraView.mView = FMatrix::LookTo(CameraView.mLocation, CameraView.mForward, mRotation.UpVector());
+        CameraView.mProjection = FMatrix::Perspective(mFieldOfView, Size.x / Size.y, 0.05f, 10000.0f);
         CameraView.mViewProjection = CameraView.mView * CameraView.mProjection;
         View = CameraView;
 

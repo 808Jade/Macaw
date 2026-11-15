@@ -12,10 +12,8 @@ namespace Asset {
     struct FMeshData;
 }
 
-namespace Core {
-    struct FMatrix;
-    struct FRay;
-}
+struct FMatrix;
+struct FRay;
 
 namespace Engine {
 
@@ -27,6 +25,6 @@ namespace Engine {
      * @param[out] Distance 최근접 교차 거리의 출력입니다.
      * @return 최근접 교차를 찾으면 true이며 Distance에 월드 거리를 기록합니다.
      */
-    bool RaycastMesh(const Asset::FMeshData* Mesh, const Core::FMatrix& World, const Core::FRay& Ray, float& Distance);
+    bool RaycastMesh(const Asset::FMeshData* Mesh, const FMatrix& World, const FRay& Ray, float& Distance);
 
 }

@@ -28,7 +28,7 @@ namespace Renderer {
         /**
          * @brief 화면 좌표를 월드로 복원할 역 뷰 투영 행렬입니다.
          */
-        Core::FMatrix mInverseViewProjection{};
+        FMatrix mInverseViewProjection{};
 
         /**
          * @brief 가로·세로 타일 수와 광원 수입니다.
@@ -38,7 +38,7 @@ namespace Renderer {
         /**
          * @brief 현재 렌더 뷰의 픽셀 너비·높이입니다.
          */
-        Core::FVector4 mScreenSize{};
+        FVector4 mScreenSize{};
     };
 
     static_assert(sizeof(Renderer::FTileCullingConstants) == 96);

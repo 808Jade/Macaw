@@ -49,7 +49,7 @@ namespace Engine {
         mRootMotionDelta = {};
 
         if (mOwner != nullptr) {
-            const Core::FVector Location{mOwner->GetWorldMatrix().Origin()};
+            const FVector Location{mOwner->GetWorldMatrix().Origin()};
 
             if (mHasLastOwnerLocation && DeltaSeconds > 0.0f) {
                 mOwnerVelocity = (Location - mLastOwnerLocation) * (1.0f / DeltaSeconds);
@@ -98,7 +98,7 @@ namespace Engine {
         mUpdatedNodes.erase(&Node);
     }
 
-    const Core::TArray<Core::FTransform>& UAnimInstance::GetPose() const {
+    const Core::TArray<FTransform>& UAnimInstance::GetPose() const {
         return mPose;
     }
 
@@ -113,12 +113,12 @@ namespace Engine {
         }
     }
 
-    Core::FTransform UAnimInstance::GetRootMotionDelta() const {
+    FTransform UAnimInstance::GetRootMotionDelta() const {
         return mRootMotionDelta;
     }
 
-    Core::FTransform UAnimInstance::ConsumeExtractedRootMotion() {
-        return std::exchange(mExtractedRootMotion, Core::FTransform{});
+    FTransform UAnimInstance::ConsumeExtractedRootMotion() {
+        return std::exchange(mExtractedRootMotion, FTransform{});
     }
 
     void UAnimInstance::ResetRootMotion() {
@@ -126,7 +126,7 @@ namespace Engine {
         mExtractedRootMotion = {};
     }
 
-    Core::FTransform UAnimInstance::ExtractSequenceRootMotion(const Asset::UAnimSequence& Sequence, double StartTime, double DeltaTime, bool Looping) {
+    FTransform UAnimInstance::ExtractSequenceRootMotion(const Asset::UAnimSequence& Sequence, double StartTime, double DeltaTime, bool Looping) {
         const Asset::USkeleton* Skeleton{GetSkeleton()};
 
         if (mRootMotionMode == Engine::ERootMotionMode::NoRootMotionExtraction || !Sequence.IsRootMotionEnabled() || Skeleton == nullptr || DeltaTime == 0.0) {
@@ -139,9 +139,9 @@ namespace Engine {
             return {};
         }
 
-        const Core::FTransform Delta{Sequence.ExtractRootMotion(Mapping.mRootTrack, StartTime, DeltaTime, Looping)};
-        const Core::FTransform Lock{Sequence.GetRootLockTransform(Mapping.mRootTrack, Skeleton->GetReferencePose()[static_cast<Core::Index_t>(Mapping.mRootBone)])};
-        const Core::FQuat Rotation{(Lock.mRotation * Delta.mRotation * Lock.mRotation.Inverse()).Normalized()};
+        const FTransform Delta{Sequence.ExtractRootMotion(Mapping.mRootTrack, StartTime, DeltaTime, Looping)};
+        const FTransform Lock{Sequence.GetRootLockTransform(Mapping.mRootTrack, Skeleton->GetReferencePose()[static_cast<Core::Index_t>(Mapping.mRootBone)])};
+        const FQuat Rotation{(Lock.mRotation * Delta.mRotation * Lock.mRotation.Inverse()).Normalized()};
 
         return {Lock.mRotation.RotateVector(Delta.mLocation) + Lock.mLocation - Rotation.RotateVector(Lock.mLocation), Rotation, {1.0f, 1.0f, 1.0f}};
     }
@@ -173,11 +173,11 @@ namespace Engine {
         }
     }
 
-    const Core::FVector& UAnimInstance::GetOwnerVelocity() const {
+    const FVector& UAnimInstance::GetOwnerVelocity() const {
         return mOwnerVelocity;
     }
 
-    void UAnimInstance::GetReferencePose(Core::TArray<Core::FTransform>& OutPose) const {
+    void UAnimInstance::GetReferencePose(Core::TArray<FTransform>& OutPose) const {
         const Asset::USkeleton* Skeleton{GetSkeleton()};
 
         if (Skeleton == nullptr) {
@@ -195,7 +195,7 @@ namespace Engine {
     void UAnimInstance::NativeUpdateAnimation(float) {
     }
 
-    void UAnimInstance::NativeEvaluateAnimation(Core::TArray<Core::FTransform>& Pose) {
+    void UAnimInstance::NativeEvaluateAnimation(Core::TArray<FTransform>& Pose) {
         if (mRootNode == nullptr) {
             return;
         }
@@ -212,7 +212,7 @@ namespace Engine {
         }
     }
 
-    void UAnimInstance::EvaluateSequence(const Asset::UAnimSequence& Sequence, double Time, bool Looping, Core::TArray<Core::FTransform>& Pose) {
+    void UAnimInstance::EvaluateSequence(const Asset::UAnimSequence& Sequence, double Time, bool Looping, Core::TArray<FTransform>& Pose) {
         const Asset::USkeleton* Skeleton{GetSkeleton()};
 
         if (Skeleton == nullptr || !Sequence.IsValid()) {
@@ -234,7 +234,7 @@ namespace Engine {
 
         if (Mapping.mRootTrack >= 0 && Mapping.mRootBone >= 0 && (Sequence.IsRootLockForced() || (Sequence.IsRootMotionEnabled() && mRootMotionMode != Engine::ERootMotionMode::NoRootMotionExtraction))) {
             const Core::Int32 RootBone{Mapping.mRootBone};
-            const Core::FTransform Lock{Sequence.GetRootLockTransform(Mapping.mRootTrack, Skeleton->GetReferencePose()[RootBone])};
+            const FTransform Lock{Sequence.GetRootLockTransform(Mapping.mRootTrack, Skeleton->GetReferencePose()[RootBone])};
 
             Pose[RootBone].mLocation = Lock.mLocation;
             Pose[RootBone].mRotation = Lock.mRotation;

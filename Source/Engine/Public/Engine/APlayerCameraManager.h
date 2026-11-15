@@ -85,14 +85,14 @@ namespace Engine {
          * @return 월드 위치이며 캐시가 없으면 원점입니다.
          */
         UFUNCTION()
-        Core::FVector GetCameraLocation() const;
+        FVector GetCameraLocation() const;
 
         /**
          * @brief 마지막으로 계산한 카메라 회전을 반환합니다.
          * @return 월드 회전이며 캐시가 없으면 단위 회전입니다.
          */
         UFUNCTION()
-        Core::FQuat GetCameraRotation() const;
+        FQuat GetCameraRotation() const;
 
         /**
          * @brief 마지막으로 계산한 수직 시야각을 반환합니다.

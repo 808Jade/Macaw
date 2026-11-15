@@ -30,10 +30,10 @@ namespace Engine {
         const Core::FString& GetMaterialPath() const;
         bool SetMaterialPath(const Core::FString& Path);
 
-        const Core::FVector& GetEmitterOrigin() const;
-        bool SetEmitterOrigin(const Core::FVector& Origin);
-        const Core::FRotator& GetEmitterRotation() const;
-        bool SetEmitterRotation(const Core::FRotator& Rotation);
+        const FVector& GetEmitterOrigin() const;
+        bool SetEmitterOrigin(const FVector& Origin);
+        const FRotator& GetEmitterRotation() const;
+        bool SetEmitterRotation(const FRotator& Rotation);
 
         bool GetUseLocalSpace() const;
         void SetUseLocalSpace(bool UseLocalSpace);
@@ -51,10 +51,10 @@ namespace Engine {
         Core::FString mMaterialPath{};
 
         UPROPERTY(Edit, Serialize, Getter = GetEmitterOrigin, Setter = SetEmitterOrigin)
-        Core::FVector mEmitterOrigin{};
+        FVector mEmitterOrigin{};
 
         UPROPERTY(Edit, Serialize, Getter = GetEmitterRotation, Setter = SetEmitterRotation)
-        Core::FRotator mEmitterRotation{};
+        FRotator mEmitterRotation{};
 
         UPROPERTY(Edit, Serialize, Getter = GetUseLocalSpace, Setter = SetUseLocalSpace)
         bool mUseLocalSpace{};

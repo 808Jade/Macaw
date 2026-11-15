@@ -95,11 +95,11 @@ namespace Engine {
         return mBlending;
     }
 
-    Core::FVector Engine::APlayerCameraManager::GetCameraLocation() const {
+    FVector Engine::APlayerCameraManager::GetCameraLocation() const {
         return mCache.mLocation;
     }
 
-    Core::FQuat Engine::APlayerCameraManager::GetCameraRotation() const {
+    FQuat Engine::APlayerCameraManager::GetCameraRotation() const {
         return mCache.mRotation;
     }
 
@@ -181,7 +181,7 @@ namespace Engine {
             }
         }
 
-        const Core::FTransform Transform{Target->GetActorTransform()};
+        const FTransform Transform{Target->GetActorTransform()};
 
         if (!Transform.IsValid()) {
             return false;

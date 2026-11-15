@@ -510,7 +510,7 @@ namespace Editor {
          * @param[in] Directory 드롭한 파일을 가져올 Content 폴더입니다.
          * @param[in] Bounds 드롭 영역의 화면 좌표 최소 XY와 최대 ZW입니다.
          */
-        void RegisterContentDropTarget(const std::filesystem::path& Directory, const Core::FVector4& Bounds);
+        void RegisterContentDropTarget(const std::filesystem::path& Directory, const FVector4& Bounds);
 
         /**
          * @brief 프로젝트 파일 대화상자를 열고 선택한 경로의 전환을 요청합니다.
@@ -801,7 +801,7 @@ namespace Editor {
         /**
          * @brief 드롭 대상별로 클리핑한 화면 사각형의 최소 XY와 최대 ZW입니다.
          */
-        Core::TArray<Core::FVector4> mContentDropBounds{};
+        Core::TArray<FVector4> mContentDropBounds{};
 
         /**
          * @brief Windows 파일 드롭에서 수집하여 프레임 경계에서 가져올 원본 경로 묶음입니다.

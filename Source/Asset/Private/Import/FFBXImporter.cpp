@@ -31,7 +31,7 @@ namespace Asset {
          * @param[in] Vector 엔진 형식으로 옮길 임포터 벡터입니다.
          * @return XYZ 성분을 옮긴 엔진 벡터입니다.
          */
-        Core::FVector ToVector(const FbxVector4& Vector) {
+        FVector ToVector(const FbxVector4& Vector) {
             return {static_cast<float>(Vector[0]), static_cast<float>(Vector[1]), static_cast<float>(Vector[2])};
         }
 
@@ -40,24 +40,24 @@ namespace Asset {
          * @param[in] Matrix 엔진 형식으로 옮길 임포터 행렬입니다.
          * @return 성분을 옮긴 엔진 행렬입니다.
          */
-        Core::FMatrix ToMatrix(const FbxAMatrix& Matrix) {
+        FMatrix ToMatrix(const FbxAMatrix& Matrix) {
             // FBX 행렬의 저장 순서에 의존하지 않도록 기저 벡터를 변환해 행 벡터 규약의 행렬을 만듭니다.
             // MultT는 이동까지 포함해 점처럼 변환하므로, 결과에서 이동 성분(GetT)을 빼서 각 축이 향하는 방향을 얻습니다.
             const FbxVector4 Origin{Matrix.GetT()};
-            Core::FMatrix Result{};
+            FMatrix Result{};
 
             for (Core::Index_t Row{}; Row < 3; ++Row) {
                 FbxVector4 Axis{};
                 Axis[Row] = 1.0;
 
-                const Core::FVector Direction{ToVector(Matrix.MultT(Axis) - Origin)};
+                const FVector Direction{ToVector(Matrix.MultT(Axis) - Origin)};
 
                 Result(Row, 0) = Direction.x;
                 Result(Row, 1) = Direction.y;
                 Result(Row, 2) = Direction.z;
             }
 
-            const Core::FVector Translation{ToVector(Origin)};
+            const FVector Translation{ToVector(Origin)};
 
             Result(3, 0) = Translation.x;
             Result(3, 1) = Translation.y;
@@ -102,14 +102,14 @@ namespace Asset {
 
         // FBX에서 값을 읽지 못한 경우의 기본값입니다. 기본 색상은 흰색·불투명, 단면, 텍스처 없음이고,
         // 조명 속성은 스페큘러·반사 강도 0, 발광 검정, Shininess 32입니다.
-        Core::FVector4 BaseColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 BaseColor{1.0f, 1.0f, 1.0f, 1.0f};
         bool TwoSided{};
         Asset::FMeshImportTexture BaseColorTexture{};
         Asset::FMeshImportTexture NormalTexture{};
-        Core::FVector4 SpecularColor{1.0f, 1.0f, 1.0f, 1.0f};
-        Core::FVector4 AmbientColor{1.0f, 1.0f, 1.0f, 1.0f};
-        Core::FVector4 EmissiveColor{0.0f, 0.0f, 0.0f, 1.0f};
-        Core::FVector4 ReflectionColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 SpecularColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 AmbientColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 EmissiveColor{0.0f, 0.0f, 0.0f, 1.0f};
+        FVector4 ReflectionColor{1.0f, 1.0f, 1.0f, 1.0f};
         float SpecularStrength{};
         float Shininess{32.0f};
         float ReflectionStrength{};
@@ -119,7 +119,7 @@ namespace Asset {
 
         // FBX 색상(RGB)에 계수를 곱해 알파 1인 엔진 색상으로 바꾸는 도우미입니다.
         const auto ReadColor{[](const FbxDouble3& Color, double Factor) {
-            return Core::FVector4{static_cast<float>(Color[0] * Factor), static_cast<float>(Color[1] * Factor), static_cast<float>(Color[2] * Factor), 1.0f};
+            return FVector4{static_cast<float>(Color[0] * Factor), static_cast<float>(Color[1] * Factor), static_cast<float>(Color[2] * Factor), 1.0f};
         }};
 
         // Lambert 계열(Phong은 Lambert를 상속하므로 함께 해당) 재질이면 Diffuse·투명도·Ambient·Emissive를 읽습니다.
@@ -421,7 +421,7 @@ namespace Asset {
                 }
 
                 // 위치는 이동을 포함한 전체 변환(노드 변환, 임포트 변환)으로 엔진 공간에 옮깁니다.
-                const Core::FVector Position{Transform.TransformPosition(ToVector(Mesh.GetControlPointAt(ControlPoint)))};
+                const FVector Position{Transform.TransformPosition(ToVector(Mesh.GetControlPointAt(ControlPoint)))};
 
                 // 요소가 없을 때의 기본값입니다. 탄젠트·바이탄젠트는 0 벡터, 정점 색상은 흰색입니다.
                 FbxVector4 SourceNormal{};
@@ -436,7 +436,7 @@ namespace Asset {
                 }
 
                 // 노멀은 역전치 행렬로 변환하고 단위 길이로 정규화합니다. 길이가 0이면 정규화에 실패합니다.
-                Core::FVector Normal{Transform.TransformNormal(ToVector(SourceNormal))};
+                FVector Normal{Transform.TransformNormal(ToVector(SourceNormal))};
 
                 if (!Normal.Normalize()) {
                     Error = "The FBX mesh contains an invalid normal";
@@ -452,9 +452,9 @@ namespace Asset {
                 }
 
                 // 탄젠트를 노멀에 직교화하고, 바이탄젠트(없으면 탄젠트 w 성분)로 탄젠트 공간 부호를 정합니다.
-                const Core::FVector4 Tangent{Transform.MakeTangent(Normal, ToVector(SourceTangent), ToVector(SourceBitangent), static_cast<float>(SourceTangent[3]))};
+                const FVector4 Tangent{Transform.MakeTangent(Normal, ToVector(SourceTangent), ToVector(SourceBitangent), static_cast<float>(SourceTangent[3]))};
 
-                const Core::FVector4 VertexColor{static_cast<float>(Color.mRed), static_cast<float>(Color.mGreen), static_cast<float>(Color.mBlue), static_cast<float>(Color.mAlpha)};
+                const FVector4 VertexColor{static_cast<float>(Color.mRed), static_cast<float>(Color.mGreen), static_cast<float>(Color.mBlue), static_cast<float>(Color.mAlpha)};
 
                 if (!Position.IsFinite() || !VertexColor.IsFinite()) {
                     Error = "The FBX mesh contains invalid vertex attributes";
@@ -487,7 +487,7 @@ namespace Asset {
                     }
 
                     // FBX UV는 왼쪽 아래가 원점이고 D3D 텍스처 좌표는 왼쪽 위가 원점이므로 V를 1 - V로 뒤집습니다.
-                    const Core::FVector2 Coordinates{static_cast<float>(UV[0]), HasChannel ? 1.0f - static_cast<float>(UV[1]) : 0.0f};
+                    const FVector2 Coordinates{static_cast<float>(UV[0]), HasChannel ? 1.0f - static_cast<float>(UV[1]) : 0.0f};
 
                     if (!Coordinates.IsFinite()) {
                         Error = "The FBX mesh contains invalid texture coordinates";
@@ -549,10 +549,10 @@ namespace Asset {
     /**
      * @brief 스켈레톤 속성을 가졌거나 스킨 클러스터가 링크하는 노드를 깊이 우선으로 순회하며 결과 본 목록에 추가합니다.
      */
-    bool Asset::FFBXImporter::ReadSkeleton(FbxNode& Node, Core::Int32 ParentIndex, const Core::FMatrix& ParentBoneGlobal) {
+    bool Asset::FFBXImporter::ReadSkeleton(FbxNode& Node, Core::Int32 ParentIndex, const FMatrix& ParentBoneGlobal) {
         // 이 노드가 본이 아니면 부모 본의 인덱스와 전역 변환을 그대로 자식에게 넘깁니다.
         Core::Int32 Index{ParentIndex};
-        Core::FMatrix BoneGlobal{ParentBoneGlobal};
+        FMatrix BoneGlobal{ParentBoneGlobal};
 
         // 스켈레톤 속성을 가졌거나 스킨 클러스터가 링크하는 노드를 본으로 추가합니다.
         // 사이에 끼인 일반 노드는 건너뛰고 가장 가까운 조상 본을 부모로 연결합니다.
@@ -560,11 +560,11 @@ namespace Asset {
 
         if (Node.GetSkeleton() != nullptr || BindPose != mBindPoses.end()) {
             auto& Bones{GetResult().GetBones()};
-            Core::FMatrix ParentInverse{};
+            FMatrix ParentInverse{};
 
             // 바인드 포즈는 FbxPose → 클러스터 링크 변환 → 애니메이션을 무시한 기본 전역 변환 순서로 찾습니다.
             const auto PoseBindPose{mPoseBindPoses.find(&Node)};
-            const Core::FMatrix SourceGlobal{PoseBindPose != mPoseBindPoses.end() ? PoseBindPose->second : BindPose != mBindPoses.end() ? BindPose->second : ToMatrix(Node.EvaluateGlobalTransform(FBXSDK_TIME_INFINITE))};
+            const FMatrix SourceGlobal{PoseBindPose != mPoseBindPoses.end() ? PoseBindPose->second : BindPose != mBindPoses.end() ? BindPose->second : ToMatrix(Node.EvaluateGlobalTransform(FBXSDK_TIME_INFINITE))};
 
             // FBX 전역 공간의 본 변환을 정점과 같은 엔진 공간의 변환으로 바꿉니다.
             if (!Asset::FMeshImportTransform::ConvertTransform(mBasis, SourceGlobal, BoneGlobal) || !ParentBoneGlobal.TryInverse(ParentInverse)) {
@@ -803,7 +803,7 @@ namespace Asset {
             // 바인드 포즈 수집 → 본 계층 구성 순서입니다. 클러스터가 링크한 노드를 알아야 ReadSkeleton이 본을 판별할 수 있습니다.
             CollectBindPoses();
 
-            if (!ReadSkeleton(*mScene->GetRootNode(), -1, Core::FMatrix{})) {
+            if (!ReadSkeleton(*mScene->GetRootNode(), -1, FMatrix{})) {
                 return false;
             }
         }
@@ -973,7 +973,7 @@ namespace Asset {
             Tracks[Bone].mInternalTrack.mScaleKeys.reserve(Keys);
         }
 
-        Core::TArray<Core::FMatrix> Globals(Bones.size());
+        Core::TArray<FMatrix> Globals(Bones.size());
 
         for (Core::Index_t Key{}; Key < Keys; ++Key) {
             // 누적 오차가 없도록 매 키의 시간을 시작 시간에서 다시 계산합니다.
@@ -984,8 +984,8 @@ namespace Asset {
             // 부모가 항상 자식보다 앞에 있으므로 Globals[Parent]는 같은 시각에 이미 계산되어 있습니다.
             for (Core::Index_t Bone{}; Bone < Bones.size(); ++Bone) {
                 const Core::Int32 Parent{static_cast<Core::Int32>(Bones[Bone].GetParentIndex())};
-                Core::FMatrix ParentInverse{};
-                Core::FTransform Local{};
+                FMatrix ParentInverse{};
+                FTransform Local{};
 
                 // ReadSkeleton과 같이 원본 전역 변환을 엔진 공간으로 옮긴 뒤, 부모 본의 전역 변환을 되돌려 부모 본 기준 로컬 변환을 구합니다.
                 if (!Asset::FMeshImportTransform::ConvertTransform(mBasis, ToMatrix(mBoneNodes[Bone]->EvaluateGlobalTransform(Time)), Globals[Bone]) || (Parent >= 0 && !Globals[Parent].TryInverse(ParentInverse))) {

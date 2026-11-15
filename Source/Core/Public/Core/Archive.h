@@ -191,63 +191,63 @@ namespace Core {
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FVector2& Value);
+        void Serialize(std::string_view Name, FVector2& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FVector& Value);
+        void Serialize(std::string_view Name, FVector& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FVector4& Value);
+        void Serialize(std::string_view Name, FVector4& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FQuat& Value);
+        void Serialize(std::string_view Name, FQuat& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FRotator& Value);
+        void Serialize(std::string_view Name, FRotator& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FMatrix& Value);
+        void Serialize(std::string_view Name, FMatrix& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FTransform& Value);
+        void Serialize(std::string_view Name, FTransform& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FBox& Value);
+        void Serialize(std::string_view Name, FBox& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::FRay& Value);
+        void Serialize(std::string_view Name, FRay& Value);
 
     private:
         /**

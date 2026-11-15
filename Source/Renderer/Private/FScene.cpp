@@ -148,7 +148,7 @@ namespace Renderer {
     /**
      * @brief 지정한 프리미티브의 월드 행렬과 경계 상자를 갱신합니다.
      */
-    void Renderer::FScene::UpdatePrimitiveTransform(const Core::FGuid& Id, const Core::FMatrix& World, const Core::FBox& Bounds) {
+    void Renderer::FScene::UpdatePrimitiveTransform(const Core::FGuid& Id, const FMatrix& World, const FBox& Bounds) {
         const auto Position{mIndices.find(Id)};
 
         if (Position == mIndices.end()) {
@@ -328,11 +328,11 @@ namespace Renderer {
 
         // 각 본의 위치 변환과 법선 역전치를 함께 올려 비균일 스케일도 처리합니다.
         // 한 원소의 배치(행렬 2개)는 Skinning.hlsl의 FSkinBone과 일치해야 합니다.
-        Core::TArray<std::array<Core::FMatrix, 2>> Bones{};
+        Core::TArray<std::array<FMatrix, 2>> Bones{};
         Bones.reserve(Primitive.mProxy.mSkinMatrices.size());
 
-        for (const Core::FMatrix& Skin : Primitive.mProxy.mSkinMatrices) {
-            Core::FMatrix Inverse{};
+        for (const FMatrix& Skin : Primitive.mProxy.mSkinMatrices) {
+            FMatrix Inverse{};
 
             if (!Skin.IsFinite() || !Skin.TryInverse(Inverse) || !Inverse.IsFinite()) {
                 return false;

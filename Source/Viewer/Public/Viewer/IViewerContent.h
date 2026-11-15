@@ -44,7 +44,7 @@ namespace Viewer {
          * @brief 현재 콘텐츠의 월드 공간 경계를 제공합니다.
          * @return 콘텐츠 수명에 종속되는 AABB의 읽기 전용 참조입니다.
          */
-        virtual const Core::FBox& GetBounds() const = 0;
+        virtual const FBox& GetBounds() const = 0;
 
         /**
          * @brief 렌더링에 사용할 독립 미리보기 장면을 반환합니다.

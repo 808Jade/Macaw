@@ -159,13 +159,13 @@ namespace Renderer {
         }
 
         // 파노라마는 방향만 필요하므로 이동을 빼서 카메라가 멀리 있어도 정밀도를 유지합니다.
-        Core::FMatrix ViewRotation{View.mView};
+        FMatrix ViewRotation{View.mView};
 
         ViewRotation(3, 0) = 0.0f;
         ViewRotation(3, 1) = 0.0f;
         ViewRotation(3, 2) = 0.0f;
 
-        Core::FMatrix InverseViewRotationProjection{};
+        FMatrix InverseViewRotationProjection{};
 
         if (!(ViewRotation * View.mProjection).TryInverse(InverseViewRotationProjection)) {
             return 0;

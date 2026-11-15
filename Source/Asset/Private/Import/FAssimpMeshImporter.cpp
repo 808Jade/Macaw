@@ -35,7 +35,7 @@ namespace Asset {
          * @param[in] Vector 엔진 형식으로 옮길 임포터 벡터입니다.
          * @return XYZ 성분을 옮긴 엔진 벡터입니다.
          */
-        Core::FVector ToVector(const aiVector3D& Vector) {
+        FVector ToVector(const aiVector3D& Vector) {
             return {Vector.x, Vector.y, Vector.z};
         }
 
@@ -44,9 +44,9 @@ namespace Asset {
          * @param[in] Matrix 엔진 형식으로 옮길 임포터 행렬입니다.
          * @return 성분을 옮긴 엔진 행렬입니다.
          */
-        Core::FMatrix ToMatrix(const aiMatrix4x4& Matrix) {
+        FMatrix ToMatrix(const aiMatrix4x4& Matrix) {
             // Assimp 행렬은 열 벡터 규약(이동이 4번째 열)이므로 전치해서 행 벡터 규약의 행렬로 만듭니다.
-            Core::FMatrix Result{};
+            FMatrix Result{};
 
             for (Core::Index_t Row{}; Row < 4; ++Row) {
                 for (Core::Index_t Column{}; Column < 4; ++Column) {
@@ -102,11 +102,11 @@ namespace Asset {
         constexpr std::size_t MaximumBytes{std::numeric_limits<Core::Uint32>::max()};
         const std::size_t MaximumVertices{MaximumBytes / sizeof(std::array<float, 7>)};
         constexpr Core::Index_t MaximumIndices{static_cast<Core::Index_t>(MaximumBytes / sizeof(Core::Uint32))};
-        Core::TArray<Core::FVector>& Positions{MeshData.GetPositions()};
-        Core::TArray<Core::FVector>& Normals{MeshData.GetNormals()};
-        Core::TArray<Core::FVector4>& Tangents{MeshData.GetTangents()};
-        Core::TArray<Core::TArray<Core::FVector2>>& UVChannels{MeshData.GetUVChannels()};
-        Core::TArray<Core::FVector4>& Colors{MeshData.GetColors()};
+        Core::TArray<FVector>& Positions{MeshData.GetPositions()};
+        Core::TArray<FVector>& Normals{MeshData.GetNormals()};
+        Core::TArray<FVector4>& Tangents{MeshData.GetTangents()};
+        Core::TArray<Core::TArray<FVector2>>& UVChannels{MeshData.GetUVChannels()};
+        Core::TArray<FVector4>& Colors{MeshData.GetColors()};
         Core::TArray<Core::Uint32>& Indices{MeshData.GetIndices()};
         const std::size_t VertexCount{Positions.size()};
 
@@ -136,7 +136,7 @@ namespace Asset {
         // 새로 생긴 채널은 이전 메시 정점 몫을 (0, 0)으로 채워 모든 채널의 길이를 정점 수와 맞춥니다.
         UVChannels.resize(UVChannelCount);
 
-        for (Core::TArray<Core::FVector2>& Channel : UVChannels) {
+        for (Core::TArray<FVector2>& Channel : UVChannels) {
             Channel.resize(VertexCount);
             Channel.reserve(VertexCount + Source.mNumVertices);
         }
@@ -152,8 +152,8 @@ namespace Asset {
         const Core::Index_t Slot{static_cast<Core::Index_t>(Target.FindOrAddMaterialSlot(Source.mMaterialIndex, GetResult().GetMaterials()[Source.mMaterialIndex].GetName()))};
 
         for (Core::Index_t VertexIndex{}; VertexIndex < Source.mNumVertices; ++VertexIndex) {
-            const Core::FVector Position{Transform.TransformPosition(ToVector(Source.mVertices[VertexIndex]))};
-            Core::FVector Normal{Transform.TransformNormal(Source.HasNormals() ? ToVector(Source.mNormals[VertexIndex]) : Core::FVector{0.0f, 1.0f, 0.0f})};
+            const FVector Position{Transform.TransformPosition(ToVector(Source.mVertices[VertexIndex]))};
+            FVector Normal{Transform.TransformNormal(Source.HasNormals() ? ToVector(Source.mNormals[VertexIndex]) : FVector{0.0f, 1.0f, 0.0f})};
 
             if (!Position.IsFinite() || !Normal.Normalize()) {
                 Error = "The source contains invalid vertex attributes";
@@ -164,10 +164,10 @@ namespace Asset {
             // Assimp의 CalcTangentSpace 바이탄젠트는 원본 UV의 -V 방향이고 FBX SDK는 +V 방향입니다.
             // MakeTangent는 +V 방향을 받으므로 부호를 뒤집어 두 임포터가 같은 탄젠트 부호를 만들도록 합니다.
             const bool HasTangents{Source.HasTangentsAndBitangents()};
-            const Core::FVector SourceTangent{HasTangents ? ToVector(Source.mTangents[VertexIndex]) : Core::FVector{}};
-            const Core::FVector SourceBitangent{HasTangents ? ToVector(Source.mBitangents[VertexIndex]) * -1.0f : Core::FVector{}};
-            const Core::FVector4 Tangent{Transform.MakeTangent(Normal, SourceTangent, SourceBitangent, 1.0f)};
-            Core::FVector4 Color{1.0f, 1.0f, 1.0f, 1.0f};
+            const FVector SourceTangent{HasTangents ? ToVector(Source.mTangents[VertexIndex]) : FVector{}};
+            const FVector SourceBitangent{HasTangents ? ToVector(Source.mBitangents[VertexIndex]) * -1.0f : FVector{}};
+            const FVector4 Tangent{Transform.MakeTangent(Normal, SourceTangent, SourceBitangent, 1.0f)};
+            FVector4 Color{1.0f, 1.0f, 1.0f, 1.0f};
 
             if (Source.HasVertexColors(0)) {
                 const aiColor4D& SourceColor{Source.mColors[0][VertexIndex]};
@@ -190,7 +190,7 @@ namespace Asset {
                 // Assimp UV는 왼쪽 아래가 원점이고 D3D 텍스처 좌표는 왼쪽 위가 원점이므로 V를 1 - V로 뒤집습니다.
                 // 이 메시에 없는 채널은 (0, 0)을 넣습니다.
                 const bool HasChannel{Channel < AI_MAX_NUMBER_OF_TEXTURECOORDS && Source.HasTextureCoords(Channel)};
-                const Core::FVector2 UV{HasChannel ? Core::FVector2{Source.mTextureCoords[Channel][VertexIndex].x, 1.0f - Source.mTextureCoords[Channel][VertexIndex].y} : Core::FVector2{}};
+                const FVector2 UV{HasChannel ? FVector2{Source.mTextureCoords[Channel][VertexIndex].x, 1.0f - Source.mTextureCoords[Channel][VertexIndex].y} : FVector2{}};
 
                 if (!UV.IsFinite()) {
                     Error = "The source contains invalid texture coordinates";
@@ -260,9 +260,9 @@ namespace Asset {
     /**
      * @brief 노드와 모든 자식 노드를 깊이 우선으로 순회하며 노드의 메시를 읽습니다.
      */
-    bool Asset::FAssimpMeshImporter::ReadNode(const aiNode& Node, const Core::FMatrix& ParentTransform) {
+    bool Asset::FAssimpMeshImporter::ReadNode(const aiNode& Node, const FMatrix& ParentTransform) {
         // 행 벡터 규약이므로 노드 로컬 변환을 먼저, 부모 전역 변환을 나중에 적용합니다.
-        const Core::FMatrix Global{ToMatrix(Node.mTransformation) * ParentTransform};
+        const FMatrix Global{ToMatrix(Node.mTransformation) * ParentTransform};
 
         if (Node.mNumMeshes > 0) {
             auto& Meshes{GetResult().GetMeshes()};
@@ -306,8 +306,8 @@ namespace Asset {
     /**
      * @brief 메시 노드를 순회하며 메시 본의 오프셋 행렬로 본 이름별 바인드 시점 전역 변환을 모읍니다.
      */
-    bool Asset::FAssimpMeshImporter::CollectBindPoses(const aiNode& Node, const Core::FMatrix& ParentTransform) {
-        const Core::FMatrix Global{ToMatrix(Node.mTransformation) * ParentTransform};
+    bool Asset::FAssimpMeshImporter::CollectBindPoses(const aiNode& Node, const FMatrix& ParentTransform) {
+        const FMatrix Global{ToMatrix(Node.mTransformation) * ParentTransform};
 
         for (Core::Index_t Index{}; Index < Node.mNumMeshes; ++Index) {
             if (Node.mMeshes[Index] >= mScene->mNumMeshes) {
@@ -319,7 +319,7 @@ namespace Asset {
             for (Core::Index_t BoneIndex{}; BoneIndex < Mesh.mNumBones; ++BoneIndex) {
                 const aiBone& Bone{*Mesh.mBones[BoneIndex]};
                 const Core::FString Name{Bone.mName.C_Str()};
-                Core::FMatrix InverseOffset{};
+                FMatrix InverseOffset{};
 
                 // 같은 본을 여러 메시가 쓰면 처음 만난 메시의 바인드 포즈를 사용합니다.
                 if (mBindPoses.contains(Name)) {
@@ -350,15 +350,15 @@ namespace Asset {
     /**
      * @brief 메시가 참조하는 본 이름과 같은 노드를 깊이 우선으로 순회하며 결과 본 목록에 추가합니다.
      */
-    bool Asset::FAssimpMeshImporter::ReadSkeleton(const aiNode& Node, Core::Int32 ParentIndex, const Core::FMatrix& ParentBoneGlobal) {
+    bool Asset::FAssimpMeshImporter::ReadSkeleton(const aiNode& Node, Core::Int32 ParentIndex, const FMatrix& ParentBoneGlobal) {
         const Core::FString Name{Node.mName.C_Str()};
         Core::Int32 Index{ParentIndex};
-        Core::FMatrix BoneGlobal{ParentBoneGlobal};
+        FMatrix BoneGlobal{ParentBoneGlobal};
 
         // 메시의 본이 참조하는 노드만 본으로 추가합니다. 사이에 끼인 일반 노드는 건너뛰고 가장 가까운 조상 본을 부모로 연결합니다.
         if (const auto BindPose{mBindPoses.find(Name)}; BindPose != mBindPoses.end()) {
             auto& Bones{GetResult().GetBones()};
-            Core::FMatrix ParentInverse{};
+            FMatrix ParentInverse{};
 
             if (!Asset::FMeshImportTransform::ConvertTransform(mBasis, BindPose->second, BoneGlobal) || !ParentBoneGlobal.TryInverse(ParentInverse)) {
                 GetError() = "The source skeleton cannot be converted to the engine space";
@@ -465,20 +465,20 @@ namespace Asset {
             Asset::FMeshImportTexture SpecularTexture{ReadTexture(Material, aiTextureType_SPECULAR, aiTextureType_SPECULAR)};
             Asset::FMeshImportTexture EmissiveTexture{ReadTexture(Material, aiTextureType_EMISSIVE, aiTextureType_EMISSION_COLOR)};
             Asset::FMeshImportTexture ReflectionTexture{ReadTexture(Material, aiTextureType_REFLECTION, aiTextureType_REFLECTION)};
-            const auto ReadColor{[&](const char* Key, Core::Uint32 Type, Core::Index_t PropertyIndex, const Core::FVector4& Default) {
+            const auto ReadColor{[&](const char* Key, Core::Uint32 Type, Core::Index_t PropertyIndex, const FVector4& Default) {
                 aiColor4D Value{Default.x, Default.y, Default.z, Default.w};
 
                 aiGetMaterialColor(&Material, Key, Type, PropertyIndex, &Value);
 
-                return Core::FVector4{Value.r, Value.g, Value.b, 1.0f};
+                return FVector4{Value.r, Value.g, Value.b, 1.0f};
             }};
 
             const float SpecularDefault{SpecularTexture.GetSource() == Asset::EMeshImportTextureSource::None ? 0.0f : 1.0f};
             const float EmissiveDefault{EmissiveTexture.GetSource() == Asset::EMeshImportTextureSource::None ? 0.0f : 1.0f};
-            const Core::FVector4 SpecularColor{ReadColor(AI_MATKEY_COLOR_SPECULAR, {SpecularDefault, SpecularDefault, SpecularDefault, 1.0f})};
-            const Core::FVector4 AmbientColor{ReadColor(AI_MATKEY_COLOR_AMBIENT, {1.0f, 1.0f, 1.0f, 1.0f})};
-            const Core::FVector4 EmissiveColor{ReadColor(AI_MATKEY_COLOR_EMISSIVE, {EmissiveDefault, EmissiveDefault, EmissiveDefault, 1.0f})};
-            const Core::FVector4 ReflectionColor{ReadColor(AI_MATKEY_COLOR_REFLECTIVE, {1.0f, 1.0f, 1.0f, 1.0f})};
+            const FVector4 SpecularColor{ReadColor(AI_MATKEY_COLOR_SPECULAR, {SpecularDefault, SpecularDefault, SpecularDefault, 1.0f})};
+            const FVector4 AmbientColor{ReadColor(AI_MATKEY_COLOR_AMBIENT, {1.0f, 1.0f, 1.0f, 1.0f})};
+            const FVector4 EmissiveColor{ReadColor(AI_MATKEY_COLOR_EMISSIVE, {EmissiveDefault, EmissiveDefault, EmissiveDefault, 1.0f})};
+            const FVector4 ReflectionColor{ReadColor(AI_MATKEY_COLOR_REFLECTIVE, {1.0f, 1.0f, 1.0f, 1.0f})};
 
             float SpecularStrength{1.0f};
             float Shininess{32.0f};
@@ -488,7 +488,7 @@ namespace Asset {
             Material.Get(AI_MATKEY_SHININESS, Shininess);
             Material.Get(AI_MATKEY_REFLECTIVITY, ReflectionStrength);
 
-            Asset::FMeshImportMaterial Imported{Name, Core::FVector4{Color.r, Color.g, Color.b, Opacity}, TwoSided != 0, ReadTexture(Material, aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE), ReadTexture(Material, aiTextureType_NORMALS, aiTextureType_HEIGHT)};
+            Asset::FMeshImportMaterial Imported{Name, FVector4{Color.r, Color.g, Color.b, Opacity}, TwoSided != 0, ReadTexture(Material, aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE), ReadTexture(Material, aiTextureType_NORMALS, aiTextureType_HEIGHT)};
 
             if (!Imported.SetLighting(SpecularColor, SpecularStrength, Shininess, AmbientColor, EmissiveColor, ReflectionColor, ReflectionStrength, std::move(SpecularTexture), std::move(EmissiveTexture), std::move(ReflectionTexture))) {
                 GetError() = "The source material contains invalid lighting properties: " + Name;

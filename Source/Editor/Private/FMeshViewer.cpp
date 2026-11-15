@@ -378,15 +378,15 @@ namespace Editor {
 
         using Core::EKey;
 
-        const Core::FVector2 Mouse{Input.GetMousePosition()};
-        const Core::FVector2 Delta{Input.GetMouseDelta()};
-        const Core::FVector2 Extent{Size.x, Size.y};
+        const FVector2 Mouse{Input.GetMousePosition()};
+        const FVector2 Delta{Input.GetMouseDelta()};
+        const FVector2 Extent{Size.x, Size.y};
         const ImVec2 Origin{ImGui::GetItemRectMin()};
 
         ImGui::GetWindowDrawList()->AddImage(ImTextureRef{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(mViewer.GetNativeTexture()))}, Origin, ImGui::GetItemRectMax());
 
         const Engine::FSceneView InputView{CalcSceneView(Extent)};
-        const Core::FVector2 PreviewMouse{Mouse.x - Origin.x, Mouse.y - Origin.y};
+        const FVector2 PreviewMouse{Mouse.x - Origin.x, Mouse.y - Origin.y};
         const bool GizmoActive{mPoseBone && UpdateBoneGizmo(*mPoseBone, Input, InputView, PreviewMouse, Hovered)};
         const Core::TArray<Viewer::FBoneShape> BoneShapes{mSkeleton != nullptr && mShowBones ? Viewer::BuildBoneShapes(mSkeleton->GetBones(), mContent->GetPose().GetGlobalTransforms(), mViewer.GetCamera().GetRadius()) : Core::TArray<Viewer::FBoneShape>{}};
         const bool CanPickBone{Hovered && !mMouseCaptured && !GizmoActive && !BoneShapes.empty()};
@@ -435,7 +435,7 @@ namespace Editor {
 
         for (const Viewer::FBoneShape& Shape : BoneShapes) {
             const float Gray{Shape.GetMesh() == Engine::EEditorMesh::Sphere ? 0.76f : 0.66f};
-            const Core::FVector4 Color{Shape.GetBone() == mPoseBone ? Core::FVector4{0.26f, 0.66f, 1.0f, 1.0f} : Core::FVector4{Gray, Gray, Gray, 1.0f}};
+            const FVector4 Color{Shape.GetBone() == mPoseBone ? FVector4{0.26f, 0.66f, 1.0f, 1.0f} : FVector4{Gray, Gray, Gray, 1.0f}};
 
             Bones.DrawMesh({Shape.GetMesh(), Shape.GetWorld(), Color});
         }
@@ -551,8 +551,8 @@ namespace Editor {
         }
     }
 
-    bool Editor::FMeshViewer::PickBone(const Engine::FSceneView& View, const Core::FVector2& Mouse, const Core::TArray<Viewer::FBoneShape>& Shapes) {
-        Core::FRay Ray{};
+    bool Editor::FMeshViewer::PickBone(const Engine::FSceneView& View, const FVector2& Mouse, const Core::TArray<Viewer::FBoneShape>& Shapes) {
+        FRay Ray{};
 
         if (!View.Deproject(Mouse, Ray)) {
             return false;
@@ -571,7 +571,7 @@ namespace Editor {
             return false;
         }
 
-        const Core::FVector4 Clip{Core::FVector4{Ray.mOrigin + Ray.mDirection * Closest, 1.0f} * View.mViewProjection};
+        const FVector4 Clip{FVector4{Ray.mOrigin + Ray.mDirection * Closest, 1.0f} * View.mViewProjection};
 
         if (Clip.z > Clip.w) {
             return false;
@@ -586,7 +586,7 @@ namespace Editor {
     /**
      * @brief 현재 궤도 카메라의 렌더링과 입력 해석에 쓸 뷰를 계산합니다.
      */
-    Engine::FSceneView Editor::FMeshViewer::CalcSceneView(const Core::FVector2& Size) const {
+    Engine::FSceneView Editor::FMeshViewer::CalcSceneView(const FVector2& Size) const {
         return mViewer.GetCamera().CalcSceneView(Size);
     }
 
@@ -594,14 +594,14 @@ namespace Editor {
      * @brief 선택한 본의 현재 전역 포즈로 기즈모 배치를 구성합니다.
      */
     Editor::FGizmoPlacement Editor::FMeshViewer::GetBonePlacement(Core::Index_t Bone) const {
-        const Core::FMatrix& Global{mContent->GetPose().GetGlobalTransforms()[Bone]};
+        const FMatrix& Global{mContent->GetPose().GetGlobalTransforms()[Bone]};
         Editor::FGizmoPlacement Placement{};
         Placement.mPivot = Global.TransformPosition({});
         Placement.mMode = mGizmoMode;
 
         // 본 행렬에는 스케일이 있을 수 있으므로 축을 정규화하고, 퇴화한 축은 월드 축으로 대체합니다.
         for (Core::Index_t Index{}; Index < 3; ++Index) {
-            const Core::FVector Axis{Global.GetAxis(Index).Normalized()};
+            const FVector Axis{Global.GetAxis(Index).Normalized()};
 
             Placement.mAxes[Index] = mGizmoSpace == Editor::EGizmoSpace::Local && !Axis.IsNearlyZero() ? Axis : Editor::FGizmoCore::GetUnitAxes()[Index];
         }
@@ -612,7 +612,7 @@ namespace Editor {
     /**
      * @brief 기즈모의 호버와 드래그 입력을 처리합니다.
      */
-    bool Editor::FMeshViewer::UpdateBoneGizmo(Core::Index_t Bone, const Core::FInput& Input, const Engine::FSceneView& View, const Core::FVector2& Mouse, bool Hovered) {
+    bool Editor::FMeshViewer::UpdateBoneGizmo(Core::Index_t Bone, const Core::FInput& Input, const Engine::FSceneView& View, const FVector2& Mouse, bool Hovered) {
         using Core::EKey;
 
         if (mGizmo.IsDragging()) {
@@ -660,23 +660,23 @@ namespace Editor {
      * @brief 기즈모의 드래그 결과를 선택한 본의 부모 기준 로컬 변환으로 바꾸어 적용합니다.
      */
     void Editor::FMeshViewer::ApplyBoneGizmo(Core::Index_t Bone) {
-        Core::FMatrix Delta{Core::FMatrix::Translation(mGizmo.GetTranslation())};
+        FMatrix Delta{FMatrix::Translation(mGizmo.GetTranslation())};
 
         if (mGizmo.GetDragMode() == Editor::EGizmoMode::Rotate) {
-            const Core::FVector& Pivot{mGizmo.GetStartPivot()};
+            const FVector& Pivot{mGizmo.GetStartPivot()};
 
-            Delta = Core::FMatrix::Translation(-Pivot) * Core::FMatrix::Rotation(mGizmo.GetRotation()) * Core::FMatrix::Translation(Pivot);
+            Delta = FMatrix::Translation(-Pivot) * FMatrix::Rotation(mGizmo.GetRotation()) * FMatrix::Translation(Pivot);
         }
 
         const Core::Int32 Parent{static_cast<Core::Int32>(mSkeleton->GetBones()[Bone].GetParentIndex())};
-        Core::FMatrix ParentInverse{Core::FMatrix::Identity()};
+        FMatrix ParentInverse{FMatrix::Identity()};
 
         if (Parent >= 0 && !mContent->GetPose().GetGlobalTransforms()[Parent].TryInverse(ParentInverse)) {
             return;
         }
 
         // 행 벡터 규약에서 전역 변환은 Local * ParentGlobal이므로 부모의 역행렬을 오른쪽에 곱해 로컬 변환을 되찾습니다.
-        Core::FMatrix Local{mDragStartGlobal * Delta * ParentInverse};
+        FMatrix Local{mDragStartGlobal * Delta * ParentInverse};
 
         // 역행렬의 부동소수점 오차가 아핀 검사에 걸리지 않도록 마지막 열을 고정합니다.
         for (Core::Index_t Row{}; Row < 3; ++Row) {

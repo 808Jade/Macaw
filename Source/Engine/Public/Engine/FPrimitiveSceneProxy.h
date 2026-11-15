@@ -47,12 +47,12 @@ namespace Engine {
         /**
          * @brief 프리미티브의 월드 변환 행렬입니다.
          */
-        Core::FMatrix mWorld{};
+        FMatrix mWorld{};
 
         /**
          * @brief 축 정렬 경계 상자입니다.
          */
-        Core::FBox mBounds{};
+        FBox mBounds{};
 
         /**
          * @brief 공통 드로에 사용할 형상이며 스켈레탈 메시에서는 바인드 형상입니다.
@@ -67,7 +67,7 @@ namespace Engine {
         /**
          * @brief 이 객체의 바인드 위치를 현재 메시 공간 위치로 옮기는 본 행렬입니다.
          */
-        Core::TArray<Core::FMatrix> mSkinMatrices{};
+        Core::TArray<FMatrix> mSkinMatrices{};
 
         /**
          * @brief 월드 행렬이 같아도 포즈 업로드와 그림자 무효화를 구분하는 개정입니다.
@@ -97,12 +97,12 @@ namespace Engine {
         /**
          * @brief 기본 UV에 곱할 셀 크기입니다.
          */
-        Core::FVector2 mUVScale{1.0f, 1.0f};
+        FVector2 mUVScale{1.0f, 1.0f};
 
         /**
          * @brief 기본 UV에 더할 셀 원점입니다.
          */
-        Core::FVector2 mUVOffset{};
+        FVector2 mUVOffset{};
 
         /**
          * @brief 프리미티브의 그림자 생성 여부입니다.

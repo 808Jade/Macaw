@@ -21,17 +21,17 @@ namespace Asset {
         /**
          * @brief 위치 키입니다.
          */
-        Core::TArray<Core::FVector> mPosKeys{};
+        Core::TArray<FVector> mPosKeys{};
 
         /**
          * @brief 정규화한 회전 키입니다. 인접 키는 같은 반구에 있도록 부호를 맞춥니다.
          */
-        Core::TArray<Core::FQuat> mRotKeys{};
+        Core::TArray<FQuat> mRotKeys{};
 
         /**
          * @brief 스케일 키입니다.
          */
-        Core::TArray<Core::FVector> mScaleKeys{};
+        Core::TArray<FVector> mScaleKeys{};
     };
 
     /**

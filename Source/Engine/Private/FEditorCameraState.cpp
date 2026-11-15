@@ -14,14 +14,14 @@ namespace Engine {
     /**
      * @brief 위치를 반환합니다.
      */
-    const Core::FVector& Engine::FEditorCameraState::GetLocation() const {
+    const FVector& Engine::FEditorCameraState::GetLocation() const {
         return mLocation;
     }
 
     /**
      * @brief 회전을 반환합니다.
      */
-    const Core::FRotator& Engine::FEditorCameraState::GetRotation() const {
+    const FRotator& Engine::FEditorCameraState::GetRotation() const {
         return mRotation;
     }
 
@@ -63,7 +63,7 @@ namespace Engine {
     /**
      * @brief 검증한 카메라 상태를 원자적으로 적용합니다.
      */
-    bool Engine::FEditorCameraState::Set(const Core::FVector& Location, const Core::FRotator& Rotation, float FieldOfView, float NearClip, float FarClip) {
+    bool Engine::FEditorCameraState::Set(const FVector& Location, const FRotator& Rotation, float FieldOfView, float NearClip, float FarClip) {
         Engine::FEditorCameraState Candidate{};
         Candidate.mLocation = Location;
         Candidate.mRotation = Rotation;

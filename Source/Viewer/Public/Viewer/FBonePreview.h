@@ -25,7 +25,7 @@ namespace Viewer {
          * @param World 표시 도형의 월드 변환 행렬입니다.
          * @param Bone 대응하는 스켈레톤 본 인덱스입니다.
          */
-        FBoneShape(Engine::EEditorMesh Mesh, const Core::FMatrix& World, Core::Index_t Bone);
+        FBoneShape(Engine::EEditorMesh Mesh, const FMatrix& World, Core::Index_t Bone);
 
     public:
 
@@ -39,7 +39,7 @@ namespace Viewer {
          * @brief 본 표시 도형의 월드 변환을 반환합니다.
          * @return 도형이 보관하는 행렬의 읽기 전용 참조입니다.
          */
-        const Core::FMatrix& GetWorld() const;
+        const FMatrix& GetWorld() const;
 
         /**
          * @brief 도형에 연결된 본 인덱스를 반환합니다.
@@ -57,7 +57,7 @@ namespace Viewer {
         /**
          * @brief 도형을 월드 공간으로 옮기는 변환 행렬입니다.
          */
-        Core::FMatrix mWorld{};
+        FMatrix mWorld{};
 
         /**
          * @brief 표시 도형이 대응하는 스켈레톤 본 인덱스입니다.
@@ -65,5 +65,5 @@ namespace Viewer {
         Core::Index_t mBone{};
     };
 
-    Core::TArray<Viewer::FBoneShape> BuildBoneShapes(const Core::TArray<Asset::FMeshImportBone>& Bones, const Core::TArray<Core::FMatrix>& Transforms, float Radius);
+    Core::TArray<Viewer::FBoneShape> BuildBoneShapes(const Core::TArray<Asset::FMeshImportBone>& Bones, const Core::TArray<FMatrix>& Transforms, float Radius);
 }

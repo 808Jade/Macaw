@@ -24,20 +24,20 @@ namespace Renderer {
         /**
          * @brief 오브젝트의 월드 변환 행렬입니다.
          */
-        Core::FMatrix mWorld{};
+        FMatrix mWorld{};
 
         /**
          * @brief 월드 변환의 역행렬입니다.
          */
-        Core::FMatrix mWorldInverse{};
+        FMatrix mWorldInverse{};
 
         /**
          * @brief XY 배율과 ZW 오프셋으로 구성된 UV 변환입니다.
          */
-        Core::FVector4 mUVTransform{1.0f, 1.0f, 0.0f, 0.0f};
+        FVector4 mUVTransform{1.0f, 1.0f, 0.0f, 0.0f};
     };
 
-    static_assert(sizeof(Core::FMatrix) == 64 && alignof(Core::FMatrix) == 16 && std::is_trivially_copyable_v<Core::FMatrix>);
+    static_assert(sizeof(FMatrix) == 64 && alignof(FMatrix) == 16 && std::is_trivially_copyable_v<FMatrix>);
     static_assert(std::is_standard_layout_v<Renderer::FObjectConstants> && sizeof(Renderer::FObjectConstants) == 144);
     static_assert(offsetof(Renderer::FObjectConstants, mWorld) == 0 && offsetof(Renderer::FObjectConstants, mWorldInverse) == 64);
 

@@ -46,14 +46,14 @@ namespace Engine {
         using Core::EKey;
 
         Engine::UCameraComponent* Camera{GetCameraComponent()};
-        const Core::FVector2 MouseDelta{Input.GetMouseDelta(EInputRoute::Game)};
+        const FVector2 MouseDelta{Input.GetMouseDelta(EInputRoute::Game)};
 
         if (Camera == nullptr || GetWorld() == nullptr || GetWorld()->GetPlayState() != Engine::EWorldPlayState::Playing || !HasBegunPlay() || IsPendingDestroy() || !Input.IsGameInputEnabled() || !std::isfinite(DeltaTime) || DeltaTime < 0.0f || !std::isfinite(MouseDelta.x) || !std::isfinite(MouseDelta.y)) {
             return;
         }
 
-        Core::FTransform Transform{Camera->GetTransform()};
-        Core::FRotator Rotation{Transform.mRotation.Rotator()};
+        FTransform Transform{Camera->GetTransform()};
+        FRotator Rotation{Transform.mRotation.Rotator()};
 
         if (Input.IsDown(EKey::MouseRight, EInputRoute::Game)) {
             Rotation.yaw += MouseDelta.x * 0.2f;
@@ -61,8 +61,8 @@ namespace Engine {
             Transform.mRotation = Rotation.Quaternion();
         }
 
-        const Core::FVector Local{static_cast<float>(Input.IsDown(EKey::W, EInputRoute::Game)) - static_cast<float>(Input.IsDown(EKey::S, EInputRoute::Game)), static_cast<float>(Input.IsDown(EKey::D, EInputRoute::Game)) - static_cast<float>(Input.IsDown(EKey::A, EInputRoute::Game)), 0.0f};
-        Core::FVector Movement{Transform.mRotation * Local};
+        const FVector Local{static_cast<float>(Input.IsDown(EKey::W, EInputRoute::Game)) - static_cast<float>(Input.IsDown(EKey::S, EInputRoute::Game)), static_cast<float>(Input.IsDown(EKey::D, EInputRoute::Game)) - static_cast<float>(Input.IsDown(EKey::A, EInputRoute::Game)), 0.0f};
+        FVector Movement{Transform.mRotation * Local};
         Movement.z += static_cast<float>(Input.IsDown(EKey::E, EInputRoute::Game)) - static_cast<float>(Input.IsDown(EKey::Q, EInputRoute::Game));
         Transform.mLocation += Movement.Normalized() * DeltaTime * (Input.IsDown(EKey::Shift, EInputRoute::Game) ? 12.0f : 4.0f);
 

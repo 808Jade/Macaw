@@ -72,12 +72,12 @@ namespace Editor {
         /**
          * @brief 기즈모의 월드 중심점입니다.
          */
-        Core::FVector mPivot{};
+        FVector mPivot{};
 
         /**
          * @brief 기즈모의 세 단위 축입니다.
          */
-        std::array<Core::FVector, 3> mAxes{};
+        std::array<FVector, 3> mAxes{};
 
         /**
          * @brief 표시하고 드래그할 변환 모드입니다.
@@ -101,7 +101,7 @@ namespace Editor {
          * @brief 기즈모의 기본 X·Y·Z 단위 축을 반환합니다.
          * @return 월드 좌표계의 세 단위 축입니다.
          */
-        static const std::array<Core::FVector, 3>& GetUnitAxes();
+        static const std::array<FVector, 3>& GetUnitAxes();
 
         /**
          * @brief 기즈모 핸들이 주어진 로컬 축에 영향을 주는지 검사합니다.
@@ -118,7 +118,7 @@ namespace Editor {
          * @param[in] Placement 기즈모의 위치, 축과 모드입니다.
          * @return 적중한 핸들을 나타내는 프록시이며 없으면 빈 프록시입니다.
          */
-        Engine::FHitProxy HitTest(const Core::FVector2& Mouse, const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement) const;
+        Engine::FHitProxy HitTest(const FVector2& Mouse, const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement) const;
 
         /**
          * @brief 선택 축의 시작 상태를 저장하고 드래그 평면을 구성합니다.
@@ -128,14 +128,14 @@ namespace Editor {
          * @param[in] Placement 드래그 시작 시점의 위치, 축과 모드입니다.
          * @return 드래그 상태를 준비하면 true입니다.
          */
-        bool BeginDrag(Core::Int32 Axis, const Core::FVector2& Mouse, const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement);
+        bool BeginDrag(Core::Int32 Axis, const FVector2& Mouse, const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement);
 
         /**
          * @brief 마우스 위치를 활성 모드의 이동량, 회전량 또는 스케일 변화량으로 바꿉니다.
          * @param[in] Mouse 뷰포트 기준 현재 마우스 위치입니다.
          * @return 새 결과를 계산했으면 true이며 false이면 이전 결과를 유지합니다.
          */
-        bool UpdateDrag(const Core::FVector2& Mouse);
+        bool UpdateDrag(const FVector2& Mouse);
 
         /**
          * @brief 드래그와 호버 상태를 비웁니다.
@@ -190,31 +190,31 @@ namespace Editor {
          * @brief 드래그 시작 마우스 좌표를 반환합니다.
          * @return 뷰포트 기준 시작 픽셀 좌표입니다.
          */
-        const Core::FVector2& GetStartMouse() const;
+        const FVector2& GetStartMouse() const;
 
         /**
          * @brief 드래그 시작 시 고정한 피벗을 반환합니다.
          * @return 시작 월드 피벗입니다.
          */
-        const Core::FVector& GetStartPivot() const;
+        const FVector& GetStartPivot() const;
 
         /**
          * @brief 드래그 시작 시 고정한 세 기저 축을 반환합니다.
          * @return 시작 시점의 기저 축입니다.
          */
-        const std::array<Core::FVector, 3>& GetDragAxes() const;
+        const std::array<FVector, 3>& GetDragAxes() const;
 
         /**
          * @brief 현재 드래그의 누적 월드 이동량을 반환합니다.
          * @return 시작 피벗 기준 이동량입니다.
          */
-        const Core::FVector& GetTranslation() const;
+        const FVector& GetTranslation() const;
 
         /**
          * @brief 현재 드래그의 스냅을 적용한 월드 회전량을 반환합니다.
          * @return 시작 시점 기준 회전입니다.
          */
-        Core::FQuat GetRotation() const;
+        FQuat GetRotation() const;
 
         /**
          * @brief 현재 드래그의 스냅을 적용한 스케일 변화량을 반환합니다.
@@ -241,7 +241,7 @@ namespace Editor {
          * @param[in] Pivot 기즈모의 월드 중심점입니다.
          * @return 기즈모 크기 배율을 반영한 픽셀당 월드 거리이며 카메라 뒤에서는 0입니다.
          */
-        float GetSize(const Engine::FSceneView& View, const Core::FVector& Pivot) const;
+        float GetSize(const Engine::FSceneView& View, const FVector& Pivot) const;
 
     private:
         /**
@@ -262,22 +262,22 @@ namespace Editor {
         /**
          * @brief 드래그 시작 마우스 픽셀 좌표입니다.
          */
-        Core::FVector2 mStartMouse{};
+        FVector2 mStartMouse{};
 
         /**
          * @brief 드래그할 월드 단위 축입니다.
          */
-        Core::FVector mAxis{};
+        FVector mAxis{};
 
         /**
          * @brief 드래그 평면의 단위 법선입니다.
          */
-        Core::FVector mPlaneNormal{};
+        FVector mPlaneNormal{};
 
         /**
          * @brief 드래그 시작 광선과 평면의 교점입니다.
          */
-        Core::FVector mStartIntersection{};
+        FVector mStartIntersection{};
 
         /**
          * @brief 드래그 기준 기즈모 크기입니다.
@@ -292,32 +292,32 @@ namespace Editor {
         /**
          * @brief 드래그를 시작할 때 고정한 이동, 회전과 스케일의 기준 피벗입니다.
          */
-        Core::FVector mStartPivot{};
+        FVector mStartPivot{};
 
         /**
          * @brief 회전 드래그의 시작 반지름 방향입니다.
          */
-        Core::FVector mStartDirection{};
+        FVector mStartDirection{};
 
         /**
          * @brief 회전 누적각을 계산할 때 사용할 이전 프레임의 반지름 방향입니다.
          */
-        Core::FVector mPreviousDirection{};
+        FVector mPreviousDirection{};
 
         /**
          * @brief 현재 드래그에서 시작 피벗에 더할 누적 월드 이동량입니다.
          */
-        Core::FVector mTranslation{};
+        FVector mTranslation{};
 
         /**
          * @brief 드래그 시작 시 고정하여 대상 회전과 독립적으로 유지할 세 기저 축입니다.
          */
-        std::array<Core::FVector, 3> mDragAxes{};
+        std::array<FVector, 3> mDragAxes{};
 
         /**
          * @brief 퇴화한 드래그 평면의 대체 계산이나 스케일에 사용할 화면 방향입니다.
          */
-        Core::FVector2 mScreenAxis{};
+        FVector2 mScreenAxis{};
 
         /**
          * @brief 각 프레임의 회전을 더하여 여러 바퀴 회전도 유지하는 라디안 각도입니다.

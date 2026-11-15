@@ -28,12 +28,12 @@ namespace Engine {
         /**
          * @brief 로컬 메시 정점을 월드로 옮기는 변환 행렬입니다.
          */
-        Core::FMatrix mWorld{};
+        FMatrix mWorld{};
 
         /**
          * @brief 편집 메시의 RGBA 색상이며 알파 값으로 평면 핸들의 투명도를 표현합니다.
          */
-        Core::FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 이 메시를 클릭했을 때 반환할 대상 핸들과 조작 핸들 번호입니다.

@@ -33,7 +33,7 @@ namespace Renderer {
         /**
          * @brief 정점 변환과 프러스텀 컬링에 함께 사용하는 월드→클립 행렬입니다.
          */
-        Core::FMatrix mViewProjection{};
+        FMatrix mViewProjection{};
 
         /**
          * @brief 패스에 사용하는 래스터라이저 상태입니다.

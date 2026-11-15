@@ -38,7 +38,7 @@ void FAnimSequenceViewportClient::SetDisplay(bool ShowBones, bool ShowGrid, bool
     mWireframe = Wireframe;
 }
 
-void FAnimSequenceViewportClient::DrawUI(const Core::FVector2& Size) {
+void FAnimSequenceViewportClient::DrawUI(const FVector2& Size) {
     if (!mScene->IsReady()) {
         ImGui::TextWrapped("Select a skeletal mesh and its skeleton in Preview Settings to display this animation.");
 

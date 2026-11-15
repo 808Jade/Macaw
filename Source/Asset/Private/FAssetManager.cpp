@@ -322,7 +322,7 @@ namespace Asset {
             for (Core::Index_t Index{}; Index < BoneCount && !Archive.HasError(); ++Index) {
                 Core::FString Name{Archive.IsLoading() ? Core::FString{} : Bones[Index].GetName()};
                 Core::Int32 Parent{static_cast<Core::Int32>(Archive.IsLoading() ? -1 : Bones[Index].GetParentIndex())};
-                Core::FMatrix BindPose{Archive.IsLoading() ? Core::FMatrix{} : Bones[Index].GetBindPose()};
+                FMatrix BindPose{Archive.IsLoading() ? FMatrix{} : Bones[Index].GetBindPose()};
 
                 Archive.Serialize("Name", Name);
                 Archive.Serialize("ParentIndex", Parent);

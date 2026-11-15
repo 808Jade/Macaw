@@ -26,7 +26,7 @@ namespace Renderer {
         /**
          * @brief 카메라 월드 위치 XYZ와 GPU 광원 개수를 저장합니다.
          */
-        Core::FVector4 mCameraAndCount{};
+        FVector4 mCameraAndCount{};
 
         /**
          * @brief 타일 열·행 개수, 타일 한 변의 픽셀 수와 광원 개수·전체 순회 플래그를 저장합니다.

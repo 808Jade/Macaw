@@ -42,14 +42,14 @@ namespace Engine {
      */
     Asset::FMeshData BuildPrimitive(Engine::EPrimitiveType Type) {
         Asset::FMeshData Mesh{};
-        Core::TArray<Core::FVector>& Positions{Mesh.GetPositions()};
-        Core::TArray<Core::FVector>& Normals{Mesh.GetNormals()};
-        Core::TArray<Core::FVector4>& Tangents{Mesh.GetTangents()};
+        Core::TArray<FVector>& Positions{Mesh.GetPositions()};
+        Core::TArray<FVector>& Normals{Mesh.GetNormals()};
+        Core::TArray<FVector4>& Tangents{Mesh.GetTangents()};
         Core::TArray<Core::Uint32>& Indices{Mesh.GetIndices()};
 
         Mesh.GetUVChannels().resize(1);
 
-        Core::TArray<Core::FVector2>& UVs{Mesh.GetUVChannels().front()};
+        Core::TArray<FVector2>& UVs{Mesh.GetUVChannels().front()};
 
         if (Type == Engine::EPrimitiveType::Plane) {
             Positions = {{-0.5f, -0.5f, 0.0f}, {0.5f, -0.5f, 0.0f}, {0.5f, 0.5f, 0.0f}, {-0.5f, 0.5f, 0.0f}};
@@ -62,16 +62,16 @@ namespace Engine {
 
             Mesh.SetBounds({{-0.5f, -0.5f, -0.001f}, {0.5f, 0.5f, 0.001f}});
         } else if (Type == Engine::EPrimitiveType::Cube) {
-            const std::array<Core::FVector, 6> FaceNormals{{{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}};
+            const std::array<FVector, 6> FaceNormals{{{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}};
 
-            for (const Core::FVector& Normal : FaceNormals) {
-                const Core::FVector Up{std::abs(Normal.z) > 0.5f ? Core::FVector{0.0f, 1.0f, 0.0f} : Core::FVector{0.0f, 0.0f, 1.0f}};
-                const Core::FVector Right{Up.Cross(Normal)};
+            for (const FVector& Normal : FaceNormals) {
+                const FVector Up{std::abs(Normal.z) > 0.5f ? FVector{0.0f, 1.0f, 0.0f} : FVector{0.0f, 0.0f, 1.0f}};
+                const FVector Right{Up.Cross(Normal)};
                 const Core::Uint32 Base{static_cast<Core::Uint32>(Positions.size())};
 
                 Positions.insert(Positions.end(), {(Normal - Right - Up) * 0.5f, (Normal + Right - Up) * 0.5f, (Normal + Right + Up) * 0.5f, (Normal - Right + Up) * 0.5f});
                 Normals.insert(Normals.end(), 4, Normal);
-                Tangents.insert(Tangents.end(), 4, Core::FVector4{Right, 1.0f});
+                Tangents.insert(Tangents.end(), 4, FVector4{Right, 1.0f});
                 UVs.insert(UVs.end(), {{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}});
 
                 Indices.insert(Indices.end(), {Base, Base + 1, Base + 2, Base, Base + 2, Base + 3});
@@ -82,10 +82,10 @@ namespace Engine {
             constexpr Core::Uint32 Rings{20};
             constexpr Core::Uint32 Segments{32};
 
-            std::array<Core::FVector2, Segments + 1> Circle{};
+            std::array<FVector2, Segments + 1> Circle{};
 
             for (Core::Index_t Segment{}; Segment < Segments; ++Segment) {
-                Circle[Segment] = Core::FVector2{1.0f, 0.0f}.Rotated(1_turn * Segment / Segments / 1_deg);
+                Circle[Segment] = FVector2{1.0f, 0.0f}.Rotated(1_turn * Segment / Segments / 1_deg);
             }
 
             Circle.back() = Circle.front();
@@ -101,8 +101,8 @@ namespace Engine {
                 const float Height{Core::Math::Cos(Phi)};
 
                 for (Core::Index_t Segment{}; Segment <= Segments; ++Segment) {
-                    const Core::FVector2 Radial{Circle[Segment] * Radius};
-                    const Core::FVector Normal{Radial.x, Radial.y, Height};
+                    const FVector2 Radial{Circle[Segment] * Radius};
+                    const FVector Normal{Radial.x, Radial.y, Height};
 
                     Positions.push_back(Normal * 0.5f);
                     Normals.push_back(Normal);

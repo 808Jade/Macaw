@@ -340,7 +340,7 @@ namespace Renderer {
         return Texture;
     }
 
-    std::unique_ptr<Asset::UTexture2D> FRenderer::CaptureTexture(const Asset::UTexture2D& Source, Core::Uint32 Width, Core::Uint32 Height, const Core::FVector4& Region, Core::FString& Error) {
+    std::unique_ptr<Asset::UTexture2D> FRenderer::CaptureTexture(const Asset::UTexture2D& Source, Core::Uint32 Width, Core::Uint32 Height, const FVector4& Region, Core::FString& Error) {
         if (mContext == nullptr || mPostProcessResources == nullptr || !Source.HasResources() || !std::isfinite(Region.x) || !std::isfinite(Region.y) || !std::isfinite(Region.z) || !std::isfinite(Region.w) || Region.x < 0.0f || Region.y < 0.0f || Region.z <= 0.0f || Region.w <= 0.0f || Region.x + Region.z > static_cast<float>(Width) + 0.01f || Region.y + Region.w > static_cast<float>(Height) + 0.01f) {
             Error = "Invalid texture capture";
 
@@ -482,7 +482,7 @@ namespace Renderer {
 
         ID3D11RenderTargetView* RenderTarget{};
 
-        const Core::FVector4 LineView{Family.mView.mSize.x, Family.mView.mSize.y, 1.0f / std::max(Family.mView.mSize.x, 1.0f), 1.0f / std::max(Family.mView.mSize.y, 1.0f)};
+        const FVector4 LineView{Family.mView.mSize.x, Family.mView.mSize.y, 1.0f / std::max(Family.mView.mSize.x, 1.0f), 1.0f / std::max(Family.mView.mSize.y, 1.0f)};
 
         mLineViewBuffer.Update(mContext.Get(), LineView);
 
@@ -529,7 +529,7 @@ namespace Renderer {
 
         mStats.mDrawCalls += mTranslucencyMeshPass->RenderOverlayTexts(Family, TranslucencyParameters);
 
-        mStats.mGpuBytes = Scene->GetPrimitiveCount() * sizeof(Renderer::FObjectConstants) + sizeof(Core::FMatrix) + sizeof(Renderer::FEditorMeshConstants) + mLineBuffer.GetResourceBytes() + Target->GetResourceBytes();
+        mStats.mGpuBytes = Scene->GetPrimitiveCount() * sizeof(Renderer::FObjectConstants) + sizeof(FMatrix) + sizeof(Renderer::FEditorMeshConstants) + mLineBuffer.GetResourceBytes() + Target->GetResourceBytes();
         mStats.mGpuBytes += mTextRenderer != nullptr ? mTextRenderer->GetResourceBytes() : 0;
         mStats.mGpuBytes += mSpriteRenderer != nullptr ? mSpriteRenderer->GetResourceBytes() : 0;
         mStats.mGpuBytes += mStats.mShadowAtlasBytes;
@@ -736,7 +736,7 @@ namespace Renderer {
     /**
      * @brief 폰트 메트릭으로 텍스트의 로컬 평면 경계를 계산합니다.
      */
-    bool Renderer::FRenderer::GetTextBounds(const Core::FString& Text, Core::FVector2& Minimum, Core::FVector2& Maximum) const {
+    bool Renderer::FRenderer::GetTextBounds(const Core::FString& Text, FVector2& Minimum, FVector2& Maximum) const {
         return mTextRenderer != nullptr && mTextRenderer->GetBounds(Text, Minimum, Maximum);
     }
 

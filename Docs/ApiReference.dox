@@ -47,7 +47,7 @@ for (CoreUObject::TObjectIterator<Asset::UStaticMesh> Iterator{}; Iterator; ++It
 
 | 모듈 | 역할 | 주요 API |
 | --- | --- | --- |
-| \ref Core | 기본 타입, SIMD 수학, 메모리, 프레임 시간, 아카이브 | \ref Core::FVector, \ref Core::FMatrix, \ref Core::FTransform, \ref Core::FArchive |
+| \ref Core | 기본 타입, SIMD 수학, 메모리, 프레임 시간, 아카이브 | \ref FVector, \ref FMatrix, \ref FTransform, \ref Core::FArchive |
 | \ref CoreUObject | 객체 수명, 세대 핸들, 타입·프로퍼티 리플렉션 | \ref CoreUObject::UObject, \ref CoreUObject::FObjectRegistry, \ref CoreUObject::UClass, \ref CoreUObject::FProperty |
 | \ref Serialization | JSON 아카이브와 파일 입출력 | \ref Serialization::FJsonArchive |
 | \ref Asset | 메시·텍스처·머티리얼, 에셋 관리·저장과 외부 파일 임포트 | \ref Asset::FAssetManager, \ref Asset::UStaticMesh, \ref Asset::UTexture2D, \ref Asset::UMaterial |

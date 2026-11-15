@@ -420,7 +420,7 @@ namespace Editor {
          * @param[in] Placement 새 액터에 적용할 월드 변환입니다.
          * @return 월드가 소유한 새 액터의 비소유 주소이며 실패하면 nullptr입니다.
          */
-        Engine::AActor* SpawnActorPreset(const Core::FString& Preset, const Core::FTransform& Placement);
+        Engine::AActor* SpawnActorPreset(const Core::FString& Preset, const FTransform& Placement);
 
         /**
          * @brief 편집 월드에 기본 카메라 액터를 생성합니다.
@@ -507,7 +507,7 @@ namespace Editor {
          * @param[in] Interactive 연속 편집 여부입니다.
          * @return 변환을 적용하면 true입니다.
          */
-        bool ApplyTransform(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, const Core::FTransform& Transform, bool Interactive = false);
+        bool ApplyTransform(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, const FTransform& Transform, bool Interactive = false);
 
         /**
          * @brief 편집 월드를 장면 파일로 저장합니다.
@@ -602,7 +602,7 @@ namespace Editor {
          * @param[in] Placement 생성할 액터의 월드 변환입니다.
          * @return 생성한 월드 소유 액터이며 실패하면 nullptr입니다.
          */
-        Engine::AStaticMeshActor* SpawnMesh(const std::filesystem::path& Path, const Core::FTransform& Placement);
+        Engine::AStaticMeshActor* SpawnMesh(const std::filesystem::path& Path, const FTransform& Placement);
 
         /**
          * @brief 지정 위치에 스켈레탈 메시 액터를 배치하고 선택합니다.
@@ -610,7 +610,7 @@ namespace Editor {
          * @param Placement 월드 변환입니다.
          * @return 생성한 액터이며 실패하면 nullptr입니다.
          */
-        Engine::ASkeletalMeshActor* SpawnSkeletalMesh(const std::filesystem::path& Path, const Core::FTransform& Placement);
+        Engine::ASkeletalMeshActor* SpawnSkeletalMesh(const std::filesystem::path& Path, const FTransform& Placement);
 
         /**
          * @brief 애플리케이션에 프로젝트 전환을 요청할 콜백을 설정합니다.
@@ -689,7 +689,7 @@ namespace Editor {
          * @brief 새 액터의 배치 변환을 제공하는 경로를 연결합니다.
          * @param[in] Provider 뷰포트 카메라 등에 따른 배치 변환 제공자이며 비어 있으면 기본 변환을 사용합니다.
          */
-        void SetPlacementProvider(std::function<Core::FTransform()> Provider);
+        void SetPlacementProvider(std::function<FTransform()> Provider);
 
         /**
          * @brief 장면 저장·복원에 사용할 원근 카메라 콜백을 연결합니다.
@@ -768,7 +768,7 @@ namespace Editor {
          * @param[in] Placement 적용할 월드 변환입니다.
          * @return 배치에 성공하면 true입니다.
          */
-        bool ApplySpawnPlacement(Engine::AActor* Actor, const Core::FTransform& Placement);
+        bool ApplySpawnPlacement(Engine::AActor* Actor, const FTransform& Placement);
 
         /**
          * @brief 생성한 액터를 선택하고 장면 변경 상태와 로그를 갱신합니다.
@@ -911,7 +911,7 @@ namespace Editor {
         /**
          * @brief 활성 뷰포트 등에 따른 새 액터의 배치 변환 제공자입니다.
          */
-        std::function<Core::FTransform()> mPlacementProvider{};
+        std::function<FTransform()> mPlacementProvider{};
 
         /**
          * @brief 편집·렌더·통계 명령 레지스트리입니다.

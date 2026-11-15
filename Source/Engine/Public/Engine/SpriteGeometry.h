@@ -20,6 +20,6 @@ namespace Engine {
      * @param[in] View 카메라의 뷰 행렬입니다.
      * @return 스케일과 정렬을 적용한 쿼드의 월드 행렬입니다.
      */
-    Core::FMatrix MakeSpriteWorld(const Core::FMatrix& World, const Engine::FDrawSprite& Sprite, const Engine::FSceneView& View);
+    FMatrix MakeSpriteWorld(const FMatrix& World, const Engine::FDrawSprite& Sprite, const Engine::FSceneView& View);
 
 }

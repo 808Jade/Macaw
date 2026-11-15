@@ -164,14 +164,14 @@ namespace Engine {
     /**
      * @brief 기본 산란에 사용할 안개 색상을 반환합니다.
      */
-    const Core::FVector4& Engine::UHeightFogComponent::GetFogInscatteringColor() const {
+    const FVector4& Engine::UHeightFogComponent::GetFogInscatteringColor() const {
         return mFogInscatteringColor;
     }
 
     /**
      * @brief 각 채널이 유한한 0~1 범위인 산란 색상을 적용하고 장면을 갱신합니다.
      */
-    bool Engine::UHeightFogComponent::SetFogInscatteringColor(const Core::FVector4& Color) {
+    bool Engine::UHeightFogComponent::SetFogInscatteringColor(const FVector4& Color) {
         const auto Values{Color.ToArray()};
 
         if (!std::all_of(Values.begin(), Values.end(), [](float Value) {
@@ -197,7 +197,7 @@ namespace Engine {
     /**
      * @brief 유효한 공간 변환을 적용하고 안개 기준 높이와 아이콘 위치를 장면에 반영합니다.
      */
-    bool Engine::UHeightFogComponent::SetTransform(const Core::FTransform& Transform) {
+    bool Engine::UHeightFogComponent::SetTransform(const FTransform& Transform) {
         if (!Engine::USceneComponent::SetTransform(Transform)) {
             return false;
         }

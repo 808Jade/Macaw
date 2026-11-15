@@ -23,9 +23,9 @@ namespace Engine {
      * @param[in] B 삼각형의 둘째 정점입니다.
      * @param[in] C 삼각형의 셋째 정점입니다.
      */
-    static void AddTriangle(Asset::FMeshData* Mesh, const Core::FVector& A, const Core::FVector& B, const Core::FVector& C) {
+    static void AddTriangle(Asset::FMeshData* Mesh, const FVector& A, const FVector& B, const FVector& C) {
         const Core::Uint32 Base{static_cast<Core::Uint32>(Mesh->GetPositions().size())};
-        const Core::FVector Normal{(B - A).Cross(C - A).Normalized()};
+        const FVector Normal{(B - A).Cross(C - A).Normalized()};
 
         Mesh->GetPositions().insert(Mesh->GetPositions().end(), {A, B, C});
         Mesh->GetNormals().insert(Mesh->GetNormals().end(), 3, Normal);
@@ -38,10 +38,10 @@ namespace Engine {
      * @param[in] Minimum 상자의 최소 경계입니다.
      * @param[in] Maximum 상자의 최대 경계입니다.
      */
-    static void AddBox(Asset::FMeshData* Mesh, const Core::FVector& Minimum, const Core::FVector& Maximum) {
+    static void AddBox(Asset::FMeshData* Mesh, const FVector& Minimum, const FVector& Maximum) {
         const Asset::FMeshData* Cube{&Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube)};
-        const Core::FVector Size{Maximum - Minimum};
-        const Core::FVector Center{(Maximum + Minimum) * 0.5f};
+        const FVector Size{Maximum - Minimum};
+        const FVector Center{(Maximum + Minimum) * 0.5f};
 
         for (Core::Index_t Index{}; Index < Cube->GetIndices().size(); Index += 3) {
             AddTriangle(Mesh, Cube->GetPositions()[Cube->GetIndices()[Index]] * Size + Center, Cube->GetPositions()[Cube->GetIndices()[Index + 1]] * Size + Center, Cube->GetPositions()[Cube->GetIndices()[Index + 2]] * Size + Center);
@@ -60,17 +60,17 @@ namespace Engine {
             for (Core::Index_t Index{}; Index < 16; ++Index) {
                 const Core::FAngle A{1_turn * Index / 16.0f};
                 const Core::FAngle B{1_turn * (Index + 1) / 16.0f};
-                const Core::FVector BottomA{Core::Math::Cos(A) * 2.0f, Core::Math::Sin(A) * 2.0f, 11.0f};
-                const Core::FVector BottomB{Core::Math::Cos(B) * 2.0f, Core::Math::Sin(B) * 2.0f, 11.0f};
-                const Core::FVector TopA{BottomA.x, BottomA.y, 72.5f};
-                const Core::FVector TopB{BottomB.x, BottomB.y, 72.5f};
+                const FVector BottomA{Core::Math::Cos(A) * 2.0f, Core::Math::Sin(A) * 2.0f, 11.0f};
+                const FVector BottomB{Core::Math::Cos(B) * 2.0f, Core::Math::Sin(B) * 2.0f, 11.0f};
+                const FVector TopA{BottomA.x, BottomA.y, 72.5f};
+                const FVector TopB{BottomB.x, BottomB.y, 72.5f};
 
                 AddTriangle(&Mesh, BottomA, BottomB, TopA);
                 AddTriangle(&Mesh, TopA, BottomB, TopB);
                 AddTriangle(&Mesh, {0.0f, 0.0f, 11.0f}, BottomB, BottomA);
 
-                const Core::FVector ConeA{Core::Math::Cos(A) * 6.5f, Core::Math::Sin(A) * 6.5f, 72.5f};
-                const Core::FVector ConeB{Core::Math::Cos(B) * 6.5f, Core::Math::Sin(B) * 6.5f, 72.5f};
+                const FVector ConeA{Core::Math::Cos(A) * 6.5f, Core::Math::Sin(A) * 6.5f, 72.5f};
+                const FVector ConeB{Core::Math::Cos(B) * 6.5f, Core::Math::Sin(B) * 6.5f, 72.5f};
 
                 AddTriangle(&Mesh, ConeA, ConeB, {0.0f, 0.0f, 87.5f});
                 AddTriangle(&Mesh, {0.0f, 0.0f, 72.5f}, ConeB, ConeA);
@@ -90,10 +90,10 @@ namespace Engine {
                 for (Core::Index_t Side{}; Side < 8; ++Side) {
                     const Core::FAngle C{1_turn * Side / 8.0f};
                     const Core::FAngle D{1_turn * (Side + 1) / 8.0f};
-                    const Core::FVector P{(74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Cos(A), (74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Sin(A), Core::Math::Sin(C) * 2.0f};
-                    const Core::FVector Q{(74.0f + Core::Math::Cos(D) * 2.0f) * Core::Math::Cos(A), (74.0f + Core::Math::Cos(D) * 2.0f) * Core::Math::Sin(A), Core::Math::Sin(D) * 2.0f};
-                    const Core::FVector R{(74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Cos(B), (74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Sin(B), Core::Math::Sin(C) * 2.0f};
-                    const Core::FVector S{(74.0f + Core::Math::Cos(D) * 2.0f) * Core::Math::Cos(B), (74.0f + Core::Math::Cos(D) * 2.0f) * Core::Math::Sin(B), Core::Math::Sin(D) * 2.0f};
+                    const FVector P{(74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Cos(A), (74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Sin(A), Core::Math::Sin(C) * 2.0f};
+                    const FVector Q{(74.0f + Core::Math::Cos(D) * 2.0f) * Core::Math::Cos(A), (74.0f + Core::Math::Cos(D) * 2.0f) * Core::Math::Sin(A), Core::Math::Sin(D) * 2.0f};
+                    const FVector R{(74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Cos(B), (74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Sin(B), Core::Math::Sin(C) * 2.0f};
+                    const FVector S{(74.0f + Core::Math::Cos(D) * 2.0f) * Core::Math::Cos(B), (74.0f + Core::Math::Cos(D) * 2.0f) * Core::Math::Sin(B), Core::Math::Sin(D) * 2.0f};
 
                     AddTriangle(&Mesh, P, Q, R);
                     AddTriangle(&Mesh, R, Q, S);
@@ -105,13 +105,13 @@ namespace Engine {
             Mesh = Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Sphere);
         } else if (Type == Engine::EEditorMesh::BoneOctahedron) {
             constexpr float Shoulder{0.16f};
-            const Core::FVector Head{};
-            const Core::FVector Tail{0.0f, 0.0f, 1.0f};
-            const std::array<Core::FVector, 4> Corners{{{1.0f, 0.0f, Shoulder}, {0.0f, 1.0f, Shoulder}, {-1.0f, 0.0f, Shoulder}, {0.0f, -1.0f, Shoulder}}};
+            const FVector Head{};
+            const FVector Tail{0.0f, 0.0f, 1.0f};
+            const std::array<FVector, 4> Corners{{{1.0f, 0.0f, Shoulder}, {0.0f, 1.0f, Shoulder}, {-1.0f, 0.0f, Shoulder}, {0.0f, -1.0f, Shoulder}}};
 
             for (Core::Index_t Index{}; Index < Corners.size(); ++Index) {
-                const Core::FVector& A{Corners[Index]};
-                const Core::FVector& B{Corners[(Index + 1) % Corners.size()]};
+                const FVector& A{Corners[Index]};
+                const FVector& B{Corners[(Index + 1) % Corners.size()]};
 
                 AddTriangle(&Mesh, A, Head, B);
                 AddTriangle(&Mesh, A, B, Tail);
@@ -125,15 +125,15 @@ namespace Engine {
         }
 
         const float Largest{std::numeric_limits<float>::max()};
-        Core::FVector Minimum{Largest, Largest, Largest};
-        Core::FVector Maximum{-Largest, -Largest, -Largest};
+        FVector Minimum{Largest, Largest, Largest};
+        FVector Maximum{-Largest, -Largest, -Largest};
 
-        for (const Core::FVector& Position : Mesh.GetPositions()) {
+        for (const FVector& Position : Mesh.GetPositions()) {
             Minimum = Minimum.Min(Position);
             Maximum = Maximum.Max(Position);
         }
 
-        Mesh.SetBounds({Minimum - Core::FVector{0.001f, 0.001f, 0.001f}, Maximum + Core::FVector{0.001f, 0.001f, 0.001f}});
+        Mesh.SetBounds({Minimum - FVector{0.001f, 0.001f, 0.001f}, Maximum + FVector{0.001f, 0.001f, 0.001f}});
 
         return Mesh;
     }

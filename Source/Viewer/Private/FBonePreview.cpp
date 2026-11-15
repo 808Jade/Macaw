@@ -11,7 +11,7 @@
 #include <cmath>
 
 namespace Viewer {
-    FBoneShape::FBoneShape(Engine::EEditorMesh Mesh, const Core::FMatrix& World, Core::Index_t Bone)
+    FBoneShape::FBoneShape(Engine::EEditorMesh Mesh, const FMatrix& World, Core::Index_t Bone)
 		: mMesh{Mesh},
 		  mWorld{World},
 		  mBone{Bone} {
@@ -21,7 +21,7 @@ namespace Viewer {
         return mMesh;
     }
 
-    const Core::FMatrix& FBoneShape::GetWorld() const {
+    const FMatrix& FBoneShape::GetWorld() const {
         return mWorld;
     }
 
@@ -36,7 +36,7 @@ namespace Viewer {
      * @param Radius 본 표시 크기의 기준 반지름입니다.
      * @return 본 선택·표시에 사용할 도형 배열입니다.
      */
-    Core::TArray<Viewer::FBoneShape> BuildBoneShapes(const Core::TArray<Asset::FMeshImportBone>& Bones, const Core::TArray<Core::FMatrix>& Transforms, float Radius) {
+    Core::TArray<Viewer::FBoneShape> BuildBoneShapes(const Core::TArray<Asset::FMeshImportBone>& Bones, const Core::TArray<FMatrix>& Transforms, float Radius) {
         const float MaxJointRadius{Radius * 0.019f};
         const float MinJointRadius{MaxJointRadius * 0.12f};
         const float MaxBoneHalfWidth{Radius * 0.05f};
@@ -54,8 +54,8 @@ namespace Viewer {
             }
 
             const Core::Index_t Parent{static_cast<Core::Index_t>(ParentIndex)};
-            const Core::FVector Start{Transforms[Parent].TransformPosition({})};
-            const Core::FVector Offset{Transforms[Bone].TransformPosition({}) - Start};
+            const FVector Start{Transforms[Parent].TransformPosition({})};
+            const FVector Offset{Transforms[Bone].TransformPosition({}) - Start};
             const float Length{Offset.Length()};
 
             if (!std::isfinite(Length) || Length <= MaxJointRadius * 0.01f) {
@@ -67,18 +67,18 @@ namespace Viewer {
             JointRadii[Parent] = std::min(JointRadii[Parent], JointRadius);
 
             const float HalfWidth{std::min(Length * 0.105f, MaxBoneHalfWidth)};
-            const Core::FVector Axis{Offset / Length};
-            const Core::FVector Up{std::abs(Axis.z) < 0.8f ? Core::FVector{0.0f, 0.0f, 1.0f} : Core::FVector{0.0f, 1.0f, 0.0f}};
-            const Core::FMatrix Rotation{Core::FMatrix::LookTo({}, Axis, Up).Transposed()};
-            const Core::FMatrix World{Core::FMatrix::Scale({HalfWidth, HalfWidth, Length}) * Rotation * Core::FMatrix::Translation(Start)};
+            const FVector Axis{Offset / Length};
+            const FVector Up{std::abs(Axis.z) < 0.8f ? FVector{0.0f, 0.0f, 1.0f} : FVector{0.0f, 1.0f, 0.0f}};
+            const FMatrix Rotation{FMatrix::LookTo({}, Axis, Up).Transposed()};
+            const FMatrix World{FMatrix::Scale({HalfWidth, HalfWidth, Length}) * Rotation * FMatrix::Translation(Start)};
 
             Shapes.push_back({Engine::EEditorMesh::BoneOctahedron, World, Parent});
         }
 
         for (Core::Index_t Bone{}; Bone < Bones.size(); ++Bone) {
-            const Core::FVector Joint{Transforms[Bone].TransformPosition({})};
+            const FVector Joint{Transforms[Bone].TransformPosition({})};
             const float Diameter{JointRadii[Bone] * 2.0f};
-            const Core::FMatrix World{Core::FMatrix::Scale({Diameter, Diameter, Diameter}) * Core::FMatrix::Translation(Joint)};
+            const FMatrix World{FMatrix::Scale({Diameter, Diameter, Diameter}) * FMatrix::Translation(Joint)};
 
             Shapes.push_back({Engine::EEditorMesh::Sphere, World, Bone});
         }

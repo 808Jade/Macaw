@@ -79,7 +79,7 @@ namespace Renderer {
         }
 
         Constants.mView = Family.mView.mView;
-        Constants.mCameraPosition = Core::FVector4{Family.mView.mLocation, Family.mView.mOrthographic ? 1.0f : 0.0f};
+        Constants.mCameraPosition = FVector4{Family.mView.mLocation, Family.mView.mOrthographic ? 1.0f : 0.0f};
         Constants.mScreenSize = {static_cast<float>(Target.GetWidth()), static_cast<float>(Target.GetHeight()), 1.0f / static_cast<float>(Target.GetWidth()), 1.0f / static_cast<float>(Target.GetHeight())};
 
         Asset::UTexture2D* Source{Target.GetSceneColor()};

@@ -253,7 +253,7 @@ namespace Engine {
     /**
      * @brief 본 하나의 부모 기준 변환을 변경합니다.
      */
-    bool USkeletalMeshComponent::SetBoneLocalTransform(Core::Index_t Bone, const Core::FMatrix& Transform) {
+    bool USkeletalMeshComponent::SetBoneLocalTransform(Core::Index_t Bone, const FMatrix& Transform) {
         if (mSkeletalMesh == nullptr || mSkeleton == nullptr || !mPose.SetLocalTransform(*mSkeletalMesh, *mSkeleton, Bone, Transform)) {
             return false;
         }
@@ -267,7 +267,7 @@ namespace Engine {
     /**
      * @brief 전체 로컬 포즈를 변경합니다.
      */
-    bool USkeletalMeshComponent::SetLocalPose(const Core::TArray<Core::FMatrix>& Transforms) {
+    bool USkeletalMeshComponent::SetLocalPose(const Core::TArray<FMatrix>& Transforms) {
         const bool Updated{mSkeletalMesh != nullptr && mSkeleton != nullptr ? mPose.SetLocalTransforms(*mSkeletalMesh, *mSkeleton, Transforms) : mPose.SetLocalTransforms(Transforms)};
 
         if (!Updated) {
@@ -529,12 +529,12 @@ namespace Engine {
 
         mAnimInstance->UpdateAnimation(DeltaTime);
 
-        const Core::TArray<Core::FTransform>& Pose{mAnimInstance->GetPose()};
-        Core::TArray<Core::FMatrix> Locals{};
+        const Core::TArray<FTransform>& Pose{mAnimInstance->GetPose()};
+        Core::TArray<FMatrix> Locals{};
 
         Locals.reserve(Pose.size());
 
-        for (const Core::FTransform& Transform : Pose) {
+        for (const FTransform& Transform : Pose) {
             Locals.push_back(Transform.ToMatrix());
         }
 
@@ -608,14 +608,14 @@ namespace Engine {
         }
     }
 
-    Core::FTransform USkeletalMeshComponent::ConsumeRootMotion() {
-        return mAnimInstance != nullptr ? mAnimInstance->ConsumeExtractedRootMotion() : Core::FTransform{};
+    FTransform USkeletalMeshComponent::ConsumeRootMotion() {
+        return mAnimInstance != nullptr ? mAnimInstance->ConsumeExtractedRootMotion() : FTransform{};
     }
 
-    void USkeletalMeshComponent::ApplyRootMotion(const Core::FTransform& Delta) {
+    void USkeletalMeshComponent::ApplyRootMotion(const FTransform& Delta) {
         Engine::AActor* Owner{GetOwner()};
 
-        if (Owner == nullptr || (Delta.mLocation.LengthSquared() <= 1.e-12f && Delta.mRotation.Equals(Core::FQuat{}))) {
+        if (Owner == nullptr || (Delta.mLocation.LengthSquared() <= 1.e-12f && Delta.mRotation.Equals(FQuat{}))) {
             return;
         }
 
@@ -699,7 +699,7 @@ namespace Engine {
     /**
      * @brief 저장 대상인 로컬 본 포즈를 반환합니다.
      */
-    const Core::TArray<Core::FMatrix>& Engine::USkeletalMeshComponent::GetSerializedPose() const {
+    const Core::TArray<FMatrix>& Engine::USkeletalMeshComponent::GetSerializedPose() const {
         return mPose.GetLocalTransforms();
     }
 
@@ -708,9 +708,9 @@ namespace Engine {
     /**
      * @brief 저장된 로컬 본 포즈를 검증하여 복원합니다.
      */
-    bool Engine::USkeletalMeshComponent::SetSerializedPose(const Core::TArray<Core::FMatrix>& Transforms) {
-        for (const Core::FMatrix& Transform : Transforms) {
-            Core::FMatrix Inverse{};
+    bool Engine::USkeletalMeshComponent::SetSerializedPose(const Core::TArray<FMatrix>& Transforms) {
+        for (const FMatrix& Transform : Transforms) {
+            FMatrix Inverse{};
 
             if (!Transform.IsFinite() || !Transform.TryInverse(Inverse) || !Inverse.IsFinite()) {
                 return false;

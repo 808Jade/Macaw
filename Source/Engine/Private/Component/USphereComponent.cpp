@@ -20,8 +20,8 @@ namespace Engine {
     /**
      * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
      */
-    Core::FBox Engine::USphereComponent::CalcLocalBounds() const {
-        return Core::FBox{ Core::FVector{ -mSphereRadius, -mSphereRadius, -mSphereRadius }, Core::FVector{ mSphereRadius, mSphereRadius, mSphereRadius } };
+    FBox Engine::USphereComponent::CalcLocalBounds() const {
+        return FBox{ FVector{ -mSphereRadius, -mSphereRadius, -mSphereRadius }, FVector{ mSphereRadius, mSphereRadius, mSphereRadius } };
     }
 
     /**

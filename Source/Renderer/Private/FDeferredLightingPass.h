@@ -38,7 +38,7 @@ namespace Renderer {
             /**
              * @brief 깊이에서 월드 위치를 복원하는 뷰·투영 역행렬입니다.
              */
-            Core::FMatrix mInverseViewProjection{};
+            FMatrix mInverseViewProjection{};
 
             /**
              * @brief 출력 너비·높이의 역수입니다.

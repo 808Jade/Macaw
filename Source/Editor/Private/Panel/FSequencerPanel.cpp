@@ -929,8 +929,8 @@ namespace Editor {
             return;
         }
 
-        const Core::FTransform& Transform{Component->GetTransform()};
-        const Core::FRotator Rotation{Transform.mRotation.Rotator()};
+        const FTransform& Transform{Component->GetTransform()};
+        const FRotator Rotation{Transform.mRotation.Rotator()};
         const std::array<float, Asset::FSequenceTransformSection::ChannelCount> Values{Transform.mLocation.x, Transform.mLocation.y, Transform.mLocation.z, Rotation.pitch, Rotation.yaw, Rotation.roll, Transform.mScale.x, Transform.mScale.y, Transform.mScale.z};
         const Core::Int32 Tick{FindCurrentTick(Sequence, mPlayer)};
         Asset::FSequenceTransformSection& Section{Binding.FindOrAddTransformTrack().FindOrAddEditSection()};

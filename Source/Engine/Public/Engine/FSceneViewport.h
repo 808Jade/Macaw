@@ -14,9 +14,7 @@ namespace RenderCore {
     class IRendererModule;
 }
 
-namespace Core {
-    struct FVector2;
-}
+struct FVector2;
 
 namespace Engine {
 
@@ -67,7 +65,7 @@ namespace Engine {
          * @return 적중한 대상의 선택 정보이며 타깃이나 클라이언트가 없거나 좌표가 유한한 타깃 범위 안에 없으면 빈
          * 프록시입니다.
          */
-        Engine::FHitProxy GetHitProxy(const Core::FVector2& Position) const;
+        Engine::FHitProxy GetHitProxy(const FVector2& Position) const;
 
         /**
          * @brief 컬러 렌더 타깃 뷰를 반환합니다.
@@ -79,7 +77,7 @@ namespace Engine {
          * @brief 크기를 반환합니다.
          * @return 크기입니다.
          */
-        Core::FVector2 GetSize() const;
+        FVector2 GetSize() const;
 
     private:
         /**

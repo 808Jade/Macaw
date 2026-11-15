@@ -40,12 +40,12 @@ namespace Engine {
         /**
          * @brief 안개 액터의 월드 위치이며 Z를 밀도의 기준 높이로 사용합니다.
          */
-        Core::FVector mPosition{};
+        FVector mPosition{};
 
         /**
          * @brief 흡수된 장면 색상에 합성할 기본 산란 RGBA 색상입니다.
          */
-        Core::FVector4 mInscatteringColor{0.65f, 0.75f, 0.85f, 1.0f};
+        FVector4 mInscatteringColor{0.65f, 0.75f, 0.85f, 1.0f};
 
         /**
          * @brief 기준 높이에서의 거리당 안개 밀도입니다.

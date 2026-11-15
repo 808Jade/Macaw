@@ -87,7 +87,7 @@ namespace Asset {
         /**
          * @brief 블렌드 스페이스 좌표계에서 샘플의 위치입니다.
          */
-        Core::FVector mSampleValue{};
+        FVector mSampleValue{};
     };
 
     /**
@@ -141,7 +141,7 @@ namespace Asset {
          * @param[in] Input 블렌드 스페이스 좌표입니다. 축 범위로 제한해 씁니다.
          * @param[out] OutWeights 가중치가 0보다 큰 샘플이며, 시퀀스가 해석된 샘플만 포함합니다. 섞을 샘플이 없으면 비웁니다.
          */
-        virtual void GetSamplesToBlend(const Core::FVector& Input, Core::TArray<Asset::FBlendSampleWeight>& OutWeights) const = 0;
+        virtual void GetSamplesToBlend(const FVector& Input, Core::TArray<Asset::FBlendSampleWeight>& OutWeights) const = 0;
 
         /**
          * @brief 블렌드 스페이스가 쓰는 축 수를 반환합니다.
@@ -176,7 +176,7 @@ namespace Asset {
          * @param[in] SampleValue 샘플 위치입니다.
          * @return 추가한 샘플의 순서이며, 샘플 수가 한도에 도달했거나 위치가 유한하지 않으면 Core::InvalidIndex입니다.
          */
-        Core::Index_t AddSample(const Asset::UAnimSequence* Animation, const Core::FVector& SampleValue);
+        Core::Index_t AddSample(const Asset::UAnimSequence* Animation, const FVector& SampleValue);
 
         /**
          * @brief 샘플 하나를 제거합니다.
@@ -199,7 +199,7 @@ namespace Asset {
          * @param[in] SampleValue 새 위치입니다.
          * @return 위치가 유한해 적용했으면 true입니다.
          */
-        bool SetSampleValue(Core::Index_t Index, const Core::FVector& SampleValue);
+        bool SetSampleValue(Core::Index_t Index, const FVector& SampleValue);
 
         /**
          * @brief 가중치를 적용한 샘플 재생 길이의 합을 계산합니다.
@@ -241,7 +241,7 @@ namespace Asset {
          * @param[in] Input 블렌드 스페이스 좌표입니다.
          * @return 각 축을 [최솟값, 최댓값]으로 제한한 좌표이며, 쓰지 않는 축은 0입니다.
          */
-        Core::FVector ClampInput(const Core::FVector& Input) const;
+        FVector ClampInput(const FVector& Input) const;
 
     private:
 

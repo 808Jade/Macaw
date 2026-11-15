@@ -244,7 +244,7 @@ namespace Script::Abi {
      * @param[in] Value 엔진 값입니다.
      * @return 경계 값입니다.
      */
-    inline Script::Abi::FVector2 ToAbi(const Core::FVector2& Value) {
+    inline Script::Abi::FVector2 ToAbi(const ::FVector2& Value) {
         return {Value.x, Value.y};
     }
 
@@ -253,7 +253,7 @@ namespace Script::Abi {
      * @param[in] Value 엔진 값입니다.
      * @return 경계 값입니다.
      */
-    inline Script::Abi::FVector3 ToAbi(const Core::FVector& Value) {
+    inline Script::Abi::FVector3 ToAbi(const ::FVector& Value) {
         return {Value.x, Value.y, Value.z};
     }
 
@@ -262,7 +262,7 @@ namespace Script::Abi {
      * @param[in] Value 엔진 값입니다.
      * @return 경계 값입니다.
      */
-    inline Script::Abi::FQuat ToAbi(const Core::FQuat& Value) {
+    inline Script::Abi::FQuat ToAbi(const ::FQuat& Value) {
         return {Value.x, Value.y, Value.z, Value.w};
     }
 
@@ -271,7 +271,7 @@ namespace Script::Abi {
      * @param[in] Value 엔진 값입니다.
      * @return 경계 값입니다.
      */
-    inline Script::Abi::FTransform ToAbi(const Core::FTransform& Value) {
+    inline Script::Abi::FTransform ToAbi(const ::FTransform& Value) {
         return {Script::Abi::ToAbi(Value.mLocation), Script::Abi::ToAbi(Value.mRotation), Script::Abi::ToAbi(Value.mScale)};
     }
 
@@ -296,8 +296,8 @@ namespace Script::Abi {
      * @param[in] Value 경계 값입니다.
      * @return 엔진 값입니다.
      */
-    inline Core::FVector2 FromAbi(const Script::Abi::FVector2& Value) {
-        return Core::FVector2{Value.x, Value.y};
+    inline ::FVector2 FromAbi(const Script::Abi::FVector2& Value) {
+        return ::FVector2{Value.x, Value.y};
     }
 
     /**
@@ -305,8 +305,8 @@ namespace Script::Abi {
      * @param[in] Value 경계 값입니다.
      * @return 엔진 값입니다.
      */
-    inline Core::FVector FromAbi(const Script::Abi::FVector3& Value) {
-        return Core::FVector{Value.x, Value.y, Value.z};
+    inline ::FVector FromAbi(const Script::Abi::FVector3& Value) {
+        return ::FVector{Value.x, Value.y, Value.z};
     }
 
     /**
@@ -314,8 +314,8 @@ namespace Script::Abi {
      * @param[in] Value 경계 값입니다.
      * @return 엔진 값입니다.
      */
-    inline Core::FQuat FromAbi(const Script::Abi::FQuat& Value) {
-        return Core::FQuat{Value.x, Value.y, Value.z, Value.w};
+    inline ::FQuat FromAbi(const Script::Abi::FQuat& Value) {
+        return ::FQuat{Value.x, Value.y, Value.z, Value.w};
     }
 
     /**
@@ -323,8 +323,8 @@ namespace Script::Abi {
      * @param[in] Value 경계 값입니다.
      * @return 엔진 값입니다.
      */
-    inline Core::FTransform FromAbi(const Script::Abi::FTransform& Value) {
-        Core::FTransform Transform{};
+    inline ::FTransform FromAbi(const Script::Abi::FTransform& Value) {
+        ::FTransform Transform{};
         Transform.mLocation = Script::Abi::FromAbi(Value.mLocation);
         Transform.mRotation = Script::Abi::FromAbi(Value.mRotation);
         Transform.mScale = Script::Abi::FromAbi(Value.mScale);

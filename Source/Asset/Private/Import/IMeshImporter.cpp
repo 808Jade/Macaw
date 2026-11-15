@@ -71,40 +71,40 @@ namespace Asset {
             }
         }
 
-        for (const Core::FVector& Normal : MeshData.GetNormals()) {
+        for (const FVector& Normal : MeshData.GetNormals()) {
             if (!Normal.IsFinite()) {
                 return false;
             }
         }
 
-        for (const Core::FVector4& Tangent : MeshData.GetTangents()) {
+        for (const FVector4& Tangent : MeshData.GetTangents()) {
             if (!Tangent.IsFinite()) {
                 return false;
             }
         }
 
-        for (const Core::FVector4& Color : MeshData.GetColors()) {
+        for (const FVector4& Color : MeshData.GetColors()) {
             if (!Color.IsFinite()) {
                 return false;
             }
         }
 
-        for (const Core::TArray<Core::FVector2>& Channel : MeshData.GetUVChannels()) {
+        for (const Core::TArray<FVector2>& Channel : MeshData.GetUVChannels()) {
             if (Channel.size() != VertexCount) {
                 return false;
             }
 
-            for (const Core::FVector2& UV : Channel) {
+            for (const FVector2& UV : Channel) {
                 if (!UV.IsFinite()) {
                     return false;
                 }
             }
         }
 
-        Core::FVector Minimum{MeshData.GetPositions().front()};
-        Core::FVector Maximum{Minimum};
+        FVector Minimum{MeshData.GetPositions().front()};
+        FVector Maximum{Minimum};
 
-        for (const Core::FVector& Position : MeshData.GetPositions()) {
+        for (const FVector& Position : MeshData.GetPositions()) {
             if (!Position.IsFinite()) {
                 return false;
             }

@@ -32,12 +32,12 @@ namespace Engine {
         /**
          * @brief 로컬 쿼드의 가로·세로 월드 크기입니다.
          */
-        Core::FVector2 mSize{2.0f, 2.0f};
+        FVector2 mSize{2.0f, 2.0f};
 
         /**
          * @brief 표시할 RGBA 색상입니다.
          */
-        Core::FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 카메라의 오른쪽·위쪽 축에 쿼드를 맞출지 여부입니다.

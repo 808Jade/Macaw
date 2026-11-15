@@ -69,7 +69,7 @@ namespace Asset {
          * @brief 이동·회전·균일 스케일 옵션을 엔진 공간에서 적용하는 행렬을 만듭니다.
          * @return 스케일, 회전, 이동 순서로 적용하는 행 벡터 규약의 행렬입니다.
          */
-        Core::FMatrix GetImportTransform() const;
+        FMatrix GetImportTransform() const;
 
         /**
          * @brief 옵션 값이 임포트에 사용할 수 있는지 확인합니다.
@@ -94,13 +94,13 @@ namespace Asset {
          * @brief 축 변환 뒤 엔진 공간에서 정점에 더할 이동입니다.
          */
         UPROPERTY(Edit)
-        Core::FVector mImportTranslation{};
+        FVector mImportTranslation{};
 
         /**
          * @brief 축 변환 뒤 엔진 공간에서 정점에 적용할 회전입니다.
          */
         UPROPERTY(Edit)
-        Core::FRotator mImportRotation{};
+        FRotator mImportRotation{};
 
         /**
          * @brief 축 변환 뒤 엔진 공간에서 정점에 적용할 균일 스케일입니다.

@@ -461,7 +461,7 @@ namespace Editor {
     /**
      * @brief 뷰포트 이미지 위에 입력을 받지 않는 통계 내용을 그립니다.
      */
-    void Editor::FViewportStatistics::Draw(float, const Engine::UWorld*, const RenderCore::FRenderStats&, const Core::FVector2& Origin, const Core::FVector2& Size, ImDrawList* DrawList) const {
+    void Editor::FViewportStatistics::Draw(float, const Engine::UWorld*, const RenderCore::FRenderStats&, const FVector2& Origin, const FVector2& Size, ImDrawList* DrawList) const {
         if (!IsVisible() || Size.x < 1.0f || Size.y < 1.0f) {
             return;
         }

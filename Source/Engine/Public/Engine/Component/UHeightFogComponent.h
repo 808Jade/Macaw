@@ -120,21 +120,21 @@ namespace Engine {
          * @brief 기본 산란에 사용할 안개 색상을 반환합니다.
          * @return 컴포넌트가 보관하는 산란 RGBA 색상의 읽기 전용 참조입니다.
          */
-        const Core::FVector4& GetFogInscatteringColor() const;
+        const FVector4& GetFogInscatteringColor() const;
 
         /**
          * @brief 각 채널이 유한한 0~1 범위인 산란 색상을 적용하고 장면을 갱신합니다.
          * @param[in] Color 적용할 RGBA 색상입니다.
          * @return 모든 채널이 유효하면 true이며 하나라도 유효하지 않으면 false입니다.
          */
-        bool SetFogInscatteringColor(const Core::FVector4& Color);
+        bool SetFogInscatteringColor(const FVector4& Color);
 
         /**
          * @brief 유효한 공간 변환을 적용하고 안개 기준 높이와 아이콘 위치를 장면에 반영합니다.
          * @param[in] Transform 유효한 위치·정규화 회전·비특이 크기를 가진 루트 변환입니다.
          * @return 변환을 수락하면 true이며 유효하지 않으면 false입니다.
          */
-        bool SetTransform(const Core::FTransform& Transform) override;
+        bool SetTransform(const FTransform& Transform) override;
 
         /**
          * @brief 렌더 장면의 안개와 아이콘 참조를 정리한 뒤 기반 컴포넌트의 등록을 해제합니다.
@@ -209,7 +209,7 @@ namespace Engine {
          * @brief 장면 색상과 혼합할 기본 산란 색상이며 각 RGBA 채널은 0~1 범위입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetFogInscatteringColor, Setter = SetFogInscatteringColor)
-        Core::FVector4 mFogInscatteringColor{0.65f, 0.75f, 0.85f, 1.0f};
+        FVector4 mFogInscatteringColor{0.65f, 0.75f, 0.85f, 1.0f};
 
         /**
          * @brief 프로젝트 에셋 또는 대체 텍스처가 소유하는 언리얼 안개 아이콘의 비소유 주소입니다.

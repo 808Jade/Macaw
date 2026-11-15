@@ -26,7 +26,7 @@ namespace Asset {
          * @param Alpha 0~1의 보간 가중치입니다.
          * @return 보간한 트랙 로컬 변환입니다.
          */
-        Core::FTransform SampleAnimationTrack(const Asset::FRawAnimSequenceTrack& Track, Core::Index_t Key, Core::Index_t NextKey, float Alpha) {
+        FTransform SampleAnimationTrack(const Asset::FRawAnimSequenceTrack& Track, Core::Index_t Key, Core::Index_t NextKey, float Alpha) {
             return {Track.mPosKeys.size() == 1 ? Track.mPosKeys[0] : Track.mPosKeys[Key] + (Track.mPosKeys[NextKey] - Track.mPosKeys[Key]) * Alpha, Track.mRotKeys.size() == 1 ? Track.mRotKeys[0] : Track.mRotKeys[Key].Slerp(Track.mRotKeys[NextKey], Alpha), Track.mScaleKeys.size() == 1 ? Track.mScaleKeys[0] : Track.mScaleKeys[Key] + (Track.mScaleKeys[NextKey] - Track.mScaleKeys[Key]) * Alpha};
         }
 
@@ -36,7 +36,7 @@ namespace Asset {
          * @param B 다음으로 적용하거나 비교할 변환입니다.
          * @return A 다음 B를 적용하는 루트 모션 변환입니다.
          */
-        Core::FTransform ComposeRootMotion(const Core::FTransform& A, const Core::FTransform& B) {
+        FTransform ComposeRootMotion(const FTransform& A, const FTransform& B) {
             return {A.mLocation + A.mRotation.RotateVector(B.mLocation), (A.mRotation * B.mRotation).Normalized(), {1.0f, 1.0f, 1.0f}};
         }
     }
@@ -99,7 +99,7 @@ namespace Asset {
         return true;
     }
 
-    Core::FTransform UAnimSequence::SampleTrackTransform(Core::Index_t TrackIndex, double Time) const {
+    FTransform UAnimSequence::SampleTrackTransform(Core::Index_t TrackIndex, double Time) const {
         const auto& Tracks{mDataModel.GetBoneAnimationTracks()};
 
         if (TrackIndex < 0 || TrackIndex >= Tracks.size()) {
@@ -117,11 +117,11 @@ namespace Asset {
         return SampleAnimationTrack(Tracks[TrackIndex].mInternalTrack, Key, NextKey, Alpha);
     }
 
-    Core::FTransform UAnimSequence::GetRootTrackTransform(Core::Index_t TrackIndex, double Time) const {
-        return TrackIndex >= 0 ? SampleTrackTransform(TrackIndex, Time) : Core::FTransform{};
+    FTransform UAnimSequence::GetRootTrackTransform(Core::Index_t TrackIndex, double Time) const {
+        return TrackIndex >= 0 ? SampleTrackTransform(TrackIndex, Time) : FTransform{};
     }
 
-    Core::FTransform UAnimSequence::GetRootLockTransform(Core::Index_t TrackIndex, const Core::FTransform& ReferencePose) const {
+    FTransform UAnimSequence::GetRootLockTransform(Core::Index_t TrackIndex, const FTransform& ReferencePose) const {
         switch (mRootMotionRootLock) {
         case Asset::ERootMotionRootLock::RefPose:
             return ReferencePose;
@@ -134,19 +134,19 @@ namespace Asset {
         return ReferencePose;
     }
 
-    Core::FTransform UAnimSequence::ExtractRootMotionFromRange(Core::Index_t TrackIndex, double StartTime, double EndTime) const {
+    FTransform UAnimSequence::ExtractRootMotionFromRange(Core::Index_t TrackIndex, double StartTime, double EndTime) const {
         if (TrackIndex < 0 || TrackIndex >= mDataModel.GetBoneAnimationTracks().size() || !std::isfinite(StartTime) || !std::isfinite(EndTime)) {
             return {};
         }
 
-        const Core::FTransform Start{GetRootTrackTransform(TrackIndex, StartTime)};
-        const Core::FTransform End{GetRootTrackTransform(TrackIndex, EndTime)};
-        const Core::FQuat Inverse{Start.mRotation.Inverse()};
+        const FTransform Start{GetRootTrackTransform(TrackIndex, StartTime)};
+        const FTransform End{GetRootTrackTransform(TrackIndex, EndTime)};
+        const FQuat Inverse{Start.mRotation.Inverse()};
 
         return {Inverse.RotateVector(End.mLocation - Start.mLocation), (Inverse * End.mRotation).Normalized(), {1.0f, 1.0f, 1.0f}};
     }
 
-    Core::FTransform UAnimSequence::ExtractRootMotion(Core::Index_t TrackIndex, double StartTime, double DeltaTime, bool Looping) const {
+    FTransform UAnimSequence::ExtractRootMotion(Core::Index_t TrackIndex, double StartTime, double DeltaTime, bool Looping) const {
         const double Length{GetPlayLength()};
 
         if (Length <= 0.0 || !std::isfinite(StartTime) || !std::isfinite(DeltaTime) || DeltaTime == 0.0) {
@@ -171,7 +171,7 @@ namespace Asset {
             return ExtractRootMotionFromRange(TrackIndex, StartTime, StartTime + DeltaTime);
         }
 
-        Core::FTransform Result{ExtractRootMotionFromRange(TrackIndex, StartTime, Forward ? Length : 0.0)};
+        FTransform Result{ExtractRootMotionFromRange(TrackIndex, StartTime, Forward ? Length : 0.0)};
         Remaining -= FirstDistance;
 
         double Cycles{std::floor(Remaining / Length)};
@@ -180,7 +180,7 @@ namespace Asset {
             return {};
         }
 
-        Core::FTransform Cycle{ExtractRootMotionFromRange(TrackIndex, Forward ? 0.0 : Length, Forward ? Length : 0.0)};
+        FTransform Cycle{ExtractRootMotionFromRange(TrackIndex, Forward ? 0.0 : Length, Forward ? Length : 0.0)};
 
         while (Cycles >= 1.0) {
             if (std::fmod(Cycles, 2.0) >= 1.0) {
@@ -196,7 +196,7 @@ namespace Asset {
         return ComposeRootMotion(Result, ExtractRootMotionFromRange(TrackIndex, Forward ? 0.0 : Length, Forward ? Tail : Length - Tail));
     }
 
-    void UAnimSequence::GetTrackPose(double Time, bool Looping, Core::TArray<Core::FTransform>& OutTrackPose) const {
+    void UAnimSequence::GetTrackPose(double Time, bool Looping, Core::TArray<FTransform>& OutTrackPose) const {
         const auto& Tracks{mDataModel.GetBoneAnimationTracks()};
         const double Length{mDataModel.GetPlayLength()};
 

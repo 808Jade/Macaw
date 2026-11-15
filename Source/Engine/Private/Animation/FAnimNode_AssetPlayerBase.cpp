@@ -45,11 +45,11 @@ namespace Engine {
         return mAssetTimeDelta;
     }
 
-    Core::FTransform FAnimNode_AssetPlayerBase::GetRootMotionDelta() const {
+    FTransform FAnimNode_AssetPlayerBase::GetRootMotionDelta() const {
         return mRootMotionDelta;
     }
 
-    void FAnimNode_AssetPlayerBase::SetRootMotionDelta(const Core::FTransform& Delta) {
+    void FAnimNode_AssetPlayerBase::SetRootMotionDelta(const FTransform& Delta) {
         mRootMotionDelta = Delta;
     }
 

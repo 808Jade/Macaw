@@ -75,14 +75,14 @@ namespace Asset {
     /**
      * @brief 머티리얼 기본 RGBA 색상을 반환합니다.
      */
-    const Core::FVector4& Asset::UMaterial::GetBaseColor() const {
+    const FVector4& Asset::UMaterial::GetBaseColor() const {
         return mBaseColor;
     }
 
     /**
      * @brief 머티리얼 기본 RGBA 색상을 설정합니다.
      */
-    bool Asset::UMaterial::SetBaseColor(const Core::FVector4& Color) {
+    bool Asset::UMaterial::SetBaseColor(const FVector4& Color) {
         const auto Values{Color.ToArray()};
 
         if (!std::all_of(Values.begin(), Values.end(), [](float Value) {
@@ -371,14 +371,14 @@ namespace Asset {
     /**
      * @brief 정반사 색상 값을 반환합니다.
      */
-    const Core::FVector4& Asset::UMaterial::GetSpecularColor() const {
+    const FVector4& Asset::UMaterial::GetSpecularColor() const {
         return mSpecularColor;
     }
 
     /**
      * @brief 정반사 색상 값을 검증해 적용하고 렌더 상태를 갱신합니다.
      */
-    bool Asset::UMaterial::SetSpecularColor(const Core::FVector4& Color) {
+    bool Asset::UMaterial::SetSpecularColor(const FVector4& Color) {
         if (!Color.IsFinite() || Color.x < 0.0f || Color.y < 0.0f || Color.z < 0.0f || Color.w < 0.0f || Color.w > 1.0f) {
             return false;
         }
@@ -392,14 +392,14 @@ namespace Asset {
     /**
      * @brief 주변광 색상 값을 반환합니다.
      */
-    const Core::FVector4& Asset::UMaterial::GetAmbientColor() const {
+    const FVector4& Asset::UMaterial::GetAmbientColor() const {
         return mAmbientColor;
     }
 
     /**
      * @brief 주변광 색상 값을 검증해 적용하고 렌더 상태를 갱신합니다.
      */
-    bool Asset::UMaterial::SetAmbientColor(const Core::FVector4& Color) {
+    bool Asset::UMaterial::SetAmbientColor(const FVector4& Color) {
         if (!Color.IsFinite() || Color.x < 0.0f || Color.y < 0.0f || Color.z < 0.0f || Color.w < 0.0f || Color.w > 1.0f) {
             return false;
         }
@@ -413,14 +413,14 @@ namespace Asset {
     /**
      * @brief 자체 발광 색상 값을 반환합니다.
      */
-    const Core::FVector4& Asset::UMaterial::GetEmissiveColor() const {
+    const FVector4& Asset::UMaterial::GetEmissiveColor() const {
         return mEmissiveColor;
     }
 
     /**
      * @brief 자체 발광 색상 값을 검증해 적용하고 렌더 상태를 갱신합니다.
      */
-    bool Asset::UMaterial::SetEmissiveColor(const Core::FVector4& Color) {
+    bool Asset::UMaterial::SetEmissiveColor(const FVector4& Color) {
         if (!Color.IsFinite() || Color.x < 0.0f || Color.y < 0.0f || Color.z < 0.0f || Color.w < 0.0f || Color.w > 1.0f) {
             return false;
         }
@@ -434,14 +434,14 @@ namespace Asset {
     /**
      * @brief 환경 반사 색상 값을 반환합니다.
      */
-    const Core::FVector4& Asset::UMaterial::GetReflectionColor() const {
+    const FVector4& Asset::UMaterial::GetReflectionColor() const {
         return mReflectionColor;
     }
 
     /**
      * @brief 환경 반사 색상 값을 검증해 적용하고 렌더 상태를 갱신합니다.
      */
-    bool Asset::UMaterial::SetReflectionColor(const Core::FVector4& Color) {
+    bool Asset::UMaterial::SetReflectionColor(const FVector4& Color) {
         if (!Color.IsFinite() || Color.x < 0.0f || Color.y < 0.0f || Color.z < 0.0f || Color.w < 0.0f || Color.w > 1.0f) {
             return false;
         }

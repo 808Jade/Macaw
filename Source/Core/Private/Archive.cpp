@@ -151,7 +151,7 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FVector2& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, FVector2& Value) {
         if (BeginObject(Name)) {
             Serialize("X", Value.x);
             Serialize("Y", Value.y);
@@ -163,25 +163,11 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FVector& Value) {
-        if (BeginObject(Name)) {
-            Serialize("X", Value.x);
-            Serialize("Y", Value.y);
-            Serialize("Z", Value.z);
-
-            EndObject();
-        }
-    }
-
-    /**
-     * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
-     */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FVector4& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, FVector& Value) {
         if (BeginObject(Name)) {
             Serialize("X", Value.x);
             Serialize("Y", Value.y);
             Serialize("Z", Value.z);
-            Serialize("W", Value.w);
 
             EndObject();
         }
@@ -190,7 +176,7 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FQuat& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, FVector4& Value) {
         if (BeginObject(Name)) {
             Serialize("X", Value.x);
             Serialize("Y", Value.y);
@@ -204,7 +190,21 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FRotator& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, FQuat& Value) {
+        if (BeginObject(Name)) {
+            Serialize("X", Value.x);
+            Serialize("Y", Value.y);
+            Serialize("Z", Value.z);
+            Serialize("W", Value.w);
+
+            EndObject();
+        }
+    }
+
+    /**
+     * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
+     */
+    void Core::FArchive::Serialize(std::string_view Name, FRotator& Value) {
         if (BeginObject(Name)) {
             Serialize("Pitch", Value.pitch);
             Serialize("Yaw", Value.yaw);
@@ -217,7 +217,7 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FMatrix& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, FMatrix& Value) {
         if (BeginObject(Name)) {
             for (Core::Index_t Row{}; Row < 4; ++Row) {
                 for (Core::Index_t Column{}; Column < 4; ++Column) {
@@ -232,11 +232,11 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FTransform& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, FTransform& Value) {
         if (BeginObject(Name)) {
             Serialize("Location", Value.mLocation);
 
-            Core::FRotator Rotation{Value.GetRotator()};
+            FRotator Rotation{Value.GetRotator()};
 
             Serialize("Rotation", Rotation);
 
@@ -257,7 +257,7 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FBox& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, FBox& Value) {
         if (BeginObject(Name)) {
             Serialize("Minimum", Value.mMinimum);
             Serialize("Maximum", Value.mMaximum);
@@ -269,7 +269,7 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::FRay& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, FRay& Value) {
         if (BeginObject(Name)) {
             Serialize("Origin", Value.mOrigin);
             Serialize("Direction", Value.mDirection);

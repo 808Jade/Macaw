@@ -26,61 +26,61 @@ namespace Asset {
          * @brief 정점별 위치 벡터 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        Core::TArray<Core::FVector>& GetPositions();
+        Core::TArray<FVector>& GetPositions();
 
         /**
          * @brief 정점별 위치 벡터 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::TArray<Core::FVector>& GetPositions() const;
+        const Core::TArray<FVector>& GetPositions() const;
 
         /**
          * @brief 정점별 법선 벡터 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        Core::TArray<Core::FVector>& GetNormals();
+        Core::TArray<FVector>& GetNormals();
 
         /**
          * @brief 정점별 법선 벡터 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::TArray<Core::FVector>& GetNormals() const;
+        const Core::TArray<FVector>& GetNormals() const;
 
         /**
          * @brief 정점별 탄젠트와 방향 부호 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        Core::TArray<Core::FVector4>& GetTangents();
+        Core::TArray<FVector4>& GetTangents();
 
         /**
          * @brief 정점별 탄젠트와 방향 부호 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::TArray<Core::FVector4>& GetTangents() const;
+        const Core::TArray<FVector4>& GetTangents() const;
 
         /**
          * @brief 채널별 정점 UV 좌표 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        Core::TArray<Core::TArray<Core::FVector2>>& GetUVChannels();
+        Core::TArray<Core::TArray<FVector2>>& GetUVChannels();
 
         /**
          * @brief 채널별 정점 UV 좌표 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::TArray<Core::TArray<Core::FVector2>>& GetUVChannels() const;
+        const Core::TArray<Core::TArray<FVector2>>& GetUVChannels() const;
 
         /**
          * @brief 정점별 색상 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        Core::TArray<Core::FVector4>& GetColors();
+        Core::TArray<FVector4>& GetColors();
 
         /**
          * @brief 정점별 색상 배열의 참조를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::TArray<Core::FVector4>& GetColors() const;
+        const Core::TArray<FVector4>& GetColors() const;
 
         /**
          * @brief 삼각형을 구성하는 정점 인덱스 배열의 참조를 반환합니다.
@@ -98,7 +98,7 @@ namespace Asset {
          * @brief 메시의 로컬 공간 경계 상자를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::FBox& GetBounds() const;
+        const FBox& GetBounds() const;
 
         /**
          * @brief 재질별 인덱스 구간을 반환합니다.
@@ -128,7 +128,7 @@ namespace Asset {
          * @brief 메시의 로컬 공간 경계 상자를 교체합니다.
          * @param[in] Bounds 메시에 설정할 로컬 공간 경계 상자입니다.
          */
-        void SetBounds(const Core::FBox& Bounds);
+        void SetBounds(const FBox& Bounds);
 
         /**
          * @brief 현재 정점 위치를 모두 감싸는 로컬 공간 경계 상자를 계산해 설정합니다.
@@ -145,27 +145,27 @@ namespace Asset {
         /**
          * @brief CPU 위치·법선 정점 목록입니다.
          */
-        Core::TArray<Core::FVector> mPositions{};
+        Core::TArray<FVector> mPositions{};
 
         /**
          * @brief 정점별 법선 벡터 배열입니다.
          */
-        Core::TArray<Core::FVector> mNormals{};
+        Core::TArray<FVector> mNormals{};
 
         /**
          * @brief 정점별 탄젠트 벡터와 방향 부호 배열입니다.
          */
-        Core::TArray<Core::FVector4> mTangents{};
+        Core::TArray<FVector4> mTangents{};
 
         /**
          * @brief 채널별로 보관하는 정점 UV 좌표 배열입니다.
          */
-        Core::TArray<Core::TArray<Core::FVector2>> mUVChannels{};
+        Core::TArray<Core::TArray<FVector2>> mUVChannels{};
 
         /**
          * @brief 정점별 RGBA 색상 배열입니다.
          */
-        Core::TArray<Core::FVector4> mColors{};
+        Core::TArray<FVector4> mColors{};
 
         /**
          * @brief 삼각형을 구성하는 정점 인덱스 목록입니다.
@@ -175,7 +175,7 @@ namespace Asset {
         /**
          * @brief 축 정렬 경계 상자입니다.
          */
-        Core::FBox mBounds{};
+        FBox mBounds{};
 
         /**
          * @brief 공유 인덱스 버퍼를 분할하는 재질별 구간입니다.

@@ -31,42 +31,42 @@ namespace Engine {
          * @brief 파티클의 현재 위치 속성을 직접 수정할 수 있도록 반환합니다.
          * @return 이 파티클이 보관하는 값의 수정 가능한 참조입니다.
          */
-        Core::FVector& GetLocation();
+        FVector& GetLocation();
         /**
          * @brief 파티클의 현재 위치 속성을 읽습니다.
          * @return 이 파티클이 보관하는 값의 읽기 전용 참조입니다.
          */
-        const Core::FVector& GetLocation() const;
+        const FVector& GetLocation() const;
         /**
          * @brief 파티클의 현재 속도 속성을 직접 수정할 수 있도록 반환합니다.
          * @return 이 파티클이 보관하는 값의 수정 가능한 참조입니다.
          */
-        Core::FVector& GetVelocity();
+        FVector& GetVelocity();
         /**
          * @brief 파티클의 현재 속도 속성을 읽습니다.
          * @return 이 파티클이 보관하는 값의 읽기 전용 참조입니다.
          */
-        const Core::FVector& GetVelocity() const;
+        const FVector& GetVelocity() const;
         /**
          * @brief 파티클의 축별 크기 속성을 직접 수정할 수 있도록 반환합니다.
          * @return 이 파티클이 보관하는 값의 수정 가능한 참조입니다.
          */
-        Core::FVector& GetSize();
+        FVector& GetSize();
         /**
          * @brief 파티클의 축별 크기 속성을 읽습니다.
          * @return 이 파티클이 보관하는 값의 읽기 전용 참조입니다.
          */
-        const Core::FVector& GetSize() const;
+        const FVector& GetSize() const;
         /**
          * @brief 파티클의 알파를 포함한 RGBA 색상 속성을 직접 수정할 수 있도록 반환합니다.
          * @return 이 파티클이 보관하는 값의 수정 가능한 참조입니다.
          */
-        Core::FVector4& GetColor();
+        FVector4& GetColor();
         /**
          * @brief 파티클의 알파를 포함한 RGBA 색상 속성을 읽습니다.
          * @return 이 파티클이 보관하는 값의 읽기 전용 참조입니다.
          */
-        const Core::FVector4& GetColor() const;
+        const FVector4& GetColor() const;
 
         /**
          * @brief 파티클의 수명 대비 정규화된 경과 시간 속성을 직접 수정할 수 있도록 반환합니다.
@@ -113,19 +113,19 @@ namespace Engine {
         /**
          * @brief 파티클의 현재 위치입니다.
          */
-        Core::FVector mLocation{};
+        FVector mLocation{};
         /**
          * @brief 파티클의 현재 속도입니다.
          */
-        Core::FVector mVelocity{};
+        FVector mVelocity{};
         /**
          * @brief 파티클의 축별 크기입니다.
          */
-        Core::FVector mSize{1.0f, 1.0f, 1.0f};
+        FVector mSize{1.0f, 1.0f, 1.0f};
         /**
          * @brief 파티클의 알파를 포함한 RGBA 색상입니다.
          */
-        Core::FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
         /**
          * @brief 파티클의 수명 대비 정규화된 경과 시간입니다.
          */

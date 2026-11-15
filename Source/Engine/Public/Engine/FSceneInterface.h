@@ -9,10 +9,8 @@
 #include "Core/ReflectionMacros.h"
 #include "Core/Guid.h"
 
-namespace Core {
-    struct FMatrix;
-    struct FBox;
-}
+struct FMatrix;
+struct FBox;
 
 namespace Engine {
 
@@ -83,7 +81,7 @@ namespace Engine {
          * @param[in] World 프리미티브의 새 월드 변환 행렬입니다.
          * @param[in] Bounds 프리미티브의 새 월드 경계 상자입니다.
          */
-        virtual void UpdatePrimitiveTransform(const Core::FGuid& Id, const Core::FMatrix& World, const Core::FBox& Bounds) = 0;
+        virtual void UpdatePrimitiveTransform(const Core::FGuid& Id, const FMatrix& World, const FBox& Bounds) = 0;
 
         /**
          * @brief 식별자에 해당하는 프리미티브와 관련 GPU 리소스를 제거합니다.

@@ -18,9 +18,7 @@ namespace Asset {
     class UStaticMesh;
 }
 
-namespace Core {
-    struct FBox;
-}
+struct FBox;
 
 namespace Engine {
 
@@ -70,7 +68,7 @@ namespace Engine {
          * @param[in] Transform 적용할 위치, 회전과 스케일입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool SetTransform(const Core::FTransform& Transform) override;
+        bool SetTransform(const FTransform& Transform) override;
 
         /**
          * @brief 프리미티브 프록시 재생성이 필요함을 표시하고 갱신을 예약합니다.
@@ -115,7 +113,7 @@ namespace Engine {
          * @brief 월드 공간의 축 정렬 경계 상자를 반환합니다.
          * @return 월드 공간의 축 정렬 경계 상자입니다.
          */
-        virtual Core::FBox GetWorldBounds() const;
+        virtual FBox GetWorldBounds() const;
 
         /**
          * @brief 현재 표시·에셋 상태에서 렌더 프록시를 생성할지 판정합니다.
@@ -130,7 +128,7 @@ namespace Engine {
          * @param[in] Source UV 제어자의 유효한 세대 핸들입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetUVTransform(const Core::FVector2& Scale, const Core::FVector2& Offset, CoreUObject::TObjectRef<CoreUObject::UObject> Source);
+        bool SetUVTransform(const FVector2& Scale, const FVector2& Offset, CoreUObject::TObjectRef<CoreUObject::UObject> Source);
 
         /**
          * @brief 요청한 제어자가 설정한 UV만 기본 변환으로 복원합니다.
@@ -142,13 +140,13 @@ namespace Engine {
          * @brief 기본 UV에 곱할 셀 크기를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector2& GetUVScale() const;
+        const FVector2& GetUVScale() const;
 
         /**
          * @brief 기본 UV에 더할 셀 원점을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector2& GetUVOffset() const;
+        const FVector2& GetUVOffset() const;
 
         /**
          * @brief 프리미티브의 그림자 생성 여부를 반환합니다.
@@ -238,12 +236,12 @@ namespace Engine {
         /**
          * @brief 기본 UV에 곱할 셀 크기입니다.
          */
-        Core::FVector2 mUVScale{1.0f, 1.0f};
+        FVector2 mUVScale{1.0f, 1.0f};
 
         /**
          * @brief 기본 UV에 더할 셀 원점입니다.
          */
-        Core::FVector2 mUVOffset{};
+        FVector2 mUVOffset{};
 
         /**
          * @brief 현재 UV 변환을 제어하는 컴포넌트 핸들입니다.

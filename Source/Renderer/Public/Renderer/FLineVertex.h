@@ -33,17 +33,17 @@ namespace Renderer {
         /**
          * @brief 시작점 XYZ와 픽셀 두께 W입니다.
          */
-        Core::FVector4 mStartAndWidth{};
+        FVector4 mStartAndWidth{};
 
         /**
          * @brief 선분의 끝점입니다.
          */
-        Core::FVector4 mEnd{};
+        FVector4 mEnd{};
 
         /**
          * @brief 표시할 RGBA 색상입니다.
          */
-        Core::FVector4 mColor{};
+        FVector4 mColor{};
     };
 
     static_assert(std::is_standard_layout_v<Renderer::FLineVertex> && std::is_trivially_copyable_v<Renderer::FLineVertex> && sizeof(Renderer::FLineVertex) == 48);

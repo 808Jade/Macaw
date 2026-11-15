@@ -99,7 +99,7 @@ namespace {
         Core::FString Name{"Legacy"};
         Core::FString Shader{"Shaders/Lit.hlsl"};
         Core::FString Empty{};
-        Core::FVector4 Color{1.0f, 1.0f, 1.0f, 0.5f};
+        FVector4 Color{1.0f, 1.0f, 1.0f, 0.5f};
         float Specular{0.35f};
         float Shininess{32.0f};
         float NormalStrength{1.0f};
@@ -141,14 +141,14 @@ namespace {
         Engine::FPrimitiveSceneProxy Proxy{};
         Proxy.mMesh = &Mesh;
         Proxy.mMaterial = &Material;
-        Proxy.mWorld = Core::FMatrix::Translation({0.0f, 0.0f, Depth});
+        Proxy.mWorld = FMatrix::Translation({0.0f, 0.0f, Depth});
         Proxy.mBounds = {{-0.9f, -0.9f, Depth}, {0.9f, 0.9f, Depth}};
         Proxy.mCastShadow = false;
 
         return Proxy;
     }
 
-    Core::FVector4 ReadCenter(Renderer::FRenderer& Renderer, Engine::FRenderTarget& Target) {
+    FVector4 ReadCenter(Renderer::FRenderer& Renderer, Engine::FRenderTarget& Target) {
         auto* Device{static_cast<ID3D11Device*>(Renderer.GetNativeDevice())};
         auto* Context{static_cast<ID3D11DeviceContext*>(Renderer.GetNativeContext())};
         auto* Native{static_cast<Renderer::FDXRenderTarget*>(&Target)};
@@ -165,15 +165,15 @@ namespace {
         D3D11_MAPPED_SUBRESOURCE Mapped{};
         Require(SUCCEEDED(Context->Map(Staging.Get(), 0, D3D11_MAP_READ, 0, &Mapped)), "Read rendered pixels");
         const auto* Pixel{static_cast<const Core::Uint8*>(Mapped.pData) + 32 * Mapped.RowPitch + 32 * 4};
-        const Core::FVector4 Color{Pixel[0] / 255.0f, Pixel[1] / 255.0f, Pixel[2] / 255.0f, Pixel[3] / 255.0f};
+        const FVector4 Color{Pixel[0] / 255.0f, Pixel[1] / 255.0f, Pixel[2] / 255.0f, Pixel[3] / 255.0f};
         Context->Unmap(Staging.Get(), 0);
 
         return Color;
     }
 
-    void RequireColor(Renderer::FRenderer& Renderer, Engine::FSceneViewFamily& Family, const Core::FVector& Expected, const Core::FString& Message) {
+    void RequireColor(Renderer::FRenderer& Renderer, Engine::FSceneViewFamily& Family, const FVector& Expected, const Core::FString& Message) {
         Renderer.BeginRenderingViewFamily(Family);
-        const Core::FVector4 Color{ReadCenter(Renderer, *Family.mTarget)};
+        const FVector4 Color{ReadCenter(Renderer, *Family.mTarget)};
         std::cout << "COLOR " << Color.x << ' ' << Color.y << ' ' << Color.z << '\n';
         Require(std::abs(Color.x - Expected.x) < 0.015f && std::abs(Color.y - Expected.y) < 0.015f && std::abs(Color.z - Expected.z) < 0.015f, Message);
     }
@@ -230,14 +230,14 @@ namespace {
         auto Texture{CoreUObject::NewObject<Asset::UTexture2D>()};
         Require(Texture->SetPixels(1, 1, Asset::ETextureFormat::RGBA8, {255, 255, 255, 255}), "Create sprite texture");
         Engine::FPrimitiveSceneProxy Sprite{};
-        Sprite.mWorld = Core::FMatrix::Translation({0.0f, 0.0f, 0.4f});
+        Sprite.mWorld = FMatrix::Translation({0.0f, 0.0f, 0.4f});
         Sprite.mSprite.emplace();
         Sprite.mSprite->mTexture = Texture.get();
         Sprite.mSprite->mColor = {1.0f, 1.0f, 0.0f, 0.5f};
         Sprite.mCastShadow = false;
         Scene->AddPrimitive(Sprite);
         RequireColor(Renderer, Family, {0.375f, 0.75f, 0.125f}, "Sprite between translucent meshes shares the same depth ordering");
-        Sprite.mWorld = Core::FMatrix::Translation({0.0f, 0.0f, 0.1f});
+        Sprite.mWorld = FMatrix::Translation({0.0f, 0.0f, 0.1f});
         Scene->AddPrimitive(Sprite);
         RequireColor(Renderer, Family, {0.625f, 0.75f, 0.125f}, "Moving a sprite updates ordering against translucent meshes");
         Family.mShowFlags.mSprites = false;

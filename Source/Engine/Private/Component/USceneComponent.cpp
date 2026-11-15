@@ -24,14 +24,14 @@ namespace Engine {
     /**
      * @brief 컴포넌트의 위치·회전·스케일을 반환합니다.
      */
-    const Core::FTransform& Engine::USceneComponent::GetTransform() const {
+    const FTransform& Engine::USceneComponent::GetTransform() const {
         return mTransform;
     }
 
     /**
      * @brief 유한하고 유효한 변환을 검증하여 공간 컴포넌트에 적용합니다.
      */
-    bool Engine::USceneComponent::SetTransform(const Core::FTransform& Transform) {
+    bool Engine::USceneComponent::SetTransform(const FTransform& Transform) {
         if (!Transform.IsValid()) {
             return false;
         }
@@ -44,7 +44,7 @@ namespace Engine {
     /**
      * @brief 위치, 회전과 스케일이 적용된 월드 행렬을 반환합니다.
      */
-    Core::FMatrix Engine::USceneComponent::GetWorldMatrix() const {
+    FMatrix Engine::USceneComponent::GetWorldMatrix() const {
         return mTransform.ToMatrix();
     }
 

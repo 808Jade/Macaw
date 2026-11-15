@@ -57,14 +57,14 @@ namespace Engine {
          * @param Skeleton 로컬 포즈를 검증하고 스키닝 행렬을 계산할 스켈레톤입니다.
          * @return 반영에 성공하면 true이며, 검증에 실패하면 기존 포즈를 유지합니다.
          */
-        bool SetLocalTransforms(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, const Core::TArray<Core::FMatrix>& LocalTransforms);
+        bool SetLocalTransforms(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, const Core::TArray<FMatrix>& LocalTransforms);
 
         /**
          * @brief 본별 로컬 변환을 검증해 저장하고 이전 메시 계산 결과를 무효화합니다.
          * @param[in] LocalTransforms 본 순서의 부모 기준 로컬 변환입니다.
          * @return 변환이 유효해 배열 또는 계산 결과를 적용하면 true입니다.
          */
-        bool SetLocalTransforms(Core::TArray<Core::FMatrix> LocalTransforms);
+        bool SetLocalTransforms(Core::TArray<FMatrix> LocalTransforms);
 
         /**
          * @brief 애니메이션이 만든 로컬 포즈로 전역 행렬과 스키닝 행렬만 다시 계산합니다.
@@ -74,7 +74,7 @@ namespace Engine {
          * @param[in] LocalTransforms 본 인덱스 순서의 부모 본 기준 변환입니다.
          * @return 본 수가 스켈레톤과 같아 적용했으면 true입니다.
          */
-        bool SetAnimatedLocalTransforms(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::TArray<Core::FMatrix> LocalTransforms);
+        bool SetAnimatedLocalTransforms(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::TArray<FMatrix> LocalTransforms);
 
         /**
          * @brief 본 하나의 로컬 변환을 교체합니다.
@@ -84,25 +84,25 @@ namespace Engine {
          * @param Skeleton 대상 본 계층과 역바인드 행렬을 제공하는 스켈레톤입니다.
          * @return 적용했으면 true입니다.
          */
-        bool SetLocalTransform(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::Index_t Bone, const Core::FMatrix& Transform);
+        bool SetLocalTransform(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::Index_t Bone, const FMatrix& Transform);
 
         /**
          * @brief 로컬 포즈를 반환합니다.
          * @return 본 인덱스순 행렬입니다.
          */
-        const Core::TArray<Core::FMatrix>& GetLocalTransforms() const;
+        const Core::TArray<FMatrix>& GetLocalTransforms() const;
 
         /**
          * @brief 메시 공간의 현재 본 변환을 반환합니다.
          * @return 본 인덱스순 전역 포즈입니다.
          */
-        const Core::TArray<Core::FMatrix>& GetGlobalTransforms() const;
+        const Core::TArray<FMatrix>& GetGlobalTransforms() const;
 
         /**
          * @brief 역바인드 행렬에 현재 전역 포즈를 곱한 결과를 반환합니다.
          * @return GPU에 전달할 스키닝 행렬입니다.
          */
-        const Core::TArray<Core::FMatrix>& GetSkinMatrices() const;
+        const Core::TArray<FMatrix>& GetSkinMatrices() const;
 
         /**
          * @brief 현재 포즈로 변형된 CPU 형상을 반환합니다.
@@ -120,17 +120,17 @@ namespace Engine {
         /**
          * @brief 부모 본 기준 현재 변환입니다.
          */
-        Core::TArray<Core::FMatrix> mLocalTransforms{};
+        Core::TArray<FMatrix> mLocalTransforms{};
 
         /**
          * @brief 메시 공간 기준 현재 변환입니다.
          */
-        Core::TArray<Core::FMatrix> mGlobalTransforms{};
+        Core::TArray<FMatrix> mGlobalTransforms{};
 
         /**
          * @brief 바인드 위치를 현재 위치로 옮기는 행렬입니다.
          */
-        Core::TArray<Core::FMatrix> mSkinMatrices{};
+        Core::TArray<FMatrix> mSkinMatrices{};
 
         /**
          * @brief CPU 피킹을 위해 현재 위치를 반영한 형상입니다.

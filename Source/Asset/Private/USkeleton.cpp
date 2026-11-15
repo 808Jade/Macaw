@@ -15,9 +15,9 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::FMatrix> GlobalBindPoses{};
-        Core::TArray<Core::FMatrix> InverseBindPoses{};
-        Core::TArray<Core::FTransform> ReferencePose(Bones.size());
+        Core::TArray<FMatrix> GlobalBindPoses{};
+        Core::TArray<FMatrix> InverseBindPoses{};
+        Core::TArray<FTransform> ReferencePose(Bones.size());
 
         GlobalBindPoses.reserve(Bones.size());
         InverseBindPoses.reserve(Bones.size());
@@ -30,8 +30,8 @@ namespace Asset {
                 return false;
             }
 
-            const Core::FMatrix Global{Parent < 0 ? Bone.GetBindPose() : Bone.GetBindPose() * GlobalBindPoses[Parent]};
-            Core::FMatrix Inverse{};
+            const FMatrix Global{Parent < 0 ? Bone.GetBindPose() : Bone.GetBindPose() * GlobalBindPoses[Parent]};
+            FMatrix Inverse{};
 
             if (!Global.IsFinite() || !Global.TryInverse(Inverse) || !Inverse.IsFinite()) {
                 return false;
@@ -56,15 +56,15 @@ namespace Asset {
         return mBones;
     }
 
-    const Core::TArray<Core::FMatrix>& USkeleton::GetGlobalBindPoses() const {
+    const Core::TArray<FMatrix>& USkeleton::GetGlobalBindPoses() const {
         return mGlobalBindPoses;
     }
 
-    const Core::TArray<Core::FMatrix>& USkeleton::GetInverseBindPoses() const {
+    const Core::TArray<FMatrix>& USkeleton::GetInverseBindPoses() const {
         return mInverseBindPoses;
     }
 
-    const Core::TArray<Core::FTransform>& USkeleton::GetReferencePose() const {
+    const Core::TArray<FTransform>& USkeleton::GetReferencePose() const {
         return mReferencePose;
     }
 

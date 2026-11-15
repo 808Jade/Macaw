@@ -202,7 +202,7 @@ namespace Editor {
                     return false;
                 }
 
-                if constexpr (std::is_same_v<FValue, Core::FTransform>) {
+                if constexpr (std::is_same_v<FValue, FTransform>) {
                     return Value.Equals(*Other, 0.0f);
                 } else if constexpr (std::is_same_v<FValue, CoreUObject::FObjectReference>) {
                     return Value.GetGuid() == Other->GetGuid();
@@ -1388,9 +1388,9 @@ namespace Editor {
         constexpr std::array Labels{"Location", "Rotation", "Scale"};
         constexpr std::array Axes{"X %.3f", "Y %.3f", "Z %.3f"};
         constexpr std::array AxisIds{"X", "Y", "Z"};
-        const auto ReadPart{[](const Core::FTransform& Transform, Core::Index_t Part) {
+        const auto ReadPart{[](const FTransform& Transform, Core::Index_t Part) {
             if (Part == 1) {
-                const Core::FRotator Rotation{Transform.GetRotator()};
+                const FRotator Rotation{Transform.GetRotator()};
 
                 return std::array<float, 3>{Rotation.roll, Rotation.pitch, Rotation.yaw};
             }
@@ -1406,7 +1406,7 @@ namespace Editor {
                 continue;
             }
 
-            const auto First{ReadPart(std::get<Core::FTransform>(Row.mProperty->ReadValue(Object)), Part)};
+            const auto First{ReadPart(std::get<FTransform>(Row.mProperty->ReadValue(Object)), Part)};
             std::array<bool, 3> Mixed{};
             bool Modified{};
 
@@ -1417,14 +1417,14 @@ namespace Editor {
                     continue;
                 }
 
-                const auto Values{ReadPart(std::get<Core::FTransform>(Row.mProperty->ReadValue(Current)), Part)};
+                const auto Values{ReadPart(std::get<FTransform>(Row.mProperty->ReadValue(Current)), Part)};
 
                 for (Core::Index_t Axis{}; Axis < Axes.size(); ++Axis) {
                     Mixed[Axis] = Mixed[Axis] || Values[Axis] != First[Axis];
                 }
 
                 if (const auto Default{GetDefaultValue(Current->GetClass(), Row.mProperty)}; Default.has_value()) {
-                    Modified = Modified || Values != ReadPart(std::get<Core::FTransform>(*Default), Part);
+                    Modified = Modified || Values != ReadPart(std::get<FTransform>(*Default), Part);
                 }
             }
 
@@ -1473,7 +1473,7 @@ namespace Editor {
                         continue;
                     }
 
-                    Core::FTransform Transform{std::get<Core::FTransform>(Row.mProperty->ReadValue(Current))};
+                    FTransform Transform{std::get<FTransform>(Row.mProperty->ReadValue(Current))};
                     auto NewPart{ReadPart(Transform, Part)};
 
                     if (Reset) {
@@ -1483,7 +1483,7 @@ namespace Editor {
                             continue;
                         }
 
-                        NewPart = ReadPart(std::get<Core::FTransform>(*Default), Part);
+                        NewPart = ReadPart(std::get<FTransform>(*Default), Part);
                     } else {
                         for (Core::Index_t Axis{}; Axis < Axes.size(); ++Axis) {
                             if (Changed[Axis]) {
@@ -1555,7 +1555,7 @@ namespace Editor {
             return Changed;
         }
 
-        if (auto* Vector2{std::get_if<Core::FVector2>(&Value)}) {
+        if (auto* Vector2{std::get_if<FVector2>(&Value)}) {
             auto Values{Vector2->ToArray()};
 
             if (ImGui::DragFloat2(Label, Values.data(), 0.025f)) {
@@ -1563,7 +1563,7 @@ namespace Editor {
 
                 return true;
             }
-        } else if (auto* Vector4{std::get_if<Core::FVector4>(&Value)}) {
+        } else if (auto* Vector4{std::get_if<FVector4>(&Value)}) {
             auto Values{Vector4->ToArray()};
 
 
@@ -1574,7 +1574,7 @@ namespace Editor {
 
                 return true;
             }
-        } else if (auto* Matrix{std::get_if<Core::FMatrix>(&Value)}) {
+        } else if (auto* Matrix{std::get_if<FMatrix>(&Value)}) {
             bool Changed{};
 
             if (ImGui::TreeNodeEx(Label, ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -1594,7 +1594,7 @@ namespace Editor {
             }
 
             return Changed;
-        } else if (auto* Vector{std::get_if<Core::FVector>(&Value)}) {
+        } else if (auto* Vector{std::get_if<FVector>(&Value)}) {
             auto Values{Vector->ToArray()};
 
             if (ImGui::DragFloat3(Label, Values.data(), 0.025f, 0.0f, 0.0f, "%.3f")) {
@@ -1602,7 +1602,7 @@ namespace Editor {
 
                 return true;
             }
-        } else if (auto* Rotation{std::get_if<Core::FRotator>(&Value)}) {
+        } else if (auto* Rotation{std::get_if<FRotator>(&Value)}) {
             auto Values{Rotation->ToArray()};
 
             if (ImGui::DragFloat3(Label, Values.data(), 0.25f, 0.0f, 0.0f, "%.2f")) {

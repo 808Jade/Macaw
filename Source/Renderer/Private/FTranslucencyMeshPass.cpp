@@ -29,8 +29,8 @@ namespace Renderer {
         Core::TArray<Renderer::FMeshDrawCommand> MeshCommands{};
         Core::Uint32 DrawCalls{};
 
-        const auto Depth{[&Family](const Core::FVector& Position, bool ScreenSpace) {
-            const Core::FVector4 Clip{Core::FVector4{Position, 1.0f} * Family.mView.mViewProjection};
+        const auto Depth{[&Family](const FVector& Position, bool ScreenSpace) {
+            const FVector4 Clip{FVector4{Position, 1.0f} * Family.mView.mViewProjection};
             const float Value{ScreenSpace ? Position.z : Clip.w > 0.0f ? Clip.z / Clip.w : -1.0f};
 
             return std::isfinite(Value) ? Value : -1.0f;
@@ -66,8 +66,8 @@ namespace Renderer {
 
             if (BuildCommands(*Scene, Family, Family.mView.mViewProjection, MeshCommands, Primitives)) {
                 for (std::size_t Index{}; Index < MeshCommands.size(); ++Index) {
-                    const Core::FBox& Bounds{MeshCommands[Index].mPrimitive->mProxy.mBounds};
-                    const Core::FVector Center{(Bounds.mMinimum + Bounds.mMaximum) * 0.5f};
+                    const FBox& Bounds{MeshCommands[Index].mPrimitive->mProxy.mBounds};
+                    const FVector Center{(Bounds.mMinimum + Bounds.mMaximum) * 0.5f};
                     Commands.emplace_back(Depth(Center, false), FPrimitive{Index});
                 }
             }

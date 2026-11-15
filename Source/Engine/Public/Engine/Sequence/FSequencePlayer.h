@@ -64,7 +64,7 @@ namespace Engine {
             /**
              * @brief 값을 처음 쓰기 전의 변환입니다.
              */
-            Core::FTransform mBaseTransform{};
+            FTransform mBaseTransform{};
 
             /**
              * @brief 원래 변환을 보관했는지 여부입니다.

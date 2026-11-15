@@ -12,70 +12,70 @@ namespace Asset {
     /**
      * @brief 정점별 위치 벡터 배열의 참조를 반환합니다.
      */
-    Core::TArray<Core::FVector>& Asset::FMeshData::GetPositions() {
+    Core::TArray<FVector>& Asset::FMeshData::GetPositions() {
         return mPositions;
     }
 
     /**
      * @brief 정점별 위치 벡터 배열의 참조를 반환합니다.
      */
-    const Core::TArray<Core::FVector>& Asset::FMeshData::GetPositions() const {
+    const Core::TArray<FVector>& Asset::FMeshData::GetPositions() const {
         return mPositions;
     }
 
     /**
      * @brief 정점별 법선 벡터 배열의 참조를 반환합니다.
      */
-    Core::TArray<Core::FVector>& Asset::FMeshData::GetNormals() {
+    Core::TArray<FVector>& Asset::FMeshData::GetNormals() {
         return mNormals;
     }
 
     /**
      * @brief 정점별 법선 벡터 배열의 참조를 반환합니다.
      */
-    const Core::TArray<Core::FVector>& Asset::FMeshData::GetNormals() const {
+    const Core::TArray<FVector>& Asset::FMeshData::GetNormals() const {
         return mNormals;
     }
 
     /**
      * @brief 정점별 탄젠트와 방향 부호 배열의 참조를 반환합니다.
      */
-    Core::TArray<Core::FVector4>& Asset::FMeshData::GetTangents() {
+    Core::TArray<FVector4>& Asset::FMeshData::GetTangents() {
         return mTangents;
     }
 
     /**
      * @brief 정점별 탄젠트와 방향 부호 배열의 참조를 반환합니다.
      */
-    const Core::TArray<Core::FVector4>& Asset::FMeshData::GetTangents() const {
+    const Core::TArray<FVector4>& Asset::FMeshData::GetTangents() const {
         return mTangents;
     }
 
     /**
      * @brief 채널별 정점 UV 좌표 배열의 참조를 반환합니다.
      */
-    Core::TArray<Core::TArray<Core::FVector2>>& Asset::FMeshData::GetUVChannels() {
+    Core::TArray<Core::TArray<FVector2>>& Asset::FMeshData::GetUVChannels() {
         return mUVChannels;
     }
 
     /**
      * @brief 채널별 정점 UV 좌표 배열의 참조를 반환합니다.
      */
-    const Core::TArray<Core::TArray<Core::FVector2>>& Asset::FMeshData::GetUVChannels() const {
+    const Core::TArray<Core::TArray<FVector2>>& Asset::FMeshData::GetUVChannels() const {
         return mUVChannels;
     }
 
     /**
      * @brief 정점별 색상 배열의 참조를 반환합니다.
      */
-    Core::TArray<Core::FVector4>& Asset::FMeshData::GetColors() {
+    Core::TArray<FVector4>& Asset::FMeshData::GetColors() {
         return mColors;
     }
 
     /**
      * @brief 정점별 색상 배열의 참조를 반환합니다.
      */
-    const Core::TArray<Core::FVector4>& Asset::FMeshData::GetColors() const {
+    const Core::TArray<FVector4>& Asset::FMeshData::GetColors() const {
         return mColors;
     }
 
@@ -96,14 +96,14 @@ namespace Asset {
     /**
      * @brief 메시의 로컬 공간 경계 상자를 반환합니다.
      */
-    const Core::FBox& Asset::FMeshData::GetBounds() const {
+    const FBox& Asset::FMeshData::GetBounds() const {
         return mBounds;
     }
 
     /**
      * @brief 메시의 로컬 공간 경계 상자를 교체합니다.
      */
-    void Asset::FMeshData::SetBounds(const Core::FBox& Bounds) {
+    void Asset::FMeshData::SetBounds(const FBox& Bounds) {
         mBounds = Bounds;
     }
 
@@ -117,10 +117,10 @@ namespace Asset {
             return;
         }
 
-        Core::FVector Minimum{mPositions.front()};
-        Core::FVector Maximum{Minimum};
+        FVector Minimum{mPositions.front()};
+        FVector Maximum{Minimum};
 
-        for (const Core::FVector& Position : mPositions) {
+        for (const FVector& Position : mPositions) {
             Minimum = Minimum.Min(Position);
             Maximum = Maximum.Max(Position);
         }
@@ -160,10 +160,10 @@ namespace Asset {
      * @brief 정점 속성과 인덱스 배열에 할당된 CPU 메모리 바이트 수를 반환합니다.
      */
     std::size_t Asset::FMeshData::GetAllocatedBytes() const {
-        std::size_t Bytes{mPositions.capacity() * sizeof(Core::FVector) + mNormals.capacity() * sizeof(Core::FVector) + mTangents.capacity() * sizeof(Core::FVector4) + mUVChannels.capacity() * sizeof(Core::TArray<Core::FVector2>) + mColors.capacity() * sizeof(Core::FVector4) + mIndices.capacity() * sizeof(Core::Uint32)};
+        std::size_t Bytes{mPositions.capacity() * sizeof(FVector) + mNormals.capacity() * sizeof(FVector) + mTangents.capacity() * sizeof(FVector4) + mUVChannels.capacity() * sizeof(Core::TArray<FVector2>) + mColors.capacity() * sizeof(FVector4) + mIndices.capacity() * sizeof(Core::Uint32)};
 
-        for (const Core::TArray<Core::FVector2>& Channel : mUVChannels) {
-            Bytes += Channel.capacity() * sizeof(Core::FVector2);
+        for (const Core::TArray<FVector2>& Channel : mUVChannels) {
+            Bytes += Channel.capacity() * sizeof(FVector2);
         }
 
         Bytes += mSubMeshes.capacity() * sizeof(Asset::FSubMesh) + mMaterialSlots.capacity() * sizeof(Asset::FMeshMaterialSlot);

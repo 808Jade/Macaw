@@ -35,17 +35,17 @@ namespace Renderer {
             /**
              * @brief 로컬 쿼드에서 클립 공간으로의 행렬입니다.
              */
-            Core::FMatrix mTransform{};
+            FMatrix mTransform{};
 
             /**
              * @brief XY 배율과 ZW 오프셋으로 구성된 UV 변환입니다.
              */
-            Core::FVector4 mUVTransform{1.0f, 1.0f, 0.0f, 0.0f};
+            FVector4 mUVTransform{1.0f, 1.0f, 0.0f, 0.0f};
 
             /**
              * @brief 표시할 RGBA 색상입니다.
              */
-            Core::FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
+            FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
         };
 
     public:

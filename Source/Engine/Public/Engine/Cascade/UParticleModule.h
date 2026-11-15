@@ -15,8 +15,9 @@
 
 namespace Core {
     class FArchive;
-    struct FTransform;
 }
+
+struct FTransform;
 
 /**
  * @brief 파티클 시스템 정의와 모듈 실행 컨텍스트 및 인스턴스 저장소를 제공합니다.
@@ -63,7 +64,7 @@ namespace Engine {
              * @brief 소유자가 제공하는 현재 공간 변환을 반환합니다.
              * @return 소유자 객체가 유지하는 변환의 읽기 전용 참조입니다.
              */
-            const Core::FTransform& GetTransform() const;
+            const FTransform& GetTransform() const;
             /**
              * @brief 실행 소유자가 제공하는 인스턴스 이름을 반환합니다.
              * @return 소유자 인터페이스에서 얻은 이름입니다.

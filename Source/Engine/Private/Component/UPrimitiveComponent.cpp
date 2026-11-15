@@ -71,7 +71,7 @@ namespace Engine {
     /**
      * @brief 유한하고 유효한 변환을 검증하여 공간 컴포넌트에 적용합니다.
      */
-    bool Engine::UPrimitiveComponent::SetTransform(const Core::FTransform& Transform) {
+    bool Engine::UPrimitiveComponent::SetTransform(const FTransform& Transform) {
         if (!Engine::USceneComponent::SetTransform(Transform)) {
             return false;
         }
@@ -160,7 +160,7 @@ namespace Engine {
      * @brief 컴포넌트의 현재 상태를 복사한 프리미티브 프록시를 만듭니다.
      */
     Engine::FPrimitiveSceneProxy Engine::UPrimitiveComponent::CreateSceneProxy() const {
-        const Core::FMatrix World{GetWorldMatrix()};
+        const FMatrix World{GetWorldMatrix()};
         Engine::FPrimitiveSceneProxy Proxy{GetGuid(), GetPrimitiveType(), World, GetWorldBounds(), GetStaticMesh()};
         Proxy.mUVScale = mUVScale;
         Proxy.mUVOffset = mUVOffset;
@@ -188,7 +188,7 @@ namespace Engine {
     /**
      * @brief 월드 공간의 축 정렬 경계 상자를 반환합니다.
      */
-    Core::FBox Engine::UPrimitiveComponent::GetWorldBounds() const {
+    FBox Engine::UPrimitiveComponent::GetWorldBounds() const {
         return GetMeshData().GetBounds().Transformed(GetWorldMatrix());
     }
 
@@ -202,7 +202,7 @@ namespace Engine {
     /**
      * @brief 다른 살아 있는 제어자의 변환을 덮어쓰지 않고 UV 배율과 오프셋을 적용합니다.
      */
-    bool Engine::UPrimitiveComponent::SetUVTransform(const Core::FVector2& Scale, const Core::FVector2& Offset, CoreUObject::TObjectRef<CoreUObject::UObject> Source) {
+    bool Engine::UPrimitiveComponent::SetUVTransform(const FVector2& Scale, const FVector2& Offset, CoreUObject::TObjectRef<CoreUObject::UObject> Source) {
         if (!std::isfinite(Scale.x) || !std::isfinite(Scale.y) || !std::isfinite(Offset.x) || !std::isfinite(Offset.y) || Source.Get() == nullptr || (mUVSource != Source && mUVSource.Get() != nullptr)) {
             return false;
         }
@@ -234,14 +234,14 @@ namespace Engine {
     /**
      * @brief 기본 UV에 곱할 셀 크기를 반환합니다.
      */
-    const Core::FVector2& Engine::UPrimitiveComponent::GetUVScale() const {
+    const FVector2& Engine::UPrimitiveComponent::GetUVScale() const {
         return mUVScale;
     }
 
     /**
      * @brief 기본 UV에 더할 셀 원점을 반환합니다.
      */
-    const Core::FVector2& Engine::UPrimitiveComponent::GetUVOffset() const {
+    const FVector2& Engine::UPrimitiveComponent::GetUVOffset() const {
         return mUVOffset;
     }
 

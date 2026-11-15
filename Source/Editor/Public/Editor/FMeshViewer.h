@@ -165,14 +165,14 @@ namespace Editor {
          * @param Shapes 본 선택에 사용할 도형 목록입니다.
          * @return 선택할 본 도형과 교차했으면 true입니다.
          */
-        bool PickBone(const Engine::FSceneView& View, const Core::FVector2& Mouse, const Core::TArray<Viewer::FBoneShape>& Shapes);
+        bool PickBone(const Engine::FSceneView& View, const FVector2& Mouse, const Core::TArray<Viewer::FBoneShape>& Shapes);
 
         /**
          * @brief 현재 궤도 카메라의 렌더링과 입력 해석에 쓸 뷰를 계산합니다.
          * @param Size 미리보기의 픽셀 크기입니다.
          * @return 계산한 카메라 뷰입니다.
          */
-        Engine::FSceneView CalcSceneView(const Core::FVector2& Size) const;
+        Engine::FSceneView CalcSceneView(const FVector2& Size) const;
 
         /**
          * @brief 선택한 본의 현재 전역 포즈로 기즈모 배치를 구성합니다.
@@ -190,7 +190,7 @@ namespace Editor {
          * @return 기즈모가 마우스를 사용 중이어서 카메라 조작을 막아야 하면 true입니다.
          * @param[in] Input 키·마우스 상태를 조회할 공통 입력입니다.
          */
-        bool UpdateBoneGizmo(Core::Index_t Bone, const Core::FInput& Input, const Engine::FSceneView& View, const Core::FVector2& Mouse, bool Hovered);
+        bool UpdateBoneGizmo(Core::Index_t Bone, const Core::FInput& Input, const Engine::FSceneView& View, const FVector2& Mouse, bool Hovered);
 
         /**
          * @brief 기즈모의 드래그 결과를 선택한 본의 부모 기준 로컬 변환으로 바꾸어 적용합니다.
@@ -264,12 +264,12 @@ namespace Editor {
         /**
          * @brief 드래그 시작 시 선택한 본의 전역 변환입니다.
          */
-        Core::FMatrix mDragStartGlobal{};
+        FMatrix mDragStartGlobal{};
 
         /**
          * @brief 드래그를 취소할 때 복원할 선택한 본의 로컬 변환입니다.
          */
-        Core::FMatrix mDragStartLocal{};
+        FMatrix mDragStartLocal{};
 
         /**
          * @brief 기즈모 조작 대상으로 선택한 본입니다.

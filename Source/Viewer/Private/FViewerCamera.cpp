@@ -17,22 +17,22 @@ using namespace Viewer;
 
 FViewerCamera::FViewerCamera() = default;
 
-bool FViewerCamera::Fit(const Core::FBox& Bounds, const Core::FVector2& Size, float Padding) {
+bool FViewerCamera::Fit(const FBox& Bounds, const FVector2& Size, float Padding) {
     if (!std::isfinite(Size.x) || !std::isfinite(Size.y) || Size.x <= 0.0f || Size.y <= 0.0f || !std::isfinite(Padding) || Padding < 1.0f) {
         return false;
     }
 
-    const Core::FVector Center{(Bounds.mMinimum + Bounds.mMaximum) * 0.5f};
-    const Core::FVector Extent{(Bounds.mMaximum - Bounds.mMinimum) * 0.5f};
+    const FVector Center{(Bounds.mMinimum + Bounds.mMaximum) * 0.5f};
+    const FVector Extent{(Bounds.mMaximum - Bounds.mMinimum) * 0.5f};
 
     if (!std::isfinite(Center.x) || !std::isfinite(Center.y) || !std::isfinite(Center.z) || !std::isfinite(Extent.x) || !std::isfinite(Extent.y) || !std::isfinite(Extent.z) || Extent.x < 0.0f || Extent.y < 0.0f || Extent.z < 0.0f) {
         return false;
     }
 
-    const Core::FQuat Rotation{mRotation.Quaternion()};
-    const Core::FVector Forward{Rotation.ForwardVector()};
-    const Core::FVector Right{Rotation.RightVector()};
-    const Core::FVector Up{Rotation.UpVector()};
+    const FQuat Rotation{mRotation.Quaternion()};
+    const FVector Forward{Rotation.ForwardVector()};
+    const FVector Right{Rotation.RightVector()};
+    const FVector Up{Rotation.UpVector()};
     const float TanVertical{std::tan(Core::Math::ToRadians(mFieldOfView) * 0.5f)};
     const float TanHorizontal{TanVertical * Size.x / Size.y};
     const float Radius{std::max(Extent.Length(), 0.01f)};
@@ -40,7 +40,7 @@ bool FViewerCamera::Fit(const Core::FBox& Bounds, const Core::FVector2& Size, fl
     float Distance{MinimumDepth};
 
     for (Core::Index_t Corner{}; Corner < 8; ++Corner) {
-        const Core::FVector Offset{(Corner & 1) != 0 ? Extent.x : -Extent.x, (Corner & 2) != 0 ? Extent.y : -Extent.y, (Corner & 4) != 0 ? Extent.z : -Extent.z};
+        const FVector Offset{(Corner & 1) != 0 ? Extent.x : -Extent.x, (Corner & 2) != 0 ? Extent.y : -Extent.y, (Corner & 4) != 0 ? Extent.z : -Extent.z};
         const float Depth{Offset.Dot(Forward)};
 
         Distance = std::max({Distance, Padding * std::abs(Offset.Dot(Right)) / TanHorizontal - Depth, Padding * std::abs(Offset.Dot(Up)) / TanVertical - Depth, MinimumDepth - Depth});
@@ -57,30 +57,30 @@ bool FViewerCamera::Fit(const Core::FBox& Bounds, const Core::FVector2& Size, fl
     return true;
 }
 
-Engine::FSceneView FViewerCamera::CalcSceneView(const Core::FVector2& Size) const {
-    const Core::FQuat Rotation{mRotation.Quaternion()};
+Engine::FSceneView FViewerCamera::CalcSceneView(const FVector2& Size) const {
+    const FQuat Rotation{mRotation.Quaternion()};
     Engine::FSceneView View{};
     View.mSize = Size;
     View.mLocation = mCenter - Rotation.ForwardVector() * mDistance;
     View.mForward = Rotation.ForwardVector();
     View.mFieldOfView = mFieldOfView;
-    View.mView = Core::FMatrix::LookTo(View.mLocation, View.mForward, Rotation.UpVector());
-    View.mProjection = Core::FMatrix::Perspective(mFieldOfView, std::max(Size.x, 1.0f) / std::max(Size.y, 1.0f), std::max(mRadius * 0.001f, 0.00001f), std::max(mDistance + mRadius * 3.0f, mRadius * 10.0f));
+    View.mView = FMatrix::LookTo(View.mLocation, View.mForward, Rotation.UpVector());
+    View.mProjection = FMatrix::Perspective(mFieldOfView, std::max(Size.x, 1.0f) / std::max(Size.y, 1.0f), std::max(mRadius * 0.001f, 0.00001f), std::max(mDistance + mRadius * 3.0f, mRadius * 10.0f));
     View.mViewProjection = View.mView * View.mProjection;
 
     return View;
 }
 
-void FViewerCamera::Orbit(const Core::FVector2& Delta) {
+void FViewerCamera::Orbit(const FVector2& Delta) {
     if (std::isfinite(Delta.x) && std::isfinite(Delta.y)) {
         mRotation.yaw += Delta.x * 0.3f;
         mRotation.pitch = std::clamp(mRotation.pitch - Delta.y * 0.3f, -89.0f, 89.0f);
     }
 }
 
-void FViewerCamera::Pan(const Core::FVector2& Delta, float Height) {
+void FViewerCamera::Pan(const FVector2& Delta, float Height) {
     if (std::isfinite(Delta.x) && std::isfinite(Delta.y) && std::isfinite(Height) && Height > 0.0f) {
-        const Core::FQuat Rotation{mRotation.Quaternion()};
+        const FQuat Rotation{mRotation.Quaternion()};
 
         mCenter += (Rotation.RightVector() * -Delta.x + Rotation.UpVector() * Delta.y) * (mDistance / Height);
     }
@@ -92,7 +92,7 @@ void FViewerCamera::Zoom(float Delta) {
     }
 }
 
-void FViewerCamera::SetRotation(const Core::FRotator& Rotation) {
+void FViewerCamera::SetRotation(const FRotator& Rotation) {
     if (std::isfinite(Rotation.pitch) && std::isfinite(Rotation.yaw) && std::isfinite(Rotation.roll)) {
         mRotation = Rotation;
     }
@@ -104,11 +104,11 @@ void FViewerCamera::SetFieldOfView(float FieldOfView) {
     }
 }
 
-const Core::FRotator& FViewerCamera::GetRotation() const {
+const FRotator& FViewerCamera::GetRotation() const {
     return mRotation;
 }
 
-const Core::FVector& FViewerCamera::GetCenter() const {
+const FVector& FViewerCamera::GetCenter() const {
     return mCenter;
 }
 

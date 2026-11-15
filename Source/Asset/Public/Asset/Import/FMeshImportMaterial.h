@@ -29,7 +29,7 @@ namespace Asset {
          * @param[in] BaseColorTexture 원본 재질의 기본색 텍스처 참조입니다.
          * @param[in] NormalMapTexture 원본 재질의 노멀 맵 참조입니다.
          */
-        FMeshImportMaterial(Core::FString Name, const Core::FVector4& BaseColor, bool TwoSided, Asset::FMeshImportTexture BaseColorTexture, Asset::FMeshImportTexture NormalMapTexture);
+        FMeshImportMaterial(Core::FString Name, const FVector4& BaseColor, bool TwoSided, Asset::FMeshImportTexture BaseColorTexture, Asset::FMeshImportTexture NormalMapTexture);
 
     public:
         /**
@@ -42,7 +42,7 @@ namespace Asset {
          * @brief 원본 재질에서 가져온 RGBA 기본색을 반환합니다.
          * @return 보관 중인 기본색의 읽기 전용 참조입니다.
          */
-        const Core::FVector4& GetBaseColor() const;
+        const FVector4& GetBaseColor() const;
 
         /**
          * @brief 원본 재질의 양면 렌더링 설정을 반환합니다.
@@ -66,25 +66,25 @@ namespace Asset {
          * @brief 정반사 색상 값을 반환합니다.
          * @return 저장한 정반사 색상 값 또는 참조입니다.
          */
-        const Core::FVector4& GetSpecularColor() const;
+        const FVector4& GetSpecularColor() const;
 
         /**
          * @brief 주변광 색상 값을 반환합니다.
          * @return 저장한 주변광 색상 값 또는 참조입니다.
          */
-        const Core::FVector4& GetAmbientColor() const;
+        const FVector4& GetAmbientColor() const;
 
         /**
          * @brief 자체 발광 색상 값을 반환합니다.
          * @return 저장한 자체 발광 색상 값 또는 참조입니다.
          */
-        const Core::FVector4& GetEmissiveColor() const;
+        const FVector4& GetEmissiveColor() const;
 
         /**
          * @brief 환경 반사 색상 값을 반환합니다.
          * @return 저장한 환경 반사 색상 값 또는 참조입니다.
          */
-        const Core::FVector4& GetReflectionColor() const;
+        const FVector4& GetReflectionColor() const;
 
         /**
          * @brief 정반사 세기 값을 반환합니다.
@@ -136,28 +136,28 @@ namespace Asset {
          * @param[in] ReflectionTexture 환경 반사 텍스처 값 또는 텍스처 참조입니다.
          * @return 모든 조명 값이 유효해 반영되면 true입니다.
          */
-        bool SetLighting(const Core::FVector4& SpecularColor, float SpecularStrength, float Shininess, const Core::FVector4& AmbientColor, const Core::FVector4& EmissiveColor, const Core::FVector4& ReflectionColor, float ReflectionStrength, Asset::FMeshImportTexture SpecularTexture, Asset::FMeshImportTexture EmissiveTexture, Asset::FMeshImportTexture ReflectionTexture);
+        bool SetLighting(const FVector4& SpecularColor, float SpecularStrength, float Shininess, const FVector4& AmbientColor, const FVector4& EmissiveColor, const FVector4& ReflectionColor, float ReflectionStrength, Asset::FMeshImportTexture SpecularTexture, Asset::FMeshImportTexture EmissiveTexture, Asset::FMeshImportTexture ReflectionTexture);
 
     private:
         /**
          * @brief 정반사 색상 값 또는 참조입니다.
          */
-        Core::FVector4 mSpecularColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mSpecularColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 주변광 색상 값 또는 참조입니다.
          */
-        Core::FVector4 mAmbientColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mAmbientColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 자체 발광 색상 값 또는 참조입니다.
          */
-        Core::FVector4 mEmissiveColor{0.0f, 0.0f, 0.0f, 1.0f};
+        FVector4 mEmissiveColor{0.0f, 0.0f, 0.0f, 1.0f};
 
         /**
          * @brief 환경 반사 색상 값 또는 참조입니다.
          */
-        Core::FVector4 mReflectionColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mReflectionColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 정반사 세기 값 또는 참조입니다.
@@ -197,7 +197,7 @@ namespace Asset {
         /**
          * @brief 재질의 선형 RGBA 기본색입니다.
          */
-        Core::FVector4 mBaseColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mBaseColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 뒷면을 제거하지 않고 양면으로 그릴지 나타냅니다.

@@ -16,7 +16,7 @@ namespace Engine {
     /**
      * @brief 축별 반길이로 상자 충돌 형상을 만듭니다.
      */
-    Engine::FCollisionShape Engine::FCollisionShape::MakeBox(const Core::FVector& HalfExtent) {
+    Engine::FCollisionShape Engine::FCollisionShape::MakeBox(const FVector& HalfExtent) {
         Engine::FCollisionShape Box{};
         Box.mShapeType = Engine::ECollisionShape::Box;
         Box.mBoxHalfExtent = HalfExtent;
@@ -78,8 +78,8 @@ namespace Engine {
     /**
      * @brief 충돌 캡슐을 월드 중심 선분과 반지름으로 변환합니다.
      */
-    Engine::FCapsuleSegment Engine::Collision::ToCapsuleSegment(const Engine::FCollisionShape& Shape, const Core::FVector& Pos, const Core::FQuat& Rot) {
-        Core::FVector Temp{Rot.UpVector() * Shape.GetCapsuleAxisHalfLength()};
+    Engine::FCapsuleSegment Engine::Collision::ToCapsuleSegment(const Engine::FCollisionShape& Shape, const FVector& Pos, const FQuat& Rot) {
+        FVector Temp{Rot.UpVector() * Shape.GetCapsuleAxisHalfLength()};
 
         return Engine::FCapsuleSegment{Pos - Temp, Pos + Temp, Shape.GetRadius()};
     }
@@ -87,14 +87,14 @@ namespace Engine {
     /**
      * @brief 로컬 상자를 월드 중심·기저·반길이로 변환합니다.
      */
-    Engine::FOrientedBox Engine::Collision::ToOrientedBox(const Engine::FCollisionShape& Shape, const Core::FVector& Pos, const Core::FQuat& Rot) {
+    Engine::FOrientedBox Engine::Collision::ToOrientedBox(const Engine::FCollisionShape& Shape, const FVector& Pos, const FQuat& Rot) {
         return Engine::FOrientedBox{Pos, {Rot.ForwardVector(), Rot.RightVector(), Rot.UpVector()}, Shape.GetBoxHalfExtent()};
     }
 
     /**
      * @brief 형상 조합별 좁은 단계 겹침 검사를 수행합니다.
      */
-    bool Engine::Collision::Overlap(const Engine::FCollisionShape& A, const Core::FVector& PosA, const Core::FQuat& RotA, const Engine::FCollisionShape& B, const Core::FVector& PosB, const Core::FQuat& RotB, Engine::FCollisionContact* OutContact) {
+    bool Engine::Collision::Overlap(const Engine::FCollisionShape& A, const FVector& PosA, const FQuat& RotA, const Engine::FCollisionShape& B, const FVector& PosB, const FQuat& RotB, Engine::FCollisionContact* OutContact) {
         if ((A.IsSphere() || A.IsCapsule()) && (B.IsSphere() || B.IsCapsule())) {
             Engine::FCapsuleSegment CapA{Engine::Collision::ToCapsuleSegment(A, PosA, RotA)};
             Engine::FCapsuleSegment CapB{Engine::Collision::ToCapsuleSegment(B, PosB, RotB)};
@@ -134,24 +134,24 @@ namespace Engine {
      * @brief 두 캡슐 중심 선분의 거리로 겹침과 접촉을 계산합니다.
      */
     bool Engine::Collision::OverlapCapsuleCapsule(const Engine::FCapsuleSegment& A, const Engine::FCapsuleSegment& B, Engine::FCollisionContact* OutContact) {
-        Core::FVector C1{};
-        Core::FVector C2{};
+        FVector C1{};
+        FVector C2{};
         float SumR{A.GetRadius() + B.GetRadius()};
         float DistSq{Engine::Collision::ClosestPointsSegmentSegment(A.GetA(), A.GetB(), B.GetA(), B.GetB(), C1, C2)};
         bool IsOverlap{DistSq <= SumR * SumR};
 
         if (IsOverlap && OutContact) {
             constexpr float Epsilon{1e-6f};
-            Core::FVector D{C1 - C2};
+            FVector D{C1 - C2};
             float Len{D.Length()};
-            Core::FVector Normal{0.0f, 0.0f, 1.0f};
+            FVector Normal{0.0f, 0.0f, 1.0f};
 
             if (Len > Epsilon) {
                 Normal = D / Len;
             }
             else {
-                const Core::FVector CenterDiff{(A.GetA() + A.GetB() - B.GetA() - B.GetB()) * 0.5f};
-                const Core::FVector Perp{(A.GetB() - A.GetA()).Cross(B.GetB() - B.GetA())};
+                const FVector CenterDiff{(A.GetA() + A.GetB() - B.GetA() - B.GetB()) * 0.5f};
+                const FVector Perp{(A.GetB() - A.GetA()).Cross(B.GetB() - B.GetA())};
                 const float PerpLen{Perp.Length()};
                 const float CenterLen{CenterDiff.Length()};
 
@@ -173,11 +173,11 @@ namespace Engine {
      * @brief 캡슐 선분과 회전 상자의 거리로 겹침을 계산합니다.
      */
     bool Engine::Collision::OverlapCapsuleBox(const Engine::FCapsuleSegment& Capsule, const Engine::FOrientedBox& Box, Engine::FCollisionContact* OutContact) {
-        const Core::FVector Dir{Capsule.GetB() - Capsule.GetA()};
+        const FVector Dir{Capsule.GetB() - Capsule.GetA()};
 
         const auto DistSqAt{[&](float T) {
-            const Core::FVector P{Capsule.GetA() + Dir * T};
-            const Core::FVector D{P - Engine::Collision::ClosestPointOnBox(P, Box)};
+            const FVector P{Capsule.GetA() + Dir * T};
+            const FVector D{P - Engine::Collision::ClosestPointOnBox(P, Box)};
 
             return D.Dot(D);
         }};
@@ -195,9 +195,9 @@ namespace Engine {
                 Lo = M1;
         }
 
-        const Core::FVector P{Capsule.GetA() + Dir * ((Lo + Hi) * 0.5f)};
-        const Core::FVector Q{Engine::Collision::ClosestPointOnBox(P, Box)};
-        const Core::FVector D{P - Q};
+        const FVector P{Capsule.GetA() + Dir * ((Lo + Hi) * 0.5f)};
+        const FVector Q{Engine::Collision::ClosestPointOnBox(P, Box)};
+        const FVector D{P - Q};
         const float DistSq{D.Dot(D)};
         const bool Overlap{DistSq <= Capsule.GetRadius() * Capsule.GetRadius()};
 
@@ -214,7 +214,7 @@ namespace Engine {
             return true;
         }
 
-        const Core::FVector Local{P - Box.GetCenter()};
+        const FVector Local{P - Box.GetCenter()};
         Core::Index_t MinAxis{0};
         float MinGap{FLT_MAX};
         float MinCoord{0.0f};
@@ -253,16 +253,16 @@ namespace Engine {
             }
         }
 
-        const Core::FVector Offset{B.GetCenter() - A.GetCenter()};
+        const FVector Offset{B.GetCenter() - A.GetCenter()};
         const float T[3]{ Offset.Dot(A.GetAxis()[0]), Offset.Dot(A.GetAxis()[1]), Offset.Dot(A.GetAxis()[2]) };
 
-        const Core::FVector& EA{A.GetExtent()};
-        const Core::FVector& EB{B.GetExtent()};
+        const FVector& EA{A.GetExtent()};
+        const FVector& EB{B.GetExtent()};
 
         float MinOverlap{FLT_MAX};
-        Core::FVector MinAxis{A.GetAxis()[0]};
+        FVector MinAxis{A.GetAxis()[0]};
 
-        const auto TrackMin{[&](float Overlap, const Core::FVector& Axis) {
+        const auto TrackMin{[&](float Overlap, const FVector& Axis) {
             if (OutContact && Overlap < MinOverlap) {
                 MinOverlap = Overlap;
                 MinAxis = Axis;
@@ -311,7 +311,7 @@ namespace Engine {
         }
 
         if (OutContact) {
-            const Core::FVector Normal{MinAxis.Dot(A.GetCenter() - B.GetCenter()) < 0.0f ? -MinAxis : MinAxis};
+            const FVector Normal{MinAxis.Dot(A.GetCenter() - B.GetCenter()) < 0.0f ? -MinAxis : MinAxis};
 
             OutContact->SetNormal(Normal);
             OutContact->SetPenetrationDepth(MinOverlap);
@@ -324,20 +324,20 @@ namespace Engine {
     /**
      * @brief 점에서 선분까지의 최근접 위치를 계산합니다.
      */
-    Core::FVector Engine::Collision::ClosestPointOnSegment(const Core::FVector& P, const Core::FVector& A, const Core::FVector& B) {
-        Core::FVector BA{B - A};
+    FVector Engine::Collision::ClosestPointOnSegment(const FVector& P, const FVector& A, const FVector& B) {
+        FVector BA{B - A};
 
         if (BA.Dot(BA) < 1e-8f) {
             return A;
         }
 
-        Core::FVector PA{P - A};
+        FVector PA{P - A};
 
         float T{PA.Dot(BA) / BA.Dot(BA)};
 
         T = std::clamp(T, 0.0f, 1.0f);
 
-        Core::FVector C{A + BA * T};
+        FVector C{A + BA * T};
 
         return C;
     }
@@ -345,10 +345,10 @@ namespace Engine {
     /**
      * @brief 두 선분의 최근접 점과 그 사이의 제곱 거리를 계산합니다.
      */
-    float Engine::Collision::ClosestPointsSegmentSegment(const Core::FVector& P1, const Core::FVector& Q1, const Core::FVector& P2, const Core::FVector& Q2, Core::FVector& OutC1, Core::FVector& OutC2) {
-        Core::FVector D1{Q1 - P1};
-        Core::FVector D2{Q2 - P2};
-        Core::FVector R{P1 - P2};
+    float Engine::Collision::ClosestPointsSegmentSegment(const FVector& P1, const FVector& Q1, const FVector& P2, const FVector& Q2, FVector& OutC1, FVector& OutC2) {
+        FVector D1{Q1 - P1};
+        FVector D2{Q2 - P2};
+        FVector R{P1 - P2};
 
         float A{D1.Dot(D1)};
         float E{D2.Dot(D2)};
@@ -364,7 +364,7 @@ namespace Engine {
             OutC1 = P1;
             OutC2 = P2 + D2 * std::clamp(F / E, 0.0f, 1.0f);
 
-            Core::FVector D{OutC2 - OutC1};
+            FVector D{OutC2 - OutC1};
 
             return D.Dot(D);
         }
@@ -374,7 +374,7 @@ namespace Engine {
             OutC1 = P1 + D1 * std::clamp(-C / A, 0.0f, 1.0f);
             OutC2 = P2;
 
-            Core::FVector D{OutC2 - OutC1};
+            FVector D{OutC2 - OutC1};
 
             return D.Dot(D);
         }
@@ -398,7 +398,7 @@ namespace Engine {
             OutC1 = P1 + D1 * S;
             OutC2 = P2 + D2 * T;
 
-            Core::FVector D{OutC2 - OutC1};
+            FVector D{OutC2 - OutC1};
 
             return D.Dot(D);
         }
@@ -407,10 +407,10 @@ namespace Engine {
     /**
      * @brief 점을 회전 상자의 각 축 범위로 제한한 최근접 위치를 계산합니다.
      */
-    Core::FVector Engine::Collision::ClosestPointOnBox(const Core::FVector& P, const Engine::FOrientedBox& Box) {
-        const Core::FVector D{P - Box.GetCenter()};
+    FVector Engine::Collision::ClosestPointOnBox(const FVector& P, const Engine::FOrientedBox& Box) {
+        const FVector D{P - Box.GetCenter()};
 
-        Core::FVector Result{Box.GetCenter()};
+        FVector Result{Box.GetCenter()};
 
         for (Core::Index_t Index{0}; Index < 3; ++Index) {
             const float S{std::clamp(D.Dot(Box.GetAxis()[Index]), -Box.GetExtent().ToArray()[Index], Box.GetExtent().ToArray()[Index])};
@@ -422,10 +422,10 @@ namespace Engine {
     }
 
     /**
-     * @fn Engine::FSweepResult Engine::Collision::Sweep(const Engine::FCollisionShape& Shape, const Core::FVector& Start, const Core::FVector& Delta, const Core::FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets)
+     * @fn Engine::FSweepResult Engine::Collision::Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets)
      * @brief 형상을 이동시켜 대상 목록 중 최초 차단 접촉을 찾습니다.
      */
-    Engine::FSweepResult Engine::Collision::Sweep(const Engine::FCollisionShape& Shape, const Core::FVector& Start, const Core::FVector& Delta, const Core::FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets) {
+    Engine::FSweepResult Engine::Collision::Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets) {
         Engine::FSweepResult Result{};
 
         const float DeltaLen{Delta.Length()};
@@ -437,7 +437,7 @@ namespace Engine {
         Ignored.resize(Targets.size());
 
         const auto FirstOverlapAt{[&](float T, Engine::FCollisionContact* OutContact) -> Core::Int32 {
-            const Core::FVector Pos{Start + Delta * T};
+            const FVector Pos{Start + Delta * T};
 
             for (Core::Index_t Index{0}; Index < static_cast<Core::Int32>(Targets.size()); ++Index) {
                 if (Ignored[Index])
@@ -512,7 +512,7 @@ namespace Engine {
     /**
      * @brief 상자의 로컬 축별 반길이를 반환합니다.
      */
-    const Core::FVector& Engine::FCollisionShape::GetBoxHalfExtent() const {
+    const FVector& Engine::FCollisionShape::GetBoxHalfExtent() const {
         return mBoxHalfExtent;
     }
 
@@ -533,14 +533,14 @@ namespace Engine {
     /**
      * @brief 충돌면의 단위 법선을 반환합니다.
      */
-    const Core::FVector& Engine::FCollisionContact::GetNormal() const {
+    const FVector& Engine::FCollisionContact::GetNormal() const {
         return mNormal;
     }
 
     /**
      * @brief 충돌면의 단위 법선을 설정합니다.
      */
-    void Engine::FCollisionContact::SetNormal(const Core::FVector& Value) {
+    void Engine::FCollisionContact::SetNormal(const FVector& Value) {
         mNormal = Value;
     }
 
@@ -561,21 +561,21 @@ namespace Engine {
     /**
      * @brief 월드 접촉점을 반환합니다.
      */
-    const Core::FVector& Engine::FCollisionContact::GetPoint() const {
+    const FVector& Engine::FCollisionContact::GetPoint() const {
         return mPoint;
     }
 
     /**
      * @brief 월드 접촉점을 설정합니다.
      */
-    void Engine::FCollisionContact::SetPoint(const Core::FVector& Value) {
+    void Engine::FCollisionContact::SetPoint(const FVector& Value) {
         mPoint = Value;
     }
 
     /**
      * @brief 전달된 설정과 기본값으로 FCapsuleSegment 객체를 생성합니다.
      */
-    Engine::FCapsuleSegment::FCapsuleSegment(Core::FVector InA, Core::FVector InB, float InRadius)
+    Engine::FCapsuleSegment::FCapsuleSegment(FVector InA, FVector InB, float InRadius)
 		: mA{InA},
 		  mB{InB},
 		  mRadius{InRadius} {
@@ -584,28 +584,28 @@ namespace Engine {
     /**
      * @brief 캡슐 중심 선분의 시작점을 반환합니다.
      */
-    const Core::FVector& Engine::FCapsuleSegment::GetA() const {
+    const FVector& Engine::FCapsuleSegment::GetA() const {
         return mA;
     }
 
     /**
      * @brief 캡슐 중심 선분의 시작점을 설정합니다.
      */
-    void Engine::FCapsuleSegment::SetA(const Core::FVector& Value) {
+    void Engine::FCapsuleSegment::SetA(const FVector& Value) {
         mA = Value;
     }
 
     /**
      * @brief 캡슐 중심 선분의 끝점을 반환합니다.
      */
-    const Core::FVector& Engine::FCapsuleSegment::GetB() const {
+    const FVector& Engine::FCapsuleSegment::GetB() const {
         return mB;
     }
 
     /**
      * @brief 캡슐 중심 선분의 끝점을 설정합니다.
      */
-    void Engine::FCapsuleSegment::SetB(const Core::FVector& Value) {
+    void Engine::FCapsuleSegment::SetB(const FVector& Value) {
         mB = Value;
     }
 
@@ -626,7 +626,7 @@ namespace Engine {
     /**
      * @brief 전달된 설정과 기본값으로 FOrientedBox 객체를 생성합니다.
      */
-    Engine::FOrientedBox::FOrientedBox(Core::FVector InCenter, std::array<Core::FVector, 3> InAxis, Core::FVector InExtent)
+    Engine::FOrientedBox::FOrientedBox(FVector InCenter, std::array<FVector, 3> InAxis, FVector InExtent)
 		: mCenter{InCenter},
 		  mAxis{InAxis},
 		  mExtent{InExtent} {
@@ -635,49 +635,49 @@ namespace Engine {
     /**
      * @brief 월드 중심 위치를 반환합니다.
      */
-    const Core::FVector& Engine::FOrientedBox::GetCenter() const {
+    const FVector& Engine::FOrientedBox::GetCenter() const {
         return mCenter;
     }
 
     /**
      * @brief 월드 중심 위치를 설정합니다.
      */
-    void Engine::FOrientedBox::SetCenter(const Core::FVector& Value) {
+    void Engine::FOrientedBox::SetCenter(const FVector& Value) {
         mCenter = Value;
     }
 
     /**
      * @brief 회전 상자의 세 기저 축을 반환합니다.
      */
-    const std::array<Core::FVector, 3>& Engine::FOrientedBox::GetAxis() const {
+    const std::array<FVector, 3>& Engine::FOrientedBox::GetAxis() const {
         return mAxis;
     }
 
     /**
      * @brief 회전 상자의 세 기저 축을 설정합니다.
      */
-    void Engine::FOrientedBox::SetAxis(const std::array<Core::FVector, 3>& Value) {
+    void Engine::FOrientedBox::SetAxis(const std::array<FVector, 3>& Value) {
         mAxis = Value;
     }
 
     /**
      * @brief 각 축의 반길이를 반환합니다.
      */
-    const Core::FVector& Engine::FOrientedBox::GetExtent() const {
+    const FVector& Engine::FOrientedBox::GetExtent() const {
         return mExtent;
     }
 
     /**
      * @brief 각 축의 반길이를 설정합니다.
      */
-    void Engine::FOrientedBox::SetExtent(const Core::FVector& Value) {
+    void Engine::FOrientedBox::SetExtent(const FVector& Value) {
         mExtent = Value;
     }
 
     /**
      * @brief 전달된 설정과 기본값으로 FSweepTarget 객체를 생성합니다.
      */
-    Engine::FSweepTarget::FSweepTarget(Engine::FCollisionShape InShape, Core::FVector InPos, Core::FQuat InRot)
+    Engine::FSweepTarget::FSweepTarget(Engine::FCollisionShape InShape, FVector InPos, FQuat InRot)
 		: mShape{InShape},
 		  mPos{InPos},
 		  mRot{InRot} {
@@ -700,28 +700,28 @@ namespace Engine {
     /**
      * @brief 월드 위치를 반환합니다.
      */
-    const Core::FVector& Engine::FSweepTarget::GetPos() const {
+    const FVector& Engine::FSweepTarget::GetPos() const {
         return mPos;
     }
 
     /**
      * @brief 월드 위치를 설정합니다.
      */
-    void Engine::FSweepTarget::SetPos(const Core::FVector& Value) {
+    void Engine::FSweepTarget::SetPos(const FVector& Value) {
         mPos = Value;
     }
 
     /**
      * @brief 월드 회전을 반환합니다.
      */
-    const Core::FQuat& Engine::FSweepTarget::GetRot() const {
+    const FQuat& Engine::FSweepTarget::GetRot() const {
         return mRot;
     }
 
     /**
      * @brief 월드 회전을 설정합니다.
      */
-    void Engine::FSweepTarget::SetRot(const Core::FQuat& Value) {
+    void Engine::FSweepTarget::SetRot(const FQuat& Value) {
         mRot = Value;
     }
 

@@ -80,27 +80,27 @@ namespace Engine {
          * @brief 로컬 쿼드의 가로·세로 월드 크기를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector2& GetSize() const;
+        const FVector2& GetSize() const;
 
         /**
          * @brief 로컬 쿼드의 가로·세로 월드 크기를 설정합니다.
          * @param[in] Size 쿼드의 가로·세로 월드 크기입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetSize(const Core::FVector2& Size);
+        bool SetSize(const FVector2& Size);
 
         /**
          * @brief 표시할 RGBA 색상을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector4& GetColor() const;
+        const FVector4& GetColor() const;
 
         /**
          * @brief 표시할 RGBA 색상을 설정합니다.
          * @param[in] Color 적용할 색상입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetColor(const Core::FVector4& Color);
+        bool SetColor(const FVector4& Color);
 
         /**
          * @brief 카메라의 오른쪽·위쪽 축에 쿼드를 맞출지 여부인지 검사합니다.
@@ -136,7 +136,7 @@ namespace Engine {
          * @brief 카메라 정렬 방향에 관계없이 빌보드를 포함하는 월드 경계를 계산합니다.
          * @return 쿼드의 중심과 대각선 반경을 기준으로 계산한 월드 AABB입니다.
          */
-        Core::FBox GetWorldBounds() const override;
+        FBox GetWorldBounds() const override;
 
         /**
          * @brief 현재 표시·에셋 상태에서 렌더 프록시를 생성할지 판정합니다.
@@ -179,13 +179,13 @@ namespace Engine {
          * @brief 로컬 쿼드의 가로·세로 월드 크기입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetSize, Setter = SetSize)
-        Core::FVector2 mSize{2.0f, 2.0f};
+        FVector2 mSize{2.0f, 2.0f};
 
         /**
          * @brief 표시할 RGBA 색상입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetColor, Setter = SetColor)
-        Core::FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 카메라의 오른쪽·위쪽 축에 쿼드를 맞출지 여부입니다.

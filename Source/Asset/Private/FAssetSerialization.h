@@ -35,7 +35,7 @@ namespace Asset {
 
         Archive.Serialize("Count", Count);
 
-        constexpr std::size_t ElementSize{std::is_same_v<T, Core::FVector2> ? 8 : std::is_same_v<T, Core::FVector> ? 12 : sizeof(T)};
+        constexpr std::size_t ElementSize{std::is_same_v<T, FVector2> ? 8 : std::is_same_v<T, FVector> ? 12 : sizeof(T)};
 
         if (Archive.HasError() || Count > 16000000 || (Archive.IsLoading() && Count > Archive.GetRemainingBytes() / ElementSize)) {
             Archive.SetError("Invalid mesh element count");

@@ -193,7 +193,7 @@ namespace Renderer {
         return DrawCalls;
     }
 
-    D3D11_RECT Renderer::FDecalPass::GetScissor(const Core::FMatrix& DecalToClip, Core::Uint32 Width, Core::Uint32 Height) {
+    D3D11_RECT Renderer::FDecalPass::GetScissor(const FMatrix& DecalToClip, Core::Uint32 Width, Core::Uint32 Height) {
         const float ScreenWidth{static_cast<float>(Width)};
         const float ScreenHeight{static_cast<float>(Height)};
         float Left{ScreenWidth};
@@ -202,11 +202,11 @@ namespace Renderer {
         float Bottom{};
 
         for (Core::Index_t Corner{}; Corner < 8; ++Corner) {
-            const Core::FVector4 Local{(Corner & 1u) != 0 ? 1.0f : -1.0f, (Corner & 2u) != 0 ? 1.0f : -1.0f, (Corner & 4u) != 0 ? 1.0f : -1.0f, 1.0f};
-            const Core::FVector4 Clip{Local * DecalToClip};
+            const FVector4 Local{(Corner & 1u) != 0 ? 1.0f : -1.0f, (Corner & 2u) != 0 ? 1.0f : -1.0f, (Corner & 4u) != 0 ? 1.0f : -1.0f, 1.0f};
+            const FVector4 Clip{Local * DecalToClip};
 
             if (Clip.z < 0.0f || Clip.w <= 0.0f) {
-                const Core::FBox UnitBox{{-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f}};
+                const FBox UnitBox{{-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f}};
 
                 return Renderer::FMeshPass::IsVisible(DecalToClip, UnitBox) ? D3D11_RECT{0, 0, static_cast<LONG>(Width), static_cast<LONG>(Height)} : D3D11_RECT{};
             }

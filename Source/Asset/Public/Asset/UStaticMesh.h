@@ -76,7 +76,7 @@ namespace Asset {
          * @brief 메시의 로컬 공간 경계 상자를 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::FBox& GetBounds() const;
+        const FBox& GetBounds() const;
 
         /**
          * @brief 메시의 정점 개수를 반환합니다.

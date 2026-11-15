@@ -48,7 +48,7 @@ namespace Engine {
          * @param[in] HalfExtent 상자의 로컬 축별 반길이입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        static Engine::FCollisionShape MakeBox(const Core::FVector& HalfExtent);
+        static Engine::FCollisionShape MakeBox(const FVector& HalfExtent);
 
         /**
          * @brief 반지름으로 구 충돌 형상을 만듭니다.
@@ -93,7 +93,7 @@ namespace Engine {
          * @brief 상자의 로컬 축별 반길이를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetBoxHalfExtent() const;
+        const FVector& GetBoxHalfExtent() const;
 
         /**
          * @brief 충돌 형상의 반지름을 반환합니다.
@@ -116,7 +116,7 @@ namespace Engine {
         /**
          * @brief 상자의 로컬 축별 반길이입니다.
          */
-        Core::FVector mBoxHalfExtent{};
+        FVector mBoxHalfExtent{};
 
         /**
          * @brief 충돌 형상의 반지름입니다.
@@ -138,13 +138,13 @@ namespace Engine {
          * @brief 충돌면의 단위 법선을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetNormal() const;
+        const FVector& GetNormal() const;
 
         /**
          * @brief 충돌면의 단위 법선을 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetNormal(const Core::FVector& Value);
+        void SetNormal(const FVector& Value);
 
         /**
          * @brief 초기 겹침을 해소할 침투 깊이를 반환합니다.
@@ -162,19 +162,19 @@ namespace Engine {
          * @brief 월드 접촉점을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetPoint() const;
+        const FVector& GetPoint() const;
 
         /**
          * @brief 월드 접촉점을 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetPoint(const Core::FVector& Value);
+        void SetPoint(const FVector& Value);
 
     private:
         /**
          * @brief 충돌면의 단위 법선입니다.
          */
-        Core::FVector mNormal{};
+        FVector mNormal{};
 
         /**
          * @brief 초기 겹침을 해소할 침투 깊이입니다.
@@ -184,7 +184,7 @@ namespace Engine {
         /**
          * @brief 월드 접촉점입니다.
          */
-        Core::FVector mPoint{};
+        FVector mPoint{};
     };
 
     /**
@@ -203,32 +203,32 @@ namespace Engine {
          * @param[in] InB 캡슐 중심 선분의 끝점입니다.
          * @param[in] InRadius 형상의 반지름입니다.
          */
-        FCapsuleSegment(Core::FVector InA, Core::FVector InB, float InRadius);
+        FCapsuleSegment(FVector InA, FVector InB, float InRadius);
 
     public:
         /**
          * @brief 캡슐 중심 선분의 시작점을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetA() const;
+        const FVector& GetA() const;
 
         /**
          * @brief 캡슐 중심 선분의 시작점을 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetA(const Core::FVector& Value);
+        void SetA(const FVector& Value);
 
         /**
          * @brief 캡슐 중심 선분의 끝점을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetB() const;
+        const FVector& GetB() const;
 
         /**
          * @brief 캡슐 중심 선분의 끝점을 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetB(const Core::FVector& Value);
+        void SetB(const FVector& Value);
 
         /**
          * @brief 충돌 형상의 반지름을 반환합니다.
@@ -246,12 +246,12 @@ namespace Engine {
         /**
          * @brief 캡슐 중심 선분의 시작점입니다.
          */
-        Core::FVector mA{};
+        FVector mA{};
 
         /**
          * @brief 캡슐 중심 선분의 끝점입니다.
          */
-        Core::FVector mB{};
+        FVector mB{};
 
         /**
          * @brief 충돌 형상의 반지름입니다.
@@ -275,60 +275,60 @@ namespace Engine {
          * @param[in] InAxis 회전 상자의 세 기저 축입니다.
          * @param[in] InExtent 상자 각 축의 반길이입니다.
          */
-        FOrientedBox(Core::FVector InCenter, std::array<Core::FVector, 3> InAxis, Core::FVector InExtent);
+        FOrientedBox(FVector InCenter, std::array<FVector, 3> InAxis, FVector InExtent);
 
     public:
         /**
          * @brief 월드 중심 위치를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetCenter() const;
+        const FVector& GetCenter() const;
 
         /**
          * @brief 월드 중심 위치를 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetCenter(const Core::FVector& Value);
+        void SetCenter(const FVector& Value);
 
         /**
          * @brief 회전 상자의 세 기저 축을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const std::array<Core::FVector, 3>& GetAxis() const;
+        const std::array<FVector, 3>& GetAxis() const;
 
         /**
          * @brief 회전 상자의 세 기저 축을 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetAxis(const std::array<Core::FVector, 3>& Value);
+        void SetAxis(const std::array<FVector, 3>& Value);
 
         /**
          * @brief 각 축의 반길이를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetExtent() const;
+        const FVector& GetExtent() const;
 
         /**
          * @brief 각 축의 반길이를 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetExtent(const Core::FVector& Value);
+        void SetExtent(const FVector& Value);
 
     private:
         /**
          * @brief 월드 중심 위치입니다.
          */
-        Core::FVector mCenter{};
+        FVector mCenter{};
 
         /**
          * @brief 회전 상자의 세 기저 축입니다.
          */
-        std::array<Core::FVector, 3> mAxis{};
+        std::array<FVector, 3> mAxis{};
 
         /**
          * @brief 각 축의 반길이입니다.
          */
-        Core::FVector mExtent{};
+        FVector mExtent{};
     };
 
     /**
@@ -347,7 +347,7 @@ namespace Engine {
          * @param[in] InPos 대상의 월드 위치입니다.
          * @param[in] InRot 대상의 월드 회전입니다.
          */
-        FSweepTarget(Engine::FCollisionShape InShape, Core::FVector InPos, Core::FQuat InRot);
+        FSweepTarget(Engine::FCollisionShape InShape, FVector InPos, FQuat InRot);
 
     public:
         /**
@@ -366,25 +366,25 @@ namespace Engine {
          * @brief 월드 위치를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetPos() const;
+        const FVector& GetPos() const;
 
         /**
          * @brief 월드 위치를 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetPos(const Core::FVector& Value);
+        void SetPos(const FVector& Value);
 
         /**
          * @brief 월드 회전을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FQuat& GetRot() const;
+        const FQuat& GetRot() const;
 
         /**
          * @brief 월드 회전을 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetRot(const Core::FQuat& Value);
+        void SetRot(const FQuat& Value);
 
     private:
         /**
@@ -395,12 +395,12 @@ namespace Engine {
         /**
          * @brief 월드 위치입니다.
          */
-        Core::FVector mPos{};
+        FVector mPos{};
 
         /**
          * @brief 월드 회전입니다.
          */
-        Core::FQuat mRot{};
+        FQuat mRot{};
     };
 
     /**
@@ -506,7 +506,7 @@ namespace Engine {
          * @param[in] Rot 형상의 월드 회전입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Engine::FCapsuleSegment ToCapsuleSegment(const Engine::FCollisionShape& Shape, const Core::FVector& Pos, const Core::FQuat& Rot);
+        Engine::FCapsuleSegment ToCapsuleSegment(const Engine::FCollisionShape& Shape, const FVector& Pos, const FQuat& Rot);
 
         /**
          * @brief 로컬 상자를 월드 중심·기저·반길이로 변환합니다.
@@ -515,7 +515,7 @@ namespace Engine {
          * @param[in] Rot 형상의 월드 회전입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Engine::FOrientedBox ToOrientedBox(const Engine::FCollisionShape& Shape, const Core::FVector& Pos, const Core::FQuat& Rot);
+        Engine::FOrientedBox ToOrientedBox(const Engine::FCollisionShape& Shape, const FVector& Pos, const FQuat& Rot);
 
         /**
          * @brief 형상 조합별 좁은 단계 겹침 검사를 수행합니다.
@@ -528,7 +528,7 @@ namespace Engine {
          * @param[out] OutContact 접촉 정보를 기록할 선택적 출력 주소입니다.
          * @return 두 형상이 겹치면 true입니다.
          */
-        bool Overlap(const Engine::FCollisionShape& A, const Core::FVector& PosA, const Core::FQuat& RotA, const Engine::FCollisionShape& B, const Core::FVector& PosB, const Core::FQuat& RotB, Engine::FCollisionContact* OutContact = nullptr);
+        bool Overlap(const Engine::FCollisionShape& A, const FVector& PosA, const FQuat& RotA, const Engine::FCollisionShape& B, const FVector& PosB, const FQuat& RotB, Engine::FCollisionContact* OutContact = nullptr);
 
         /**
          * @brief 두 캡슐 중심 선분의 거리로 겹침과 접촉을 계산합니다.
@@ -564,7 +564,7 @@ namespace Engine {
          * @param[in] B 두 번째 검사 대상입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::FVector ClosestPointOnSegment(const Core::FVector& P, const Core::FVector& A, const Core::FVector& B);
+        FVector ClosestPointOnSegment(const FVector& P, const FVector& A, const FVector& B);
 
         /**
          * @brief 두 선분의 최근접 점과 그 사이의 제곱 거리를 계산합니다.
@@ -576,7 +576,7 @@ namespace Engine {
          * @param[out] OutC2 둘째 선분의 최근접 점을 기록합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        float ClosestPointsSegmentSegment(const Core::FVector& P1, const Core::FVector& Q1, const Core::FVector& P2, const Core::FVector& Q2, Core::FVector& OutC1, Core::FVector& OutC2);
+        float ClosestPointsSegmentSegment(const FVector& P1, const FVector& Q1, const FVector& P2, const FVector& Q2, FVector& OutC1, FVector& OutC2);
 
         /**
          * @brief 점을 회전 상자의 각 축 범위로 제한한 최근접 위치를 계산합니다.
@@ -584,7 +584,7 @@ namespace Engine {
          * @param[in] Box 검사할 회전 상자입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::FVector ClosestPointOnBox(const Core::FVector& P, const Engine::FOrientedBox& Box);
+        FVector ClosestPointOnBox(const FVector& P, const Engine::FOrientedBox& Box);
 
         /**
          * @brief 형상을 이동시켜 대상 목록 중 최초 차단 접촉을 찾습니다.
@@ -595,7 +595,7 @@ namespace Engine {
          * @param[in] Targets 검사할 스윕 대상 목록입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Engine::FSweepResult Sweep(const Engine::FCollisionShape& Shape, const Core::FVector& Start, const Core::FVector& Delta, const Core::FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets);
+        Engine::FSweepResult Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets);
     }
 
 }

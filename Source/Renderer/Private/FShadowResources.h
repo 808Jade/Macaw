@@ -38,12 +38,12 @@ namespace Renderer {
         /**
          * @brief 월드 좌표를 그림자 클립 공간으로 변환하는 행렬입니다.
          */
-        Core::FMatrix mViewProjection{};
+        FMatrix mViewProjection{};
 
         /**
          * @brief 보호 여백을 제외한 아틀라스 UV 시작점과 크기를 저장합니다.
          */
-        Core::FVector4 mAtlasRectangle{};
+        FVector4 mAtlasRectangle{};
 
         /**
          * @brief 그림자 필터 결과의 경계 선명도입니다.
@@ -63,14 +63,14 @@ namespace Renderer {
         /**
          * @brief 캐스케이드의 시작·끝 거리와 혼합 시작 거리, 예약값을 저장합니다.
          */
-        Core::FVector4 mCascade{};
+        FVector4 mCascade{};
 
         /**
          * @brief PCSS 계산에 쓰는 광원 크기·타일 UV 배율·근평면·원평면 또는 깊이 범위를 저장합니다.
          * @details 근평면이 0이면 방향광이며 광원 크기는 각반지름의 탄젠트, UV 배율은 월드 길이당 타일 UV, 마지막 값은 깊이 범위입니다.
          *          근평면이 0보다 크면 원근 투영이며 광원 크기는 반지름, UV 배율은 단위 거리의 월드 길이당 타일 UV, 마지막 값은 원평면입니다.
          */
-        Core::FVector4 mSoftness{};
+        FVector4 mSoftness{};
     };
 
     /**
@@ -214,7 +214,7 @@ namespace Renderer {
          * @param[in] CasterBounds 깊이 범위에 포함할 그림자 생성 물체의 월드 경계 상자 목록입니다.
          * @return 월드 공간을 해당 방향광 캐스케이드의 클립 공간으로 변환하는 행렬입니다.
          */
-        static Core::FMatrix MakeDirectionalMatrix(const Engine::FSceneView& View, const Core::FVector& Direction, float NearDistance, float FarDistance, Core::Uint32 Resolution, std::span<const Core::FBox> CasterBounds);
+        static FMatrix MakeDirectionalMatrix(const Engine::FSceneView& View, const FVector& Direction, float NearDistance, float FarDistance, Core::Uint32 Resolution, std::span<const FBox> CasterBounds);
 
     private:
 
@@ -240,7 +240,7 @@ namespace Renderer {
          * @param[in] Casters 그림자를 만드는 프리미티브의 월드 경계 상자 목록입니다.
          * @return 유효한 수신 물체와 생성 물체가 모두 광원 범위에 있으면 true입니다.
          */
-        static bool AffectsView(const Engine::FLightSceneProxy& Light, std::span<const Core::FBox> Receivers, std::span<const Core::FBox> Casters);
+        static bool AffectsView(const Engine::FLightSceneProxy& Light, std::span<const FBox> Receivers, std::span<const FBox> Casters);
 
         /**
          * @brief 구성한 그림자 맵의 샘플링 정보를 GPU 구조화 버퍼에 업로드합니다.
@@ -338,7 +338,7 @@ namespace Renderer {
         /**
          * @brief 그림자 캐스케이드 선택에 필요한 카메라와 필터 옵션의 상수 버퍼입니다.
          */
-        RenderCore::TConstantBuffer<std::array<Core::FVector4, 3>> mViewBuffer{};
+        RenderCore::TConstantBuffer<std::array<FVector4, 3>> mViewBuffer{};
 
         /**
          * @brief 현재 뷰에 적용 중인 그림자 렌더링 옵션입니다.

@@ -187,12 +187,12 @@ namespace Editor {
         /**
          * @brief 뷰포트 이미지의 화면상 좌측 상단 좌표입니다.
          */
-        Core::FVector2 mImageOrigin{};
+        FVector2 mImageOrigin{};
 
         /**
          * @brief 현재 표시한 뷰포트 이미지의 픽셀 크기입니다.
          */
-        Core::FVector2 mImageSize{};
+        FVector2 mImageSize{};
 
         /**
          * @brief 현재 프레임 통계 오버레이용 ImGui 그리기 목록입니다.

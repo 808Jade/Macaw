@@ -14,10 +14,10 @@ namespace Asset {
     /**
      * @brief 원본 메시 공간에서 엔진 공간으로 가는 행렬로 변환을 구성합니다.
      */
-    Asset::FMeshImportTransform::FMeshImportTransform(const Core::FMatrix& SourceToEngine)
+    Asset::FMeshImportTransform::FMeshImportTransform(const FMatrix& SourceToEngine)
 		: mMatrix{SourceToEngine} {
         const float Determinant{mMatrix.Determinant()};
-        Core::FMatrix Inverse{};
+        FMatrix Inverse{};
 
         // 행렬식이 0이면 스케일이 0인 축이 있어 노멀 변환에 필요한 역행렬을 구할 수 없습니다.
         mValid = std::isfinite(Determinant) && Determinant != 0.0f && mMatrix.TryInverse(Inverse);
@@ -40,17 +40,17 @@ namespace Asset {
     /**
      * @brief Z-Up 오른손 좌표계의 좌표에서 Y만 반전해 엔진의 Z-Up 왼손 좌표계로 옮기는 행렬을 만듭니다.
      */
-    Core::FMatrix Asset::FMeshImportTransform::MakeFlipY() {
-        return Core::FMatrix::Scale({1.0f, -1.0f, 1.0f});
+    FMatrix Asset::FMeshImportTransform::MakeFlipY() {
+        return FMatrix::Scale({1.0f, -1.0f, 1.0f});
     }
 
     /**
      * @brief Y-Up 오른손 좌표계(Front +Z) 원본을 FBX 임포터와 같은 규칙으로 엔진 좌표계로 옮기는 행렬을 만듭니다.
      */
-    Core::FMatrix Asset::FMeshImportTransform::MakeYUpConversion(const Asset::FAssetImportOption& Option) {
+    FMatrix Asset::FMeshImportTransform::MakeYUpConversion(const Asset::FAssetImportOption& Option) {
         // 행 벡터 규약이므로 각 행은 원본 X, Y, Z 축이 엔진 공간에서 향하는 방향입니다.
         // 원본은 Y-Up, Front +Z인 오른손 좌표계(glTF, Maya 기본값)입니다.
-        Core::FMatrix Result{};
+        FMatrix Result{};
 
         if (Option.mForceFrontXAxis) {
             // Z-Up, Front +X 오른손 좌표계로 회전한 뒤 Y를 반전합니다: (x, y, z) → (z, -x, y)
@@ -74,8 +74,8 @@ namespace Asset {
     /**
      * @brief 원본 공간 기준 변환을 엔진 공간 기준 변환으로 바꿉니다.
      */
-    bool Asset::FMeshImportTransform::ConvertTransform(const Core::FMatrix& Basis, const Core::FMatrix& Source, Core::FMatrix& Result) {
-        Core::FMatrix Inverse{};
+    bool Asset::FMeshImportTransform::ConvertTransform(const FMatrix& Basis, const FMatrix& Source, FMatrix& Result) {
+        FMatrix Inverse{};
 
         if (!Basis.TryInverse(Inverse)) {
             return false;
@@ -105,41 +105,41 @@ namespace Asset {
     /**
      * @brief 이동을 포함해 위치를 변환합니다.
      */
-    Core::FVector Asset::FMeshImportTransform::TransformPosition(const Core::FVector& Position) const {
+    FVector Asset::FMeshImportTransform::TransformPosition(const FVector& Position) const {
         return mMatrix.TransformPosition(Position);
     }
 
     /**
      * @brief 이동을 제외하고 표면을 따르는 방향(탄젠트·바이탄젠트)을 변환합니다.
      */
-    Core::FVector Asset::FMeshImportTransform::TransformDirection(const Core::FVector& Direction) const {
+    FVector Asset::FMeshImportTransform::TransformDirection(const FVector& Direction) const {
         return mMatrix.TransformVector(Direction);
     }
 
     /**
      * @brief 역전치 행렬로 노멀을 변환합니다.
      */
-    Core::FVector Asset::FMeshImportTransform::TransformNormal(const Core::FVector& Normal) const {
+    FVector Asset::FMeshImportTransform::TransformNormal(const FVector& Normal) const {
         return mNormalMatrix.TransformVector(Normal);
     }
 
     /**
      * @brief 엔진 공간 노멀과 원본 탄젠트·바이탄젠트로 직교 탄젠트와 부호를 만듭니다.
      */
-    Core::FVector4 Asset::FMeshImportTransform::MakeTangent(const Core::FVector& Normal, const Core::FVector& SourceTangent, const Core::FVector& SourceBitangent, float SourceSign) const {
-        const Core::FVector Direction{TransformDirection(SourceTangent)};
+    FVector4 Asset::FMeshImportTransform::MakeTangent(const FVector& Normal, const FVector& SourceTangent, const FVector& SourceBitangent, float SourceSign) const {
+        const FVector Direction{TransformDirection(SourceTangent)};
 
         // 그람-슈미트 직교화: 탄젠트에서 노멀 방향 성분을 빼서 노멀과 정확히 수직이 되도록 만듭니다.
-        Core::FVector Tangent{Direction - Normal * Normal.Dot(Direction)};
+        FVector Tangent{Direction - Normal * Normal.Dot(Direction)};
 
         if (!Tangent.Normalize()) {
             // 탄젠트가 없거나 노멀과 평행하면, 노멀과 거의 평행하지 않은 기준 축(기본 Z, 노멀이 Z에 가까우면 Y)과 노멀의 외적을 사용합니다.
-            const Core::FVector Axis{std::abs(Normal.z) < 0.99f ? Core::FVector{0.0f, 0.0f, 1.0f} : Core::FVector{0.0f, 1.0f, 0.0f}};
+            const FVector Axis{std::abs(Normal.z) < 0.99f ? FVector{0.0f, 0.0f, 1.0f} : FVector{0.0f, 1.0f, 0.0f}};
 
             return {Axis.Cross(Normal).Normalized(), 1.0f};
         }
 
-        const Core::FVector Bitangent{TransformDirection(SourceBitangent)};
+        const FVector Bitangent{TransformDirection(SourceBitangent)};
         const float Alignment{Normal.Cross(Tangent).Dot(Bitangent)};
 
         if (std::isfinite(Alignment) && Alignment != 0.0f) {

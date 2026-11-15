@@ -16,7 +16,7 @@ namespace Engine {
     /**
      * @brief 피킹을 구현하지 않은 클라이언트의 기본 빈 선택 정보를 반환합니다.
      */
-    Engine::FHitProxy Engine::FViewportClient::GetHitProxy(const Engine::FSceneViewport*, const Core::FVector2&) const {
+    Engine::FHitProxy Engine::FViewportClient::GetHitProxy(const Engine::FSceneViewport*, const FVector2&) const {
         return {};
     }
 

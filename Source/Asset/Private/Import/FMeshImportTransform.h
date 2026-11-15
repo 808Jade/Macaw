@@ -26,7 +26,7 @@ namespace Asset {
          * @brief 원본 메시 공간에서 엔진 공간으로 가는 행렬로 변환을 구성합니다.
          * @param[in] SourceToEngine 노드 변환·축 변환·임포트 옵션 변환을 모두 합친 행 벡터 규약의 아핀 행렬입니다.
          */
-        explicit FMeshImportTransform(const Core::FMatrix& SourceToEngine);
+        explicit FMeshImportTransform(const FMatrix& SourceToEngine);
 
     public:
         /**
@@ -34,7 +34,7 @@ namespace Asset {
          * @details FBX 임포터가 SDK의 ConvertScene으로 Z-Up 오른손 좌표계까지 옮긴 뒤 마지막 단계로 사용합니다.
          * @return Y 성분의 부호를 바꾸는 행렬입니다.
          */
-        static Core::FMatrix MakeFlipY();
+        static FMatrix MakeFlipY();
 
         /**
          * @brief Y-Up 오른손 좌표계(Front +Z) 원본을 FBX 임포터와 같은 규칙으로 엔진 좌표계로 옮기는 행렬을 만듭니다.
@@ -42,7 +42,7 @@ namespace Asset {
          * @param[in] Option Front 축(mForceFrontXAxis)을 정하는 임포트 옵션입니다.
          * @return 원본 축을 엔진 축으로 옮기는 행렬이며 임포트 이동·회전·스케일은 포함하지 않습니다.
          */
-        static Core::FMatrix MakeYUpConversion(const Asset::FAssetImportOption& Option);
+        static FMatrix MakeYUpConversion(const Asset::FAssetImportOption& Option);
 
         /**
          * @brief 원본 공간 기준 변환을 엔진 공간 기준 변환으로 바꿉니다.
@@ -51,7 +51,7 @@ namespace Asset {
          * @param[out] Result 엔진 공간에서 표현한 변환을 기록할 대상입니다.
          * @return Basis가 역행렬을 가지면 true입니다.
          */
-        static bool ConvertTransform(const Core::FMatrix& Basis, const Core::FMatrix& Source, Core::FMatrix& Result);
+        static bool ConvertTransform(const FMatrix& Basis, const FMatrix& Source, FMatrix& Result);
 
         /**
          * @brief 변환이 역행렬을 가져 노멀을 변환할 수 있는지 확인합니다.
@@ -70,21 +70,21 @@ namespace Asset {
          * @param[in] Position 원본 공간 위치입니다.
          * @return 엔진 공간 위치입니다.
          */
-        Core::FVector TransformPosition(const Core::FVector& Position) const;
+        FVector TransformPosition(const FVector& Position) const;
 
         /**
          * @brief 이동을 제외하고 표면을 따르는 방향(탄젠트·바이탄젠트)을 변환합니다.
          * @param[in] Direction 원본 공간 방향입니다.
          * @return 정규화하지 않은 엔진 공간 방향입니다.
          */
-        Core::FVector TransformDirection(const Core::FVector& Direction) const;
+        FVector TransformDirection(const FVector& Direction) const;
 
         /**
          * @brief 역전치 행렬로 노멀을 변환합니다.
          * @param[in] Normal 원본 공간 노멀입니다.
          * @return 정규화하지 않은 엔진 공간 노멀입니다.
          */
-        Core::FVector TransformNormal(const Core::FVector& Normal) const;
+        FVector TransformNormal(const FVector& Normal) const;
 
         /**
          * @brief 엔진 공간 노멀과 원본 탄젠트·바이탄젠트로 직교 탄젠트와 부호를 만듭니다.
@@ -96,18 +96,18 @@ namespace Asset {
          * @param[in] SourceSign 바이탄젠트가 없을 때 쓰는 원본 탄젠트 w 부호이며 0이면 +1로 봅니다.
          * @return XYZ는 단위 탄젠트, W는 ±1 부호입니다. 탄젠트가 없거나 노멀과 평행하면 노멀에 수직인 임의 탄젠트입니다.
          */
-        Core::FVector4 MakeTangent(const Core::FVector& Normal, const Core::FVector& SourceTangent, const Core::FVector& SourceBitangent, float SourceSign) const;
+        FVector4 MakeTangent(const FVector& Normal, const FVector& SourceTangent, const FVector& SourceBitangent, float SourceSign) const;
 
     private:
         /**
          * @brief 원본 공간에서 엔진 공간으로 가는 아핀 행렬입니다.
          */
-        Core::FMatrix mMatrix{};
+        FMatrix mMatrix{};
 
         /**
          * @brief 노멀 변환에 쓰는 mMatrix의 역전치 행렬이며 이동 성분은 0입니다.
          */
-        Core::FMatrix mNormalMatrix{};
+        FMatrix mNormalMatrix{};
 
         /**
          * @brief mMatrix의 행렬식이 유한하고 0이 아닌지 여부입니다.

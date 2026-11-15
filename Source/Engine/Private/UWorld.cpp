@@ -326,9 +326,9 @@ namespace Engine {
     /**
      * @brief 월드 프리미티브의 메시를 검사하여 광선에 가장 가까운 충돌을 찾습니다.
      */
-    bool Engine::UWorld::Raycast(const Core::FRay& Ray, Engine::FWorldHit& Hit, const Engine::AActor* Ignored) const {
+    bool Engine::UWorld::Raycast(const FRay& Ray, Engine::FWorldHit& Hit, const Engine::AActor* Ignored) const {
         const Core::FScopedStatTimer StatTimer{Engine::EngineStats::Raycast};
-        Core::FRay NormalizedRay{Ray};
+        FRay NormalizedRay{Ray};
 
         if (mPersistentLevel == nullptr || !NormalizedRay.mOrigin.IsFinite() || !NormalizedRay.mDirection.Normalize()) {
             return false;
@@ -358,10 +358,10 @@ namespace Engine {
     /**
      * @brief 광선과 처음 만나는 메시를 찾아 값으로 반환합니다.
      */
-    Engine::FWorldHit Engine::UWorld::Raycast(const Core::FVector& Origin, const Core::FVector& Direction, const Engine::AActor* Ignored) const {
+    Engine::FWorldHit Engine::UWorld::Raycast(const FVector& Origin, const FVector& Direction, const Engine::AActor* Ignored) const {
         Engine::FWorldHit Hit{};
 
-        Raycast(Core::FRay{Origin, Direction}, Hit, Ignored);
+        Raycast(FRay{Origin, Direction}, Hit, Ignored);
 
         return Hit;
     }

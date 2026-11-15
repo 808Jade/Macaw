@@ -34,7 +34,7 @@ namespace Engine {
         /**
          * @brief 월드 좌표의 충돌 위치입니다.
          */
-        Core::FVector mPosition{};
+        FVector mPosition{};
 
         /**
          * @brief 광선상의 충돌 거리입니다.

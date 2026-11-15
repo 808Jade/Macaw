@@ -42,7 +42,7 @@ namespace Renderer {
          * @param[in] Bounds 검사할 월드 경계 상자입니다.
          * @return 절두체와 겹칠 수 있으면 true입니다.
          */
-        static bool IsVisible(const Core::FMatrix& ViewProjection, const Core::FBox& Bounds);
+        static bool IsVisible(const FMatrix& ViewProjection, const FBox& Bounds);
 
         /**
          * @brief 파이프라인 조회와 메시 자원 생성에 사용할 렌더러 의존성을 보관합니다.
@@ -85,7 +85,7 @@ namespace Renderer {
          * @param[out] Primitives 드로 목록에 포함된 프리미티브 수를 받습니다.
          * @return 패스에 필요한 기본 파이프라인을 준비하면 true입니다.
          */
-        bool BuildCommands(const Renderer::FScene& Scene, const Engine::FSceneViewFamily& Family, const Core::FMatrix& ViewProjection, Core::TArray<Renderer::FMeshDrawCommand>& Commands, Core::Uint32& Primitives);
+        bool BuildCommands(const Renderer::FScene& Scene, const Engine::FSceneViewFamily& Family, const FMatrix& ViewProjection, Core::TArray<Renderer::FMeshDrawCommand>& Commands, Core::Uint32& Primitives);
 
     protected:
         /**

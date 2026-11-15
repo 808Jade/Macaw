@@ -87,7 +87,7 @@ namespace Renderer {
         /**
          * @brief 깊이를 기록할 때 사용한 광원 뷰 투영 행렬입니다.
          */
-        Core::FMatrix mViewProjection{};
+        FMatrix mViewProjection{};
 
         /**
          * @brief 깊이를 기록할 때의 장면 캐스터 리비전입니다.

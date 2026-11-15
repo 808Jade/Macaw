@@ -59,11 +59,11 @@ namespace Engine {
         return true;
     }
 
-    const Core::FVector& Engine::UDecalComponent::GetExtent() const {
+    const FVector& Engine::UDecalComponent::GetExtent() const {
         return mExtent;
     }
 
-    bool Engine::UDecalComponent::SetExtent(const Core::FVector& Extent) {
+    bool Engine::UDecalComponent::SetExtent(const FVector& Extent) {
         if (!Extent.IsFinite() || Extent.x <= 0.0f || Extent.y <= 0.0f || Extent.z <= 0.0f) {
             return false;
         }
@@ -74,8 +74,8 @@ namespace Engine {
         return true;
     }
 
-    Core::FMatrix Engine::UDecalComponent::GetDecalToWorld() const {
-        return Core::FMatrix::Scale(mExtent) * GetWorldMatrix();
+    FMatrix Engine::UDecalComponent::GetDecalToWorld() const {
+        return FMatrix::Scale(mExtent) * GetWorldMatrix();
     }
 
     float Engine::UDecalComponent::GetOpacity() const {
@@ -102,7 +102,7 @@ namespace Engine {
         SynchronizeDecal();
     }
 
-    bool Engine::UDecalComponent::SetTransform(const Core::FTransform& Transform) {
+    bool Engine::UDecalComponent::SetTransform(const FTransform& Transform) {
         if (!Engine::USceneComponent::SetTransform(Transform)) {
             return false;
         }
@@ -133,8 +133,8 @@ namespace Engine {
             return;
         }
 
-        const Core::FMatrix DecalToWorld{GetDecalToWorld()};
-        Core::FMatrix WorldToDecal{};
+        const FMatrix DecalToWorld{GetDecalToWorld()};
+        FMatrix WorldToDecal{};
 
         const bool HasNormal{mNormalMap != nullptr && mNormalStrength > 0.0f};
 

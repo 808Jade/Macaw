@@ -37,7 +37,7 @@ namespace Asset {
         ~UBlendSpace1D() override = default;
 
     public:
-        void GetSamplesToBlend(const Core::FVector& Input, Core::TArray<Asset::FBlendSampleWeight>& OutWeights) const override;
+        void GetSamplesToBlend(const FVector& Input, Core::TArray<Asset::FBlendSampleWeight>& OutWeights) const override;
 
         Core::Uint32 GetNumAxes() const override;
 

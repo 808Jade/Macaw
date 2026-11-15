@@ -44,7 +44,7 @@ namespace Engine {
          * @param[in] Start 추적 시작점입니다.
          * @param[in] End 추적 끝점입니다.
          */
-        void Init(const Core::FVector& Start, const Core::FVector& End);
+        void Init(const FVector& Start, const FVector& End);
 
         /**
          * @brief 적중한 액터의 비소유 주소를 반환합니다.
@@ -89,32 +89,32 @@ namespace Engine {
         /**
          * @brief 충돌 시 이동 도형의 위치입니다.
          */
-        Core::FVector mLocation{};
+        FVector mLocation{};
 
         /**
          * @brief 표면 위 실제 충돌점입니다.
          */
-        Core::FVector mImpactPoint{};
+        FVector mImpactPoint{};
 
         /**
          * @brief 충돌면의 단위 법선입니다.
          */
-        Core::FVector mNormal{};
+        FVector mNormal{};
 
         /**
          * @brief 적중 표면의 단위 법선입니다.
          */
-        Core::FVector mImpactNormal{};
+        FVector mImpactNormal{};
 
         /**
          * @brief 추적 시작 위치입니다.
          */
-        Core::FVector mTraceStart{};
+        FVector mTraceStart{};
 
         /**
          * @brief 추적 끝 위치입니다.
          */
-        Core::FVector mTraceEnd{};
+        FVector mTraceEnd{};
 
         /**
          * @brief 초기 겹침을 해소할 침투 깊이입니다.

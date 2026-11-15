@@ -82,20 +82,20 @@ namespace Engine {
          * @brief 데칼 투영 박스의 로컬 반크기를 반환합니다.
          * @return 컴포넌트가 보관하는 반크기의 읽기 전용 참조입니다.
          */
-        const Core::FVector& GetExtent() const;
+        const FVector& GetExtent() const;
 
         /**
          * @brief 유한한 양의 박스 반크기를 설정하고 데칼을 동기화합니다.
          * @param Extent 모든 성분이 유한한 양수인 투영 박스 반크기입니다.
          * @return 모든 축이 유효하면 true입니다.
          */
-        bool SetExtent(const Core::FVector& Extent);
+        bool SetExtent(const FVector& Extent);
 
         /**
          * @brief 박스 반크기와 컴포넌트 월드 변환으로 데칼 투영 행렬을 만듭니다.
          * @return 정규화된 데칼 박스에서 월드 공간으로의 변환입니다.
          */
-        Core::FMatrix GetDecalToWorld() const;
+        FMatrix GetDecalToWorld() const;
 
         /**
          * @brief 데칼 불투명도를 반환합니다.
@@ -122,7 +122,7 @@ namespace Engine {
          */
         void SetSortOrder(Core::Int32 SortOrder);
 
-        bool SetTransform(const Core::FTransform& Transform) override;
+        bool SetTransform(const FTransform& Transform) override;
         void OnOwnerVisibilityChanged() override;
         void UnregisterComponent() override;
 
@@ -174,7 +174,7 @@ namespace Engine {
          * @brief 로컬 투영 박스의 양의 반크기입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetExtent, Setter = SetExtent)
-        Core::FVector mExtent{0.25f, 0.5f, 0.5f};
+        FVector mExtent{0.25f, 0.5f, 0.5f};
 
         /**
          * @brief 데칼 불투명도이며 범위는 0~1입니다.

@@ -19,9 +19,7 @@ namespace RenderCore {
     struct FRenderStats;
 }
 
-namespace Core {
-    struct FVector2;
-}
+struct FVector2;
 
 struct ImDrawList;
 
@@ -191,7 +189,7 @@ namespace Editor {
          * @param[in] Size 뷰포트 이미지의 가로·세로 픽셀 크기입니다.
          * @param[in,out] DrawList 오버레이를 추가할 ImGui 목록이며 nullptr이면 통계 그리기를 생략합니다.
          */
-        void Draw(float DeltaTime, const Engine::UWorld* World, const RenderCore::FRenderStats& Render, const Core::FVector2& Origin, const Core::FVector2& Size, ImDrawList* DrawList = nullptr) const;
+        void Draw(float DeltaTime, const Engine::UWorld* World, const RenderCore::FRenderStats& Render, const FVector2& Origin, const FVector2& Size, ImDrawList* DrawList = nullptr) const;
 
     private:
         /**

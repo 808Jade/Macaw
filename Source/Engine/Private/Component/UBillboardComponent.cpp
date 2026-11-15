@@ -137,14 +137,14 @@ namespace Engine {
     /**
      * @brief 로컬 쿼드의 가로·세로 월드 크기를 반환합니다.
      */
-    const Core::FVector2& Engine::UBillboardComponent::GetSize() const {
+    const FVector2& Engine::UBillboardComponent::GetSize() const {
         return mSize;
     }
 
     /**
      * @brief 로컬 쿼드의 가로·세로 월드 크기를 설정합니다.
      */
-    bool Engine::UBillboardComponent::SetSize(const Core::FVector2& Size) {
+    bool Engine::UBillboardComponent::SetSize(const FVector2& Size) {
         if (!std::isfinite(Size.x) || !std::isfinite(Size.y) || Size.x <= 0.0f || Size.y <= 0.0f || Size.x > 10000.0f || Size.y > 10000.0f) {
             return false;
         }
@@ -159,14 +159,14 @@ namespace Engine {
     /**
      * @brief 표시할 RGBA 색상을 반환합니다.
      */
-    const Core::FVector4& Engine::UBillboardComponent::GetColor() const {
+    const FVector4& Engine::UBillboardComponent::GetColor() const {
         return mColor;
     }
 
     /**
      * @brief 표시할 RGBA 색상을 설정합니다.
      */
-    bool Engine::UBillboardComponent::SetColor(const Core::FVector4& Color) {
+    bool Engine::UBillboardComponent::SetColor(const FVector4& Color) {
         const auto Values{Color.ToArray()};
 
         if (!std::all_of(Values.begin(), Values.end(), [](float Value) {
@@ -228,13 +228,13 @@ namespace Engine {
     /**
      * @brief 카메라 정렬 방향에 관계없이 빌보드를 포함하는 월드 경계를 계산합니다.
      */
-    Core::FBox Engine::UBillboardComponent::GetWorldBounds() const {
-        const Core::FMatrix World{GetWorldMatrix()};
-        const Core::FVector Center{World.TransformPosition({})};
+    FBox Engine::UBillboardComponent::GetWorldBounds() const {
+        const FMatrix World{GetWorldMatrix()};
+        const FVector Center{World.TransformPosition({})};
         const float Width{mSize.x * World.TransformVector({0.0f, 1.0f, 0.0f}).Length()};
         const float Height{mSize.y * World.TransformVector({0.0f, 0.0f, 1.0f}).Length()};
         const float Radius{0.5f * std::sqrt(Width * Width + Height * Height)};
-        const Core::FVector Extent{Radius, Radius, Radius};
+        const FVector Extent{Radius, Radius, Radius};
 
         return {Center - Extent, Center + Extent};
     }

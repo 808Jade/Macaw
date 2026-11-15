@@ -9,9 +9,7 @@
 #include "Engine/Component/USceneComponent.h"
 #include "UCameraComponent.generated.h"
 
-namespace Core {
-    struct FVector2;
-}
+struct FVector2;
 
 namespace Engine {
 
@@ -51,7 +49,7 @@ namespace Engine {
          * @param[out] View 계산한 카메라 뷰·투영 상태를 받을 출력입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool GetCameraView(const Core::FVector2& Size, Engine::FSceneView& View) const;
+        bool GetCameraView(const FVector2& Size, Engine::FSceneView& View) const;
 
     private:
         /**

@@ -52,7 +52,7 @@ namespace Asset {
                 return false;
             }
 
-            for (const Core::FVector& Key : Raw.mPosKeys) {
+            for (const FVector& Key : Raw.mPosKeys) {
                 if (!Key.IsFinite()) {
                     Error = "The animation track has a non-finite position: " + Track.mName;
 
@@ -60,7 +60,7 @@ namespace Asset {
                 }
             }
 
-            for (const Core::FQuat& Key : Raw.mRotKeys) {
+            for (const FQuat& Key : Raw.mRotKeys) {
                 if (!Key.IsFinite() || !Key.IsNormalized(0.001f)) {
                     Error = "The animation track has an invalid rotation: " + Track.mName;
 
@@ -68,7 +68,7 @@ namespace Asset {
                 }
             }
 
-            for (const Core::FVector& Key : Raw.mScaleKeys) {
+            for (const FVector& Key : Raw.mScaleKeys) {
                 if (!Key.IsFinite()) {
                     Error = "The animation track has a non-finite scale: " + Track.mName;
 

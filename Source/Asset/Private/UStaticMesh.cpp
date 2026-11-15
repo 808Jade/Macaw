@@ -94,7 +94,7 @@ namespace Asset {
     /**
      * @brief 메시의 로컬 공간 경계 상자를 반환합니다.
      */
-    const Core::FBox& Asset::UStaticMesh::GetBounds() const {
+    const FBox& Asset::UStaticMesh::GetBounds() const {
         return mMeshData.GetBounds();
     }
 
@@ -153,19 +153,19 @@ namespace Asset {
         for (Core::Index_t Index{}; Index < VertexCount; ++Index) {
             Positions.push_back(mMeshData.GetPositions()[Index].ToArray());
 
-            const Core::FVector Normal{mMeshData.GetNormals().empty() ? Core::FVector{0.0f, 0.0f, 1.0f} : mMeshData.GetNormals()[Index]};
-            const Core::FVector Axis{std::abs(Normal.z) < 0.99f ? Core::FVector{0.0f, 0.0f, 1.0f} : Core::FVector{0.0f, 1.0f, 0.0f}};
-            const Core::FVector DefaultTangent{Axis.Cross(Normal).Normalized()};
-            const Core::FVector4 Tangent{mMeshData.GetTangents().empty() ? Core::FVector4{DefaultTangent, 1.0f} : mMeshData.GetTangents()[Index]};
+            const FVector Normal{mMeshData.GetNormals().empty() ? FVector{0.0f, 0.0f, 1.0f} : mMeshData.GetNormals()[Index]};
+            const FVector Axis{std::abs(Normal.z) < 0.99f ? FVector{0.0f, 0.0f, 1.0f} : FVector{0.0f, 1.0f, 0.0f}};
+            const FVector DefaultTangent{Axis.Cross(Normal).Normalized()};
+            const FVector4 Tangent{mMeshData.GetTangents().empty() ? FVector4{DefaultTangent, 1.0f} : mMeshData.GetTangents()[Index]};
 
             Tangents.push_back({Normal.x, Normal.y, Normal.z, Tangent.x, Tangent.y, Tangent.z, Tangent.w});
 
-            const Core::FVector4 Color{mMeshData.GetColors().empty() ? Core::FVector4{1.0f, 1.0f, 1.0f, 1.0f} : mMeshData.GetColors()[Index]};
+            const FVector4 Color{mMeshData.GetColors().empty() ? FVector4{1.0f, 1.0f, 1.0f, 1.0f} : mMeshData.GetColors()[Index]};
 
             Colors.push_back({Color.x, Color.y, Color.z, Color.w});
 
             for (Core::Index_t Channel{}; Channel < ChannelCount; ++Channel) {
-                const Core::FVector2 UV{GetUVChannelCount() == 0 ? Core::FVector2{} : mMeshData.GetUVChannels()[Channel][Index]};
+                const FVector2 UV{GetUVChannelCount() == 0 ? FVector2{} : mMeshData.GetUVChannels()[Channel][Index]};
 
                 UVs.push_back({UV.x, UV.y});
             }

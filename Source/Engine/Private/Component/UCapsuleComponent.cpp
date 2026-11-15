@@ -21,8 +21,8 @@ namespace Engine {
     /**
      * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
      */
-    Core::FBox Engine::UCapsuleComponent::CalcLocalBounds() const {
-        return Core::FBox{ Core::FVector{ -mCapsuleRadius, -mCapsuleRadius, -mCapsuleHalfHeight }, Core::FVector{ mCapsuleRadius, mCapsuleRadius, mCapsuleHalfHeight } };
+    FBox Engine::UCapsuleComponent::CalcLocalBounds() const {
+        return FBox{ FVector{ -mCapsuleRadius, -mCapsuleRadius, -mCapsuleHalfHeight }, FVector{ mCapsuleRadius, mCapsuleRadius, mCapsuleHalfHeight } };
     }
 
     /**

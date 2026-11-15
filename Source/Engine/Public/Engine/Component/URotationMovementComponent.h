@@ -41,14 +41,14 @@ namespace Engine {
          * @brief 축별 초당 회전 속도를 반환합니다.
          * @return Pitch·Yaw·Roll의 도/초 값을 가진 읽기 전용 참조입니다.
          */
-        const Core::FRotator& GetRotationRate() const;
+        const FRotator& GetRotationRate() const;
 
         /**
          * @brief 유한한 Pitch·Yaw·Roll 회전 속도를 설정합니다.
          * @param[in] Rate Pitch·Yaw·Roll의 유한한 도/초 회전 속도입니다.
          * @return 모든 축이 유한하면 true이며 그렇지 않으면 false입니다.
          */
-        bool SetRotationRate(const Core::FRotator& Rate);
+        bool SetRotationRate(const FRotator& Rate);
 
         /**
          * @brief 회전 증분을 로컬 축으로 합성하는지 조회합니다.
@@ -68,7 +68,7 @@ namespace Engine {
          * @brief Pitch·Yaw·Roll 축별 초당 회전 각도이며 단위는 도입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetRotationRate, Setter = SetRotationRate)
-        Core::FRotator mRotationRate{0.0f, 90.0f, 0.0f};
+        FRotator mRotationRate{0.0f, 90.0f, 0.0f};
 
         /**
          * @brief true이면 루트의 로컬 축, false이면 월드 축에 회전 증분을 합성합니다.

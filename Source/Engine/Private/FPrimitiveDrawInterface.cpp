@@ -17,7 +17,7 @@ namespace Engine {
     /**
      * @brief 주어진 좌표와 색상으로 보조 선분을 프레임 목록에 추가합니다.
      */
-    void Engine::FPrimitiveDrawInterface::DrawLine(const Core::FVector& Start, const Core::FVector& End, const Core::FVector& Color, bool DepthTest, float Thickness) {
+    void Engine::FPrimitiveDrawInterface::DrawLine(const FVector& Start, const FVector& End, const FVector& Color, bool DepthTest, float Thickness) {
         if (!Start.IsFinite() || !End.IsFinite() || !Color.IsFinite() || !std::isfinite(Thickness) || Thickness <= 0.0f || (End - Start).LengthSquared() <= 0.0f) {
             return;
         }
@@ -28,9 +28,9 @@ namespace Engine {
     /**
      * @brief AABB의 열두 모서리를 지정한 픽셀 두께의 선분으로 수집합니다.
      */
-    void Engine::FPrimitiveDrawInterface::DrawBox(const Core::FBox& Bounds, const Core::FVector& Color, bool DepthTest, float Thickness) {
+    void Engine::FPrimitiveDrawInterface::DrawBox(const FBox& Bounds, const FVector& Color, bool DepthTest, float Thickness) {
         for (Core::Index_t Corner{}; Corner < 8; ++Corner) {
-            const Core::FVector Start{(Corner & 1) != 0 ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Corner & 2) != 0 ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Corner & 4) != 0 ? Bounds.mMaximum.z : Bounds.mMinimum.z};
+            const FVector Start{(Corner & 1) != 0 ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Corner & 2) != 0 ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Corner & 4) != 0 ? Bounds.mMaximum.z : Bounds.mMinimum.z};
 
             for (Core::Index_t Axis{}; Axis < 3; ++Axis) {
                 if ((Corner & (1 << Axis)) != 0) {
@@ -38,7 +38,7 @@ namespace Engine {
                 }
 
                 const Core::Index_t Other{Corner | (Core::Index_t{1} << Axis)};
-                const Core::FVector End{(Other & 1) != 0 ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Other & 2) != 0 ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Other & 4) != 0 ? Bounds.mMaximum.z : Bounds.mMinimum.z};
+                const FVector End{(Other & 1) != 0 ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Other & 2) != 0 ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Other & 4) != 0 ? Bounds.mMaximum.z : Bounds.mMinimum.z};
 
                 DrawLine(Start, End, Color, DepthTest, Thickness);
             }

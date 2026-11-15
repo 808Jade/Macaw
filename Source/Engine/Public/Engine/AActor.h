@@ -12,9 +12,7 @@
 #include "CoreUObject/UObject.h"
 #include "AActor.generated.h"
 
-namespace Core {
-    struct FTransform;
-}
+struct FTransform;
 
 namespace Core {
     class FInput;
@@ -87,14 +85,14 @@ namespace Engine {
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
         UFUNCTION()
-        bool SetActorTransform(const Core::FTransform& Transform);
+        bool SetActorTransform(const FTransform& Transform);
 
         /**
          * @brief 루트 컴포넌트의 변환을 반환합니다.
          * @return 루트 컴포넌트의 변환이며, 루트가 없으면 기본 변환입니다.
          */
         UFUNCTION()
-        Core::FTransform GetActorTransform() const;
+        FTransform GetActorTransform() const;
 
         /**
          * @brief 월드에서 이 액터를 제거합니다. 실행 전달 중이면 안전한 시점까지 미룹니다.

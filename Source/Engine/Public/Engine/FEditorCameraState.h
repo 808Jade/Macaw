@@ -32,13 +32,13 @@ namespace Engine {
          * @brief 위치를 반환합니다.
          * @return 월드 공간 위치의 참조입니다.
          */
-        const Core::FVector& GetLocation() const;
+        const FVector& GetLocation() const;
 
         /**
          * @brief 회전을 반환합니다.
          * @return 도 단위 회전의 참조입니다.
          */
-        const Core::FRotator& GetRotation() const;
+        const FRotator& GetRotation() const;
 
         /**
          * @brief 시야각을 반환합니다.
@@ -80,7 +80,7 @@ namespace Engine {
          * @param FarClip 원평면 거리입니다.
          * @return 유효한 상태를 적용하면 true입니다.
          */
-        bool Set(const Core::FVector& Location, const Core::FRotator& Rotation, float FieldOfView, float NearClip, float FarClip);
+        bool Set(const FVector& Location, const FRotator& Rotation, float FieldOfView, float NearClip, float FarClip);
 
         /**
          * @brief 카메라 필드를 저장하거나 복원합니다.
@@ -92,12 +92,12 @@ namespace Engine {
         /**
          * @brief 월드 위치입니다.
          */
-        Core::FVector mLocation{-7.0f, -9.0f, 6.0f};
+        FVector mLocation{-7.0f, -9.0f, 6.0f};
 
         /**
          * @brief 도 단위 회전입니다.
          */
-        Core::FRotator mRotation{-26.0f, 50.0f, 0.0f};
+        FRotator mRotation{-26.0f, 50.0f, 0.0f};
 
         /**
          * @brief 도 단위 수직 시야각입니다.

@@ -181,13 +181,13 @@ namespace Viewer {
          * @brief 현재 출력 영역 크기를 반환합니다.
          * @return 너비·높이(픽셀)입니다.
          */
-        Core::FVector2 GetSize() const;
+        FVector2 GetSize() const;
 
         /**
          * @brief 출력 영역 안에서 종횡비와 여백을 반영한 이미지 사각형을 계산합니다.
          * @return 픽셀 단위의 X, Y, 너비, 높이입니다.
          */
-        Core::FVector4 GetImageRect() const;
+        FVector4 GetImageRect() const;
 
         /**
          * @brief UI에서 표시할 네이티브 텍스처 핸들을 반환합니다.
@@ -240,7 +240,7 @@ namespace Viewer {
         /**
          * @brief 뷰어 출력 너비·높이(픽셀)입니다.
          */
-        Core::FVector2 mSize{256.0f, 256.0f};
+        FVector2 mSize{256.0f, 256.0f};
 
         /**
          * @brief 배경 격자의 월드 단위 간격이며 0은 표시하지 않습니다.

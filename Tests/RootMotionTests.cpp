@@ -56,15 +56,15 @@ namespace {
         return std::abs(A - B) < 0.0002f;
     }
 
-    bool Near(const Core::FVector& A, const Core::FVector& B) {
+    bool Near(const FVector& A, const FVector& B) {
         return (A - B).Length() < 0.0003f;
     }
 
-    bool Identity(const Core::FTransform& Transform) {
-        return Near(Transform.mLocation, {}) && Transform.mRotation.Equals(Core::FQuat{});
+    bool Identity(const FTransform& Transform) {
+        return Near(Transform.mLocation, {}) && Transform.mRotation.Equals(FQuat{});
     }
 
-    std::unique_ptr<Asset::UAnimSequence> MakeSequence(float Distance, Core::Uint32 Frames = 4, const Core::FQuat& EndRotation = {}) {
+    std::unique_ptr<Asset::UAnimSequence> MakeSequence(float Distance, Core::Uint32 Frames = 4, const FQuat& EndRotation = {}) {
         Asset::FAnimDataModel Model{};
 
         Model.SetFrameRate({4, 1});
@@ -87,7 +87,7 @@ namespace {
             const float Phase{static_cast<float>(Key) / static_cast<float>(Frames)};
 
             Root.mInternalTrack.mPosKeys.push_back({3.0f + Phase * Distance, 0.0f, 0.0f});
-            Root.mInternalTrack.mRotKeys.push_back(Core::FQuat{}.Slerp(EndRotation, Phase));
+            Root.mInternalTrack.mRotKeys.push_back(FQuat{}.Slerp(EndRotation, Phase));
         }
 
         Model.GetBoneAnimationTracks().push_back(std::move(Root));
@@ -327,7 +327,7 @@ namespace {
     }
 
     void TestRotation(Engine::USkeletalMeshComponent& Mesh) {
-        const Core::FQuat QuarterTurn{Core::FRotator{0.0f, 90.0f, 0.0f}};
+        const FQuat QuarterTurn{FRotator{0.0f, 90.0f, 0.0f}};
         auto Sequence{MakeSequence(0.0f, 4, QuarterTurn)};
         Engine::UAnimSingleNodeInstance Instance{};
 
@@ -337,18 +337,18 @@ namespace {
         Instance.Play(false);
         Instance.UpdateAnimation(1.0f);
 
-        const Core::FTransform Delta{Instance.ConsumeExtractedRootMotion()};
-        const Core::FVector Pivot{3.0f, 0.0f, 0.0f};
+        const FTransform Delta{Instance.ConsumeExtractedRootMotion()};
+        const FVector Pivot{3.0f, 0.0f, 0.0f};
 
         Require(Near(Delta.mLocation + Delta.mRotation.RotateVector(Pivot), Pivot), "Extracted root rotation preserves an offset lock pivot");
 
-        Core::FTransform Component{{10.0f, 5.0f, 0.0f}, QuarterTurn, {2.0f, 2.0f, 2.0f}};
-        Core::FTransform Actor{{8.0f, 4.0f, 0.0f}, {}, {1.0f, 1.0f, 1.0f}};
-        const Core::FTransform Moved{Engine::FAnimationRuntime::ApplyRootMotionToTransform(Delta, Component, Actor)};
-        const Core::FVector WorldPivot{Component.ToMatrix().TransformPosition(Pivot)};
-        const Core::FQuat WorldRotation{Moved.mRotation * Actor.mRotation.Inverse()};
-        const Core::FVector MovedComponent{Moved.mLocation + WorldRotation.RotateVector(Component.mLocation - Actor.mLocation)};
-        const Core::FVector MovedPivot{MovedComponent + WorldRotation.RotateVector(WorldPivot - Component.mLocation)};
+        FTransform Component{{10.0f, 5.0f, 0.0f}, QuarterTurn, {2.0f, 2.0f, 2.0f}};
+        FTransform Actor{{8.0f, 4.0f, 0.0f}, {}, {1.0f, 1.0f, 1.0f}};
+        const FTransform Moved{Engine::FAnimationRuntime::ApplyRootMotionToTransform(Delta, Component, Actor)};
+        const FVector WorldPivot{Component.ToMatrix().TransformPosition(Pivot)};
+        const FQuat WorldRotation{Moved.mRotation * Actor.mRotation.Inverse()};
+        const FVector MovedComponent{Moved.mLocation + WorldRotation.RotateVector(Component.mLocation - Actor.mLocation)};
+        const FVector MovedPivot{MovedComponent + WorldRotation.RotateVector(WorldPivot - Component.mLocation)};
 
         Require(Near(MovedPivot, WorldPivot), "World conversion preserves the pivot with mesh offset, scale and facing");
 
@@ -356,7 +356,7 @@ namespace {
         Instance.SetPosition(1.0);
         Instance.Play(false);
         Instance.UpdateAnimation(1.0f);
-        const Core::FTransform Reverse{Instance.ConsumeExtractedRootMotion()};
+        const FTransform Reverse{Instance.ConsumeExtractedRootMotion()};
         Require(Identity(Engine::FAnimationRuntime::AccumulateRootMotion(Delta, Reverse)), "Reverse root rotation cancels forward root rotation");
     }
 
@@ -395,9 +395,9 @@ int main() {
         Asset::FAssetManager Assets{Content};
         Asset::USkeleton Skeleton{};
         Core::FString Error{};
-        const Core::FTransform RootBind{{2.0f, 0.0f, 0.0f}, {}, {1.0f, 1.0f, 1.0f}};
+        const FTransform RootBind{{2.0f, 0.0f, 0.0f}, {}, {1.0f, 1.0f, 1.0f}};
 
-        Require(Skeleton.SetBones({{"Root", -1, RootBind.ToMatrix()}, {"Child", 0, Core::FTransform{{0.0f, 0.0f, 1.0f}, {}, {1.0f, 1.0f, 1.0f}}.ToMatrix()}}), "Create a target skeleton");
+        Require(Skeleton.SetBones({{"Root", -1, RootBind.ToMatrix()}, {"Child", 0, FTransform{{0.0f, 0.0f, 1.0f}, {}, {1.0f, 1.0f, 1.0f}}.ToMatrix()}}), "Create a target skeleton");
         Require(Assets.SaveSkeleton("Skeleton.masset", Skeleton, Error), "Save target skeleton " + Error);
 
         Asset::USkeletalMesh MeshAsset{};

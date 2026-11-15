@@ -61,7 +61,7 @@ namespace Asset {
          * @param[in] ParentTransform 부모 노드까지의 원본 공간 전역 변환입니다.
          * @return 모든 메시를 읽으면 true이며 하나라도 실패하면 Error에 원인을 기록하고 false입니다.
          */
-        bool ReadNode(const aiNode& Node, const Core::FMatrix& ParentTransform);
+        bool ReadNode(const aiNode& Node, const FMatrix& ParentTransform);
 
         /**
          * @brief Assimp 메시의 정점과 삼각형을 엔진 공간으로 변환해 대상 메시에 추가하고 서브메시를 구성합니다.
@@ -78,7 +78,7 @@ namespace Asset {
          * @param[in] ParentTransform 부모 노드까지의 원본 공간 전역 변환입니다.
          * @return 모든 오프셋 행렬을 되돌릴 수 있으면 true이며 실패하면 Error에 원인을 기록하고 false입니다.
          */
-        bool CollectBindPoses(const aiNode& Node, const Core::FMatrix& ParentTransform);
+        bool CollectBindPoses(const aiNode& Node, const FMatrix& ParentTransform);
 
         /**
          * @brief 메시가 참조하는 본 이름과 같은 노드를 깊이 우선으로 순회하며 결과 본 목록에 추가합니다.
@@ -87,7 +87,7 @@ namespace Asset {
          * @param[in] ParentBoneGlobal 가장 가까운 조상 본의 엔진 공간 전역 변환이며 없으면 항등 행렬입니다.
          * @return 모든 본을 읽으면 true이며 바인드 포즈를 변환할 수 없으면 false입니다.
          */
-        bool ReadSkeleton(const aiNode& Node, Core::Int32 ParentIndex, const Core::FMatrix& ParentBoneGlobal);
+        bool ReadSkeleton(const aiNode& Node, Core::Int32 ParentIndex, const FMatrix& ParentBoneGlobal);
 
         /**
          * @brief 장면의 Assimp 재질마다 기본 색상·불투명도·양면 여부와 기본 색상·노멀 텍스처를 읽어 재질 목록에 추가합니다.
@@ -109,12 +109,12 @@ namespace Asset {
         /**
          * @brief 원본 전역 공간에서 엔진 공간으로 가는 행렬입니다. 축 변환과 임포트 이동·회전·스케일을 포함합니다.
          */
-        Core::FMatrix mBasis{};
+        FMatrix mBasis{};
 
         /**
          * @brief 메시 본 이름별 바인드 시점 전역 변환이며 원본 전역 공간 기준입니다.
          */
-        Core::TMap<Core::FString, Core::FMatrix> mBindPoses{};
+        Core::TMap<Core::FString, FMatrix> mBindPoses{};
 
         /**
          * @brief 본으로 읽은 노드 이름별 결과 본 인덱스입니다.

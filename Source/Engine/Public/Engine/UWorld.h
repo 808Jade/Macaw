@@ -19,10 +19,8 @@ namespace Asset {
     class FAssetManager;
 }
 
-namespace Core {
-    struct FRay;
-    struct FVector;
-}
+struct FRay;
+struct FVector;
 
 namespace Core {
     class FInput;
@@ -315,7 +313,7 @@ namespace Engine {
          * @note 입력 방향을 내부에서 정규화합니다. 원점이 유한하지 않거나 방향을 정규화할 수 없으면 실패합니다.
          * @param[in] Ignored 광선 충돌에서 제외할 액터이며 nullptr이면 제외하지 않습니다.
          */
-        bool Raycast(const Core::FRay& Ray, Engine::FWorldHit& Hit, const Engine::AActor* Ignored = nullptr) const;
+        bool Raycast(const FRay& Ray, Engine::FWorldHit& Hit, const Engine::AActor* Ignored = nullptr) const;
 
         /**
          * @brief 광선과 처음 만나는 메시를 찾아 값으로 반환합니다.
@@ -325,7 +323,7 @@ namespace Engine {
          * @return 찾은 결과이며, 맞은 것이 없으면 액터 핸들이 유효하지 않습니다.
          */
         UFUNCTION()
-        Engine::FWorldHit Raycast(const Core::FVector& Origin, const Core::FVector& Direction, const Engine::AActor* Ignored) const;
+        Engine::FWorldHit Raycast(const FVector& Origin, const FVector& Direction, const Engine::AActor* Ignored) const;
 
         /**
          * @brief 이름으로 살아 있는 액터를 찾습니다.

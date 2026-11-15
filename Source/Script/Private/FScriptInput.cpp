@@ -49,15 +49,15 @@ namespace Script {
     /**
      * @brief 마우스 위치를 반환합니다.
      */
-    Core::FVector2 Script::FScriptInput::GetMousePosition() {
-        return sInput != nullptr ? sInput->GetMousePosition(Core::EInputRoute::Game) : Core::FVector2{};
+    FVector2 Script::FScriptInput::GetMousePosition() {
+        return sInput != nullptr ? sInput->GetMousePosition(Core::EInputRoute::Game) : FVector2{};
     }
 
     /**
      * @brief 이번 프레임의 마우스 이동량을 반환합니다.
      */
-    Core::FVector2 Script::FScriptInput::GetMouseDelta() {
-        return sInput != nullptr ? sInput->GetMouseDelta(Core::EInputRoute::Game) : Core::FVector2{};
+    FVector2 Script::FScriptInput::GetMouseDelta() {
+        return sInput != nullptr ? sInput->GetMouseDelta(Core::EInputRoute::Game) : FVector2{};
     }
 
     /**

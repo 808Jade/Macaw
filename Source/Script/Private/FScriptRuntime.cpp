@@ -619,8 +619,8 @@ namespace Script {
         View.mFieldOfView = ViewInfo.mFieldOfView;
 
         const bool Stop{mState->mManaged.mModifyCamera(Instance, DeltaTime, &View) != 0};
-        const Core::FVector Location{View.mLocation.x, View.mLocation.y, View.mLocation.z};
-        const Core::FQuat Rotation{View.mRotation.x, View.mRotation.y, View.mRotation.z, View.mRotation.w};
+        const FVector Location{View.mLocation.x, View.mLocation.y, View.mLocation.z};
+        const FQuat Rotation{View.mRotation.x, View.mRotation.y, View.mRotation.z, View.mRotation.w};
 
         // 스크립트가 잘못된 값을 돌려주면 그 값만 버립니다.
         if (Location.IsFinite()) {

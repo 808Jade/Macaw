@@ -31,15 +31,15 @@ namespace Editor {
         /**
          * @brief X·Y·Z 기즈모 축의 색상입니다.
          */
-        const std::array<Core::FVector, 3> AxisColors{{{1.0f, 0.28f, 0.22f}, {0.35f, 0.95f, 0.45f}, {0.32f, 0.58f, 1.0f}}};
+        const std::array<FVector, 3> AxisColors{{{1.0f, 0.28f, 0.22f}, {0.35f, 0.95f, 0.45f}, {0.32f, 0.58f, 1.0f}}};
 
         /**
          * @brief 입력 축에 수직인 정규화 방향을 계산합니다.
          * @param[in] Axis 수직 방향을 구할 기준 축입니다.
          * @return 기준 축에 수직인 단위 벡터입니다.
          */
-        Core::FVector Perpendicular(const Core::FVector& Axis) {
-            return Axis.Cross(std::abs(Axis.z) < 0.8f ? Core::FVector{0.0f, 0.0f, 1.0f} : Core::FVector{0.0f, 1.0f, 0.0f}).Normalized();
+        FVector Perpendicular(const FVector& Axis) {
+            return Axis.Cross(std::abs(Axis.z) < 0.8f ? FVector{0.0f, 0.0f, 1.0f} : FVector{0.0f, 1.0f, 0.0f}).Normalized();
         }
 
         /**
@@ -50,9 +50,9 @@ namespace Editor {
          * @param[in] Position 문자열 탐색 시작 위치입니다.
          * @return 축·원점으로 구성한 변환 행렬입니다.
          */
-        Core::FMatrix Basis(const Core::FVector& X, const Core::FVector& Y, const Core::FVector& Z, const Core::FVector& Position) {
-            Core::FMatrix Result{Core::FMatrix::Identity()};
-            const std::array<Core::FVector, 4> Rows{X, Y, Z, Position};
+        FMatrix Basis(const FVector& X, const FVector& Y, const FVector& Z, const FVector& Position) {
+            FMatrix Result{FMatrix::Identity()};
+            const std::array<FVector, 4> Rows{X, Y, Z, Position};
 
             for (Core::Int32 Index{}; Index < 4; ++Index) {
                 Result(Index, 0) = Rows[Index].x;
@@ -79,8 +79,8 @@ namespace Editor {
     /**
      * @brief 기즈모의 기본 X·Y·Z 단위 축을 반환합니다.
      */
-    const std::array<Core::FVector, 3>& Editor::FGizmoCore::GetUnitAxes() {
-        static const std::array<Core::FVector, 3> UnitAxes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
+    const std::array<FVector, 3>& Editor::FGizmoCore::GetUnitAxes() {
+        static const std::array<FVector, 3> UnitAxes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
 
         return UnitAxes;
     }
@@ -95,7 +95,7 @@ namespace Editor {
     /**
      * @brief 피벗 깊이와 시야각으로 화면 픽셀당 월드 거리를 구합니다.
      */
-    float Editor::FGizmoCore::GetSize(const Engine::FSceneView& View, const Core::FVector& Pivot) const {
+    float Editor::FGizmoCore::GetSize(const Engine::FSceneView& View, const FVector& Pivot) const {
         const float Depth{(Pivot - View.mLocation).Dot(View.mForward)};
         const float Size{std::isfinite(mSettings.mSize) ? std::clamp(mSettings.mSize, 0.5f, 2.0f) : 1.0f};
 
@@ -109,8 +109,8 @@ namespace Editor {
     /**
      * @brief 핸들의 CPU 레이 교차 판정으로 마우스가 가리키는 핸들을 구합니다.
      */
-    Engine::FHitProxy Editor::FGizmoCore::HitTest(const Core::FVector2& Mouse, const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement) const {
-        Core::FRay Ray{};
+    Engine::FHitProxy Editor::FGizmoCore::HitTest(const FVector2& Mouse, const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement) const {
+        FRay Ray{};
 
         if (!View.Deproject(Mouse, Ray)) {
             return {};
@@ -144,7 +144,7 @@ namespace Editor {
     /**
      * @brief 선택 축의 시작 상태를 저장하고 드래그 평면을 구성합니다.
      */
-    bool Editor::FGizmoCore::BeginDrag(Core::Int32 Axis, const Core::FVector2& Mouse, const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement) {
+    bool Editor::FGizmoCore::BeginDrag(Core::Int32 Axis, const FVector2& Mouse, const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement) {
         if (Axis < 0 || Axis > 7) {
             return false;
         }
@@ -182,8 +182,8 @@ namespace Editor {
             return false;
         }
 
-        Core::FVector2 Start{};
-        Core::FVector2 End{};
+        FVector2 Start{};
+        FVector2 End{};
 
         if (!Core::Math::Project(mStartPivot, View.mViewProjection, View.mSize, Start) || !Core::Math::Project(mStartPivot + mAxis * mDragSize * 100.0f, View.mViewProjection, View.mSize, End)) {
             return false;
@@ -193,9 +193,9 @@ namespace Editor {
 
         const float Length{std::sqrt(mScreenAxis.x * mScreenAxis.x + mScreenAxis.y * mScreenAxis.y)};
 
-        mScreenAxis = Axis >= 6 ? Core::FVector2{0.70710678f, -0.70710678f} : Length > 0.00001f ? mScreenAxis / Length : Core::FVector2{};
+        mScreenAxis = Axis >= 6 ? FVector2{0.70710678f, -0.70710678f} : Length > 0.00001f ? mScreenAxis / Length : FVector2{};
 
-        Core::FRay Ray{};
+        FRay Ray{};
 
         if (!View.Deproject(Mouse, Ray) || mDragSize <= 0.0f) {
             return false;
@@ -213,7 +213,7 @@ namespace Editor {
 
             mPreviousDirection = mStartDirection;
 
-            const Core::FVector Tangent{mPlaneNormal.Cross(mStartDirection)};
+            const FVector Tangent{mPlaneNormal.Cross(mStartDirection)};
 
             if (Core::Math::Project(mStartPivot + mStartDirection * mDragSize * 74.0f, View.mViewProjection, View.mSize, Start) && Core::Math::Project(mStartPivot + (mStartDirection * 74.0f + Tangent * 10.0f) * mDragSize, View.mViewProjection, View.mSize, End)) {
                 mScreenAxis = End - Start;
@@ -234,22 +234,22 @@ namespace Editor {
     /**
      * @brief 마우스 위치를 활성 모드의 이동량, 회전량 또는 스케일 변화량으로 바꿉니다.
      */
-    bool Editor::FGizmoCore::UpdateDrag(const Core::FVector2& Mouse) {
-        Core::FMatrix CameraWorld{};
+    bool Editor::FGizmoCore::UpdateDrag(const FVector2& Mouse) {
+        FMatrix CameraWorld{};
 
         if (!IsDragging() || !mDragView.mView.TryInverse(CameraWorld)) {
             return false;
         }
 
-        const Core::FVector Right{CameraWorld.GetAxis(0)};
-        const Core::FVector Up{CameraWorld.GetAxis(1)};
-        const Core::FVector2 MouseDelta{Mouse - mStartMouse};
+        const FVector Right{CameraWorld.GetAxis(0)};
+        const FVector Up{CameraWorld.GetAxis(1)};
+        const FVector2 MouseDelta{Mouse - mStartMouse};
 
         if (!std::isfinite(MouseDelta.x) || !std::isfinite(MouseDelta.y)) {
             return false;
         }
 
-        Core::FRay Ray{};
+        FRay Ray{};
 
         if (!mDragView.Deproject(Mouse, Ray)) {
             return false;
@@ -261,13 +261,13 @@ namespace Editor {
             if (mScreenFallback) {
                 mRawAngle = ScreenMovement / (74.0f * std::clamp(mSettings.mSize, 0.5f, 2.0f));
             } else {
-                Core::FVector Intersection{};
+                FVector Intersection{};
 
                 if (!Core::Math::IntersectPlane(Ray, mStartPivot, mPlaneNormal, Intersection)) {
                     return false;
                 }
 
-                const Core::FVector Direction{(Intersection - mStartPivot).ProjectedOnPlane(mPlaneNormal).Normalized()};
+                const FVector Direction{(Intersection - mStartPivot).ProjectedOnPlane(mPlaneNormal).Normalized()};
 
                 if (Direction.IsNearlyZero()) {
                     return false;
@@ -288,13 +288,13 @@ namespace Editor {
             return true;
         }
 
-        Core::FVector Delta{};
-        Core::FVector Movement{};
+        FVector Delta{};
+        FVector Movement{};
 
         if (mScreenFallback) {
             Movement = mActiveAxis < 3 ? mDragAxes[mActiveAxis] * ScreenMovement * mDragSize : (Right * MouseDelta.x - Up * MouseDelta.y) * mDragSize;
         } else {
-            Core::FVector Intersection{};
+            FVector Intersection{};
 
             if (!Core::Math::IntersectPlane(Ray, mStartPivot, mPlaneNormal, Intersection)) {
                 return false;
@@ -304,7 +304,7 @@ namespace Editor {
         }
 
         for (Core::Int32 Index{}; Index < 3; ++Index) {
-            const Core::FVector Axis{mActiveAxis == 6 ? GetUnitAxes()[Index] : mDragAxes[Index]};
+            const FVector Axis{mActiveAxis == 6 ? GetUnitAxes()[Index] : mDragAxes[Index]};
 
             if (mActiveAxis == 6 || Affects(mActiveAxis, Index)) {
                 Delta += Axis * Snap(Movement.Dot(Axis), mSettings.mTranslationStep, mSettings.mTranslationSnap);
@@ -332,35 +332,35 @@ namespace Editor {
      * @brief 카메라와 모드에 맞는 핸들 도형과 히트 프록시를 추가합니다.
      */
     void Editor::FGizmoCore::BuildHandles(const Engine::FSceneView& View, const Editor::FGizmoPlacement& Placement, Engine::FPrimitiveDrawInterface& DrawInterface) const {
-        Core::FMatrix CameraWorld{};
+        FMatrix CameraWorld{};
 
         if (Placement.mMode == Editor::EGizmoMode::None || !View.mView.TryInverse(CameraWorld)) {
             return;
         }
 
-        const Core::FVector Right{CameraWorld.GetAxis(0)};
-        const Core::FVector Up{CameraWorld.GetAxis(1)};
+        const FVector Right{CameraWorld.GetAxis(0)};
+        const FVector Up{CameraWorld.GetAxis(1)};
         const Editor::EGizmoMode Mode{Placement.mMode};
-        const Core::FVector Pivot{Placement.mPivot};
+        const FVector Pivot{Placement.mPivot};
         const float Unit{GetSize(View, Pivot)};
 
         if (Unit <= 0.0f) {
             return;
         }
 
-        const std::array<Core::FVector, 3> Axes{IsDragging() ? mDragAxes : Placement.mAxes};
+        const std::array<FVector, 3> Axes{IsDragging() ? mDragAxes : Placement.mAxes};
         const Core::Int32 Highlight{IsDragging() ? mActiveAxis : mHoveredAxis};
         const CoreUObject::TObjectRef<Engine::AActor> Owner{Placement.mOwner};
 
-        const auto Add{[&](Engine::EEditorMesh Mesh, const Core::FMatrix& World, Core::Int32 Handle, Core::Uint32 Priority, const Core::FVector4& Color, bool Pickable = true) {
+        const auto Add{[&](Engine::EEditorMesh Mesh, const FMatrix& World, Core::Int32 Handle, Core::Uint32 Priority, const FVector4& Color, bool Pickable = true) {
             DrawInterface.DrawMesh({Mesh, World, Color, Pickable ? Engine::FHitProxy{Engine::EHitProxyType::GizmoAxis, Owner, Handle} : Engine::FHitProxy{}, Priority});
         }};
         const auto Color{[&](Core::Int32 Handle) {
             if (Handle == Highlight) {
-                return Core::FVector4{1.0f, 0.85f, 0.05f, 1.0f};
+                return FVector4{1.0f, 0.85f, 0.05f, 1.0f};
             }
 
-            return Handle < 3 ? Core::FVector4{AxisColors[Handle], 1.0f} : Handle == 3 ? Core::FVector4{0.8f, 0.8f, 0.2f, 0.35f} : Handle == 4 ? Core::FVector4{0.8f, 0.2f, 0.8f, 0.35f} : Handle == 5 ? Core::FVector4{0.2f, 0.8f, 0.8f, 0.35f} : Core::FVector4{0.8f, 0.8f, 0.8f, 1.0f};
+            return Handle < 3 ? FVector4{AxisColors[Handle], 1.0f} : Handle == 3 ? FVector4{0.8f, 0.8f, 0.2f, 0.35f} : Handle == 4 ? FVector4{0.8f, 0.2f, 0.8f, 0.35f} : Handle == 5 ? FVector4{0.2f, 0.8f, 0.8f, 0.35f} : FVector4{0.8f, 0.8f, 0.8f, 1.0f};
         }};
 
         if (Mode == Editor::EGizmoMode::Rotate) {
@@ -371,22 +371,22 @@ namespace Editor {
                     continue;
                 }
 
-                const Core::FVector Normal{Index < 3 ? Axes[Index] : View.mForward};
+                const FVector Normal{Index < 3 ? Axes[Index] : View.mForward};
                 const float Radius{Index < 3 ? Unit : Unit * 1.2f};
-                Core::FVector First{Index < 3 ? (-View.mForward).ProjectedOnPlane(Normal).Normalized() : Right};
+                FVector First{Index < 3 ? (-View.mForward).ProjectedOnPlane(Normal).Normalized() : Right};
                 const bool FaceOn{First.IsNearlyZero()};
 
                 if (First.IsNearlyZero()) {
                     First = Perpendicular(Normal);
                 }
 
-                const Core::FVector Second{Normal.Cross(First).Normalized()};
+                const FVector Second{Normal.Cross(First).Normalized()};
                 const bool Full{Index == 3 || IsDragging() || FaceOn};
 
                 Add(Full ? Engine::EEditorMesh::Ring : Engine::EEditorMesh::HalfRing, Basis(First * Radius, Second * Radius, Normal * Radius, Pivot), Handle, 2, Color(Handle));
 
                 if (!Full) {
-                    Core::FVector4 Back{Color(Handle) * 0.25f};
+                    FVector4 Back{Color(Handle) * 0.25f};
                     Back.w = 0.45f;
 
                     Add(Engine::EEditorMesh::HalfRing, Basis(-First * Radius, -Second * Radius, Normal * Radius, Pivot), Handle, 2, Back, false);
@@ -405,8 +405,8 @@ namespace Editor {
         const std::array<std::array<Core::Int32, 2>, 3> Pairs{{{0, 1}, {0, 2}, {1, 2}}};
 
         for (Core::Int32 Index{}; Index < 3; ++Index) {
-            const Core::FVector First{Axes[Pairs[Index][0]]};
-            const Core::FVector Second{Axes[Pairs[Index][1]]};
+            const FVector First{Axes[Pairs[Index][0]]};
+            const FVector Second{Axes[Pairs[Index][1]]};
 
             if (std::abs(First.Cross(Second).Dot(View.mForward)) < 0.08f || (IsDragging() && mActiveAxis != Index + 3)) {
                 continue;
@@ -421,7 +421,7 @@ namespace Editor {
         const Core::Int32 Center{Mode == Editor::EGizmoMode::Scale ? 7 : 6};
 
         if (!IsDragging() || mActiveAxis == Center) {
-            const Core::FMatrix World{Mode == Editor::EGizmoMode::Scale ? Basis(Axes[0] * 8.0f * Unit, Axes[1] * 8.0f * Unit, Axes[2] * 8.0f * Unit, Pivot) : Basis(Right * 10.0f * Unit, Up * 10.0f * Unit, View.mForward * Unit, Pivot - (Right + Up) * 5.0f * Unit)};
+            const FMatrix World{Mode == Editor::EGizmoMode::Scale ? Basis(Axes[0] * 8.0f * Unit, Axes[1] * 8.0f * Unit, Axes[2] * 8.0f * Unit, Pivot) : Basis(Right * 10.0f * Unit, Up * 10.0f * Unit, View.mForward * Unit, Pivot - (Right + Up) * 5.0f * Unit)};
 
             Add(Mode == Editor::EGizmoMode::Scale ? Engine::EEditorMesh::Cube : Engine::EEditorMesh::Quad, World, Center, 0, Color(Center));
         }
@@ -431,7 +431,7 @@ namespace Editor {
      * @brief 진행 중인 드래그의 이동·회전 피드백을 표시합니다.
      */
     void Editor::FGizmoCore::DrawFeedback(Engine::FPrimitiveDrawInterface& DrawInterface) const {
-        const Core::FVector Color{1.0f, 0.85f, 0.05f};
+        const FVector Color{1.0f, 0.85f, 0.05f};
 
         if (!IsDragging()) {
             return;
@@ -442,10 +442,10 @@ namespace Editor {
             const float Radius{mDragSize * 74.0f};
 
             DrawInterface.DrawLine(mStartPivot, mStartPivot + mStartDirection * Radius, {0.8f, 0.8f, 0.8f});
-            DrawInterface.DrawLine(mStartPivot, mStartPivot + Core::FQuat{mPlaneNormal, Angle} * mStartDirection * Radius, Color);
+            DrawInterface.DrawLine(mStartPivot, mStartPivot + FQuat{mPlaneNormal, Angle} * mStartDirection * Radius, Color);
 
             for (Core::Int32 Index{}; Index < 64; ++Index) {
-                DrawInterface.DrawLine(mStartPivot + Core::FQuat{mPlaneNormal, Angle * Index / 64.0f} * mStartDirection * Radius, mStartPivot + Core::FQuat{mPlaneNormal, Angle * (Index + 1) / 64.0f} * mStartDirection * Radius, Color);
+                DrawInterface.DrawLine(mStartPivot + FQuat{mPlaneNormal, Angle * Index / 64.0f} * mStartDirection * Radius, mStartPivot + FQuat{mPlaneNormal, Angle * (Index + 1) / 64.0f} * mStartDirection * Radius, Color);
             }
         } else if (mDragMode == Editor::EGizmoMode::Translate) {
             DrawInterface.DrawLine(mStartPivot, mStartPivot + mTranslation, Color);
@@ -490,36 +490,36 @@ namespace Editor {
     /**
      * @brief 드래그 시작 마우스 좌표를 반환합니다.
      */
-    const Core::FVector2& Editor::FGizmoCore::GetStartMouse() const {
+    const FVector2& Editor::FGizmoCore::GetStartMouse() const {
         return mStartMouse;
     }
 
     /**
      * @brief 드래그 시작 시 고정한 피벗을 반환합니다.
      */
-    const Core::FVector& Editor::FGizmoCore::GetStartPivot() const {
+    const FVector& Editor::FGizmoCore::GetStartPivot() const {
         return mStartPivot;
     }
 
     /**
      * @brief 드래그 시작 시 고정한 세 기저 축을 반환합니다.
      */
-    const std::array<Core::FVector, 3>& Editor::FGizmoCore::GetDragAxes() const {
+    const std::array<FVector, 3>& Editor::FGizmoCore::GetDragAxes() const {
         return mDragAxes;
     }
 
     /**
      * @brief 현재 드래그의 누적 월드 이동량을 반환합니다.
      */
-    const Core::FVector& Editor::FGizmoCore::GetTranslation() const {
+    const FVector& Editor::FGizmoCore::GetTranslation() const {
         return mTranslation;
     }
 
     /**
      * @brief 현재 드래그의 스냅을 적용한 월드 회전량을 반환합니다.
      */
-    Core::FQuat Editor::FGizmoCore::GetRotation() const {
-        return Core::FQuat{mPlaneNormal, mAppliedAngle};
+    FQuat Editor::FGizmoCore::GetRotation() const {
+        return FQuat{mPlaneNormal, mAppliedAngle};
     }
 
     /**

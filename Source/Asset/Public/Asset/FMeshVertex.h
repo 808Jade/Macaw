@@ -20,12 +20,12 @@ namespace Asset {
         /**
          * @brief 정점 위치입니다.
          */
-        Core::FVector mPosition{};
+        FVector mPosition{};
 
         /**
          * @brief 정점 법선입니다.
          */
-        Core::FVector mNormal{};
+        FVector mNormal{};
     };
 
 }

@@ -22,9 +22,7 @@ namespace Engine {
     class UPrimitiveComponent;
 }
 
-namespace Core {
-    struct FBox;
-}
+struct FBox;
 
 namespace Editor {
 
@@ -115,14 +113,14 @@ namespace Editor {
          * @return 기즈모 축을 우선하며 그 외에는 가장 가까운 메시 컴포넌트 또는 빈 프록시를 반환합니다.
          * @note 편집 컨텍스트에 연결된 월드를 조회하며 GPU 렌더링이나 렌더 장면 동기화를 수행하지 않습니다.
          */
-        Engine::FHitProxy GetHitProxy(const Engine::FSceneViewport* Viewport, const Core::FVector2& Position) const override;
+        Engine::FHitProxy GetHitProxy(const Engine::FSceneViewport* Viewport, const FVector2& Position) const override;
 
         /**
          * @brief 현재 카메라와 뷰포트 크기로 뷰·투영 행렬을 계산합니다.
          * @param[in] Size 뷰포트의 픽셀 크기입니다.
          * @return 계산한 장면 뷰입니다.
          */
-        Engine::FSceneView CalcSceneView(const Core::FVector2& Size) const;
+        Engine::FSceneView CalcSceneView(const FVector2& Size) const;
 
         /**
          * @brief 드롭한 액터 프리셋을 광선 적중점이나 배치 평면에 생성합니다.
@@ -131,7 +129,7 @@ namespace Editor {
          * @param[in] Size 뷰포트의 픽셀 크기입니다.
          * @return 성공하면 true, 실패하면 false입니다.
          */
-        bool DropActor(const Core::FString& Preset, const Core::FVector2& Position, const Core::FVector2& Size);
+        bool DropActor(const Core::FString& Preset, const FVector2& Position, const FVector2& Size);
 
         /**
          * @brief 드롭한 메시 에셋을 뷰포트 위치에 배치합니다.
@@ -140,7 +138,7 @@ namespace Editor {
          * @param[in] Size 뷰포트의 가로·세로 픽셀 크기입니다.
          * @return 메시를 로드하고 액터를 배치하면 true입니다.
          */
-        bool DropMesh(const std::filesystem::path& Path, const Core::FVector2& Position, const Core::FVector2& Size);
+        bool DropMesh(const std::filesystem::path& Path, const FVector2& Position, const FVector2& Size);
 
         /**
          * @brief 에디터 카메라를 초기 위치와 회전으로 되돌립니다.
@@ -152,7 +150,7 @@ namespace Editor {
          * @param[in] Location 오류가 발생한 원래 호출 위치입니다.
          * @param[in] Rotation 적용할 오일러 회전(도 단위)입니다.
          */
-        void SetCamera(const Core::FVector& Location, const Core::FRotator& Rotation);
+        void SetCamera(const FVector& Location, const FRotator& Rotation);
 
         /**
          * @brief 원근 또는 정사영 뷰 방향을 설정합니다.
@@ -176,19 +174,19 @@ namespace Editor {
          * @brief 활성 뷰포트의 기본 배치 위치를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::FVector GetPlacementLocation() const;
+        FVector GetPlacementLocation() const;
 
         /**
          * @brief 에디터 카메라의 월드 위치를 반환합니다.
          * @return 소유 객체가 유지하는 값의 참조입니다.
          */
-        const Core::FVector& GetCameraLocation() const;
+        const FVector& GetCameraLocation() const;
 
         /**
          * @brief 편집 카메라의 현재 오일러 회전을 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::FRotator& GetCameraRotation() const;
+        const FRotator& GetCameraRotation() const;
 
         /**
          * @brief 정사영 전환 중에도 보관한 원근 카메라를 반환합니다.
@@ -360,13 +358,13 @@ namespace Editor {
          * @return 입력을 카메라 조작으로 소비하여 이후 선택·삭제 처리를 생략할 때 true입니다.
          * @note 자유 시점 조작은 피벗까지의 거리를 유지하며 갱신한 카메라의 시선 앞에 피벗을 배치합니다.
          */
-        bool NavigateCamera(const Engine::FViewportInput& Input, const Core::FVector2& Size, float DeltaTime);
+        bool NavigateCamera(const Engine::FViewportInput& Input, const FVector2& Size, float DeltaTime);
 
         /**
          * @brief 선택한 액터가 화면에 들어오도록 카메라 위치와 중심을 조정합니다.
          * @param[in] Size 뷰포트의 픽셀 크기입니다.
          */
-        void FocusSelection(const Core::FVector2& Size);
+        void FocusSelection(const FVector2& Size);
 
         /**
          * @brief 텍스트·Billboard의 뷰 정렬을 반영한 월드 AABB를 계산합니다.
@@ -374,7 +372,7 @@ namespace Editor {
          * @param[in] View 카메라 행렬과 뷰포트 크기입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::FBox CalcComponentBounds(const Engine::UPrimitiveComponent* Component, const Engine::FSceneView& View) const;
+        FBox CalcComponentBounds(const Engine::UPrimitiveComponent* Component, const Engine::FSceneView& View) const;
 
         /**
          * @brief 컴포넌트 경계 상자의 여덟 월드 모서리를 계산합니다.
@@ -382,7 +380,7 @@ namespace Editor {
          * @param[in] View 카메라 행렬과 뷰포트 크기입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        std::array<Core::FVector, 8> CalcComponentCorners(const Engine::UPrimitiveComponent* Component, const Engine::FSceneView& View) const;
+        std::array<FVector, 8> CalcComponentCorners(const Engine::UPrimitiveComponent* Component, const Engine::FSceneView& View) const;
 
     private:
         /**
@@ -393,17 +391,17 @@ namespace Editor {
         /**
          * @brief 에디터 카메라의 월드 위치입니다.
          */
-        Core::FVector mCameraLocation{-7.0f, -9.0f, 6.0f};
+        FVector mCameraLocation{-7.0f, -9.0f, 6.0f};
 
         /**
          * @brief 에디터 카메라의 도 단위 회전입니다.
          */
-        Core::FRotator mCameraRotation{-26.0f, 50.0f, 0.0f};
+        FRotator mCameraRotation{-26.0f, 50.0f, 0.0f};
 
         /**
          * @brief 카메라 오빗의 월드 중심점입니다.
          */
-        Core::FVector mOrbitPivot{};
+        FVector mOrbitPivot{};
 
         /**
          * @brief 카메라 이동 속도입니다.
@@ -448,17 +446,17 @@ namespace Editor {
         /**
          * @brief 정사영 전환 전 원근 카메라 위치입니다.
          */
-        Core::FVector mPerspectiveLocation{-7.0f, -9.0f, 6.0f};
+        FVector mPerspectiveLocation{-7.0f, -9.0f, 6.0f};
 
         /**
          * @brief 정사영 전환 전 원근 카메라 회전입니다.
          */
-        Core::FRotator mPerspectiveRotation{-26.0f, 50.0f, 0.0f};
+        FRotator mPerspectiveRotation{-26.0f, 50.0f, 0.0f};
 
         /**
          * @brief 정사영 전환 전 원근 카메라 피벗입니다.
          */
-        Core::FVector mPerspectivePivot{};
+        FVector mPerspectivePivot{};
 
         /**
          * @brief 정사영 가로 가시 범위의 월드 길이입니다.

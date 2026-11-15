@@ -358,7 +358,7 @@ namespace Core {
          * @brief 새 마우스 좌표를 저장하고 이전 좌표와의 차이를 프레임 이동량에 누적합니다.
          * @param[in] Position 새 마우스 좌표입니다.
          */
-        void SetMousePosition(const Core::FVector2& Position);
+        void SetMousePosition(const FVector2& Position);
 
         /**
          * @brief 현재 프레임의 마우스 휠 이동량을 누적합니다.
@@ -424,14 +424,14 @@ namespace Core {
          * @param[in] Route 조회할 애플리케이션·게임 입력 경로입니다.
          * @return 요청 경로의 좌표이며 차단되면 영벡터입니다.
          */
-        Core::FVector2 GetMousePosition(Core::EInputRoute Route = Core::EInputRoute::Application) const;
+        FVector2 GetMousePosition(Core::EInputRoute Route = Core::EInputRoute::Application) const;
 
         /**
          * @brief 요청한 입력 경로의 프레임 누적 마우스 이동량을 반환합니다.
          * @param[in] Route 조회할 애플리케이션·게임 입력 경로입니다.
          * @return 요청 경로의 이동량이며 차단되면 영벡터입니다.
          */
-        Core::FVector2 GetMouseDelta(Core::EInputRoute Route = Core::EInputRoute::Application) const;
+        FVector2 GetMouseDelta(Core::EInputRoute Route = Core::EInputRoute::Application) const;
 
         /**
          * @brief 요청한 입력 경로의 프레임 누적 휠 이동량을 반환합니다.
@@ -491,12 +491,12 @@ namespace Core {
         /**
          * @brief 마지막 수신 마우스 좌표입니다.
          */
-        Core::FVector2 mMousePosition{};
+        FVector2 mMousePosition{};
 
         /**
          * @brief 이번 프레임의 누적 마우스 이동량입니다.
          */
-        Core::FVector2 mMouseDelta{};
+        FVector2 mMouseDelta{};
 
         /**
          * @brief 이번 프레임의 누적 휠 이동량입니다.

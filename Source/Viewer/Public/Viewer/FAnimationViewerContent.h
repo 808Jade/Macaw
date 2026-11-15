@@ -154,7 +154,7 @@ namespace Viewer {
          * @brief 현재 콘텐츠의 월드 공간 경계를 제공합니다.
          * @return 콘텐츠 수명에 종속되는 AABB의 읽기 전용 참조입니다.
          */
-        const Core::FBox& GetBounds() const override;
+        const FBox& GetBounds() const override;
 
         /**
          * @brief 독립 미리보기 월드를 반환합니다.
@@ -245,7 +245,7 @@ namespace Viewer {
         /**
          * @brief Fit과 컬링에 사용하는 미리보기 대상의 월드 공간 AABB입니다.
          */
-        Core::FBox mBounds{};
+        FBox mBounds{};
     };
 
 }

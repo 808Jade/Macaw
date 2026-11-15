@@ -6,14 +6,10 @@
 
 #include "Core/Math/FRay.h"
 
-namespace Core {
-
-    /**
-     * @brief FRay의 초기 상태와 전달받은 의존성을 구성합니다.
-     */
-    Core::FRay::FRay(const Core::FVector& Origin, const Core::FVector& Direction)
-		: mOrigin{Origin},
-		  mDirection{Direction} {
-    }
-
+/**
+ * @brief FRay의 초기 상태와 전달받은 의존성을 구성합니다.
+ */
+FRay::FRay(const FVector& Origin, const FVector& Direction)
+	: mOrigin{Origin},
+	  mDirection{Direction} {
 }

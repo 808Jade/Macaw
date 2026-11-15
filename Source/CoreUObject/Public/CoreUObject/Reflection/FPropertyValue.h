@@ -17,7 +17,7 @@ namespace CoreUObject {
     /**
      * @brief 프로퍼티가 지원하는 스칼라·수학 타입과 불투명 주소의 variant입니다.
      */
-    using FPropertyValue = std::variant<bool, Core::Int32, Core::Uint32, Core::Uint64, float, Core::FString, Core::FGuid, Core::FVector2, Core::FVector, Core::FVector4, Core::FQuat, Core::FRotator, Core::FMatrix, Core::FTransform, Core::FBox, Core::FRay, CoreUObject::FObjectReference, const void*>;
+    using FPropertyValue = std::variant<bool, Core::Int32, Core::Uint32, Core::Uint64, float, Core::FString, Core::FGuid, FVector2, FVector, FVector4, FQuat, FRotator, FMatrix, FTransform, FBox, FRay, CoreUObject::FObjectReference, const void*>;
 
     /**
      * @brief 프로퍼티 variant에 저장된 실제 값의 주소를 반환합니다.

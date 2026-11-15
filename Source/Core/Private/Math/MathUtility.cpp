@@ -54,14 +54,14 @@ namespace Core {
     }
 
     /**
-     * @fn bool Core::Math::IntersectPlane(const Core::FRay& Ray, const Core::FVector& Point, const Core::FVector& Normal, Core::FVector& Hit)
+     * @fn bool Core::Math::IntersectPlane(const FRay& Ray, const FVector& Point, const FVector& Normal, FVector& Hit)
      * @brief 광선과 평면의 앞쪽 교점을 계산합니다.
      */
 
     /**
      * @brief 광선과 평면의 앞쪽 교점을 계산합니다.
      */
-    bool Core::Math::IntersectPlane(const Core::FRay& Ray, const Core::FVector& Point, const Core::FVector& Normal, Core::FVector& Hit) {
+    bool Core::Math::IntersectPlane(const FRay& Ray, const FVector& Point, const FVector& Normal, FVector& Hit) {
         const float Denominator{Ray.mDirection.Dot(Normal)};
 
         if (std::abs(Denominator) < 0.000001f) {
@@ -80,17 +80,17 @@ namespace Core {
     }
 
     /**
-     * @fn bool Core::Math::IntersectTriangle(const Core::FRay& Ray, const Core::FVector& A, const Core::FVector& B, const Core::FVector& C, float& Distance)
+     * @fn bool Core::Math::IntersectTriangle(const FRay& Ray, const FVector& A, const FVector& B, const FVector& C, float& Distance)
      * @brief 광선과 삼각형의 교차를 검사하여 광선상의 거리를 구합니다.
      */
 
     /**
      * @brief 광선과 삼각형의 교차를 검사하여 광선상의 거리를 구합니다.
      */
-    bool Core::Math::IntersectTriangle(const Core::FRay& Ray, const Core::FVector& A, const Core::FVector& B, const Core::FVector& C, float& Distance) {
-        const Core::FVector EdgeA{B - A};
-        const Core::FVector EdgeB{C - A};
-        const Core::FVector P{Ray.mDirection.Cross(EdgeB)};
+    bool Core::Math::IntersectTriangle(const FRay& Ray, const FVector& A, const FVector& B, const FVector& C, float& Distance) {
+        const FVector EdgeA{B - A};
+        const FVector EdgeB{C - A};
+        const FVector P{Ray.mDirection.Cross(EdgeB)};
         const float Determinant{EdgeA.Dot(P)};
 
         if (std::abs(Determinant) < 0.0000001f) {
@@ -98,14 +98,14 @@ namespace Core {
         }
 
         const float Inverse{1.0f / Determinant};
-        const Core::FVector T{Ray.mOrigin - A};
+        const FVector T{Ray.mOrigin - A};
         const float U{T.Dot(P) * Inverse};
 
         if (U < 0.0f || U > 1.0f) {
             return false;
         }
 
-        const Core::FVector Q{T.Cross(EdgeA)};
+        const FVector Q{T.Cross(EdgeA)};
         const float V{Ray.mDirection.Dot(Q) * Inverse};
 
         if (V < 0.0f || U + V > 1.0f) {
@@ -118,16 +118,16 @@ namespace Core {
     }
 
     /**
-     * @fn bool Core::Math::Project(const Core::FVector& Position, const Core::FMatrix& ViewProjection, const Core::FVector2& Size, Core::FVector2& Screen)
+     * @fn bool Core::Math::Project(const FVector& Position, const FMatrix& ViewProjection, const FVector2& Size, FVector2& Screen)
      * @brief 월드 위치를 뷰포트 픽셀 좌표로 투영합니다.
      */
 
     /**
      * @brief 월드 위치를 뷰포트 픽셀 좌표로 투영합니다.
      */
-    bool Core::Math::Project(const Core::FVector& Position, const Core::FMatrix& ViewProjection, const Core::FVector2& Size, Core::FVector2& Screen) {
-        const Core::FVector4 Clip{Core::FVector4{Position, 1.0f} * ViewProjection};
-        Core::FVector PositionNdc{};
+    bool Core::Math::Project(const FVector& Position, const FMatrix& ViewProjection, const FVector2& Size, FVector2& Screen) {
+        const FVector4 Clip{FVector4{Position, 1.0f} * ViewProjection};
+        FVector PositionNdc{};
 
         if (Clip.w <= 0.00001f || Size.x <= 0.0f || Size.y <= 0.0f || !Clip.TryPerspectiveDivide(PositionNdc)) {
             return false;
@@ -139,15 +139,15 @@ namespace Core {
     }
 
     /**
-     * @fn bool Core::Math::Deproject(const Core::FVector2& Screen, const Core::FVector2& Size, const Core::FMatrix& ViewProjection, Core::FRay& Ray)
+     * @fn bool Core::Math::Deproject(const FVector2& Screen, const FVector2& Size, const FMatrix& ViewProjection, FRay& Ray)
      * @brief 뷰포트 픽셀 좌표에서 월드 공간 피킹 광선을 생성합니다.
      */
 
     /**
      * @brief 뷰포트 픽셀 좌표에서 월드 공간 피킹 광선을 생성합니다.
      */
-    bool Core::Math::Deproject(const Core::FVector2& Screen, const Core::FVector2& Size, const Core::FMatrix& ViewProjection, Core::FRay& Ray) {
-        Core::FMatrix Inverse{};
+    bool Core::Math::Deproject(const FVector2& Screen, const FVector2& Size, const FMatrix& ViewProjection, FRay& Ray) {
+        FMatrix Inverse{};
 
         if (Size.x <= 0.0f || Size.y <= 0.0f || !ViewProjection.TryInverse(Inverse)) {
             return false;
@@ -163,15 +163,15 @@ namespace Core {
     }
 
     /**
-     * @fn float Core::Math::DistanceToSegment(const Core::FVector2& Point, const Core::FVector2& Start, const Core::FVector2& End)
+     * @fn float Core::Math::DistanceToSegment(const FVector2& Point, const FVector2& Start, const FVector2& End)
      * @brief 2차원 점에서 유한 선분까지의 최단 거리를 구합니다.
      */
 
     /**
      * @brief 2차원 점에서 유한 선분까지의 최단 거리를 구합니다.
      */
-    float Core::Math::DistanceToSegment(const Core::FVector2& Point, const Core::FVector2& Start, const Core::FVector2& End) {
-        const Core::FVector2 Segment{End - Start};
+    float Core::Math::DistanceToSegment(const FVector2& Point, const FVector2& Start, const FVector2& End) {
+        const FVector2 Segment{End - Start};
         const float LengthSquared{Segment.LengthSquared()};
         const float T{LengthSquared > 0.00001f ? std::clamp((Point - Start).Dot(Segment) / LengthSquared, 0.0f, 1.0f) : 0.0f};
 

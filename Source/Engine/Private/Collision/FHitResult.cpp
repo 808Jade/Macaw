@@ -29,7 +29,7 @@ namespace Engine {
     /**
      * @brief 추적 시작·끝 위치와 빈 충돌 결과를 초기화합니다.
      */
-    void Engine::FHitResult::Init(const Core::FVector& Start, const Core::FVector& End) {
+    void Engine::FHitResult::Init(const FVector& Start, const FVector& End) {
         Init();
 
         mTraceStart = Start;

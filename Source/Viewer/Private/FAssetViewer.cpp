@@ -226,11 +226,11 @@ void FAssetViewer::SetGridSpacing(float Spacing) {
     mGridSpacing = std::isfinite(Spacing) ? std::max(Spacing, 0.0f) : 0.0f;
 }
 
-Core::FVector2 FAssetViewer::GetSize() const {
+FVector2 FAssetViewer::GetSize() const {
     return mSize;
 }
 
-Core::FVector4 FAssetViewer::GetImageRect() const {
+FVector4 FAssetViewer::GetImageRect() const {
     const Asset::UTexture2D* Texture{mContent != nullptr ? mContent->GetTexture() : nullptr};
 
     if (Texture == nullptr || Texture->GetSizeX() == 0 || Texture->GetSizeY() == 0) {

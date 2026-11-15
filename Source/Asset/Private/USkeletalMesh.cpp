@@ -145,7 +145,7 @@ namespace Asset {
     /**
      * @brief 바인드 형상의 로컬 경계를 반환합니다.
      */
-    const Core::FBox& Asset::USkeletalMesh::GetBounds() const {
+    const FBox& Asset::USkeletalMesh::GetBounds() const {
         return mGeometry.GetBounds();
     }
 

@@ -39,7 +39,7 @@ namespace Editor {
          * @brief 뷰어 이미지와 표시 옵션을 그리고 마우스 카메라 입력을 전달합니다.
          * @param Size 출력 또는 표시 영역 크기(픽셀)입니다.
          */
-        void DrawUI(const Core::FVector2& Size);
+        void DrawUI(const FVector2& Size);
 
         /**
          * @brief 현재 표시 옵션과 본 오버레이를 반영하여 공통 뷰어를 렌더링합니다.

@@ -77,7 +77,7 @@ namespace Renderer {
             return false;
         }
 
-        const Core::FVector4 Clip{Text.mScreenSpace ? Core::FVector4{2.0f * Text.mPosition.x / View.mSize.x - 1.0f, 1.0f - 2.0f * Text.mPosition.y / View.mSize.y, Text.mPosition.z, 1.0f} : Core::FVector4{Text.mPosition, 1.0f} * View.mViewProjection};
+        const FVector4 Clip{Text.mScreenSpace ? FVector4{2.0f * Text.mPosition.x / View.mSize.x - 1.0f, 1.0f - 2.0f * Text.mPosition.y / View.mSize.y, Text.mPosition.z, 1.0f} : FVector4{Text.mPosition, 1.0f} * View.mViewProjection};
 
         if (Clip.w <= 0.0001f) {
             return false;
@@ -97,7 +97,7 @@ namespace Renderer {
             Constants.mTransform(3, 2) = Clip.z;
             Constants.mTransform(3, 3) = Clip.w;
         } else {
-            Core::FMatrix World{};
+            FMatrix World{};
 
             for (Core::Index_t Column{}; Column < 3; ++Column) {
                 World(0, Column) = View.mView(Column, 0) * Text.mSize * Text.mScale.x;
@@ -169,7 +169,7 @@ namespace Renderer {
     /**
      * @brief 문자 평면에서 문자열이 차지하는 경계 사각형을 계산합니다.
      */
-    bool Renderer::FTextRenderer::GetBounds(const Core::FString& Text, Core::FVector2& Minimum, Core::FVector2& Maximum) const {
+    bool Renderer::FTextRenderer::GetBounds(const Core::FString& Text, FVector2& Minimum, FVector2& Maximum) const {
         if (Text.size() > 65536) {
             return false;
         }

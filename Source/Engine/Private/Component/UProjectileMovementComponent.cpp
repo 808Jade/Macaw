@@ -55,16 +55,16 @@ namespace Engine {
             return;
         }
 
-        Core::FTransform Transform{Owner->GetRootComponent()->GetTransform()};
+        FTransform Transform{Owner->GetRootComponent()->GetTransform()};
         constexpr Core::FAcceleration StandardGravity{9.81_mps2};
         constexpr Core::FTime MaxStepTime{1.0f / 120_Hz};
-        const Core::FVector Acceleration{0.0f, 0.0f, -(StandardGravity / 1_mps2) * mGravityScale};
+        const FVector Acceleration{0.0f, 0.0f, -(StandardGravity / 1_mps2) * mGravityScale};
         const float StepTime{DeltaTime / static_cast<float>(std::clamp(std::ceil(DeltaTime / (MaxStepTime / 1_s)), 1.0f, 128.0f))};
         float Remaining{DeltaTime};
 
         while (Remaining > 0.0f) {
             const float Step{std::min(StepTime, Remaining)};
-            const Core::FVector PreviousVelocity{mVelocity};
+            const FVector PreviousVelocity{mVelocity};
 
             mVelocity += Acceleration * Step;
 
@@ -101,14 +101,14 @@ namespace Engine {
     /**
      * @brief 실행 시작에 사용할 초기 속도 설정을 반환합니다.
      */
-    const Core::FVector& Engine::UProjectileMovementComponent::GetInitialVelocity() const {
+    const FVector& Engine::UProjectileMovementComponent::GetInitialVelocity() const {
         return mInitialVelocity;
     }
 
     /**
      * @brief 유한한 초기 속도를 저장하며 현재 실행 중인 속도는 즉시 바꾸지 않습니다.
      */
-    bool Engine::UProjectileMovementComponent::SetInitialVelocity(const Core::FVector& Velocity) {
+    bool Engine::UProjectileMovementComponent::SetInitialVelocity(const FVector& Velocity) {
         if (!Velocity.IsFinite()) {
             return false;
         }
@@ -121,14 +121,14 @@ namespace Engine {
     /**
      * @brief 현재 월드 공간 발사체 속도를 조회합니다.
      */
-    const Core::FVector& Engine::UProjectileMovementComponent::GetVelocity() const {
+    const FVector& Engine::UProjectileMovementComponent::GetVelocity() const {
         return mVelocity;
     }
 
     /**
      * @brief 현재 월드 속도를 설정하고 최대 속도로 제한한 뒤 정지 상태를 해제합니다.
      */
-    bool Engine::UProjectileMovementComponent::SetVelocity(const Core::FVector& Velocity) {
+    bool Engine::UProjectileMovementComponent::SetVelocity(const FVector& Velocity) {
         if (!Velocity.IsFinite()) {
             return false;
         }

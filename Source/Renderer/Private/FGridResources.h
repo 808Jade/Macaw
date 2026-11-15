@@ -75,12 +75,12 @@ namespace Renderer {
             /**
              * @brief 월드 위치를 클립 공간으로 변환하는 행렬입니다.
              */
-            Core::FMatrix mViewProjection{};
+            FMatrix mViewProjection{};
 
             /**
              * @brief 카메라 월드 XY, 보조선 간격 Z와 평면 반지름 W입니다.
              */
-            Core::FVector4 mCameraSpacingRadius{};
+            FVector4 mCameraSpacingRadius{};
         };
 
     private:

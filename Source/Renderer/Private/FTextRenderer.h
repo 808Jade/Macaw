@@ -36,17 +36,17 @@ namespace Renderer {
             /**
              * @brief 문자 평면에서 클립 공간으로 변환하는 행렬입니다.
              */
-            Core::FMatrix mTransform{};
+            FMatrix mTransform{};
 
             /**
              * @brief 텍스트에 곱할 RGBA 색상입니다.
              */
-            Core::FVector4 mColor{};
+            FVector4 mColor{};
 
             /**
              * @brief 거리 필드 범위와 아틀라스의 픽셀 크기입니다.
              */
-            Core::FVector4 mParameters{};
+            FVector4 mParameters{};
         };
 
     public:
@@ -89,7 +89,7 @@ namespace Renderer {
          * @param[out] Maximum 문자 평면의 최대 좌표입니다.
          * @return 문자가 존재하여 경계를 계산하면 true입니다.
          */
-        bool GetBounds(const Core::FString& Text, Core::FVector2& Minimum, Core::FVector2& Maximum) const;
+        bool GetBounds(const Core::FString& Text, FVector2& Minimum, FVector2& Maximum) const;
 
     private:
         /**

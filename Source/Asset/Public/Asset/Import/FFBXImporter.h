@@ -109,7 +109,7 @@ namespace Asset {
          * @param[in] ParentBoneGlobal 가장 가까운 조상 본의 엔진 공간 전역 변환이며 없으면 항등 행렬입니다.
          * @return 모든 본을 읽으면 true이며 바인드 포즈를 변환할 수 없으면 false입니다.
          */
-        bool ReadSkeleton(fbxsdk::FbxNode& Node, Core::Int32 ParentIndex, const Core::FMatrix& ParentBoneGlobal);
+        bool ReadSkeleton(fbxsdk::FbxNode& Node, Core::Int32 ParentIndex, const FMatrix& ParentBoneGlobal);
 
         /**
          * @brief 장면의 스킨 클러스터와 바인드 포즈 객체(FbxPose)에서 노드별 바인드 시점 전역 변환을 모읍니다.
@@ -170,17 +170,17 @@ namespace Asset {
         /**
          * @brief DeepConvertScene을 거친 FBX 전역 공간(이미 엔진 좌표계)에 적용할 임포트 이동·회전·스케일 행렬입니다.
          */
-        Core::FMatrix mBasis{};
+        FMatrix mBasis{};
 
         /**
          * @brief 스킨 클러스터 링크 노드별 바인드 시점 전역 변환이며 DeepConvertScene 뒤의 FBX 전역 공간 기준입니다.
          */
-        Core::TMap<fbxsdk::FbxNode*, Core::FMatrix> mBindPoses{};
+        Core::TMap<fbxsdk::FbxNode*, FMatrix> mBindPoses{};
 
         /**
          * @brief IsBindPose인 FbxPose에 기록된 노드별 바인드 시점 전역 변환이며 DeepConvertScene 뒤의 FBX 전역 공간 기준입니다.
          */
-        Core::TMap<fbxsdk::FbxNode*, Core::FMatrix> mPoseBindPoses{};
+        Core::TMap<fbxsdk::FbxNode*, FMatrix> mPoseBindPoses{};
 
         /**
          * @brief 본으로 읽은 FBX 노드별 결과 본 인덱스입니다.

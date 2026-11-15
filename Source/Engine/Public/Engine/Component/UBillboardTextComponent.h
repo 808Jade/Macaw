@@ -63,14 +63,14 @@ namespace Engine {
          * @brief 글자의 RGBA 색상을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector4& GetTextColor() const;
+        const FVector4& GetTextColor() const;
 
         /**
          * @brief 글자의 RGBA 색상을 설정합니다.
          * @param[in] Color 적용할 색상입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetTextColor(const Core::FVector4& Color);
+        bool SetTextColor(const FVector4& Color);
 
         /**
          * @brief 빌보드 텍스트의 깊이 테스트 사용 여부를 반환합니다.
@@ -107,7 +107,7 @@ namespace Engine {
          * @brief 월드 공간의 축 정렬 경계 상자를 반환합니다.
          * @return 월드 공간의 축 정렬 경계 상자입니다.
          */
-        Core::FBox GetWorldBounds() const override;
+        FBox GetWorldBounds() const override;
 
         /**
          * @brief 현재 표시·에셋 상태에서 렌더 프록시를 생성할지 판정합니다.
@@ -133,7 +133,7 @@ namespace Engine {
          * @brief 글자의 RGBA 색상입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetTextColor, Setter = SetTextColor)
-        Core::FVector4 mTextColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mTextColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 빌보드 텍스트를 장면 깊이와 비교할지 여부입니다.

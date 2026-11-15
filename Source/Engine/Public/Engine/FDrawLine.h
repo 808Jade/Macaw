@@ -20,17 +20,17 @@ namespace Engine {
         /**
          * @brief 선분 시작점입니다.
          */
-        Core::FVector mStart{};
+        FVector mStart{};
 
         /**
          * @brief 선분 끝점입니다.
          */
-        Core::FVector mEnd{};
+        FVector mEnd{};
 
         /**
          * @brief 표시 색상입니다.
          */
-        Core::FVector mColor{1.0f, 1.0f, 1.0f};
+        FVector mColor{1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 깊이 검사를 사용할지 여부입니다.

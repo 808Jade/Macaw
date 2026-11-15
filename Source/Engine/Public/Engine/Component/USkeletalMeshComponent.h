@@ -130,14 +130,14 @@ namespace Engine {
          * @param Transform 부모 기준 아핀 행렬입니다.
          * @return 유효한 포즈를 적용하면 true입니다.
          */
-        bool SetBoneLocalTransform(Core::Index_t Bone, const Core::FMatrix& Transform);
+        bool SetBoneLocalTransform(Core::Index_t Bone, const FMatrix& Transform);
 
         /**
          * @brief 전체 로컬 포즈를 변경합니다.
          * @param Transforms 본 인덱스순 부모 기준 행렬입니다.
          * @return 적용하면 true입니다.
          */
-        bool SetLocalPose(const Core::TArray<Core::FMatrix>& Transforms);
+        bool SetLocalPose(const Core::TArray<FMatrix>& Transforms);
 
         /**
          * @brief 모든 본을 바인드 포즈로 복원합니다.
@@ -149,14 +149,14 @@ namespace Engine {
          * @brief 저장 대상인 로컬 본 포즈를 반환합니다.
          * @return 포즈가 유지하는 로컬 행렬의 참조입니다.
          */
-        const Core::TArray<Core::FMatrix>& GetSerializedPose() const;
+        const Core::TArray<FMatrix>& GetSerializedPose() const;
 
         /**
          * @brief 저장된 로컬 본 포즈를 검증하여 복원합니다.
          * @param Transforms 복원할 로컬 행렬입니다.
          * @return 모든 행렬이 유한하고 역행렬을 가지면 true입니다.
          */
-        bool SetSerializedPose(const Core::TArray<Core::FMatrix>& Transforms);
+        bool SetSerializedPose(const Core::TArray<FMatrix>& Transforms);
 
         /**
          * @brief 현재 포즈와 재질을 복사한 프록시를 생성합니다.
@@ -356,7 +356,7 @@ namespace Engine {
          * @return 소비한 증분이며 사용 가능한 인스턴스가 없으면 항등 변환입니다.
          */
         UFUNCTION()
-        Core::FTransform ConsumeRootMotion();
+        FTransform ConsumeRootMotion();
 
         /**
          * @brief 프로퍼티를 직렬화하고 로드한 포즈를 에셋에 다시 연결합니다.
@@ -402,7 +402,7 @@ namespace Engine {
          * @brief 컴포넌트 기준의 루트 모션 증분을 소유 액터 변환에 적용합니다.
          * @param Delta 이동 입력 또는 루트 모션 증분입니다.
          */
-        void ApplyRootMotion(const Core::FTransform& Delta);
+        void ApplyRootMotion(const FTransform& Delta);
 
     private:
 

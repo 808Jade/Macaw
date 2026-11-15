@@ -45,7 +45,7 @@ bool FPreviewScene::Initialize(Core::FString& Error) {
 
         Engine::FLightSceneProxy Directional{};
         Directional.mType = Engine::ELightType::Directional;
-        Directional.mDirection = Core::FVector{0.35f, 0.6f, -1.0f}.Normalized();
+        Directional.mDirection = FVector{0.35f, 0.6f, -1.0f}.Normalized();
         Directional.mIntensity = 0.8f;
         World->GetScene()->AddLight(Directional);
     }

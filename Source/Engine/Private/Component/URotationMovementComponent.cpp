@@ -34,8 +34,8 @@ namespace Engine {
             return;
         }
 
-        Core::FTransform Transform{Owner->GetRootComponent()->GetTransform()};
-        const Core::FQuat Delta{(mRotationRate * DeltaTime).Normalized().Quaternion()};
+        FTransform Transform{Owner->GetRootComponent()->GetTransform()};
+        const FQuat Delta{(mRotationRate * DeltaTime).Normalized().Quaternion()};
 
         Transform.mRotation = (mRotationInLocalSpace ? Transform.mRotation * Delta : Delta * Transform.mRotation).Normalized();
 
@@ -45,14 +45,14 @@ namespace Engine {
     /**
      * @brief 축별 초당 회전 속도를 반환합니다.
      */
-    const Core::FRotator& Engine::URotationMovementComponent::GetRotationRate() const {
+    const FRotator& Engine::URotationMovementComponent::GetRotationRate() const {
         return mRotationRate;
     }
 
     /**
      * @brief 유한한 Pitch·Yaw·Roll 회전 속도를 설정합니다.
      */
-    bool Engine::URotationMovementComponent::SetRotationRate(const Core::FRotator& Rate) {
+    bool Engine::URotationMovementComponent::SetRotationRate(const FRotator& Rate) {
         if (!Rate.IsFinite()) {
             return false;
         }

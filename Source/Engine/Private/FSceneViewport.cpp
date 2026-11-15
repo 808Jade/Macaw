@@ -70,14 +70,14 @@ namespace Engine {
     /**
      * @brief 크기를 반환합니다.
      */
-    Core::FVector2 Engine::FSceneViewport::GetSize() const {
-        return mTarget != nullptr ? Core::FVector2{static_cast<float>(mTarget->GetWidth()), static_cast<float>(mTarget->GetHeight())} : Core::FVector2{};
+    FVector2 Engine::FSceneViewport::GetSize() const {
+        return mTarget != nullptr ? FVector2{static_cast<float>(mTarget->GetWidth()), static_cast<float>(mTarget->GetHeight())} : FVector2{};
     }
 
     /**
      * @brief 유한한 타깃 내부 좌표에 대해 클라이언트의 피킹 결과를 조회합니다.
      */
-    Engine::FHitProxy Engine::FSceneViewport::GetHitProxy(const Core::FVector2& Position) const {
+    Engine::FHitProxy Engine::FSceneViewport::GetHitProxy(const FVector2& Position) const {
         if (mTarget == nullptr || mClient == nullptr || !std::isfinite(Position.x) || !std::isfinite(Position.y) || Position.x < 0.0f || Position.y < 0.0f || Position.x >= mTarget->GetWidth() || Position.y >= mTarget->GetHeight()) {
             return {};
         }

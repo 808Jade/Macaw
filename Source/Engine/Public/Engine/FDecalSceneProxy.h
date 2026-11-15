@@ -31,12 +31,12 @@ namespace Engine {
         /**
          * @brief 정규화된 데칼 박스 좌표를 월드 공간으로 변환하는 행렬입니다.
          */
-        Core::FMatrix mDecalToWorld{};
+        FMatrix mDecalToWorld{};
 
         /**
          * @brief 월드 좌표를 데칼 투영 박스 좌표로 변환하는 역행렬입니다.
          */
-        Core::FMatrix mWorldToDecal{};
+        FMatrix mWorldToDecal{};
 
         /**
          * @brief 에셋 관리자가 소유하는 데칼 색상 텍스처입니다.

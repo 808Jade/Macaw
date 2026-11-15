@@ -446,7 +446,7 @@ namespace Editor {
         }
 
         if (Playing) {
-            const Core::FVector& Velocity{Instance.GetOwnerVelocity()};
+            const FVector& Velocity{Instance.GetOwnerVelocity()};
 
             ImGui::SeparatorText("Owner");
             ImGui::Text("Velocity: %.2f, %.2f, %.2f", Velocity.x, Velocity.y, Velocity.z);

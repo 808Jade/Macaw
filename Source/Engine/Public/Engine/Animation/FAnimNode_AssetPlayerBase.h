@@ -63,7 +63,7 @@ namespace Engine {
          * @brief 최근 갱신에서 계산한 루트 모션 증분을 반환합니다.
          * @return 노드 또는 인스턴스의 이동·회전 증분이며 없으면 항등 변환입니다.
          */
-        Core::FTransform GetRootMotionDelta() const override;
+        FTransform GetRootMotionDelta() const override;
 
         /**
          * @brief 재생 위치를 재생 방향의 시작으로 되돌립니다.
@@ -90,7 +90,7 @@ namespace Engine {
          * @brief 에셋 플레이어의 최근 루트 모션 증분을 기록합니다.
          * @param Delta 이동 입력 또는 루트 모션 증분입니다.
          */
-        void SetRootMotionDelta(const Core::FTransform& Delta);
+        void SetRootMotionDelta(const FTransform& Delta);
 
     public:
 
@@ -131,7 +131,7 @@ namespace Engine {
         /**
          * @brief 최근 갱신에서 계산한 루트 모션 증분입니다.
          */
-        Core::FTransform mRootMotionDelta{};
+        FTransform mRootMotionDelta{};
     };
 
 }

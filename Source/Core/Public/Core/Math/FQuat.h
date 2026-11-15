@@ -12,308 +12,304 @@
 #include <xmmintrin.h>
 #include "FQuat.generated.h"
 
-namespace Core {
-
-    struct FVector;
-    struct FRotator;
+struct FVector;
+struct FRotator;
 
 #pragma warning(push)
 #pragma warning(disable: 4201)
 
+/**
+ * @brief 회전의 합성과 보간에 사용하는 단위 쿼터니언입니다.
+ * @ingroup Core
+ */
+USTRUCT()
+struct alignas(16) FQuat {
+    GENERATED_BODY()
+
+private:
     /**
-     * @brief 회전의 합성과 보간에 사용하는 단위 쿼터니언입니다.
-     * @ingroup Core
+     * @brief FRotator가 내부 SIMD 저장소에 직접 접근하도록 허용합니다.
      */
-    USTRUCT()
-    struct alignas(16) FQuat {
-        GENERATED_BODY()
+    friend struct FRotator;
 
-    private:
-        /**
-         * @brief FRotator가 내부 SIMD 저장소에 직접 접근하도록 허용합니다.
-         */
-        friend struct FRotator;
+public:
+    /**
+     * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
+     */
+    FQuat();
 
-    public:
+    /**
+     * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
+     * @param[in] X X 성분입니다.
+     * @param[in] Y Y 성분입니다.
+     * @param[in] Z Z 성분입니다.
+     * @param[in] W W 성분입니다.
+     */
+    FQuat(float X, float Y, float Z, float W);
+
+    /**
+     * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
+     * @param[in] Rotation 적용할 오일러 회전(도 단위)입니다.
+     */
+    explicit FQuat(const FRotator& Rotation);
+
+    /**
+     * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
+     * @param[in] Axis 회전축입니다.
+     * @param[in] Radians 라디안 단위 각도입니다.
+     */
+    FQuat(const FVector& Axis, float Radians);
+
+private:
+    /**
+     * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
+     * @param[in] Value 연산할 SIMD 레지스터 값입니다.
+     */
+    explicit FQuat(__m128 Value);
+
+public:
+    /**
+     * @brief 객체의 수명을 끝내고 소유한 리소스를 정리합니다.
+     */
+    ~FQuat() = default;
+
+    /**
+     * @brief 상대 값의 상태로 객체를 복사하거나 이동 생성합니다.
+     * @param[in] Other 복사할 원본 값입니다.
+     */
+    FQuat(const FQuat& Other) = default;
+
+    /**
+     * @brief 상대 값의 상태를 대입합니다.
+     * @param[in] Other 복사할 원본 값입니다.
+     * @return 갱신된 자기 자신(*this)의 참조입니다.
+     */
+    FQuat& operator=(const FQuat& Other) = default;
+
+    /**
+     * @brief 상대 값의 상태로 객체를 복사하거나 이동 생성합니다.
+     * @param[in] Other 이동할 원본 값입니다.
+     */
+    FQuat(FQuat&& Other) noexcept = default;
+
+    /**
+     * @brief 상대 값의 상태를 대입합니다.
+     * @param[in] Other 이동할 원본 값입니다.
+     * @return 갱신된 자기 자신(*this)의 참조입니다.
+     */
+    FQuat& operator=(FQuat&& Other) noexcept = default;
+
+public:
+    /**
+     * @brief 두 쿼터니언의 회전 합성 곱을 계산합니다.
+     * @param[in] Other 오른쪽에 곱할 쿼터니언입니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FQuat operator*(const FQuat& Other) const;
+
+    /**
+     * @brief 두 쿼터니언의 회전 합성 곱을 계산합니다.
+     * @param[in] Other 오른쪽에 곱할 쿼터니언입니다.
+     * @return 갱신된 자기 자신(*this)의 참조입니다.
+     */
+    FQuat& operator*=(const FQuat& Other);
+
+    /**
+     * @brief 현재 쿼터니언 회전을 벡터에 적용합니다.
+     * @param[in] Vector 연산에 사용할 벡터입니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FVector operator*(const FVector& Vector) const;
+
+    /**
+     * @brief 모든 성분의 부호를 반전한 값을 반환합니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FQuat operator-() const;
+
+    /**
+     * @brief 모든 성분이 허용 오차 없이 정확히 같은지 검사합니다.
+     * @param[in] Other 비교할 상대 값입니다.
+     * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
+     */
+    bool operator==(const FQuat& Other) const;
+
+    /**
+     * @brief 대응 성분의 곱을 합산하여 내적을 계산합니다.
+     * @param[in] Other 내적할 상대 벡터입니다.
+     * @return 대응 성분 곱의 합입니다.
+     */
+    float Dot(const FQuat& Other) const;
+
+    /**
+     * @brief 성분의 제곱합을 반환합니다.
+     * @return 현재 값의 제곱 길이입니다.
+     */
+    float LengthSquared() const;
+
+    /**
+     * @brief 유클리드 길이를 반환합니다.
+     * @return 현재 값의 유클리드 길이입니다.
+     */
+    float Length() const;
+
+    /**
+     * @brief 정규화한 복사본을 반환합니다.
+     * @return 연산을 적용한 새 값입니다.
+     * @note 정규화할 수 없는 경우 항등 회전을 반환합니다.
+     */
+    FQuat Normalized() const;
+
+    /**
+     * @brief 값을 제자리에서 정규화합니다.
+     * @return 정규화할 수 있으면 true이며, 퇴화하거나 유효하지 않은 값이면 false입니다.
+     * @note 정규화할 수 없는 경우 항등 회전으로 초기화하고 false를 반환합니다.
+     */
+    bool Normalize();
+
+    /**
+     * @brief 쿼터니언 벡터 성분의 부호를 반전한 켤레를 반환합니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FQuat Conjugate() const;
+
+    /**
+     * @brief 켤레를 제곱 길이로 나눈 역쿼터니언을 반환합니다.
+     * @return 연산을 적용한 새 값입니다.
+     * @note 유한하지 않거나 제곱 길이가 너무 작은 경우 영 쿼터니언을 반환합니다.
+     */
+    FQuat Inverse() const;
+
+    /**
+     * @brief 쿼터니언 회전을 도 단위 오일러 각으로 변환합니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FRotator Rotator() const;
+
+    /**
+     * @brief 최단 회전 경로를 선택하여 선형 보간한 뒤 정규화합니다.
+     * @param[in] Other Alpha가 1일 때의 목표 값입니다.
+     * @param[in] Alpha 보간 비율입니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FQuat Nlerp(const FQuat& Other, float Alpha) const;
+
+    /**
+     * @brief 최단 회전 경로를 따라 구면 선형 보간합니다.
+     * @param[in] Other Alpha가 1일 때의 목표 값입니다.
+     * @param[in] Alpha 보간 비율입니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FQuat Slerp(const FQuat& Other, float Alpha) const;
+
+    /**
+     * @brief 두 쿼터니언 회전 사이의 각도 차이를 라디안으로 구합니다.
+     * @param[in] Other 각도 차이를 잴 상대 회전입니다.
+     * @return 최단 회전 경로의 라디안 각도입니다.
+     */
+    float AngularDistance(const FQuat& Other) const;
+
+    /**
+     * @brief 쿼터니언 회전을 단위 축과 라디안 각도로 분해합니다.
+     * @param[out] Axis 회전축을 받을 출력 값입니다.
+     * @param[in,out] Radians 라디안 단위 각도입니다.
+     */
+    void ToAxisAngle(FVector& Axis, float& Radians) const;
+
+    /**
+     * @brief 현재 회전을 벡터에 적용합니다.
+     * @param[in] Vector 연산에 사용할 벡터입니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FVector RotateVector(const FVector& Vector) const;
+
+    /**
+     * @brief 현재 회전의 역회전을 벡터에 적용합니다.
+     * @param[in] Vector 연산에 사용할 벡터입니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FVector UnrotateVector(const FVector& Vector) const;
+
+    /**
+     * @brief 회전된 전방 단위 벡터를 반환합니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FVector ForwardVector() const;
+
+    /**
+     * @brief 회전된 우측 단위 벡터를 반환합니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FVector RightVector() const;
+
+    /**
+     * @brief 회전된 상방 단위 벡터를 반환합니다.
+     * @return 연산을 적용한 새 값입니다.
+     */
+    FVector UpVector() const;
+
+    /**
+     * @brief 모든 유효 성분에 NaN이나 무한대가 없는지 검사합니다.
+     * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
+     */
+    bool IsFinite() const;
+
+    /**
+     * @brief 제곱 길이가 허용 오차 이내에서 1인지 검사합니다.
+     * @param[in] Tolerance 제곱 길이와 1의 허용 차이입니다.
+     * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
+     */
+    bool IsNormalized(float Tolerance = 0.0001f) const;
+
+    /**
+     * @brief 각 성분의 차이가 지정한 허용 오차 이내인지 검사합니다.
+     * @param[in] Other 비교할 상대 값입니다.
+     * @param[in] Tolerance 같다고 볼 성분별 최대 차이입니다.
+     * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
+     */
+    bool Equals(const FQuat& Other, float Tolerance = 0.0001f) const;
+
+public:
+    /**
+     * @brief SIMD 레지스터와 개별 성분을 같은 메모리에 배치합니다.
+     */
+    union {
         /**
-         * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
+         * @brief 저장된 값입니다.
          */
-        FQuat();
+        __m128 mValue{};
 
         /**
-         * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
-         * @param[in] X X 성분입니다.
-         * @param[in] Y Y 성분입니다.
-         * @param[in] Z Z 성분입니다.
-         * @param[in] W W 성분입니다.
+         * @brief SIMD 저장소와 겹쳐 배치한 개별 스칼라 성분입니다.
          */
-        FQuat(float X, float Y, float Z, float W);
-
-        /**
-         * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
-         * @param[in] Rotation 적용할 오일러 회전(도 단위)입니다.
-         */
-        explicit FQuat(const Core::FRotator& Rotation);
-
-        /**
-         * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
-         * @param[in] Axis 회전축입니다.
-         * @param[in] Radians 라디안 단위 각도입니다.
-         */
-        FQuat(const Core::FVector& Axis, float Radians);
-
-    private:
-        /**
-         * @brief FQuat의 초기 상태와 전달받은 의존성을 구성합니다.
-         * @param[in] Value 연산할 SIMD 레지스터 값입니다.
-         */
-        explicit FQuat(__m128 Value);
-
-    public:
-        /**
-         * @brief 객체의 수명을 끝내고 소유한 리소스를 정리합니다.
-         */
-        ~FQuat() = default;
-
-        /**
-         * @brief 상대 값의 상태로 객체를 복사하거나 이동 생성합니다.
-         * @param[in] Other 복사할 원본 값입니다.
-         */
-        FQuat(const Core::FQuat& Other) = default;
-
-        /**
-         * @brief 상대 값의 상태를 대입합니다.
-         * @param[in] Other 복사할 원본 값입니다.
-         * @return 갱신된 자기 자신(*this)의 참조입니다.
-         */
-        Core::FQuat& operator=(const Core::FQuat& Other) = default;
-
-        /**
-         * @brief 상대 값의 상태로 객체를 복사하거나 이동 생성합니다.
-         * @param[in] Other 이동할 원본 값입니다.
-         */
-        FQuat(Core::FQuat&& Other) noexcept = default;
-
-        /**
-         * @brief 상대 값의 상태를 대입합니다.
-         * @param[in] Other 이동할 원본 값입니다.
-         * @return 갱신된 자기 자신(*this)의 참조입니다.
-         */
-        Core::FQuat& operator=(Core::FQuat&& Other) noexcept = default;
-
-    public:
-        /**
-         * @brief 두 쿼터니언의 회전 합성 곱을 계산합니다.
-         * @param[in] Other 오른쪽에 곱할 쿼터니언입니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FQuat operator*(const Core::FQuat& Other) const;
-
-        /**
-         * @brief 두 쿼터니언의 회전 합성 곱을 계산합니다.
-         * @param[in] Other 오른쪽에 곱할 쿼터니언입니다.
-         * @return 갱신된 자기 자신(*this)의 참조입니다.
-         */
-        Core::FQuat& operator*=(const Core::FQuat& Other);
-
-        /**
-         * @brief 현재 쿼터니언 회전을 벡터에 적용합니다.
-         * @param[in] Vector 연산에 사용할 벡터입니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FVector operator*(const Core::FVector& Vector) const;
-
-        /**
-         * @brief 모든 성분의 부호를 반전한 값을 반환합니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FQuat operator-() const;
-
-        /**
-         * @brief 모든 성분이 허용 오차 없이 정확히 같은지 검사합니다.
-         * @param[in] Other 비교할 상대 값입니다.
-         * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
-         */
-        bool operator==(const Core::FQuat& Other) const;
-
-        /**
-         * @brief 대응 성분의 곱을 합산하여 내적을 계산합니다.
-         * @param[in] Other 내적할 상대 벡터입니다.
-         * @return 대응 성분 곱의 합입니다.
-         */
-        float Dot(const Core::FQuat& Other) const;
-
-        /**
-         * @brief 성분의 제곱합을 반환합니다.
-         * @return 현재 값의 제곱 길이입니다.
-         */
-        float LengthSquared() const;
-
-        /**
-         * @brief 유클리드 길이를 반환합니다.
-         * @return 현재 값의 유클리드 길이입니다.
-         */
-        float Length() const;
-
-        /**
-         * @brief 정규화한 복사본을 반환합니다.
-         * @return 연산을 적용한 새 값입니다.
-         * @note 정규화할 수 없는 경우 항등 회전을 반환합니다.
-         */
-        Core::FQuat Normalized() const;
-
-        /**
-         * @brief 값을 제자리에서 정규화합니다.
-         * @return 정규화할 수 있으면 true이며, 퇴화하거나 유효하지 않은 값이면 false입니다.
-         * @note 정규화할 수 없는 경우 항등 회전으로 초기화하고 false를 반환합니다.
-         */
-        bool Normalize();
-
-        /**
-         * @brief 쿼터니언 벡터 성분의 부호를 반전한 켤레를 반환합니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FQuat Conjugate() const;
-
-        /**
-         * @brief 켤레를 제곱 길이로 나눈 역쿼터니언을 반환합니다.
-         * @return 연산을 적용한 새 값입니다.
-         * @note 유한하지 않거나 제곱 길이가 너무 작은 경우 영 쿼터니언을 반환합니다.
-         */
-        Core::FQuat Inverse() const;
-
-        /**
-         * @brief 쿼터니언 회전을 도 단위 오일러 각으로 변환합니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FRotator Rotator() const;
-
-        /**
-         * @brief 최단 회전 경로를 선택하여 선형 보간한 뒤 정규화합니다.
-         * @param[in] Other Alpha가 1일 때의 목표 값입니다.
-         * @param[in] Alpha 보간 비율입니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FQuat Nlerp(const Core::FQuat& Other, float Alpha) const;
-
-        /**
-         * @brief 최단 회전 경로를 따라 구면 선형 보간합니다.
-         * @param[in] Other Alpha가 1일 때의 목표 값입니다.
-         * @param[in] Alpha 보간 비율입니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FQuat Slerp(const Core::FQuat& Other, float Alpha) const;
-
-        /**
-         * @brief 두 쿼터니언 회전 사이의 각도 차이를 라디안으로 구합니다.
-         * @param[in] Other 각도 차이를 잴 상대 회전입니다.
-         * @return 최단 회전 경로의 라디안 각도입니다.
-         */
-        float AngularDistance(const Core::FQuat& Other) const;
-
-        /**
-         * @brief 쿼터니언 회전을 단위 축과 라디안 각도로 분해합니다.
-         * @param[out] Axis 회전축을 받을 출력 값입니다.
-         * @param[in,out] Radians 라디안 단위 각도입니다.
-         */
-        void ToAxisAngle(Core::FVector& Axis, float& Radians) const;
-
-        /**
-         * @brief 현재 회전을 벡터에 적용합니다.
-         * @param[in] Vector 연산에 사용할 벡터입니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FVector RotateVector(const Core::FVector& Vector) const;
-
-        /**
-         * @brief 현재 회전의 역회전을 벡터에 적용합니다.
-         * @param[in] Vector 연산에 사용할 벡터입니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FVector UnrotateVector(const Core::FVector& Vector) const;
-
-        /**
-         * @brief 회전된 전방 단위 벡터를 반환합니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FVector ForwardVector() const;
-
-        /**
-         * @brief 회전된 우측 단위 벡터를 반환합니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FVector RightVector() const;
-
-        /**
-         * @brief 회전된 상방 단위 벡터를 반환합니다.
-         * @return 연산을 적용한 새 값입니다.
-         */
-        Core::FVector UpVector() const;
-
-        /**
-         * @brief 모든 유효 성분에 NaN이나 무한대가 없는지 검사합니다.
-         * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
-         */
-        bool IsFinite() const;
-
-        /**
-         * @brief 제곱 길이가 허용 오차 이내에서 1인지 검사합니다.
-         * @param[in] Tolerance 제곱 길이와 1의 허용 차이입니다.
-         * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
-         */
-        bool IsNormalized(float Tolerance = 0.0001f) const;
-
-        /**
-         * @brief 각 성분의 차이가 지정한 허용 오차 이내인지 검사합니다.
-         * @param[in] Other 비교할 상대 값입니다.
-         * @param[in] Tolerance 같다고 볼 성분별 최대 차이입니다.
-         * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
-         */
-        bool Equals(const Core::FQuat& Other, float Tolerance = 0.0001f) const;
-
-    public:
-        /**
-         * @brief SIMD 레지스터와 개별 성분을 같은 메모리에 배치합니다.
-         */
-        union {
+        struct {
             /**
-             * @brief 저장된 값입니다.
+             * @brief X 성분입니다.
              */
-            __m128 mValue{};
+            UPROPERTY(Edit, Serialize, Name = "X")
+            float x;
 
             /**
-             * @brief SIMD 저장소와 겹쳐 배치한 개별 스칼라 성분입니다.
+             * @brief Y 성분입니다.
              */
-            struct {
-                /**
-                 * @brief X 성분입니다.
-                 */
-                UPROPERTY(Edit, Serialize, Name = "X")
-                float x;
+            UPROPERTY(Edit, Serialize, Name = "Y")
+            float y;
 
-                /**
-                 * @brief Y 성분입니다.
-                 */
-                UPROPERTY(Edit, Serialize, Name = "Y")
-                float y;
+            /**
+             * @brief Z 성분입니다.
+             */
+            UPROPERTY(Edit, Serialize, Name = "Z")
+            float z;
 
-                /**
-                 * @brief Z 성분입니다.
-                 */
-                UPROPERTY(Edit, Serialize, Name = "Z")
-                float z;
-
-                /**
-                 * @brief 쿼터니언의 실수(스칼라) 성분입니다.
-                 */
-                UPROPERTY(Edit, Serialize, Name = "W")
-                float w;
-            };
+            /**
+             * @brief 쿼터니언의 실수(스칼라) 성분입니다.
+             */
+            UPROPERTY(Edit, Serialize, Name = "W")
+            float w;
         };
     };
+};
 
 #pragma warning(pop)
 
-    static_assert(sizeof(Core::FQuat) == 16 && alignof(Core::FQuat) == 16);
-
-}
+static_assert(sizeof(FQuat) == 16 && alignof(FQuat) == 16);

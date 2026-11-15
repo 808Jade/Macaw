@@ -85,8 +85,8 @@ namespace Engine {
 
         bool UpdateTransforms();
         bool GetUseLocalSpace() const;
-        const Core::FMatrix& GetEmitterToSimulation() const;
-        const Core::FMatrix& GetSimulationToWorld() const;
+        const FMatrix& GetEmitterToSimulation() const;
+        const FMatrix& GetSimulationToWorld() const;
 
         /**
          * @brief 기존 파티클과 모듈 추가 데이터를 보존하면서 파티클 버퍼의 용량을 확보합니다.
@@ -103,7 +103,7 @@ namespace Engine {
          * @throws std::length_error 지원할 수 있는 최대 파티클 수에 도달한 경우입니다.
          * @note 추가 데이터는 0으로 초기화합니다. Spawn 모듈을 실행하는 동안 파티클 생성·삭제·버퍼 재할당을 호출하지 않아야 합니다.
          */
-        Core::Index_t SpawnParticle(float SpawnTime, const Core::FVector& InitialLocation, const Core::FVector& InitialVelocity);
+        Core::Index_t SpawnParticle(float SpawnTime, const FVector& InitialLocation, const FVector& InitialVelocity);
         /**
          * @brief 지정한 파티클을 제거하고 마지막 파티클의 전체 레코드로 빈자리를 채웁니다.
          * @param[in] Index 제거할 활성 파티클의 인덱스이며 범위를 벗어나면 무시합니다.
@@ -205,8 +205,8 @@ namespace Engine {
         Core::TArray<Core::TArray<CoreUObject::TObjectRef<Engine::UParticleModule>>> mLODModules{};
         Core::Int32 mCurrentLODIndex{-1};
 
-        Core::FMatrix mEmitterToSimulation{};
-        Core::FMatrix mSimulationToWorld{};
+        FMatrix mEmitterToSimulation{};
+        FMatrix mSimulationToWorld{};
 
         /**
          * @brief 배치 스냅샷에서 사용하는 모듈 정의의 파괴를 감지하는 비소유 참조 목록입니다.

@@ -34,18 +34,18 @@ namespace Engine {
          * @param[out] View 계산한 카메라 뷰·투영 상태를 받을 출력입니다.
          * @return 크기와 시점 값이 유효해 계산했으면 true입니다.
          */
-        bool CalcSceneView(const Core::FVector2& Size, Engine::FSceneView& View) const;
+        bool CalcSceneView(const FVector2& Size, Engine::FSceneView& View) const;
 
     public:
         /**
          * @brief 카메라의 월드 위치입니다.
          */
-        Core::FVector mLocation{};
+        FVector mLocation{};
 
         /**
          * @brief 카메라의 월드 회전입니다.
          */
-        Core::FQuat mRotation{};
+        FQuat mRotation{};
 
         /**
          * @brief 수직 시야각이며 도 단위입니다.

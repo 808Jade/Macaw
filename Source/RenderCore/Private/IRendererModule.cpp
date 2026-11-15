@@ -36,7 +36,7 @@ namespace RenderCore {
     /**
      * @brief 폰트 메트릭으로 텍스트의 로컬 평면 경계를 계산합니다.
      */
-    bool RenderCore::IRendererModule::GetTextBounds(const Core::FString&, Core::FVector2&, Core::FVector2&) const {
+    bool RenderCore::IRendererModule::GetTextBounds(const Core::FString&, FVector2&, FVector2&) const {
         return false;
     }
 

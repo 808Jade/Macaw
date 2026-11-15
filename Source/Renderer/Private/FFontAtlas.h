@@ -22,12 +22,12 @@ namespace Renderer {
         /**
          * @brief 텍스트 정점의 2D 위치입니다.
          */
-        Core::FVector2 mPosition{};
+        FVector2 mPosition{};
 
         /**
          * @brief 텍스트 정점의 아틀라스 UV 좌표입니다.
          */
-        Core::FVector2 mUV{};
+        FVector2 mUV{};
     };
 
     /**
@@ -43,12 +43,12 @@ namespace Renderer {
         /**
          * @brief 글리프의 로컬 평면 경계입니다.
          */
-        Core::FVector4 mPlane{};
+        FVector4 mPlane{};
 
         /**
          * @brief 아틀라스 안 글리프의 UV 경계입니다.
          */
-        Core::FVector4 mUV{};
+        FVector4 mUV{};
 
         /**
          * @brief 그릴 수 있는 글리프 경계의 존재 여부입니다.

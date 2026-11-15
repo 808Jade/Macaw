@@ -26,7 +26,7 @@ namespace Editor {
 		  mPlaySession{this, &mContext, &mViewport},
 		  mUI{std::make_unique<Editor::FEditorUI>(&mContext, &mViewport, &mPlaySession)} {
         mContext.SetPlacementProvider([this]() {
-            return Core::FTransform{mUI->GetActiveViewport()->GetClient()->GetPlacementLocation(), {}, {1.0f, 1.0f, 1.0f}};
+            return FTransform{mUI->GetActiveViewport()->GetClient()->GetPlacementLocation(), {}, {1.0f, 1.0f, 1.0f}};
         });
 
         mContext.SetConsoleViewportProvider([this]() {

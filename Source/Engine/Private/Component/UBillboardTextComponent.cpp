@@ -75,14 +75,14 @@ namespace Engine {
     /**
      * @brief 글자의 RGBA 색상을 반환합니다.
      */
-    const Core::FVector4& Engine::UBillboardTextComponent::GetTextColor() const {
+    const FVector4& Engine::UBillboardTextComponent::GetTextColor() const {
         return mTextColor;
     }
 
     /**
      * @brief 글자의 RGBA 색상을 설정합니다.
      */
-    bool Engine::UBillboardTextComponent::SetTextColor(const Core::FVector4& Color) {
+    bool Engine::UBillboardTextComponent::SetTextColor(const FVector4& Color) {
         const auto Values{Color.ToArray()};
 
         if (!std::all_of(Values.begin(), Values.end(), [](float Value) {
@@ -142,10 +142,10 @@ namespace Engine {
     /**
      * @brief 월드 공간의 축 정렬 경계 상자를 반환합니다.
      */
-    Core::FBox Engine::UBillboardTextComponent::GetWorldBounds() const {
-        const Core::FTransform& Transform{GetTransform()};
+    FBox Engine::UBillboardTextComponent::GetWorldBounds() const {
+        const FTransform& Transform{GetTransform()};
         const float Radius{mTextSize * static_cast<float>(mText.size() + 1) * 2.0f * std::max(std::abs(Transform.mScale.y), std::abs(Transform.mScale.z))};
-        const Core::FVector Extent{Radius, Radius, Radius};
+        const FVector Extent{Radius, Radius, Radius};
 
         return {Transform.mLocation - Extent, Transform.mLocation + Extent};
     }

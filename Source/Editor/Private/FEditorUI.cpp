@@ -1785,7 +1785,7 @@ namespace Editor {
         bool Found{};
 
         for (Core::Index_t Index{static_cast<Core::Index_t>(mContentDropBounds.size())}; Index > 0; --Index) {
-            const Core::FVector4& Bounds{mContentDropBounds[Index - 1]};
+            const FVector4& Bounds{mContentDropBounds[Index - 1]};
 
             if (Position.x >= Bounds.x && Position.y >= Bounds.y && Position.x < Bounds.z && Position.y < Bounds.w) {
                 Directory = mContentDropDirectories[Index - 1];
@@ -1841,9 +1841,9 @@ namespace Editor {
     /**
      * @brief 콘텐츠 영역을 현재 ImGui 클립 사각형으로 잘라 파일 드롭 대상으로 등록합니다.
      */
-    void Editor::FEditorUI::RegisterContentDropTarget(const std::filesystem::path& Directory, const Core::FVector4& Bounds) {
+    void Editor::FEditorUI::RegisterContentDropTarget(const std::filesystem::path& Directory, const FVector4& Bounds) {
         const ImRect Clip{ImGui::GetCurrentWindow()->ClipRect};
-        const Core::FVector4 Visible{std::max(Bounds.x, Clip.Min.x), std::max(Bounds.y, Clip.Min.y), std::min(Bounds.z, Clip.Max.x), std::min(Bounds.w, Clip.Max.y)};
+        const FVector4 Visible{std::max(Bounds.x, Clip.Min.x), std::max(Bounds.y, Clip.Min.y), std::min(Bounds.z, Clip.Max.x), std::min(Bounds.w, Clip.Max.y)};
 
         if (Visible.z > Visible.x && Visible.w > Visible.y) {
             mContentDropDirectories.push_back(Directory);
@@ -2560,7 +2560,7 @@ namespace Editor {
 
                 mTextureViewer->Resize(static_cast<Core::Uint32>(Available.x), static_cast<Core::Uint32>(Available.y));
                 mTextureViewer->Fit(1.0f);
-                const Core::FVector4 Rect{mTextureViewer->GetImageRect()};
+                const FVector4 Rect{mTextureViewer->GetImageRect()};
                 const ImVec2 Origin{ImGui::GetCursorPos()};
 
                 ImGui::SetCursorPos({Origin.x + Rect.x, Origin.y + Rect.y});

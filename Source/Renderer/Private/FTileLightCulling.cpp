@@ -34,7 +34,7 @@ namespace Renderer {
         const Core::Uint32 Columns{(static_cast<Core::Uint32>(std::max(View.mSize.x, 1.0f)) + 15) / 16};
         const Core::Uint32 Rows{(static_cast<Core::Uint32>(std::max(View.mSize.y, 1.0f)) + 15) / 16};
         const Core::Uint64 TileCount{static_cast<Core::Uint64>(Columns) * Rows};
-        Core::FMatrix Inverse{};
+        FMatrix Inverse{};
         Core::FString Error{};
 
         if (mShader == nullptr || !View.mViewProjection.TryInverse(Inverse) || Columns > D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION || Rows > D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION || !mTileLightIndices.Reserve(Device, TileCount * LightCount, Error) || !mTileRanges.Reserve(Device, TileCount, Error) || !mAllocator.Reserve(Device, 1, Error) || !mConstants.Create(Device, Error)) {

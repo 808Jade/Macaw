@@ -425,7 +425,7 @@ namespace Engine {
             }
         }
 
-        const Core::FVector& Velocity{GetOwnerVelocity()};
+        const FVector& Velocity{GetOwnerVelocity()};
         const float Speed{std::sqrt(Velocity.x * Velocity.x + Velocity.y * Velocity.y)};
 
         for (Engine::FAnimGraphRuntimeVariable& Variable : mVariables) {

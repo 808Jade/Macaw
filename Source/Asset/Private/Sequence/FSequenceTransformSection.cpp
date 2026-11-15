@@ -53,8 +53,8 @@ namespace Asset {
     /**
      * @brief 지정한 시간의 변환을 계산합니다.
      */
-    Core::FTransform Asset::FSequenceTransformSection::Evaluate(double Tick, const Core::FTransform& Base) const {
-        Core::FTransform Result{Base};
+    FTransform Asset::FSequenceTransformSection::Evaluate(double Tick, const FTransform& Base) const {
+        FTransform Result{Base};
         const auto Sample{[this, Tick](Asset::ESequenceTransformChannel Channel, float& Value) {
             return mChannels[static_cast<Core::Index_t>(Channel)].Evaluate(Tick, Value);
         }};
@@ -67,7 +67,7 @@ namespace Asset {
         Sample(Asset::ESequenceTransformChannel::ScaleZ, Result.mScale.z);
 
         // 회전 키가 없으면 오일러 변환 오차가 생기지 않도록 기준 쿼터니언을 유지합니다.
-        Core::FRotator Rotation{Base.mRotation.Rotator()};
+        FRotator Rotation{Base.mRotation.Rotator()};
         bool Rotated{Sample(Asset::ESequenceTransformChannel::RotationPitch, Rotation.pitch)};
 
         Rotated = Sample(Asset::ESequenceTransformChannel::RotationYaw, Rotation.yaw) || Rotated;

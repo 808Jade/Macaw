@@ -49,7 +49,7 @@ namespace Engine {
         const double PreviousPhase{GetPreviousAssetTime() / mBlendedLength};
         const double PhaseDelta{GetAssetTimeDelta() / mBlendedLength};
         const auto& Samples{mBlendSpace->GetSamples()};
-        Core::FTransform RootMotion{};
+        FTransform RootMotion{};
         float Accumulated{};
 
         for (const Asset::FBlendSampleWeight& Weight : mSampleWeights) {
@@ -64,7 +64,7 @@ namespace Engine {
             }
 
             const double Length{Sequence->GetPlayLength()};
-            const Core::FTransform Delta{Context.GetAnimInstance().ExtractSequenceRootMotion(*Sequence, PreviousPhase * Length, PhaseDelta * Length, mLoop)};
+            const FTransform Delta{Context.GetAnimInstance().ExtractSequenceRootMotion(*Sequence, PreviousPhase * Length, PhaseDelta * Length, mLoop)};
 
             Accumulated += Weight.mWeight;
             RootMotion = Engine::FAnimationRuntime::BlendTransforms(RootMotion, Delta, 1.0f - Weight.mWeight / Accumulated);

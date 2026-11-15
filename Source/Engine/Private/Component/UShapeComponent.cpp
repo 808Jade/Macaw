@@ -29,7 +29,7 @@ namespace Engine {
          * @param[in] B 두 번째 검사 대상입니다.
          * @return 두 형상이 겹치면 true입니다.
          */
-        bool BoundsOverlap(const Core::FBox& A, const Core::FBox& B) {
+        bool BoundsOverlap(const FBox& A, const FBox& B) {
             return A.mMinimum.x <= B.mMaximum.x && A.mMaximum.x >= B.mMinimum.x && A.mMinimum.y <= B.mMaximum.y && A.mMaximum.y >= B.mMinimum.y && A.mMinimum.z <= B.mMaximum.z && A.mMaximum.z >= B.mMinimum.z;
         }
 
@@ -49,15 +49,15 @@ namespace Engine {
          * @param[in] EndAngle 끝 각도입니다.
          * @param[in] Color 적용할 색상입니다.
          */
-        void AddArc(Engine::FPrimitiveDrawInterface& DrawInterface, const Core::FVector& C, const Core::FVector& U, const Core::FVector& V, float R, Core::FAngle StartAngle, Core::FAngle EndAngle, const Core::FVector& Color) {
+        void AddArc(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& C, const FVector& U, const FVector& V, float R, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color) {
             const Core::Int32 Segments{std::max(1, static_cast<Core::Int32>(CircleSegment * ((EndAngle - StartAngle) / 1_turn)))};
             const Core::FAngle Step{(EndAngle - StartAngle) / Segments};
 
-            Core::FVector Prev{C + U * (Core::Math::Cos(StartAngle) * R) + V * (Core::Math::Sin(StartAngle) * R)};
+            FVector Prev{C + U * (Core::Math::Cos(StartAngle) * R) + V * (Core::Math::Sin(StartAngle) * R)};
 
             for (Core::Index_t Index{1}; Index <= Segments; ++Index) {
                 const Core::FAngle Angle{StartAngle + Step * Index};
-                const Core::FVector Point{C + U * (Core::Math::Cos(Angle) * R) + V * (Core::Math::Sin(Angle) * R)};
+                const FVector Point{C + U * (Core::Math::Cos(Angle) * R) + V * (Core::Math::Sin(Angle) * R)};
 
                 DrawInterface.DrawLine(Prev, Point, Color, true);
 
@@ -112,21 +112,21 @@ namespace Engine {
      */
     void Engine::UShapeComponent::DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight) const {
         Engine::FCollisionShape Shape{GetCollisionShape()};
-        Core::FVector Pos{GetTransform().mLocation};
-        Core::FQuat Rot{GetTransform().mRotation};
-        Core::FVector Color{Highlight ? Core::FVector{1.0f, 0.0f, 0.0f} : Core::FVector{mShapeColor.x, mShapeColor.y, mShapeColor.z}};
+        FVector Pos{GetTransform().mLocation};
+        FQuat Rot{GetTransform().mRotation};
+        FVector Color{Highlight ? FVector{1.0f, 0.0f, 0.0f} : FVector{mShapeColor.x, mShapeColor.y, mShapeColor.z}};
 
         if (Shape.IsBox()) {
             Engine::FOrientedBox Box{Engine::Collision::ToOrientedBox(Shape, Pos, Rot)};
 
-            Core::FVector V0{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
-            Core::FVector V1{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
-            Core::FVector V2{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
-            Core::FVector V3{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
-            Core::FVector V4{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
-            Core::FVector V5{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
-            Core::FVector V6{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
-            Core::FVector V7{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
+            FVector V0{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
+            FVector V1{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
+            FVector V2{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
+            FVector V3{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
+            FVector V4{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
+            FVector V5{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
+            FVector V6{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
+            FVector V7{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
 
             DrawInterface.DrawLine(V0, V1, Color, true);
             DrawInterface.DrawLine(V1, V2, Color, true);
@@ -144,9 +144,9 @@ namespace Engine {
         else if (Shape.IsSphere()) {
             Engine::FCapsuleSegment Sphere{Engine::Collision::ToCapsuleSegment(Shape, Pos, Rot)};
 
-            const Core::FVector F{Rot.ForwardVector()};
-            const Core::FVector Rt{Rot.RightVector()};
-            const Core::FVector Up{Rot.UpVector()};
+            const FVector F{Rot.ForwardVector()};
+            const FVector Rt{Rot.RightVector()};
+            const FVector Up{Rot.UpVector()};
             const float R{Sphere.GetRadius()};
 
             AddArc(DrawInterface, Sphere.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
@@ -156,9 +156,9 @@ namespace Engine {
         else if (Shape.IsCapsule()) {
             Engine::FCapsuleSegment Capsule{Engine::Collision::ToCapsuleSegment(Shape, Pos, Rot)};
 
-            const Core::FVector F{Rot.ForwardVector()};
-            const Core::FVector Rt{Rot.RightVector()};
-            const Core::FVector Up{Rot.UpVector()};
+            const FVector F{Rot.ForwardVector()};
+            const FVector Rt{Rot.RightVector()};
+            const FVector Up{Rot.UpVector()};
             const float R{Capsule.GetRadius()};
 
             AddArc(DrawInterface, Capsule.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
@@ -209,7 +209,7 @@ namespace Engine {
      * @brief 충돌 형상에 적용할 최대 절대 축 스케일을 반환합니다.
      */
     float Engine::UShapeComponent::GetShapeScale() const {
-        Core::FVector Scale{GetTransform().mScale};
+        FVector Scale{GetTransform().mScale};
 
         return std::min({ std::abs(Scale.x), std::abs(Scale.y), std::abs(Scale.z) });
     }
@@ -238,14 +238,14 @@ namespace Engine {
     /**
      * @brief 컴포넌트 변환을 적용한 월드 충돌 경계를 계산합니다.
      */
-    Core::FBox Engine::UShapeComponent::CalcBounds() const {
+    FBox Engine::UShapeComponent::CalcBounds() const {
         return CalcLocalBounds().Transformed(GetWorldMatrix());
     }
 
     /**
      * @brief 월드 공간의 축 정렬 경계 상자를 반환합니다.
      */
-    Core::FBox Engine::UShapeComponent::GetWorldBounds() const {
+    FBox Engine::UShapeComponent::GetWorldBounds() const {
         return CalcBounds();
     }
 
@@ -259,14 +259,14 @@ namespace Engine {
     /**
      * @brief 충돌 도형을 표시할 RGBA 색상을 반환합니다.
      */
-    const Core::FVector4& Engine::UShapeComponent::GetShapeColor() const {
+    const FVector4& Engine::UShapeComponent::GetShapeColor() const {
         return mShapeColor;
     }
 
     /**
      * @brief 충돌 도형을 표시할 RGBA 색상을 설정합니다.
      */
-    bool Engine::UShapeComponent::SetShapeColor(const Core::FVector4& Color) {
+    bool Engine::UShapeComponent::SetShapeColor(const FVector4& Color) {
         if (!std::isfinite(Color.x) || !std::isfinite(Color.y) || !std::isfinite(Color.z) || !std::isfinite(Color.w)) {
             return false;
         }

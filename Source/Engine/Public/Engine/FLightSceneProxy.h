@@ -49,17 +49,17 @@ namespace Engine {
         /**
          * @brief 광원의 월드 공간 위치입니다.
          */
-        Core::FVector mPosition{};
+        FVector mPosition{};
 
         /**
          * @brief 광원이 비추는 월드 공간 방향입니다.
          */
-        Core::FVector mDirection{1.0f, 0.0f, 0.0f};
+        FVector mDirection{1.0f, 0.0f, 0.0f};
 
         /**
          * @brief 광원의 RGBA 색상입니다.
          */
-        Core::FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 광원의 밝기 배율입니다.

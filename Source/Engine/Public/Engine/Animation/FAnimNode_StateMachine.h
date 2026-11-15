@@ -95,7 +95,7 @@ namespace Engine {
          * @brief 최근 갱신에서 계산한 루트 모션 증분을 반환합니다.
          * @return 노드 또는 인스턴스의 이동·회전 증분이며 없으면 항등 변환입니다.
          */
-        Core::FTransform GetRootMotionDelta() const override;
+        FTransform GetRootMotionDelta() const override;
 
     private:
 

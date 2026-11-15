@@ -297,8 +297,8 @@ namespace Editor {
                     return;
                 }
 
-                const Core::FVector2 Mouse{Input.GetMousePosition()};
-                const Core::FVector2 Delta{Input.GetMouseDelta()};
+                const FVector2 Mouse{Input.GetMousePosition()};
+                const FVector2 Delta{Input.GetMouseDelta()};
                 Engine::FViewportInput State{};
                 const float ScaleX{Target->GetWidth() / Available.x};
                 const float ScaleY{Target->GetHeight() / Available.y};

@@ -61,14 +61,14 @@ namespace Engine {
     /**
      * @brief 광원의 RGBA 색상을 반환합니다.
      */
-    const Core::FVector4& Engine::ULightComponentBase::GetLightColor() const {
+    const FVector4& Engine::ULightComponentBase::GetLightColor() const {
         return mLightColor;
     }
 
     /**
      * @brief 광원의 RGBA 색상을 검증하고 변경합니다.
      */
-    bool Engine::ULightComponentBase::SetLightColor(const Core::FVector4& Color) {
+    bool Engine::ULightComponentBase::SetLightColor(const FVector4& Color) {
         const auto Values{Color.ToArray()};
 
         if (!std::all_of(Values.begin(), Values.end(), [](float Value) {
@@ -124,7 +124,7 @@ namespace Engine {
     /**
      * @brief 월드 변환을 적용하고 렌더 장면의 광원 위치·방향을 갱신합니다.
      */
-    bool Engine::ULightComponentBase::SetTransform(const Core::FTransform& Transform) {
+    bool Engine::ULightComponentBase::SetTransform(const FTransform& Transform) {
         if (!Engine::USceneComponent::SetTransform(Transform)) {
             return false;
         }
@@ -201,15 +201,15 @@ namespace Engine {
      */
     void Engine::ULightComponentBase::DrawVisualization(Engine::FPrimitiveDrawInterface& Draw, bool Selected) const {
         const Engine::FLightSceneProxy Proxy{CreateLightProxy()};
-        const Core::FVector Color{mLightColor.x, mLightColor.y, mLightColor.z};
-        const Core::FVector Position{Proxy.mPosition};
-        const Core::FVector Forward{Proxy.mDirection};
-        const Core::FQuat Rotation{GetTransform().mRotation};
-        const Core::FVector Right{Rotation.RightVector()};
-        const Core::FVector Up{Rotation.UpVector()};
+        const FVector Color{mLightColor.x, mLightColor.y, mLightColor.z};
+        const FVector Position{Proxy.mPosition};
+        const FVector Forward{Proxy.mDirection};
+        const FQuat Rotation{GetTransform().mRotation};
+        const FVector Right{Rotation.RightVector()};
+        const FVector Up{Rotation.UpVector()};
 
         if (Proxy.mType == Engine::ELightType::Directional || Proxy.mType == Engine::ELightType::Spot) {
-            const Core::FVector End{Position + Forward * 2.0f};
+            const FVector End{Position + Forward * 2.0f};
 
             Draw.DrawLine(Position, End, Color, true, 2.0f);
             Draw.DrawLine(End, End - Forward * 0.4f + Right * 0.2f, Color, true, 2.0f);
@@ -224,7 +224,7 @@ namespace Engine {
         const float Radius{Proxy.mAttenuationRadius};
 
         if (Proxy.mType == Engine::ELightType::Point) {
-            const std::array<Core::FVector, 3> Axes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
+            const std::array<FVector, 3> Axes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
 
             for (Core::Index_t Axis{}; Axis < 3; ++Axis) {
                 for (Core::Index_t Index{}; Index < Segments; ++Index) {
@@ -240,13 +240,13 @@ namespace Engine {
 
         for (const float Angle : {Proxy.mOuterConeAngle, Proxy.mInnerConeAngle}) {
             const float ConeRadius{Radius * Core::Math::Sin(Angle * 1_deg)};
-            const Core::FVector Center{Position + Forward * (Radius * Core::Math::Cos(Angle * 1_deg))};
-            const Core::FVector ConeColor{Angle == Proxy.mOuterConeAngle ? Color : Color * 0.5f};
+            const FVector Center{Position + Forward * (Radius * Core::Math::Cos(Angle * 1_deg))};
+            const FVector ConeColor{Angle == Proxy.mOuterConeAngle ? Color : Color * 0.5f};
 
             for (Core::Index_t Index{}; Index < Segments; ++Index) {
                 const Core::FAngle Start{1_turn * Index / Segments};
                 const Core::FAngle End{1_turn * (Index + 1) / Segments};
-                const Core::FVector Edge{Center + (Right * Core::Math::Cos(Start) + Up * Core::Math::Sin(Start)) * ConeRadius};
+                const FVector Edge{Center + (Right * Core::Math::Cos(Start) + Up * Core::Math::Sin(Start)) * ConeRadius};
 
                 Draw.DrawLine(Edge, Center + (Right * Core::Math::Cos(End) + Up * Core::Math::Sin(End)) * ConeRadius, ConeColor, true);
 

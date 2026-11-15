@@ -54,7 +54,7 @@ namespace HeaderTool {
          * @param[in] Property 등록문을 생성할 프로퍼티 정보입니다.
          * @return 해석·변환한 문자열입니다.
          */
-        std::string PropertyStatement(const FProperty& Property) {
+        std::string PropertyStatement(const FProperty& Property, const std::string& Indent) {
             std::vector<std::string> Pointers{"&ReflectionOwner::" + Property.Member};
 
             if (!Property.Getter.empty() || !Property.Setter.empty()) {
@@ -71,7 +71,7 @@ namespace HeaderTool {
             const std::string FlagText{Flags.empty() ? "Core::EPropertyFlags::None" : Join(Flags, " | ")};
             const std::string Function{Property.Array ? "RegisterArrayProperty" : "RegisterProperty"};
 
-            return "        CoreUObject::" + Function + "<" + Join(Pointers, ", ") + ">(Information, " + Property.Name + ", " + FlagText + ");";
+            return Indent + "    CoreUObject::" + Function + "<" + Join(Pointers, ", ") + ">(Information, " + Property.Name + ", " + FlagText + ");";
         }
 
         /**
@@ -322,30 +322,38 @@ namespace HeaderTool {
             const FType& Type{*Entry.Type};
             const std::string Implementation{Type.Kind == ETypeKind::Struct ? "ImplementStructReflection" : (Type.Kind == ETypeKind::RootClass ? "ImplementRootReflection" : "ImplementReflection")};
             const std::string Flags{Type.ClassFlags.empty() ? "" : ", " + Join(Type.ClassFlags, ", ")};
+            const std::string Indent{Type.Namespace.empty() ? "" : "    "};
 
             Source.push_back("");
-            Source.push_back("namespace " + Type.Namespace + " {");
+
+            if (!Type.Namespace.empty()) {
+                Source.push_back("namespace " + Type.Namespace + " {");
+                Source.push_back("");
+            }
+
+            Source.push_back(Indent + Implementation + "(" + Type.Name + Flags + ")");
             Source.push_back("");
-            Source.push_back("    " + Implementation + "(" + Type.Name + Flags + ")");
-            Source.push_back("");
-            Source.push_back("    void " + Type.Name + "::RegisterReflectionMembers(CoreUObject::FReflectionBuilder&" + (Type.Properties.empty() ? "" : " Information") + ") {");
+            Source.push_back(Indent + "void " + Type.Name + "::RegisterReflectionMembers(CoreUObject::FReflectionBuilder&" + (Type.Properties.empty() ? "" : " Information") + ") {");
 
             const std::vector<FType>& Types{Entry.Header->Types};
             const Core::Index_t TypeIndex{static_cast<Core::Index_t>(static_cast<int>(&Type - Types.data()))};
 
             for (const FEntry& Child : Entries) {
                 if (Child.Type != nullptr && Child.Header == Entry.Header && Child.Type->Outer == TypeIndex) {
-                    Source.push_back("        " + Child.Type->ShortName + "::StaticStruct();");
+                    Source.push_back(Indent + "    " + Child.Type->ShortName + "::StaticStruct();");
                 }
             }
 
             for (const FProperty& Property : Type.Properties) {
-                Source.push_back(PropertyStatement(Property));
+                Source.push_back(PropertyStatement(Property, Indent));
             }
 
-            Source.push_back("    }");
-            Source.push_back("");
-            Source.push_back("}");
+            Source.push_back(Indent + "}");
+
+            if (!Type.Namespace.empty()) {
+                Source.push_back("");
+                Source.push_back("}");
+            }
         }
 
         Header.push_back("");
@@ -385,7 +393,7 @@ namespace HeaderTool {
             const int Outer{Entry.Type->Outer};
 
             if (Outer < 0 || Entry.Header->Types[static_cast<Core::Index_t>(Outer)].Kind == ETypeKind::None) {
-                Source.push_back("    " + Entry.Type->Namespace + "::" + Entry.Type->Name + (Entry.Type->Kind == ETypeKind::Struct ? "::StaticStruct();" : "::StaticClass();"));
+                Source.push_back("    " + (Entry.Type->Namespace.empty() ? "" : Entry.Type->Namespace + "::") + Entry.Type->Name + (Entry.Type->Kind == ETypeKind::Struct ? "::StaticStruct();" : "::StaticClass();"));
             }
         }
 

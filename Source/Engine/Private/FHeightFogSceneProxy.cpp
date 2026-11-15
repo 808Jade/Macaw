@@ -16,7 +16,7 @@ namespace Engine {
     Engine::FPrimitiveSceneProxy Engine::FHeightFogSceneProxy::CreateIconProxy() const {
         Engine::FPrimitiveSceneProxy Proxy{};
         Proxy.mId = mId;
-        Proxy.mWorld = Core::FTransform{mPosition, {}, {1.0f, 1.0f, 1.0f}}.ToMatrix();
+        Proxy.mWorld = FTransform{mPosition, {}, {1.0f, 1.0f, 1.0f}}.ToMatrix();
         Proxy.mSprite = Engine::FDrawSprite{mIcon, {1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, true};
 
         return Proxy;

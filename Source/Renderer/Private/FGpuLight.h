@@ -19,27 +19,27 @@ namespace Renderer {
         /**
          * @brief XYZ 광원 위치와 W 영향 반경입니다.
          */
-        Core::FVector4 mPositionAndRadius{};
+        FVector4 mPositionAndRadius{};
 
         /**
          * @brief XYZ 광원 방향과 W 종류입니다.
          */
-        Core::FVector4 mDirectionAndType{};
+        FVector4 mDirectionAndType{};
 
         /**
          * @brief RGB 광원 색상과 W 세기입니다.
          */
-        Core::FVector4 mColorAndIntensity{};
+        FVector4 mColorAndIntensity{};
 
         /**
          * @brief 거리 감쇠와 스포트라이트 원뿔 계산 값입니다.
          */
-        Core::FVector4 mFalloffAndCones{};
+        FVector4 mFalloffAndCones{};
 
         /**
          * @brief 광원에 대응하는 그림자 인덱스·설정입니다.
          */
-        Core::FVector4 mShadowInfo{};
+        FVector4 mShadowInfo{};
     };
 
 }

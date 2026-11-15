@@ -42,7 +42,7 @@ namespace Renderer {
          * @param[in] Bounds 표시하거나 읽을 경계 상자입니다.
          * @return 성공하면 true, 실패하면 false입니다.
          */
-        bool ReadBounds(const rapidjson::Value& Value, Core::FVector4& Bounds) {
+        bool ReadBounds(const rapidjson::Value& Value, FVector4& Bounds) {
             return ReadNumber(Value, "left", Bounds.x) && ReadNumber(Value, "bottom", Bounds.y) && ReadNumber(Value, "right", Bounds.z) && ReadNumber(Value, "top", Bounds.w) && Bounds.x <= Bounds.z;
         }
     }
@@ -107,7 +107,7 @@ namespace Renderer {
             }
 
             if (Value.HasMember("planeBounds") || Value.HasMember("atlasBounds")) {
-                Core::FVector4 Pixels{};
+                FVector4 Pixels{};
 
                 if (!Value.HasMember("planeBounds") || !Value.HasMember("atlasBounds") || !ReadBounds(Value["planeBounds"], Glyph.mPlane) || !ReadBounds(Value["atlasBounds"], Pixels) || Pixels.x < 0.0f || std::min(Pixels.y, Pixels.w) < 0.0f || Pixels.z > Width || std::max(Pixels.y, Pixels.w) > Height || (BottomOrigin ? Pixels.y > Pixels.w : Pixels.w > Pixels.y)) {
                     return false;

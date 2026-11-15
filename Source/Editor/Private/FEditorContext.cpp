@@ -540,7 +540,7 @@ namespace Editor {
 
         FSceneEditScope Edit{*this};
         FOperationScope Scope{&mChangingState};
-        const Core::FTransform Placement{mPlacementProvider ? mPlacementProvider() : Core::FTransform{}};
+        const FTransform Placement{mPlacementProvider ? mPlacementProvider() : FTransform{}};
         Engine::UWorld* World{GetWorld()};
 
         if (World == nullptr) {
@@ -568,7 +568,7 @@ namespace Editor {
 
         FSceneEditScope Edit{*this};
         FOperationScope Scope{&mChangingState};
-        const Core::FTransform Placement{mPlacementProvider ? mPlacementProvider() : Core::FTransform{}};
+        const FTransform Placement{mPlacementProvider ? mPlacementProvider() : FTransform{}};
         Engine::UWorld* World{GetWorld()};
         auto* Actor{World != nullptr ? CoreUObject::Cast<Engine::ACameraActor>(World->SpawnActor(Engine::ACameraActor::StaticClass())) : nullptr};
 
@@ -617,7 +617,7 @@ namespace Editor {
 
         Actor->SetName("Text");
 
-        const Core::FTransform Placement{mPlacementProvider ? mPlacementProvider() : Core::FTransform{}};
+        const FTransform Placement{mPlacementProvider ? mPlacementProvider() : FTransform{}};
 
         if (!ApplySpawnPlacement(Actor, Placement)) {
             return nullptr;
@@ -658,7 +658,7 @@ namespace Editor {
 
         Actor->SetName(SpritePath.empty() ? "Billboard" : Core::FilePath::ToUtf8(Core::FilePath::FromUtf8(SpritePath).stem()));
 
-        const Core::FTransform Placement{mPlacementProvider ? mPlacementProvider() : Core::FTransform{}};
+        const FTransform Placement{mPlacementProvider ? mPlacementProvider() : FTransform{}};
 
         if (!ApplySpawnPlacement(Actor, Placement)) {
             return nullptr;
@@ -672,7 +672,7 @@ namespace Editor {
     /**
      * @brief 새 액터에 배치 변환을 적용하고 실패하면 생성한 액터를 제거합니다.
      */
-    bool Editor::FEditorContext::ApplySpawnPlacement(Engine::AActor* Actor, const Core::FTransform& Placement) {
+    bool Editor::FEditorContext::ApplySpawnPlacement(Engine::AActor* Actor, const FTransform& Placement) {
         if (Actor == nullptr) {
             return false;
         }
@@ -905,7 +905,7 @@ namespace Editor {
     /**
      * @brief 액터 루트의 변환 프로퍼티를 에디터 편집 경로로 변경합니다.
      */
-    bool Editor::FEditorContext::ApplyTransform(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, const Core::FTransform& Transform, bool Interactive) {
+    bool Editor::FEditorContext::ApplyTransform(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, const FTransform& Transform, bool Interactive) {
         CoreUObject::UObject* Object{ResolveObject(Handle)};
         Engine::AActor* Actor{CoreUObject::Cast<Engine::AActor>(Object)};
         Engine::USceneComponent* Root{Actor != nullptr ? Actor->GetRootComponent() : CoreUObject::Cast<Engine::USceneComponent>(Object)};
@@ -1200,13 +1200,13 @@ namespace Editor {
      * @brief 배치 제공자가 반환한 위치에 메시 에셋 액터를 생성합니다.
      */
     Engine::AStaticMeshActor* Editor::FEditorContext::SpawnMesh(const std::filesystem::path& Path) {
-        return SpawnMesh(Path, mPlacementProvider ? mPlacementProvider() : Core::FTransform{});
+        return SpawnMesh(Path, mPlacementProvider ? mPlacementProvider() : FTransform{});
     }
 
     /**
      * @brief 지정한 변환에 메시 에셋 액터를 생성하고 선택합니다.
      */
-    Engine::AStaticMeshActor* Editor::FEditorContext::SpawnMesh(const std::filesystem::path& Path, const Core::FTransform& Placement) {
+    Engine::AStaticMeshActor* Editor::FEditorContext::SpawnMesh(const std::filesystem::path& Path, const FTransform& Placement) {
         if (!CanModifyScene() || !Placement.IsValid()) {
             return nullptr;
         }
@@ -1250,7 +1250,7 @@ namespace Editor {
     /**
      * @brief 지정 위치에 스켈레탈 메시 액터를 배치하고 선택합니다.
      */
-    Engine::ASkeletalMeshActor* Editor::FEditorContext::SpawnSkeletalMesh(const std::filesystem::path& Path, const Core::FTransform& Placement) {
+    Engine::ASkeletalMeshActor* Editor::FEditorContext::SpawnSkeletalMesh(const std::filesystem::path& Path, const FTransform& Placement) {
         if (!CanModifyScene() || !Placement.IsValid() || GetProject() == nullptr) {
             return nullptr;
         }
@@ -1348,7 +1348,7 @@ namespace Editor {
     /**
      * @brief 새 액터 배치 변환 제공자를 저장합니다.
      */
-    void Editor::FEditorContext::SetPlacementProvider(std::function<Core::FTransform()> Provider) {
+    void Editor::FEditorContext::SetPlacementProvider(std::function<FTransform()> Provider) {
         mPlacementProvider = std::move(Provider);
     }
 
@@ -1451,10 +1451,10 @@ namespace Editor {
      * @brief 지정한 프리셋의 액터를 생성·배치하고 선택과 장면 변경 상태를 갱신합니다.
      */
     Engine::AActor* Editor::FEditorContext::SpawnActorPreset(const Core::FString& Preset) {
-        Core::FTransform Placement{mPlacementProvider ? mPlacementProvider() : Core::FTransform{}};
+        FTransform Placement{mPlacementProvider ? mPlacementProvider() : FTransform{}};
 
         if (Preset.find("DirectionalLight") != Core::FString::npos || Preset.find("SpotLight") != Core::FString::npos) {
-            Placement.mRotation = Core::FRotator{-45.0f, 0.0f, 0.0f}.Quaternion();
+            Placement.mRotation = FRotator{-45.0f, 0.0f, 0.0f}.Quaternion();
         }
 
         return SpawnActorPreset(Preset, Placement);
@@ -1463,7 +1463,7 @@ namespace Editor {
     /**
      * @brief 지정한 프리셋의 액터를 생성·배치하고 선택과 장면 변경 상태를 갱신합니다.
      */
-    Engine::AActor* Editor::FEditorContext::SpawnActorPreset(const Core::FString& Preset, const Core::FTransform& Placement) {
+    Engine::AActor* Editor::FEditorContext::SpawnActorPreset(const Core::FString& Preset, const FTransform& Placement) {
         if (!CanModifyScene() || !Placement.IsValid()) {
             return nullptr;
         }

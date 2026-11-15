@@ -63,22 +63,22 @@ namespace Asset {
         /**
          * @brief 정반사 색상 값 또는 참조입니다.
          */
-        Core::FVector4 mSpecularColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mSpecularColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 주변광 색상 값 또는 참조입니다.
          */
-        Core::FVector4 mAmbientColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mAmbientColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 자체 발광 색상 값 또는 참조입니다.
          */
-        Core::FVector4 mEmissiveColor{0.0f, 0.0f, 0.0f, 1.0f};
+        FVector4 mEmissiveColor{0.0f, 0.0f, 0.0f, 1.0f};
 
         /**
          * @brief 환경 반사 색상 값 또는 참조입니다.
          */
-        Core::FVector4 mReflectionColor{1.0f, 1.0f, 1.0f, 1.0f};
+        FVector4 mReflectionColor{1.0f, 1.0f, 1.0f, 1.0f};
 
         /**
          * @brief 환경 반사 세기 값 또는 참조입니다.
@@ -113,7 +113,7 @@ namespace Asset {
         /**
          * @brief 재질의 선형 RGBA 기본색입니다.
          */
-        Core::FVector4 mBaseColor{};
+        FVector4 mBaseColor{};
 
         /**
          * @brief 기본색 텍스처의 프로젝트 상대 경로이며 빈 값은 텍스처 없음을 나타냅니다.

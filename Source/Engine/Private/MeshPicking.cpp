@@ -21,24 +21,24 @@ namespace Engine {
      * @param[out] Distance 최근접 교차 거리의 출력입니다.
      * @return 최근접 교차를 찾으면 true이며 Distance에 월드 거리를 기록합니다.
      */
-    bool RaycastMesh(const Asset::FMeshData* Mesh, const Core::FMatrix& World, const Core::FRay& Ray, float& Distance) {
+    bool RaycastMesh(const Asset::FMeshData* Mesh, const FMatrix& World, const FRay& Ray, float& Distance) {
         if (Mesh == nullptr || !Mesh->GetBounds().Transformed(World).Intersects(Ray, Distance)) {
             return false;
         }
 
-        Core::FMatrix Inverse{};
+        FMatrix Inverse{};
 
         if (!World.TryInverse(Inverse)) {
             return false;
         }
 
-        const Core::FRay Local{Inverse.TransformPosition(Ray.mOrigin), Inverse.TransformVector(Ray.mDirection)};
+        const FRay Local{Inverse.TransformPosition(Ray.mOrigin), Inverse.TransformVector(Ray.mDirection)};
         bool Found{};
 
         for (Core::Index_t Index{}; Index + 2 < Mesh->GetIndices().size(); Index += 3) {
-            const Core::FVector A{Mesh->GetPositions()[Mesh->GetIndices()[Index]]};
-            const Core::FVector B{Mesh->GetPositions()[Mesh->GetIndices()[Index + 1]]};
-            const Core::FVector C{Mesh->GetPositions()[Mesh->GetIndices()[Index + 2]]};
+            const FVector A{Mesh->GetPositions()[Mesh->GetIndices()[Index]]};
+            const FVector B{Mesh->GetPositions()[Mesh->GetIndices()[Index + 1]]};
+            const FVector C{Mesh->GetPositions()[Mesh->GetIndices()[Index + 2]]};
             float HitDistance{};
 
             if (Core::Math::IntersectTriangle(Local, A, B, C, HitDistance) && HitDistance < Distance) {

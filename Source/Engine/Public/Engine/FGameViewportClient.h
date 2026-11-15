@@ -46,7 +46,7 @@ namespace Engine {
          * @param[out] View 계산한 카메라 뷰·투영 상태를 받을 출력입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool CalcSceneView(const Core::FVector2& Size, Engine::FSceneView& View) const;
+        bool CalcSceneView(const FVector2& Size, Engine::FSceneView& View) const;
 
         /**
          * @brief 게임 뷰포트가 연결된 월드에 프레임 입력을 전달합니다.

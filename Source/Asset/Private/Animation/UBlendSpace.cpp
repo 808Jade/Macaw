@@ -63,7 +63,7 @@ namespace Asset {
         return mSamples;
     }
 
-    Core::Index_t UBlendSpace::AddSample(const Asset::UAnimSequence* Animation, const Core::FVector& SampleValue) {
+    Core::Index_t UBlendSpace::AddSample(const Asset::UAnimSequence* Animation, const FVector& SampleValue) {
         if (mSamples.size() >= MaxSamples || !SampleValue.IsFinite()) {
             return Core::InvalidIndex;
         }
@@ -95,7 +95,7 @@ namespace Asset {
         return true;
     }
 
-    bool UBlendSpace::SetSampleValue(Core::Index_t Index, const Core::FVector& SampleValue) {
+    bool UBlendSpace::SetSampleValue(Core::Index_t Index, const FVector& SampleValue) {
         if (Index >= mSamples.size() || !SampleValue.IsFinite()) {
             return false;
         }
@@ -106,7 +106,7 @@ namespace Asset {
         return true;
     }
 
-    Core::FVector UBlendSpace::ClampInput(const Core::FVector& Input) const {
+    FVector UBlendSpace::ClampInput(const FVector& Input) const {
         std::array<float, 3> Values{Input.ToArray()};
 
         for (Core::Index_t AxisIndex{}; AxisIndex < Values.size(); ++AxisIndex) {

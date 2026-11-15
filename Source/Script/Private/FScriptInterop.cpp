@@ -83,22 +83,22 @@ namespace Script {
                 } else if constexpr (std::is_same_v<FTyped, Core::FString>) {
                     Output.mTag = static_cast<Core::Int32>(Script::EScriptValueTag::String);
                     Output.mText = Script::Abi::StoreString(Typed);
-                } else if constexpr (std::is_same_v<FTyped, Core::FVector2>) {
+                } else if constexpr (std::is_same_v<FTyped, FVector2>) {
                     const float Values[]{Typed.x, Typed.y};
                     StoreFloats(Output, Script::EScriptValueTag::Vector2, Values);
-                } else if constexpr (std::is_same_v<FTyped, Core::FVector>) {
+                } else if constexpr (std::is_same_v<FTyped, FVector>) {
                     const float Values[]{Typed.x, Typed.y, Typed.z};
                     StoreFloats(Output, Script::EScriptValueTag::Vector3, Values);
-                } else if constexpr (std::is_same_v<FTyped, Core::FVector4>) {
+                } else if constexpr (std::is_same_v<FTyped, FVector4>) {
                     const float Values[]{Typed.x, Typed.y, Typed.z, Typed.w};
                     StoreFloats(Output, Script::EScriptValueTag::Vector4, Values);
-                } else if constexpr (std::is_same_v<FTyped, Core::FQuat>) {
+                } else if constexpr (std::is_same_v<FTyped, FQuat>) {
                     const float Values[]{Typed.x, Typed.y, Typed.z, Typed.w};
                     StoreFloats(Output, Script::EScriptValueTag::Quaternion, Values);
-                } else if constexpr (std::is_same_v<FTyped, Core::FTransform>) {
-                    const Core::FVector& L{Typed.mLocation};
-                    const Core::FQuat& R{Typed.mRotation};
-                    const Core::FVector& S{Typed.mScale};
+                } else if constexpr (std::is_same_v<FTyped, FTransform>) {
+                    const FVector& L{Typed.mLocation};
+                    const FQuat& R{Typed.mRotation};
+                    const FVector& S{Typed.mScale};
                     const float Values[]{L.x, L.y, L.z, R.x, R.y, R.z, R.w, S.x, S.y, S.z};
                     StoreFloats(Output, Script::EScriptValueTag::Transform, Values);
                 } else if constexpr (std::is_same_v<FTyped, CoreUObject::FObjectReference>) {
@@ -154,27 +154,27 @@ namespace Script {
                     if (Match(Script::EScriptValueTag::String) && Input.mText != nullptr) {
                         Typed = Input.mText;
                     }
-                } else if constexpr (std::is_same_v<FTyped, Core::FVector2>) {
+                } else if constexpr (std::is_same_v<FTyped, FVector2>) {
                     if (Match(Script::EScriptValueTag::Vector2)) {
-                        Typed = Core::FVector2{F[0], F[1]};
+                        Typed = FVector2{F[0], F[1]};
                     }
-                } else if constexpr (std::is_same_v<FTyped, Core::FVector>) {
+                } else if constexpr (std::is_same_v<FTyped, FVector>) {
                     if (Match(Script::EScriptValueTag::Vector3)) {
-                        Typed = Core::FVector{F[0], F[1], F[2]};
+                        Typed = FVector{F[0], F[1], F[2]};
                     }
-                } else if constexpr (std::is_same_v<FTyped, Core::FVector4>) {
+                } else if constexpr (std::is_same_v<FTyped, FVector4>) {
                     if (Match(Script::EScriptValueTag::Vector4)) {
-                        Typed = Core::FVector4{F[0], F[1], F[2], F[3]};
+                        Typed = FVector4{F[0], F[1], F[2], F[3]};
                     }
-                } else if constexpr (std::is_same_v<FTyped, Core::FQuat>) {
+                } else if constexpr (std::is_same_v<FTyped, FQuat>) {
                     if (Match(Script::EScriptValueTag::Quaternion)) {
-                        Typed = Core::FQuat{F[0], F[1], F[2], F[3]};
+                        Typed = FQuat{F[0], F[1], F[2], F[3]};
                     }
-                } else if constexpr (std::is_same_v<FTyped, Core::FTransform>) {
+                } else if constexpr (std::is_same_v<FTyped, FTransform>) {
                     if (Match(Script::EScriptValueTag::Transform)) {
-                        Typed.mLocation = Core::FVector{F[0], F[1], F[2]};
-                        Typed.mRotation = Core::FQuat{F[3], F[4], F[5], F[6]};
-                        Typed.mScale = Core::FVector{F[7], F[8], F[9]};
+                        Typed.mLocation = FVector{F[0], F[1], F[2]};
+                        Typed.mRotation = FQuat{F[3], F[4], F[5], F[6]};
+                        Typed.mScale = FVector{F[7], F[8], F[9]};
                     }
                 } else if constexpr (std::is_same_v<FTyped, CoreUObject::FObjectReference>) {
                     if (Match(Script::EScriptValueTag::Object)) {

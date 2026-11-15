@@ -59,7 +59,7 @@ namespace Engine {
          * @return 셰이크 식별 번호이며 인자가 유효하지 않으면 0입니다.
          */
         UFUNCTION()
-        Core::Int32 StartShake(float Duration, float Frequency, const Core::FVector& LocationAmplitude, const Core::FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime);
+        Core::Int32 StartShake(float Duration, float Frequency, const FVector& LocationAmplitude, const FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime);
 
         /**
          * @brief 재생 중인 셰이크를 멈춥니다.
@@ -107,12 +107,12 @@ namespace Engine {
             /**
              * @brief 카메라 기준 최대 이동량입니다.
              */
-            Core::FVector mLocationAmplitude{};
+            FVector mLocationAmplitude{};
 
             /**
              * @brief Pitch·Yaw·Roll 최대 회전량입니다.
              */
-            Core::FVector mRotationAmplitude{};
+            FVector mRotationAmplitude{};
 
             /**
              * @brief 시야각 최대 변화량입니다.

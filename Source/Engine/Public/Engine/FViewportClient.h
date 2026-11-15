@@ -10,9 +10,7 @@
 #include "Core/Types.h"
 #include "Engine/FHitProxy.h"
 
-namespace Core {
-    struct FVector2;
-}
+struct FVector2;
 
 namespace Engine {
 
@@ -43,7 +41,7 @@ namespace Engine {
          * @return 기본 구현은 선택 대상이 없는 빈 프록시를 반환합니다.
          * @note 좌표 범위 검사는 FSceneViewport::GetHitProxy()가 수행하며 실제 판정은 파생 클라이언트가 구현합니다.
          */
-        virtual Engine::FHitProxy GetHitProxy(const Engine::FSceneViewport* Viewport, const Core::FVector2& Position) const;
+        virtual Engine::FHitProxy GetHitProxy(const Engine::FSceneViewport* Viewport, const FVector2& Position) const;
     };
 
 }

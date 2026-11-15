@@ -29,32 +29,32 @@ namespace Engine {
          * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::FBox CalcLocalBounds() const override;
+        FBox CalcLocalBounds() const override;
 
         /**
          * @brief 상자의 로컬 축별 반길이를 설정합니다.
          * @param[in] InExtent 상자 각 축의 반길이입니다.
          */
-        void SetBoxExtent(const Core::FVector& InExtent);
+        void SetBoxExtent(const FVector& InExtent);
 
         /**
          * @brief 월드 스케일을 반영한 상자 축별 반길이를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::FVector GetScaledBoxExtent() const;
+        FVector GetScaledBoxExtent() const;
 
         /**
          * @brief 상자의 로컬 축별 반길이를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FVector& GetBoxExtent() const;
+        const FVector& GetBoxExtent() const;
 
     private:
         /**
          * @brief 상자의 로컬 축별 반길이입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetBoxExtent, Setter = SetBoxExtent)
-        Core::FVector mBoxExtent{0.5f, 0.5f, 0.5f};
+        FVector mBoxExtent{0.5f, 0.5f, 0.5f};
     };
 
 }

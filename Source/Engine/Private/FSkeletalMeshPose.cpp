@@ -19,7 +19,7 @@ namespace Engine {
      * @brief 에셋의 바인드 포즈로 초기화합니다.
      */
     bool FSkeletalMeshPose::Reset(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton) {
-        Core::TArray<Core::FMatrix> LocalTransforms{};
+        Core::TArray<FMatrix> LocalTransforms{};
         LocalTransforms.reserve(Skeleton.GetBones().size());
 
         // 로컬 바인드 포즈를 현재 포즈로 쓰면 모든 스키닝 행렬이 항등 행렬이 되어 메시가 바인드 형상 그대로 나타납니다.
@@ -50,13 +50,13 @@ namespace Engine {
     /**
      * @brief 로컬 포즈를 검증하고 변형 형상을 계산하여 반영합니다.
      */
-    bool FSkeletalMeshPose::SetLocalTransforms(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, const Core::TArray<Core::FMatrix>& LocalTransforms) {
+    bool FSkeletalMeshPose::SetLocalTransforms(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, const Core::TArray<FMatrix>& LocalTransforms) {
         if (!Mesh.IsValid() || !Skeleton.IsValid() || LocalTransforms.size() != Skeleton.GetBones().size()) {
             return false;
         }
 
-        Core::TArray<Core::FMatrix> Globals{};
-        Core::TArray<Core::FMatrix> Skins{};
+        Core::TArray<FMatrix> Globals{};
+        Core::TArray<FMatrix> Skins{};
 
         Globals.reserve(LocalTransforms.size());
         Skins.reserve(LocalTransforms.size());
@@ -64,13 +64,13 @@ namespace Engine {
         // 행 벡터 규약에서는 자식 로컬 변환을 부모 전역 변환의 왼쪽에 곱합니다.
         // 부모가 자식보다 앞에 있으므로 Globals[Parent]는 이 시점에 항상 계산되어 있습니다.
         for (Core::Index_t Index{}; Index < LocalTransforms.size(); ++Index) {
-            const Core::FMatrix& Local{LocalTransforms[Index]};
+            const FMatrix& Local{LocalTransforms[Index]};
             const Core::Int32 Parent{static_cast<Core::Int32>(Skeleton.GetBones()[Index].GetParentIndex())};
-            const Core::FMatrix Global{Parent < 0 ? Local : Local * Globals[Parent]};
+            const FMatrix Global{Parent < 0 ? Local : Local * Globals[Parent]};
 
             // 스키닝 행렬: 바인드 정점을 역바인드 행렬로 본 공간에 옮긴 뒤, 현재 전역 포즈로 다시 메시 공간에 옮깁니다.
-            const Core::FMatrix Skin{Skeleton.GetInverseBindPoses()[Index] * Global};
-            Core::FMatrix Inverse{};
+            const FMatrix Skin{Skeleton.GetInverseBindPoses()[Index] * Global};
+            FMatrix Inverse{};
 
             // 투영 변환과 특이 행렬은 위치·법선 계산을 일치시킬 수 없어 거부합니다.
             // 행 벡터 규약의 아핀 행렬은 4번째 열이 (0, 0, 0, 1)이어야 합니다.
@@ -83,7 +83,7 @@ namespace Engine {
         }
 
         if (Skins.size() < Mesh.GetSkinMatrixCount()) {
-            Skins.resize(Mesh.GetSkinMatrixCount(), Core::FMatrix::Identity());
+            Skins.resize(Mesh.GetSkinMatrixCount(), FMatrix::Identity());
         }
 
         Asset::FMeshData Deformed{Mesh.GetMeshData()};
@@ -91,9 +91,9 @@ namespace Engine {
         // GPU와 같은 가중합으로 위치를 계산하여 실제 변형된 표면을 선택할 수 있게 합니다.
         // 렌더링 자체는 GPU가 맡으므로 CPU 사본에서는 피킹과 경계 계산에 필요한 위치만 갱신합니다.
         for (Core::Index_t Vertex{}; Vertex < Deformed.GetPositions().size(); ++Vertex) {
-            const Core::FVector Position{Mesh.GetMeshData().GetPositions()[Vertex]};
+            const FVector Position{Mesh.GetMeshData().GetPositions()[Vertex]};
             const Asset::FMeshImportSkinWeight& Influence{Mesh.GetSkinWeights()[Vertex]};
-            Core::FVector Result{};
+            FVector Result{};
             float Total{};
 
             for (Core::Index_t Slot{}; Slot < Asset::FMeshImportSkinWeight::MaxInfluences; ++Slot) {
@@ -124,7 +124,7 @@ namespace Engine {
         return true;
     }
 
-    bool FSkeletalMeshPose::SetAnimatedLocalTransforms(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::TArray<Core::FMatrix> LocalTransforms) {
+    bool FSkeletalMeshPose::SetAnimatedLocalTransforms(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::TArray<FMatrix> LocalTransforms) {
         const auto& Bones{Skeleton.GetBones()};
 
         if (LocalTransforms.size() != Bones.size()) {
@@ -132,7 +132,7 @@ namespace Engine {
         }
 
         mGlobalTransforms.resize(Bones.size());
-        mSkinMatrices.resize(std::max<std::size_t>(Bones.size(), Mesh.GetSkinMatrixCount()), Core::FMatrix::Identity());
+        mSkinMatrices.resize(std::max<std::size_t>(Bones.size(), Mesh.GetSkinMatrixCount()), FMatrix::Identity());
 
         // 부모가 항상 자식보다 앞에 있으므로 한 번의 순회로 전역 행렬과 스키닝 행렬을 구합니다.
         for (Core::Index_t Index{}; Index < Bones.size(); ++Index) {
@@ -151,9 +151,9 @@ namespace Engine {
     /**
      * @brief 본별 로컬 변환을 검증해 저장하고 이전 메시 계산 결과를 무효화합니다.
      */
-    bool FSkeletalMeshPose::SetLocalTransforms(Core::TArray<Core::FMatrix> LocalTransforms) {
-        for (const Core::FMatrix& Local : LocalTransforms) {
-            Core::FMatrix Inverse{};
+    bool FSkeletalMeshPose::SetLocalTransforms(Core::TArray<FMatrix> LocalTransforms) {
+        for (const FMatrix& Local : LocalTransforms) {
+            FMatrix Inverse{};
 
             if (!Local.IsFinite() || std::abs(Local(0, 3)) > 0.00001f || std::abs(Local(1, 3)) > 0.00001f || std::abs(Local(2, 3)) > 0.00001f || std::abs(Local(3, 3) - 1.0f) > 0.00001f || !Local.TryInverse(Inverse) || !Inverse.IsFinite()) {
                 return false;
@@ -170,13 +170,13 @@ namespace Engine {
     /**
      * @brief 본 하나의 로컬 변환을 교체합니다.
      */
-    bool FSkeletalMeshPose::SetLocalTransform(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::Index_t Bone, const Core::FMatrix& Transform) {
+    bool FSkeletalMeshPose::SetLocalTransform(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::Index_t Bone, const FMatrix& Transform) {
         if (Bone >= mLocalTransforms.size()) {
             return false;
         }
 
         // 본 하나가 바뀌면 그 자손의 전역 변환도 달라지므로 전체 포즈를 다시 계산합니다.
-        Core::TArray<Core::FMatrix> Transforms{mLocalTransforms};
+        Core::TArray<FMatrix> Transforms{mLocalTransforms};
         Transforms[Bone] = Transform;
 
         return SetLocalTransforms(Mesh, Skeleton, Transforms);
@@ -185,21 +185,21 @@ namespace Engine {
     /**
      * @brief 로컬 포즈를 반환합니다.
      */
-    const Core::TArray<Core::FMatrix>& FSkeletalMeshPose::GetLocalTransforms() const {
+    const Core::TArray<FMatrix>& FSkeletalMeshPose::GetLocalTransforms() const {
         return mLocalTransforms;
     }
 
     /**
      * @brief 메시 공간의 현재 본 변환을 반환합니다.
      */
-    const Core::TArray<Core::FMatrix>& FSkeletalMeshPose::GetGlobalTransforms() const {
+    const Core::TArray<FMatrix>& FSkeletalMeshPose::GetGlobalTransforms() const {
         return mGlobalTransforms;
     }
 
     /**
      * @brief 역바인드 행렬에 현재 전역 포즈를 곱한 결과를 반환합니다.
      */
-    const Core::TArray<Core::FMatrix>& FSkeletalMeshPose::GetSkinMatrices() const {
+    const Core::TArray<FMatrix>& FSkeletalMeshPose::GetSkinMatrices() const {
         return mSkinMatrices;
     }
 

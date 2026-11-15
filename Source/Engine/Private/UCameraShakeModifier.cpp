@@ -21,8 +21,8 @@ namespace Engine {
 
     bool Engine::UCameraShakeModifier::ModifyCamera(float DeltaTime, Engine::FMinimalViewInfo& ViewInfo) {
         constexpr float TwoPi{2.0f * std::numbers::pi_v<float>};
-        Core::FVector Location{};
-        Core::FVector Rotation{};
+        FVector Location{};
+        FVector Rotation{};
         float FieldOfView{};
 
         for (FActiveShake& Shake : mShakes) {
@@ -55,13 +55,13 @@ namespace Engine {
 
         // 위치와 회전 모두 카메라 기준으로 더해 어느 방향을 보든 같은 느낌으로 흔들립니다.
         ViewInfo.mLocation = ViewInfo.mLocation + ViewInfo.mRotation.RotateVector(Location);
-        ViewInfo.mRotation = (ViewInfo.mRotation * Core::FRotator{Rotation.x, Rotation.y, Rotation.z}.Quaternion()).Normalized();
+        ViewInfo.mRotation = (ViewInfo.mRotation * FRotator{Rotation.x, Rotation.y, Rotation.z}.Quaternion()).Normalized();
         ViewInfo.mFieldOfView = std::clamp(ViewInfo.mFieldOfView + FieldOfView, 1.0f, 170.0f);
 
         return false;
     }
 
-    Core::Int32 Engine::UCameraShakeModifier::StartShake(float Duration, float Frequency, const Core::FVector& LocationAmplitude, const Core::FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime) {
+    Core::Int32 Engine::UCameraShakeModifier::StartShake(float Duration, float Frequency, const FVector& LocationAmplitude, const FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime) {
         if (!std::isfinite(Duration) || !std::isfinite(Frequency) || Frequency <= 0.0f || !std::isfinite(FieldOfViewAmplitude) || !std::isfinite(BlendInTime) || !std::isfinite(BlendOutTime)) {
             return 0;
         }

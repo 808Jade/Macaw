@@ -29,7 +29,7 @@ namespace Asset {
          * @param[in] ParentIndex 결과 본 목록에서 부모 본의 인덱스이며 루트 본이면 -1입니다.
          * @param[in] BindPose 부모 본 공간 기준의 로컬 바인드 포즈이며 루트 본은 엔진 공간 기준입니다.
          */
-        FMeshImportBone(Core::FString Name, Core::Int32 ParentIndex, const Core::FMatrix& BindPose);
+        FMeshImportBone(Core::FString Name, Core::Int32 ParentIndex, const FMatrix& BindPose);
 
     public:
         /**
@@ -48,7 +48,7 @@ namespace Asset {
          * @brief 바인드 포즈를 조회합니다.
          * @return 부모 본 공간 기준의 로컬 바인드 포즈이며 루트 본은 엔진 공간 기준입니다.
          */
-        const Core::FMatrix& GetBindPose() const;
+        const FMatrix& GetBindPose() const;
 
     private:
         /**
@@ -64,7 +64,7 @@ namespace Asset {
         /**
          * @brief 부모 본 공간 기준의 로컬 바인드 포즈이며 루트 본은 엔진 공간 기준입니다. 전역 포즈는 부모 쪽으로 곱해 구합니다.
          */
-        Core::FMatrix mBindPose{};
+        FMatrix mBindPose{};
     };
 
 }

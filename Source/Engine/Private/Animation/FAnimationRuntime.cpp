@@ -11,24 +11,24 @@
 
 namespace Engine {
 
-    Core::FTransform FAnimationRuntime::AccumulateRootMotion(const Core::FTransform& A, const Core::FTransform& B) {
+    FTransform FAnimationRuntime::AccumulateRootMotion(const FTransform& A, const FTransform& B) {
         return {A.mLocation + A.mRotation.RotateVector(B.mLocation), (A.mRotation * B.mRotation).Normalized(), {1.0f, 1.0f, 1.0f}};
     }
 
-    Core::FTransform FAnimationRuntime::ApplyRootMotionToTransform(const Core::FTransform& RootMotion, const Core::FTransform& ComponentTransform, const Core::FTransform& ActorTransform) {
-        const Core::FQuat Rotation{(ComponentTransform.mRotation * RootMotion.mRotation * ComponentTransform.mRotation.Inverse()).Normalized()};
-        const Core::FVector Scaled{RootMotion.mLocation.x * ComponentTransform.mScale.x, RootMotion.mLocation.y * ComponentTransform.mScale.y, RootMotion.mLocation.z * ComponentTransform.mScale.z};
+    FTransform FAnimationRuntime::ApplyRootMotionToTransform(const FTransform& RootMotion, const FTransform& ComponentTransform, const FTransform& ActorTransform) {
+        const FQuat Rotation{(ComponentTransform.mRotation * RootMotion.mRotation * ComponentTransform.mRotation.Inverse()).Normalized()};
+        const FVector Scaled{RootMotion.mLocation.x * ComponentTransform.mScale.x, RootMotion.mLocation.y * ComponentTransform.mScale.y, RootMotion.mLocation.z * ComponentTransform.mScale.z};
 
         return {ComponentTransform.mLocation + ComponentTransform.mRotation.RotateVector(Scaled) + Rotation.RotateVector(ActorTransform.mLocation - ComponentTransform.mLocation), (Rotation * ActorTransform.mRotation).Normalized(), ActorTransform.mScale};
     }
 
-    Core::FTransform FAnimationRuntime::BlendTransforms(const Core::FTransform& A, const Core::FTransform& B, float WeightOfA) {
+    FTransform FAnimationRuntime::BlendTransforms(const FTransform& A, const FTransform& B, float WeightOfA) {
         const float Alpha{1.0f - WeightOfA};
 
         return {A.mLocation + (B.mLocation - A.mLocation) * Alpha, A.mRotation.Slerp(B.mRotation, Alpha), A.mScale + (B.mScale - A.mScale) * Alpha};
     }
 
-    void FAnimationRuntime::BlendTwoPosesTogether(const Core::TArray<Core::FTransform>& PoseA, const Core::TArray<Core::FTransform>& PoseB, float WeightOfPoseA, Core::TArray<Core::FTransform>& OutPose) {
+    void FAnimationRuntime::BlendTwoPosesTogether(const Core::TArray<FTransform>& PoseA, const Core::TArray<FTransform>& PoseB, float WeightOfPoseA, Core::TArray<FTransform>& OutPose) {
         const float Weight{std::clamp(WeightOfPoseA, 0.0f, 1.0f)};
         const std::size_t Count{std::min(PoseA.size(), PoseB.size())};
 

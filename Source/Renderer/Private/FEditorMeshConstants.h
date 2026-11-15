@@ -24,7 +24,7 @@ namespace Renderer {
         /**
          * @brief 에디터 메시 정점 셰이더가 로컬 위치를 변환하는 월드 행렬입니다.
          */
-        Core::FMatrix mWorld{};
+        FMatrix mWorld{};
 
         /**
          * @brief 에디터 메시 픽셀 셰이더에 전달할 RGB 색상과 알파 값입니다.

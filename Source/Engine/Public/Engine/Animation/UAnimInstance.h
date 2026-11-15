@@ -177,7 +177,7 @@ namespace Engine {
          * @brief 마지막으로 계산한 포즈를 반환합니다.
          * @return 스켈레톤 본 인덱스 순서의 부모 본 기준 변환이며, 스켈레톤이 없으면 비어 있습니다.
          */
-        const Core::TArray<Core::FTransform>& GetPose() const;
+        const Core::TArray<FTransform>& GetPose() const;
 
         /**
          * @brief 루트 모션 추출·전달 정책을 반환합니다.
@@ -199,19 +199,19 @@ namespace Engine {
          * @param Looping 끝점을 넘어 반복할지 여부입니다.
          * @return 허용된 구간의 루트 모션이며 추출하지 않으면 항등 변환입니다.
          */
-        Core::FTransform ExtractSequenceRootMotion(const Asset::UAnimSequence& Sequence, double StartTime, double DeltaTime, bool Looping);
+        FTransform ExtractSequenceRootMotion(const Asset::UAnimSequence& Sequence, double StartTime, double DeltaTime, bool Looping);
 
         /**
          * @brief 최근 갱신에서 계산한 루트 모션 증분을 반환합니다.
          * @return 노드 또는 인스턴스의 이동·회전 증분이며 없으면 항등 변환입니다.
          */
-        Core::FTransform GetRootMotionDelta() const;
+        FTransform GetRootMotionDelta() const;
 
         /**
          * @brief 소비 전까지 누적한 루트 모션을 반환하고 누적값을 초기화합니다.
          * @return 소비한 루트 모션 변환입니다.
          */
-        Core::FTransform ConsumeExtractedRootMotion();
+        FTransform ConsumeExtractedRootMotion();
 
         /**
          * @brief 최근 증분과 소비 전 누적 루트 모션을 항등 변환으로 초기화합니다.
@@ -262,13 +262,13 @@ namespace Engine {
          * @details 언리얼의 TryGetPawnOwner()->GetVelocity()를 대신합니다. 이 엔진에는 폰 이동 컴포넌트가 없으므로 위치 변화를 씁니다.
          * @return 월드 단위/초 속도이며 첫 갱신에서는 0입니다.
          */
-        const Core::FVector& GetOwnerVelocity() const;
+        const FVector& GetOwnerVelocity() const;
 
         /**
          * @brief 스켈레톤의 레퍼런스 포즈를 반환합니다.
          * @param[out] OutPose 스켈레톤 본 인덱스 순서의 로컬 변환이며, 스켈레톤이 없으면 비웁니다.
          */
-        void GetReferencePose(Core::TArray<Core::FTransform>& OutPose) const;
+        void GetReferencePose(Core::TArray<FTransform>& OutPose) const;
 
         /**
          * @brief 시퀀스를 지정한 시간으로 샘플링해 트랙이 있는 본의 변환을 덮어씁니다.
@@ -277,7 +277,7 @@ namespace Engine {
          * @param[in] Looping 반복 재생 여부입니다.
          * @param[in,out] Pose 스켈레톤 본 인덱스 순서의 로컬 변환입니다.
          */
-        void EvaluateSequence(const Asset::UAnimSequence& Sequence, double Time, bool Looping, Core::TArray<Core::FTransform>& Pose);
+        void EvaluateSequence(const Asset::UAnimSequence& Sequence, double Time, bool Looping, Core::TArray<FTransform>& Pose);
 
         /**
          * @brief 리플렉션 프로퍼티가 아닌 실행 중 변수를 시각화 도구에 보이도록 반환합니다.
@@ -342,7 +342,7 @@ namespace Engine {
          * @details 기본 구현은 루트 노드가 있으면 Evaluate한 결과를 씁니다.
          * @param[in,out] Pose 스켈레톤 본 인덱스 순서의 로컬 변환입니다.
          */
-        virtual void NativeEvaluateAnimation(Core::TArray<Core::FTransform>& Pose);
+        virtual void NativeEvaluateAnimation(Core::TArray<FTransform>& Pose);
 
         /**
          * @brief 포즈 계산에 쓰는 스켈레톤을 반환합니다.
@@ -391,12 +391,12 @@ namespace Engine {
         /**
          * @brief 최근 갱신에서 계산한 루트 모션 증분입니다.
          */
-        Core::FTransform mRootMotionDelta{};
+        FTransform mRootMotionDelta{};
 
         /**
          * @brief 소비 전까지 누적한 루트 모션 변환입니다.
          */
-        Core::FTransform mExtractedRootMotion{};
+        FTransform mExtractedRootMotion{};
 
         /**
          * @brief 이 인스턴스를 소유하는 컴포넌트입니다. 컴포넌트가 인스턴스보다 오래 살아 있습니다.
@@ -412,22 +412,22 @@ namespace Engine {
         /**
          * @brief 샘플링 결과를 담는 트랙 순서의 임시 포즈입니다.
          */
-        Core::TArray<Core::FTransform> mTrackPose{};
+        Core::TArray<FTransform> mTrackPose{};
 
         /**
          * @brief 마지막으로 계산한 본 인덱스 순서의 포즈입니다.
          */
-        Core::TArray<Core::FTransform> mPose{};
+        Core::TArray<FTransform> mPose{};
 
         /**
          * @brief 소유 컴포넌트의 속도입니다.
          */
-        Core::FVector mOwnerVelocity{};
+        FVector mOwnerVelocity{};
 
         /**
          * @brief 이전 갱신의 소유 컴포넌트 월드 위치입니다.
          */
-        Core::FVector mLastOwnerLocation{};
+        FVector mLastOwnerLocation{};
 
         /**
          * @brief mLastOwnerLocation이 유효한지 여부입니다.
