@@ -222,7 +222,7 @@ namespace Platform {
 
         const LONG CenterX{(Info.rcWork.left + Info.rcWork.right) / 2};
         const LONG CenterY{(Info.rcWork.top + Info.rcWork.bottom) / 2};
-        const HWND Window{CreateWindowExW(WS_EX_APPWINDOW, ClassName, L"Macaw", WS_POPUP, CenterX, CenterY, 1, 1, nullptr, nullptr, Instance, nullptr)};
+        const HWND Window{CreateWindowExW(WS_EX_APPWINDOW | WS_EX_TOPMOST, ClassName, L"Macaw", WS_POPUP, CenterX, CenterY, 1, 1, nullptr, nullptr, Instance, nullptr)};
         FSplashCanvas Canvas{};
         bool Ready{};
 

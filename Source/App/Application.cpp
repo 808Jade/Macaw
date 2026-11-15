@@ -15,6 +15,7 @@
 #include "Platform/SplashWindow.h"
 
 #include <array>
+#include <dwmapi.h>
 
 namespace App {
 
@@ -132,17 +133,29 @@ namespace App {
 
         const bool Loaded{LoadProject(Path, Create, Error)};
 
-        Core::LoadingStatus::SetSink(nullptr);
+        // 언리얼 에디터처럼 프로젝트를 연 뒤에는 에디터 창을 최대화하여 표시합니다.
+        ShowWindow(Window, Loaded ? SW_SHOWMAXIMIZED : SW_SHOW);
 
         if (Loaded) {
+            if (mPlatform.PumpMessages() && !mPlatform.IsMinimized()) {
+                {
+                    const Core::FScopedStatFrame StatFrame{};
+
+                    mEngine.TickFrame(mTimer.Tick());
+                    mRenderer.Present();
+                }
+
+                DwmFlush();
+            }
+
             Splash.Finish();
         }
 
+        Core::LoadingStatus::SetSink(nullptr);
         Splash.Close();
-        // 언리얼 에디터처럼 프로젝트를 연 뒤에는 에디터 창을 최대화하여 표시합니다.
-        ShowWindow(Window, Loaded ? SW_SHOWMAXIMIZED : SW_SHOW);
         SetForegroundWindow(Window);
         SetFocus(Window);
+        mTimer.Tick();
 
         return Loaded;
     }
