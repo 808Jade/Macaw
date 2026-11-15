@@ -167,7 +167,7 @@ namespace Engine {
         mCurrentDebugVisit = mDebugVisits[static_cast<Core::Index_t>(mCurrentDebugVisit)].mParentIndex;
     }
 
-    void UAnimInstance::RecordDebugSample(const Engine::FAnimNode_Base& Node, Core::Int32 SampleIndex, float Weight) {
+    void UAnimInstance::RecordDebugSample(const Engine::FAnimNode_Base& Node, Core::Index_t SampleIndex, float Weight) {
         if (mCurrentDebugVisit >= 0) {
             mDebugVisits.push_back({&Node, nullptr, Weight, mCurrentDebugVisit, SampleIndex});
         }

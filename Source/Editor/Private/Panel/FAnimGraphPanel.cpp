@@ -541,7 +541,7 @@ namespace Editor {
             SampleTotals.resize(Visits.size());
 
             for (const Engine::FAnimNodeVisit& Visit : Visits) {
-                if (Visit.mSampleIndex >= 0) {
+                if (Visit.mSampleIndex != Core::InvalidIndex) {
                     SampleTotals[static_cast<Core::Index_t>(Visit.mParentIndex)] += Visit.mWeight;
                 }
             }
@@ -554,14 +554,14 @@ namespace Editor {
                     const Core::Index_t Parent{static_cast<Core::Index_t>(static_cast<Core::Index_t>(Visit.mParentIndex))};
                     Weight *= Weights[Parent];
 
-                    if (Visit.mSampleIndex >= 0) {
+                    if (Visit.mSampleIndex != Core::InvalidIndex) {
                         Weight /= SampleTotals[Parent];
                     }
                 }
 
                 Weights[Index] = Weight;
 
-                if (Visit.mSampleIndex >= 0) {
+                if (Visit.mSampleIndex != Core::InvalidIndex) {
                     auto& Samples{SampleWeights[Visit.mNode]};
                     const auto Existing{std::find_if(Samples.begin(), Samples.end(), [&Visit](const Asset::FBlendSampleWeight& Sample) {
                         return Sample.mSampleIndex == Visit.mSampleIndex;
@@ -642,11 +642,11 @@ namespace Editor {
                 const auto& Samples{BlendSpacePlayer->mBlendSpace->GetSamples()};
 
                 for (const Asset::FBlendSampleWeight& SampleWeight : RecordedSamples->second) {
-                    if (SampleWeight.mSampleIndex < 0 || static_cast<Core::Index_t>(SampleWeight.mSampleIndex) >= Samples.size()) {
+                    if (SampleWeight.mSampleIndex >= Samples.size()) {
                         continue;
                     }
 
-                    const Asset::FBlendSample& Sample{Samples[static_cast<Core::Index_t>(SampleWeight.mSampleIndex)]};
+                    const Asset::FBlendSample& Sample{Samples[SampleWeight.mSampleIndex]};
                     Engine::FAnimNodeValue Entry{};
                     Entry.mName = std::format("Sample {}", SampleWeight.mSampleIndex);
                     Entry.mValue = std::format("{} @ {:.2f} : {:.0f}%", Sample.mAnimation != nullptr ? Sample.mAnimation->GetName() : "?", Sample.mSampleValue.x, SampleWeight.mWeight * 100.0f);

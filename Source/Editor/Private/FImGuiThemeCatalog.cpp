@@ -161,7 +161,7 @@ namespace Editor {
                 }
 
                 for (Core::Index_t Index{}; Index < ImGuiCol_COUNT; ++Index) {
-                    if (Name == ImGui::GetStyleColorName(Index)) {
+                    if (Name == ImGui::GetStyleColorName(static_cast<ImGuiCol>(Index))) {
                         Style.Colors[Index] = ImVec4{Channels[0] / 255.0f, Channels[1] / 255.0f, Channels[2] / 255.0f, Channels[3]};
 
                         break;

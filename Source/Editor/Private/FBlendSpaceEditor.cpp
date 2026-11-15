@@ -119,8 +119,8 @@ namespace Editor {
         mDirty = false;
         mOpen = true;
         mError.clear();
-        mSelectedSample = -1;
-        mDraggingSample = -1;
+        mSelectedSample = Core::InvalidIndex;
+        mDraggingSample = Core::InvalidIndex;
         mDraggingPreview = false;
         mRevealSample = false;
 
@@ -201,9 +201,9 @@ namespace Editor {
     void FBlendSpaceEditor::AddSampleAt(const Core::FString& AnimationPath, float Value) {
         Core::FString Error{};
         const Asset::UAnimSequence* Animation{AnimationPath.empty() || mAssets == nullptr ? nullptr : mAssets->LoadAnimSequence(Core::FilePath::FromUtf8(AnimationPath), Error)};
-        const Core::Int32 Index{mEditing->AddSample(Animation, {Value, 0.0f, 0.0f})};
+        const Core::Index_t Index{mEditing->AddSample(Animation, {Value, 0.0f, 0.0f})};
 
-        if (Index < 0) {
+        if (Index == Core::InvalidIndex) {
             mError = "샘플 수가 한도에 도달했습니다.";
 
             return;
@@ -328,7 +328,7 @@ namespace Editor {
         const auto& Samples{mEditing->GetSamples()};
         const std::size_t CommonPrefix{CommonNamePrefix(Samples)};
         const float RowHeight{ImGui::GetFrameHeight() + 2.0f * ImGui::GetStyle().CellPadding.y};
-        Core::Int32 Remove{-1};
+        Core::Index_t Remove{Core::InvalidIndex};
 
         if (ImGui::BeginTable("SampleList", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY, ImGui::GetContentRegionAvail())) {
             ImGui::TableSetupColumn("Animation", ImGuiTableColumnFlags_WidthStretch, 3.0f);
@@ -341,7 +341,7 @@ namespace Editor {
                 const Asset::FBlendSample& Sample{Samples[Index]};
                 const bool Selected{mSelectedSample == Index};
 
-                ImGui::PushID(Index);
+                ImGui::PushID(static_cast<int>(Index));
                 ImGui::TableNextRow(ImGuiTableRowFlags_None, RowHeight);
 
                 if (Selected) {
@@ -398,9 +398,9 @@ namespace Editor {
             ImGui::EndTable();
         }
 
-        if (Remove >= 0) {
+        if (Remove < Samples.size()) {
             mEditing->RemoveSample(Remove);
-            mSelectedSample = -1;
+            mSelectedSample = Core::InvalidIndex;
             mDirty = true;
         }
     }
@@ -452,7 +452,7 @@ namespace Editor {
         }
 
         // 마우스 아래 샘플을 찾습니다. 축 근처에서 가장 가까운 마름모를 고릅니다.
-        Core::Int32 Hovered{-1};
+        Core::Index_t Hovered{Core::InvalidIndex};
         float HoveredDistance{TextHeight * 0.75f};
 
         if (CanvasHovered && std::abs(Mouse.y - AxisY) < TextHeight) {
@@ -468,7 +468,7 @@ namespace Editor {
 
         // 왼쪽 버튼: 샘플 위에서 누르면 그 샘플을 끌고, 빈 곳에서 누르면 미리보기 입력을 끕니다.
         if (CanvasHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-            if (Hovered >= 0) {
+            if (Hovered < Samples.size()) {
                 mSelectedSample = Hovered;
                 mDraggingSample = Hovered;
                 mRevealSample = true;
@@ -478,26 +478,26 @@ namespace Editor {
         }
 
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            mDraggingSample = -1;
+            mDraggingSample = Core::InvalidIndex;
             mDraggingPreview = false;
         }
 
-        if (mDraggingSample >= 0 && static_cast<Core::Index_t>(mDraggingSample) < Samples.size()) {
+        if (mDraggingSample < Samples.size()) {
             const float Value{Snap(ToValue(Mouse.x), IO.KeyCtrl)};
 
-            if (Value != Samples[static_cast<Core::Index_t>(mDraggingSample)].mSampleValue.x) {
+            if (Value != Samples[mDraggingSample].mSampleValue.x) {
                 mEditing->SetSampleValue(mDraggingSample, {Value, 0.0f, 0.0f});
                 mDirty = true;
             }
         }
 
-        if (mDraggingPreview || (CanvasHovered && IO.KeyCtrl && mDraggingSample < 0)) {
+        if (mDraggingPreview || (CanvasHovered && IO.KeyCtrl && mDraggingSample == Core::InvalidIndex)) {
             mPreviewInput = ToValue(Mouse.x);
         }
 
         // 오른쪽 버튼: 샘플 위면 샘플 메뉴, 빈 곳이면 그 위치에 샘플을 추가하는 메뉴를 엽니다.
         if (CanvasHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-            if (Hovered >= 0) {
+            if (Hovered < Samples.size()) {
                 mSelectedSample = Hovered;
                 mRevealSample = true;
                 ImGui::OpenPopup("BlendSampleMenu");
@@ -548,8 +548,8 @@ namespace Editor {
         DrawList->AddLine({ToScreen(Parameter.mMin), AxisY}, {TrackEnd, AxisY}, TickColor, 2.0f);
 
         if (Weights.size() == 2) {
-            const float Left{ToScreen(Samples[static_cast<std::size_t>(Weights.front().mSampleIndex)].mSampleValue.x)};
-            const float Right{ToScreen(Samples[static_cast<std::size_t>(Weights.back().mSampleIndex)].mSampleValue.x)};
+            const float Left{ToScreen(Samples[Weights.front().mSampleIndex].mSampleValue.x)};
+            const float Right{ToScreen(Samples[Weights.back().mSampleIndex].mSampleValue.x)};
 
             DrawList->AddLine({Left, AxisY}, {Right, AxisY}, ActiveColor, 3.0f);
         }
@@ -565,11 +565,13 @@ namespace Editor {
         DrawList->AddText({PreviewLabelX, LabelY}, PreviewColor, PreviewLabel.c_str());
         DrawList->AddText({Origin.x + Margin, End.y - 1.15f * TextHeight}, TextColor, Parameter.mDisplayName.c_str());
 
-        Core::TArray<Core::Index_t> Order(Samples.size());
+        Core::TArray<Core::Index_t> Order{};
         std::array<float, Asset::UBlendSpace::MaxSamples> SampleWeights{};
 
+        Order.resize(Samples.size());
+
         for (const Asset::FBlendSampleWeight& Weight : Weights) {
-            SampleWeights[static_cast<Core::Index_t>(Weight.mSampleIndex)] = Weight.mWeight;
+            SampleWeights[Weight.mSampleIndex] = Weight.mWeight;
         }
 
         for (Core::Index_t Index{}; Index < Samples.size(); ++Index) {
@@ -626,15 +628,15 @@ namespace Editor {
                 }
             }
 
-            if (Index == Hovered && mDraggingSample < 0) {
+            if (Index == Hovered && mDraggingSample == Core::InvalidIndex) {
                 ImGui::SetTooltip("%s\n%s = %.4g   ·   %.1f%%", SampleName(Sample).c_str(), Parameter.mDisplayName.c_str(), Sample.mSampleValue.x, Weight * 100.0f);
             }
         }
 
         DrawList->PopClipRect();
 
-        if (mDraggingSample >= 0 && static_cast<Core::Index_t>(mDraggingSample) < Samples.size()) {
-            ImGui::SetTooltip("%s = %.4g", Parameter.mDisplayName.c_str(), Samples[static_cast<Core::Index_t>(mDraggingSample)].mSampleValue.x);
+        if (mDraggingSample < Samples.size()) {
+            ImGui::SetTooltip("%s = %.4g", Parameter.mDisplayName.c_str(), Samples[mDraggingSample].mSampleValue.x);
         }
 
         ImGui::Spacing();
@@ -654,7 +656,7 @@ namespace Editor {
 
                 if (Index < Weights.size()) {
                     const Asset::FBlendSampleWeight& Weight{Weights[Index]};
-                    const Asset::FBlendSample& Sample{Samples[static_cast<Core::Index_t>(Weight.mSampleIndex)]};
+                    const Asset::FBlendSample& Sample{Samples[Weight.mSampleIndex]};
 
                     ImGui::TextUnformatted(SampleName(Sample, CommonPrefix).c_str());
                     ImGui::SetItemTooltip("%s", SampleName(Sample).c_str());
@@ -676,15 +678,15 @@ namespace Editor {
 
     void FBlendSpaceEditor::DrawSampleMenus() {
         if (ImGui::BeginPopup("BlendSampleMenu")) {
-            const bool Valid{mSelectedSample >= 0 && static_cast<Core::Index_t>(mSelectedSample) < mEditing->GetSamples().size()};
+            const bool Valid{mSelectedSample < mEditing->GetSamples().size()};
 
             if (ImGui::MenuItem("미리보기를 이 샘플로", nullptr, false, Valid)) {
-                mPreviewInput = mEditing->GetSamples()[static_cast<Core::Index_t>(mSelectedSample)].mSampleValue.x;
+                mPreviewInput = mEditing->GetSamples()[mSelectedSample].mSampleValue.x;
             }
 
             if (ImGui::MenuItem("샘플 삭제", nullptr, false, Valid)) {
                 mEditing->RemoveSample(mSelectedSample);
-                mSelectedSample = -1;
+                mSelectedSample = Core::InvalidIndex;
                 mDirty = true;
             }
 

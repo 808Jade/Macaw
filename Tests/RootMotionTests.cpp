@@ -217,6 +217,39 @@ namespace {
         Sequence.SetRootMotionRootLock(Asset::ERootMotionRootLock::AnimFirstFrame);
     }
 
+    void TestBlendSpaceIndices(Asset::UAnimSequence& Walk, Asset::UAnimSequence& Run) {
+        auto Space{CoreUObject::NewObject<Asset::UBlendSpace1D>()};
+        const Core::Index_t WalkIndex{Space->AddSample(&Walk, {0.0f, 0.0f, 0.0f})};
+        const Core::Index_t RunIndex{Space->AddSample(&Run, {1.0f, 0.0f, 0.0f})};
+        constexpr Core::Index_t LargeIndex{Core::Index_t{std::numeric_limits<Core::Uint32>::max()} + 1};
+
+        Require(WalkIndex == 0 && RunIndex == 1, "BlendSpace returns container indices for added samples");
+
+        for (const Core::Index_t Index : {Space->GetSamples().size(), LargeIndex, Core::InvalidIndex}) {
+            Require(!Space->SetSampleAnimation(Index, &Run) && !Space->SetSampleValue(Index, {0.5f, 0.0f, 0.0f}) && !Space->RemoveSample(Index), "Invalid and 64-bit sample indices cannot wrap into existing samples");
+        }
+
+        Require(Space->GetSamples().size() == 2 && Space->GetSamples()[WalkIndex].mAnimation == &Walk && Near(Space->GetSamples()[WalkIndex].mSampleValue.x, 0.0f), "Rejected sample indices preserve the original samples");
+
+        Core::TArray<Asset::FBlendSampleWeight> Weights{{Core::InvalidIndex, 1.0f}, {LargeIndex, 1.0f}, {WalkIndex, 1.0f}};
+
+        Require(Space->GetBlendedPlayLength(Weights) == Walk.GetPlayLength(), "Blended play length ignores invalid and 64-bit out-of-range sample indices");
+        Require(Space->SetSampleAnimation(RunIndex, &Walk) && Space->GetSamples()[RunIndex].mAnimation == &Walk, "Sample animation accepts a container index");
+        Require(Space->SetSampleAnimation(RunIndex, &Run) && Space->SetSampleValue(WalkIndex, {1.0f, 0.0f, 0.0f}) && Space->SetSampleValue(RunIndex, {0.0f, 0.0f, 0.0f}), "Sample edits rebuild the sample order using container indices");
+        Space->GetSamplesToBlend({0.25f, 0.0f, 0.0f}, Weights);
+        Require(Weights.size() == 2 && Weights[0].mSampleIndex == RunIndex && Weights[1].mSampleIndex == WalkIndex && Near(Weights[0].mWeight, 0.75f) && Near(Weights[1].mWeight, 0.25f), "Reordered samples retain their original indices and blend weights");
+        Require(Space->RemoveSample(WalkIndex), "Sample removal accepts a container index");
+        Space->GetSamplesToBlend({}, Weights);
+        Require(Weights.size() == 1 && Weights[0].mSampleIndex == 0 && Near(Weights[0].mWeight, 1.0f), "Sample removal rebuilds shifted indices");
+        Require(Space->AddSample(&Walk, {std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f}) == Core::InvalidIndex && Space->GetSamples().size() == 1, "Invalid sample positions return the unsigned invalid index");
+
+        for (Core::Index_t Index{Space->GetSamples().size()}; Index < Asset::UBlendSpace::MaxSamples; ++Index) {
+            Space->AddSample(&Walk, {});
+        }
+
+        Require(Space->AddSample(&Walk, {}) == Core::InvalidIndex && Space->GetSamples().size() == Asset::UBlendSpace::MaxSamples, "A full BlendSpace returns the unsigned invalid index without adding a sample");
+    }
+
     void TestBlending(Engine::USkeletalMeshComponent& Mesh, Asset::UAnimSequence& Walk, Asset::UAnimSequence& Run) {
         FTestAnimInstance Instance{};
         Engine::FAnimNode_SequencePlayer A{};
@@ -250,6 +283,17 @@ namespace {
         Instance.InitializeAnimation(&Mesh);
         Instance.UpdateAnimation(0.25f);
         Require(Near(Instance.ConsumeExtractedRootMotion().mLocation.x, 5.0f / 3.0f), "BlendSpace samples different clip lengths at the same phase");
+
+        Core::Index_t SampleVisits{};
+
+        for (const Engine::FAnimNodeVisit& Visit : Instance.GetDebugVisits()) {
+            if (Visit.mSampleIndex != Core::InvalidIndex) {
+                Require(Visit.mSampleIndex < Space->GetSamples().size() && Visit.mParentIndex >= 0, "BlendSpace debug visits retain valid sample indices and a parent visit");
+                ++SampleVisits;
+            }
+        }
+
+        Require(SampleVisits == 2 && Instance.GetDebugVisits().front().mSampleIndex == Core::InvalidIndex, "Debug visits distinguish pose nodes from the two BlendSpace samples");
 
         Run.SetRootMotionEnabled(false);
         Player.Initialize(Instance);
@@ -380,6 +424,7 @@ int main() {
 
         TestExtraction(*Walk);
         TestModes(*Mesh, *Walk);
+        TestBlendSpaceIndices(*Walk, *Run);
         TestBlending(*Mesh, *Walk, *Run);
         TestRotation(*Mesh);
         TestAssets(Assets, *Walk);

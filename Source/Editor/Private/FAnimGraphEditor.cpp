@@ -443,7 +443,7 @@ namespace Editor {
 
         ImGui::Spacing();
 
-        Core::Int32 Remove{-1};
+        Core::Index_t Remove{Core::InvalidIndex};
 
         if (ImGui::BeginChild("VariableList", {}, ImGuiChildFlags_NavFlattened)) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{TextHeight * 0.45f, TextHeight * 0.35f});
@@ -468,14 +468,14 @@ namespace Editor {
         ImGui::EndChild();
         ImGui::PopStyleVar();
 
-        if (Remove >= 0) {
+        if (Remove < mRootEditing->GetVariables().size()) {
             mRootEditing->RemoveVariable(Remove);
             mDirty = true;
         }
     }
 
     bool FAnimGraphEditor::DrawVariable(Core::Index_t Index, bool SaveRequested) {
-        ImGui::PushID(Index);
+        ImGui::PushID(static_cast<int>(Index));
         const bool Visible{ImGui::BeginChild("Variable", {}, ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)};
         bool Remove{};
 
@@ -584,13 +584,13 @@ namespace Editor {
         return Remove;
     }
 
-    Core::Int32 FAnimGraphEditor::FindVariableIndex(const Core::FString& Name) const {
+    Core::Index_t FAnimGraphEditor::FindVariableIndex(const Core::FString& Name) const {
         const auto& Variables{mEditing->GetVariables()};
         const auto Found{std::find_if(Variables.begin(), Variables.end(), [&Name](const Asset::FAnimGraphVariable& Variable) {
             return Variable.mName == Name;
         })};
 
-        return Found == Variables.end() ? -1 : static_cast<Core::Int32>(Found - Variables.begin());
+        return Found == Variables.end() ? Core::InvalidIndex : static_cast<Core::Index_t>(Found - Variables.begin());
     }
 
     void FAnimGraphEditor::DrawValueGetters() {
@@ -624,9 +624,9 @@ namespace Editor {
         }
 
         for (const Asset::FAnimGraphVariableGetter& Getter : mEditing->GetVariableGetters()) {
-            const Core::Int32 Index{FindVariableIndex(Getter.mVariable)};
+            const Core::Index_t Index{FindVariableIndex(Getter.mVariable)};
 
-            if (Index < 0) {
+            if (Index == Core::InvalidIndex) {
                 continue;
             }
 
@@ -767,7 +767,7 @@ namespace Editor {
 
                     if (IsBindableFloat(Info)) {
                         const Core::FString* Binding{Node.FindParameter(Info.mName + ".Binding")};
-                        const bool Connected{Binding != nullptr && FindVariableIndex(*Binding) >= 0};
+                        const bool Connected{Binding != nullptr && FindVariableIndex(*Binding) != Core::InvalidIndex};
 
                         Builder.InputPin(ed::PinId{FloatInputKey(Node.mId, Index)}, Parameters[Index].c_str(), Connected, FloatColor);
                     }

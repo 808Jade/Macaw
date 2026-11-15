@@ -9,6 +9,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -25,6 +26,8 @@ namespace Core {
      * @brief 배열과 컨테이너 접근에 사용하는 std::size_t 인덱스 타입입니다.
      */
     using Index_t = std::size_t;
+
+    inline constexpr Index_t InvalidIndex{std::numeric_limits<Index_t>::max()};
 
     /**
      * @brief 8비트 부호 없는 정수 타입입니다.

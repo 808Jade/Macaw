@@ -99,7 +99,7 @@ namespace Asset {
         /**
          * @brief UBlendSpace::GetSamples 안의 샘플 순서입니다.
          */
-        Core::Int32 mSampleIndex{-1};
+        Core::Index_t mSampleIndex{Core::InvalidIndex};
 
         /**
          * @brief 0보다 크고 1 이하인 가중치이며, 한 번의 계산 결과는 합이 1입니다.
@@ -120,7 +120,7 @@ namespace Asset {
         /**
          * @brief 한 블렌드 스페이스가 가질 수 있는 최대 샘플 수입니다.
          */
-        static constexpr Core::Uint32 MaxSamples{64};
+        static constexpr Core::Index_t MaxSamples{64};
 
     public:
 
@@ -174,16 +174,16 @@ namespace Asset {
          * @brief 샘플을 추가합니다.
          * @param[in] Animation 샘플에 연결할 시퀀스입니다.
          * @param[in] SampleValue 샘플 위치입니다.
-         * @return 추가한 샘플의 순서이며, 샘플 수가 한도에 도달했거나 위치가 유한하지 않으면 -1입니다.
+         * @return 추가한 샘플의 순서이며, 샘플 수가 한도에 도달했거나 위치가 유한하지 않으면 Core::InvalidIndex입니다.
          */
-        Core::Int32 AddSample(const Asset::UAnimSequence* Animation, const Core::FVector& SampleValue);
+        Core::Index_t AddSample(const Asset::UAnimSequence* Animation, const Core::FVector& SampleValue);
 
         /**
          * @brief 샘플 하나를 제거합니다.
          * @param[in] Index 제거할 샘플 순서입니다.
          * @return 제거했으면 true입니다.
          */
-        bool RemoveSample(Core::Int32 Index);
+        bool RemoveSample(Core::Index_t Index);
 
         /**
          * @brief 샘플의 시퀀스를 바꿉니다.
@@ -191,7 +191,7 @@ namespace Asset {
          * @param[in] Animation 샘플에 연결할 시퀀스입니다.
          * @return 적용했으면 true입니다.
          */
-        bool SetSampleAnimation(Core::Int32 Index, const Asset::UAnimSequence* Animation);
+        bool SetSampleAnimation(Core::Index_t Index, const Asset::UAnimSequence* Animation);
 
         /**
          * @brief 샘플의 위치를 바꿉니다.
@@ -199,7 +199,7 @@ namespace Asset {
          * @param[in] SampleValue 새 위치입니다.
          * @return 위치가 유한해 적용했으면 true입니다.
          */
-        bool SetSampleValue(Core::Int32 Index, const Core::FVector& SampleValue);
+        bool SetSampleValue(Core::Index_t Index, const Core::FVector& SampleValue);
 
         /**
          * @brief 가중치를 적용한 샘플 재생 길이의 합을 계산합니다.

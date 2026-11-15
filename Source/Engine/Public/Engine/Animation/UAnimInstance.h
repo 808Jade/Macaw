@@ -79,9 +79,9 @@ namespace Engine {
         Core::Int32 mParentIndex{-1};
 
         /**
-         * @brief 샘플 기반 노드의 샘플 인덱스이며 해당하지 않으면 -1입니다.
+         * @brief 샘플 기반 노드의 샘플 인덱스이며 해당하지 않으면 Core::InvalidIndex입니다.
          */
-        Core::Int32 mSampleIndex{-1};
+        Core::Index_t mSampleIndex{Core::InvalidIndex};
     };
 
     /**
@@ -255,7 +255,7 @@ namespace Engine {
          * @param SampleIndex 샘플 기반 노드에서 사용한 샘플 인덱스입니다.
          * @param Weight 최종 포즈에 기여하는 가중치입니다.
          */
-        void RecordDebugSample(const Engine::FAnimNode_Base& Node, Core::Int32 SampleIndex, float Weight);
+        void RecordDebugSample(const Engine::FAnimNode_Base& Node, Core::Index_t SampleIndex, float Weight);
 
         /**
          * @brief 소유 컴포넌트의 월드 위치 변화로 구한 속도를 반환합니다.

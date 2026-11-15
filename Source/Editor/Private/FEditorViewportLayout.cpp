@@ -272,7 +272,7 @@ namespace Editor {
                 const Core::Index_t Index{static_cast<Core::Index_t>(mPlaySession->IsActive() ? 0 : mSingleViewport)};
 
                 if (ImGui::BeginChild("ViewportSingle", Available, ImGuiChildFlags_None, Flags)) {
-                    ImGui::PushID(Index);
+                    ImGui::PushID(static_cast<int>(Index));
                     DrawViewport(Index, Input, DeltaTime, CapturedViewport);
                     ImGui::PopID();
                 }
@@ -311,7 +311,7 @@ namespace Editor {
 
                 for (Core::Index_t Index{}; Index < mVisible.size(); ++Index) {
                     ImGui::SetCursorScreenPos(Positions[Index]);
-                    ImGui::PushID(Index);
+                    ImGui::PushID(static_cast<int>(Index));
 
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
 

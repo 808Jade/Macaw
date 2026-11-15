@@ -249,9 +249,9 @@ namespace Editor {
         /**
          * @brief 이름에 대응하는 그래프 변수 인덱스를 찾습니다.
          * @param Name 찾을 그래프 변수 이름입니다.
-         * @return 변수 인덱스이며 없으면 -1입니다.
+         * @return 변수 인덱스이며 없으면 Core::InvalidIndex입니다.
          */
-        Core::Int32 FindVariableIndex(const Core::FString& Name) const;
+        Core::Index_t FindVariableIndex(const Core::FString& Name) const;
 
         /**
          * @brief 선택한 노드의 이름과 파라미터를 그립니다.

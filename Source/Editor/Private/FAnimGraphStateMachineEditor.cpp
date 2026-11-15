@@ -134,7 +134,7 @@ namespace Editor {
                     ImGui::SameLine();
                 }
 
-                ImGui::PushID(Index);
+                ImGui::PushID(static_cast<int>(Index));
                 ImGui::BeginDisabled(Current);
 
                 if (ImGui::Button(Label.c_str())) {
