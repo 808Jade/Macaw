@@ -12,6 +12,7 @@
 
 #include <Windows.h>
 #include <functional>
+#include <string_view>
 
 namespace Platform {
 
@@ -25,6 +26,7 @@ namespace Platform {
          * @brief 처리한 Win32 메시지이면 true를 반환하는 외부 메시지 콜백입니다.
          */
         using FMessageHandler = std::function<bool(HWND, UINT, WPARAM, LPARAM)>;
+        using FFramePresenter = std::function<bool()>;
 
     public:
         /**
@@ -69,6 +71,24 @@ namespace Platform {
          * @brief 종속 객체를 역순으로 정리하고 여러 번 호출해도 안전한 종료 상태로 만듭니다.
          */
         void Shutdown();
+
+        void Show();
+        void Hide();
+        void Restore();
+        void Minimize();
+        void Maximize();
+        void Activate();
+
+        void SetTitle(std::wstring_view Title);
+        void SetDarkMode(bool Enabled);
+        void SetCenteredClientSize(Core::Uint32 Width, Core::Uint32 Height);
+        void SetMinimumClientSize(Core::Uint32 Width, Core::Uint32 Height);
+
+        bool BeginPresentation();
+        bool RevealAfterFrame(const FFramePresenter& Presenter);
+        bool IsPresentationPending() const;
+        bool IsRunning() const;
+        void WaitForMessages(Core::Uint32 TimeoutMilliseconds) const;
 
         /**
          * @brief 기본 창 처리 전에 호출할 외부 메시지 핸들러를 교체합니다.
@@ -152,6 +172,9 @@ namespace Platform {
          * @brief 메시지 루프가 실행 중인지 여부입니다.
          */
         bool mRunning{};
+        bool mPresentationPending{};
+        Core::Uint32 mMinimumWidth{};
+        Core::Uint32 mMinimumHeight{};
 
         /**
          * @brief 외부 UI 백엔드에 메시지를 전달하는 콜백입니다.

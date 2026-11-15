@@ -585,11 +585,15 @@ namespace Renderer {
      * @brief 스왑 체인의 백 버퍼를 화면에 표시합니다.
      */
     void Renderer::FRenderer::Present() {
+        PresentFrame();
+    }
+
+    bool Renderer::FRenderer::PresentFrame() {
         static Core::FStat PresentTime{"unit", "Present / VSync CPU", Core::EStatUnit::Milliseconds};
         const Core::FScopedStatTimer StatTimer{PresentTime};
 
         if (mSwapChain == nullptr) {
-            return;
+            return false;
         }
 
         BOOL Fullscreen{FALSE};
@@ -597,9 +601,13 @@ namespace Renderer {
         const UINT SyncInterval{AllowTearing ? 0u : 1u};
         const UINT Flags{AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0u};
 
-        if (FAILED(mSwapChain->Present(SyncInterval, Flags))) {
+        const HRESULT Result{mSwapChain->Present(SyncInterval, Flags)};
+
+        if (FAILED(Result)) {
             Core::ErrorHandler::Fatal("Renderer", "Presentation failed");
         }
+
+        return Result == S_OK;
     }
 
     /**

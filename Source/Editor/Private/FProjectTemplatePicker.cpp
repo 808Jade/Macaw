@@ -151,7 +151,7 @@ namespace Editor {
     const std::filesystem::path& FProjectTemplatePicker::GetSelectedDirectory() const {
         static const std::filesystem::path Empty{};
 
-        return mSelectedIndex >= 0 && mSelectedIndex < mTemplates.size() ? mTemplates[mSelectedIndex].mDirectory : Empty;
+        return mSelectedIndex < mTemplates.size() ? mTemplates[mSelectedIndex].mDirectory : Empty;
     }
 
     Core::Uint32 FProjectTemplatePicker::GetTemplateCount() const {
@@ -171,74 +171,107 @@ namespace Editor {
         }
     }
 
+    namespace {
+
+        void DrawTemplateImage(ImDrawList* Draw, Asset::UTexture2D* Texture, ImVec2 Min, ImVec2 Max) {
+            if (Texture != nullptr) {
+                const float Aspect{static_cast<float>(Texture->GetSizeX()) / static_cast<float>(std::max(Texture->GetSizeY(), 1u))};
+                const float TargetAspect{(Max.x - Min.x) / (Max.y - Min.y)};
+                const ImVec2 Crop{Aspect > TargetAspect ? TargetAspect / Aspect : 1.0f, Aspect > TargetAspect ? 1.0f : Aspect / TargetAspect};
+                Draw->AddImage(static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Texture->GetShaderResourceView())), Min, Max, {(1.0f - Crop.x) * 0.5f, (1.0f - Crop.y) * 0.5f}, {(1.0f + Crop.x) * 0.5f, (1.0f + Crop.y) * 0.5f});
+
+                return;
+            }
+
+            Draw->AddRectFilledMultiColor(Min, Max, IM_COL32(35, 47, 57, 255), IM_COL32(55, 71, 80, 255), IM_COL32(29, 34, 42, 255), IM_COL32(29, 34, 42, 255));
+            const ImVec2 Center{(Min.x + Max.x) * 0.5f, Min.y + (Max.y - Min.y) * 0.43f};
+            const float W{(Max.y - Min.y) * 0.24f};
+            const float H{W * 0.58f};
+
+            for (int Index{-4}; Index <= 4; ++Index) {
+                const float Offset{static_cast<float>(Index) * W * 0.65f};
+                Draw->AddLine({Center.x - W * 4.0f + Offset, Max.y}, {Center.x + Offset, Center.y + H}, IM_COL32(66, 77, 87, 100));
+                Draw->AddLine({Center.x + W * 4.0f + Offset, Max.y}, {Center.x + Offset, Center.y + H}, IM_COL32(66, 77, 87, 100));
+            }
+
+            Draw->AddQuadFilled({Center.x, Center.y - H}, {Center.x + W, Center.y - H * 0.12f}, {Center.x, Center.y + H * 0.8f}, {Center.x - W, Center.y - H * 0.12f}, IM_COL32(207, 214, 221, 255));
+            Draw->AddQuadFilled({Center.x - W, Center.y - H * 0.12f}, {Center.x, Center.y + H * 0.8f}, {Center.x, Center.y + H * 2.6f}, {Center.x - W, Center.y + H * 1.7f}, IM_COL32(110, 130, 147, 255));
+            Draw->AddQuadFilled({Center.x, Center.y + H * 0.8f}, {Center.x + W, Center.y - H * 0.12f}, {Center.x + W, Center.y + H * 1.7f}, {Center.x, Center.y + H * 2.6f}, IM_COL32(66, 87, 104, 255));
+        }
+    }
+
     bool FProjectTemplatePicker::Draw(void* Device) {
         if (mTemplates.empty()) {
             return false;
         }
 
-        const float FontSize{ImGui::GetFontSize()};
-        const float Scale{FontSize / 18.0f};
-        const float Available{ImGui::GetContentRegionAvail().x};
-        const int Columns{std::min(static_cast<int>(mTemplates.size()), std::max(1, static_cast<int>(Available / (300.0f * Scale))))};
+        const float Scale{ImGui::GetFontSize() / 16.0f};
+        const float Width{142.0f * Scale};
+        const float Height{190.0f * Scale};
+        const float Gap{14.0f * Scale};
+        const int Columns{std::max(1, static_cast<int>((ImGui::GetContentRegionAvail().x + Gap) / (Width + Gap)))};
+        const ImVec2 Start{ImGui::GetCursorPos()};
         bool Changed{};
-        ImGui::TextUnformatted("Choose a template");
-
-        if (!ImGui::BeginTable("ProjectTemplates", Columns, ImGuiTableFlags_SizingStretchSame)) {
-            return false;
-        }
 
         for (Core::Index_t Index{}; Index < mTemplates.size(); ++Index) {
             auto& Template{mTemplates[Index]};
-            ImGui::TableNextColumn();
             ImGui::PushID(Template.mId.c_str());
-            const float Width{ImGui::GetContentRegionAvail().x};
-            const float Height{270.0f * Scale};
+            ImGui::SetCursorPos({Start.x + static_cast<float>(Index % Columns) * (Width + Gap) + 2.0f, Start.y + static_cast<float>(Index / Columns) * (Height + Gap) + 2.0f});
+            const ImVec2 Min{ImGui::GetCursorScreenPos()};
+            const ImVec2 Max{Min.x + Width, Min.y + Height};
 
             if (ImGui::Selectable("##Template", mSelectedIndex == Index, ImGuiSelectableFlags_None, {Width, Height})) {
                 mSelectedIndex = Index;
                 Changed = true;
             }
 
+            const bool Hovered{ImGui::IsItemHovered()};
             ImDrawList* Draw{ImGui::GetWindowDrawList()};
-            const ImVec2 ItemMin{ImGui::GetItemRectMin()};
-            const ImVec2 ItemMax{ImGui::GetItemRectMax()};
-            const ImVec2 Min{std::max(ItemMin.x, Draw->GetClipRectMin().x + 1.0f), ItemMin.y};
-            const ImVec2 Max{std::min(ItemMax.x, Draw->GetClipRectMax().x - 1.0f), ItemMax.y};
-            const float DrawWidth{Max.x - Min.x};
-            const float Padding{14.0f * Scale};
-            const float PreviewHeight{std::min(145.0f * Scale, (DrawWidth - Padding * 2.0f) * 9.0f / 16.0f)};
-            const float PreviewWidth{PreviewHeight * 16.0f / 9.0f};
-            const ImVec2 PreviewMin{Min.x + (DrawWidth - PreviewWidth) * 0.5f, Min.y + Padding};
-            const ImVec2 PreviewMax{PreviewMin.x + PreviewWidth, PreviewMin.y + PreviewHeight};
-            Draw->AddRect(Min, Max, ImGui::GetColorU32(mSelectedIndex == Index ? ImVec4{0.2f, 0.65f, 0.95f, 1.0f} : ImVec4{0.23f, 0.29f, 0.37f, 1.0f}), 6.0f * Scale, 0, mSelectedIndex == Index ? 2.0f : 1.0f);
+            const bool Selected{mSelectedIndex == Index};
+            Draw->AddRectFilled(Min, Max, Selected ? IM_COL32(0, 122, 218, 255) : IM_COL32(48, 48, 50, 255), 2.0f * Scale);
             LoadPreview(Template, Device);
-
-            if (Template.mPreview != nullptr) {
-                Draw->AddImage(reinterpret_cast<ImTextureID>(Template.mPreview->GetShaderResourceView()), PreviewMin, PreviewMax);
-            } else {
-                Draw->AddRectFilled(PreviewMin, PreviewMax, IM_COL32(19, 30, 45, 255), 4.0f * Scale);
-                const ImVec2 Center{(PreviewMin.x + PreviewMax.x) * 0.5f, (PreviewMin.y + PreviewMax.y) * 0.5f};
-                const float W{39.0f * Scale};
-                const float H{24.0f * Scale};
-                Draw->AddQuadFilled({Center.x, Center.y - H}, {Center.x + W, Center.y - H * 0.3f}, Center, {Center.x - W, Center.y - H * 0.3f}, IM_COL32(139, 185, 218, 255));
-                Draw->AddQuadFilled({Center.x - W, Center.y - H * 0.3f}, Center, {Center.x, Center.y + H * 1.5f}, {Center.x - W, Center.y + H * 1.2f}, IM_COL32(71, 116, 153, 255));
-                Draw->AddQuadFilled(Center, {Center.x + W, Center.y - H * 0.3f}, {Center.x + W, Center.y + H * 1.2f}, {Center.x, Center.y + H * 1.5f}, IM_COL32(44, 77, 109, 255));
-            }
-
-            const float TextY{PreviewMax.y + Padding};
-            Draw->AddText(ImGui::GetFont(), FontSize * 1.15f, {Min.x + Padding, TextY}, ImGui::GetColorU32(ImGuiCol_Text), Template.mName.c_str());
-            Draw->AddText(ImGui::GetFont(), FontSize * 0.9f, {Min.x + Padding, TextY + FontSize * 1.7f}, ImGui::GetColorU32(ImGuiCol_TextDisabled), Template.mDescription.c_str(), nullptr, DrawWidth - Padding * 2.0f);
-
-            if (Template.mRequiresScripts) {
-                Draw->AddText(ImGui::GetFont(), FontSize * 0.85f, {Min.x + Padding, Max.y - FontSize * 1.8f}, ImGui::GetColorU32(ImVec4{0.45f, 0.78f, 0.95f, 1.0f}), "C# gameplay / .NET 10 SDK");
-            }
-
+            DrawTemplateImage(Draw, Template.mPreview.get(), {Min.x + 2.0f, Min.y + 2.0f}, {Max.x - 2.0f, Min.y + Width - 2.0f});
+            Draw->AddText(ImGui::GetFont(), 15.0f * Scale, {Min.x + 10.0f * Scale, Min.y + Width + 8.0f * Scale}, IM_COL32(242, 243, 246, 255), Template.mName.c_str());
+            Draw->AddText(ImGui::GetFont(), 11.0f * Scale, {Min.x + 10.0f * Scale, Max.y - 16.0f * Scale}, Selected ? IM_COL32(210, 233, 255, 255) : IM_COL32(155, 159, 166, 255), Template.mRequiresScripts ? "C# GAMEPLAY" : "NATIVE SCENE");
+            Draw->AddRect(Min, Max, Selected ? IM_COL32(0, 145, 246, 255) : Hovered ? IM_COL32(126, 134, 143, 255) : IM_COL32(60, 60, 63, 255), 2.0f, 0, Selected ? 2.0f : 1.0f);
             ImGui::PopID();
         }
-
-        ImGui::EndTable();
 
         return Changed;
     }
 
+    void FProjectTemplatePicker::DrawSelectedPreview(void* Device, float Width, float Height) {
+        if (mSelectedIndex >= mTemplates.size()) {
+            return;
+        }
+
+        auto& Template{mTemplates[mSelectedIndex]};
+        LoadPreview(Template, Device);
+        const ImVec2 Min{ImGui::GetCursorScreenPos()};
+        DrawTemplateImage(ImGui::GetWindowDrawList(), Template.mPreview.get(), Min, {Min.x + Width, Min.y + Height});
+        ImGui::Dummy({Width, Height});
+    }
+
+    const Core::FString& FProjectTemplatePicker::GetSelectedName() const {
+        static const Core::FString Empty{};
+
+        return mSelectedIndex < mTemplates.size() ? mTemplates[mSelectedIndex].mName : Empty;
+    }
+
+    const Core::FString& FProjectTemplatePicker::GetSelectedDescription() const {
+        static const Core::FString Empty{};
+
+        return mSelectedIndex < mTemplates.size() ? mTemplates[mSelectedIndex].mDescription : Empty;
+    }
+
+    bool FProjectTemplatePicker::SelectedRequiresScripts() const {
+        return mSelectedIndex < mTemplates.size() && mTemplates[mSelectedIndex].mRequiresScripts;
+    }
+
+    void FProjectTemplatePicker::ReleasePreviews() {
+        for (auto& Template : mTemplates) {
+            Template.mPreview.reset();
+            Template.mPreviewAttempted = false;
+        }
+    }
 }

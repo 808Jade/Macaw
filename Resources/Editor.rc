@@ -3,6 +3,7 @@
 MacawSplashRegularFontResource RCDATA "Resources/Fonts/Pretendard-Regular.otf"
 MacawSplashSemiBoldFontResource RCDATA "Resources/Fonts/Pretendard-SemiBold.otf"
 MacawSplashBoldFontResource RCDATA "Resources/Fonts/Pretendard-Bold.otf"
+MacawBrandResource RCDATA "Resources/Branding/Macaw.png"
 
 MacawContentFileIconResource RCDATA "Resources/UE5ContentIcons/AssetIcons/Default_64x.png"
 MacawContentFolderIconResource RCDATA "Resources/UE5ContentIcons/Folders/Folder_Base_256x.png"

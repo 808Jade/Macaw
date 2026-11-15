@@ -632,9 +632,9 @@ namespace Editor {
     /**
      * @brief 동기화한 장면과 통계를 그린 뒤 ImGui 드로 데이터를 제출합니다.
      */
-    void Editor::FEditorUI::EndFrame(float DeltaTime) {
+    bool Editor::FEditorUI::EndFrame(float DeltaTime) {
         if (!mInitialized) {
-            return;
+            return false;
         }
 
         mViewportLayout.Draw(DeltaTime);
@@ -646,6 +646,8 @@ namespace Editor {
         ImGui::Render();
         mContext->GetRenderer()->BeginUiRender();
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+        return true;
     }
 
     /**

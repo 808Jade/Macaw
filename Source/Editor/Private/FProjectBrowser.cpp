@@ -1,45 +1,32 @@
-/**
- * @file FProjectBrowser.cpp
- * @brief 프로젝트 열기·생성 및 최근 프로젝트 선택 UI를 처리합니다.
- * @ingroup Editor
- */
-
 #include "Core/Types.h"
 #include "Editor/FProjectBrowser.h"
+#include "Asset/UTexture2D.h"
+#include "Core/Base/ErrorHandler.h"
 #include "Core/FilePath.h"
 #include "Editor/FProjectDialog.h"
 #include "Platform/Window.h"
+#include "Platform/WindowResources.h"
 #include "Renderer/Renderer.h"
-#include "Core/Base/ErrorHandler.h"
 
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 
-/**
- * @brief Win32 입력 메시지를 ImGui 플랫폼 백엔드로 전달합니다.
- * @param[in] Window 입력 메시지의 대상 창입니다.
- * @param[in] Message Win32 메시지 번호입니다.
- * @param[in] WParam Win32 메시지의 첫 인수입니다.
- * @param[in] LParam Win32 메시지의 둘째 인수입니다.
- * @return ImGui 백엔드의 메시지 처리 결과입니다.
- */
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
 
 namespace Editor {
 
-    /**
-     * @brief 프로젝트 선택 UI와 최근 프로젝트 목록의 내부 보조 함수입니다.
-     */
     namespace {
-        /**
-         * @brief Windows의 알려진 폴더 식별자를 실제 경로로 해석합니다.
-         * @param[in] Folder Windows의 알려진 폴더 식별자입니다.
-         * @return 계산하거나 조회한 값입니다.
-         */
+
+        constexpr ImU32 Accent{IM_COL32(0, 122, 218, 255)};
+        constexpr ImU32 Muted{IM_COL32(146, 149, 155, 255)};
+        constexpr ImU32 White{IM_COL32(237, 239, 242, 255)};
+
         std::filesystem::path KnownFolder(REFKNOWNFOLDERID Folder) {
             PWSTR Buffer{};
 
@@ -48,49 +35,86 @@ namespace Editor {
             }
 
             const std::filesystem::path Path{Buffer};
-
             CoTaskMemFree(Buffer);
 
             return Path;
         }
 
-        /**
-         * @brief 최근 프로젝트 목록을 저장할 사용자 파일 경로를 반환합니다.
-         * @return 계산하거나 조회한 값입니다.
-         */
         std::filesystem::path RecentProjectsFile() {
             const std::filesystem::path Directory{KnownFolder(FOLDERID_LocalAppData)};
 
             return Directory.empty() ? std::filesystem::path{} : Directory / "Macaw/RecentProjects.txt";
         }
+
+        ImTextureID TextureId(ID3D11ShaderResourceView* Texture) {
+            return static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Texture));
+        }
+
+        void DrawPreview(ImDrawList* Draw, ID3D11ShaderResourceView* Texture, ID3D11ShaderResourceView* Mascot, ImVec2 Min, ImVec2 Max) {
+            Draw->AddRectFilledMultiColor(Min, Max, IM_COL32(30, 37, 46, 255), IM_COL32(34, 51, 63, 255), IM_COL32(21, 25, 32, 255), IM_COL32(24, 27, 34, 255));
+
+            if (Texture != nullptr) {
+                Microsoft::WRL::ComPtr<ID3D11Resource> Resource{};
+                Microsoft::WRL::ComPtr<ID3D11Texture2D> Image{};
+                Texture->GetResource(&Resource);
+                ImVec2 Crop{1.0f, 1.0f};
+
+                if (SUCCEEDED(Resource.As(&Image))) {
+                    D3D11_TEXTURE2D_DESC Description{};
+                    Image->GetDesc(&Description);
+                    const float Aspect{static_cast<float>(Description.Width) / static_cast<float>(std::max(Description.Height, 1u))};
+                    const float TargetAspect{(Max.x - Min.x) / (Max.y - Min.y)};
+                    Crop = {Aspect > TargetAspect ? TargetAspect / Aspect : 1.0f, Aspect > TargetAspect ? 1.0f : Aspect / TargetAspect};
+                }
+
+                Draw->AddImage(TextureId(Texture), Min, Max, {(1.0f - Crop.x) * 0.5f, (1.0f - Crop.y) * 0.5f}, {(1.0f + Crop.x) * 0.5f, (1.0f + Crop.y) * 0.5f});
+            } else if (Mascot != nullptr) {
+                const float Size{std::min(Max.x - Min.x, Max.y - Min.y) * 0.91f};
+                const ImVec2 Center{(Min.x + Max.x) * 0.5f, (Min.y + Max.y) * 0.5f};
+                Draw->AddImage(TextureId(Mascot), {Center.x - Size * 0.5f, Center.y - Size * 0.5f}, {Center.x + Size * 0.5f, Center.y + Size * 0.5f});
+            }
+        }
+
+        bool MatchesSearch(const Core::FString& Name, const char* Search) {
+            Core::FString Haystack{Name};
+            Core::FString Needle{Search};
+            const auto Lower{[](unsigned char Character) {
+                return static_cast<char>(std::tolower(Character));
+            }};
+            std::transform(Haystack.begin(), Haystack.end(), Haystack.begin(), Lower);
+            std::transform(Needle.begin(), Needle.end(), Needle.begin(), Lower);
+
+            return Haystack.find(Needle) != Core::FString::npos;
+        }
+
+        void DrawProperty(const char* Label, const char* Value, float Scale) {
+            ImGui::TextDisabled("%s", Label);
+            ImGui::SameLine(130.0f * Scale);
+            ImGui::TextUnformatted(Value);
+        }
     }
 
-    /**
-     * @brief 전달된 설정과 기본값으로 FProjectBrowser 객체를 생성합니다.
-     */
-    Editor::FProjectBrowser::FProjectBrowser() {
+    FProjectBrowser::FProjectBrowser() {
         const Core::FString Location{Core::FilePath::ToUtf8(KnownFolder(FOLDERID_Documents) / "Macaw Projects")};
-
         std::copy_n(Location.data(), std::min(Location.size(), mLocation.size() - 1), mLocation.data());
-
-        const Core::FString Name{"NewProject"};
-
+        const Core::FString Name{"MyProject"};
         std::copy(Name.begin(), Name.end(), mProjectName.begin());
     }
 
-    /**
-     * @brief 프로젝트 선택 화면의 이벤트·그리기 루프를 실행합니다.
-     */
-    bool Editor::FProjectBrowser::Show(Platform::FWindowsApplication& Platform, Renderer::FRenderer& Renderer, std::filesystem::path& ProjectFile, bool& Create, const std::filesystem::path& TemplatesDirectory, std::filesystem::path& TemplateDirectory, const Core::FString& Error) {
+    FProjectBrowser::~FProjectBrowser() = default;
+
+    bool FProjectBrowser::Show(Platform::FWindowsApplication& Platform, Renderer::FRenderer& Renderer, std::filesystem::path& ProjectFile, bool& Create, const std::filesystem::path& TemplatesDirectory, std::filesystem::path& TemplateDirectory, const Core::FString& Error) {
         mCreatePage = Create;
         mSubmitted = false;
+        mCancelled = false;
         mSelectedFile = ProjectFile;
+        mSearch.fill(0);
+        mPreviews.clear();
         mTemplatePicker.Load(TemplatesDirectory, TemplateDirectory, mTemplateError);
 
         if (Create && !ProjectFile.empty()) {
             const Core::FString Name{Core::FilePath::ToUtf8(ProjectFile.stem())};
             const Core::FString Location{Core::FilePath::ToUtf8(ProjectFile.parent_path().filename() == ProjectFile.stem() ? ProjectFile.parent_path().parent_path() : ProjectFile.parent_path())};
-
             mProjectName.fill(0);
             mLocation.fill(0);
             std::copy_n(Name.data(), std::min(Name.size(), mProjectName.size() - 1), mProjectName.data());
@@ -98,58 +122,84 @@ namespace Editor {
         }
 
         LoadRecentProjects();
-        SetWindowTextW(Platform.GetWindowHandle(), L"Macaw - Project Browser");
 
-        if (!Renderer.InitializeUi(Platform.GetWindowHandle(), Platform.GetWidth(), Platform.GetHeight())) {
+        if (!Platform.BeginPresentation()) {
+            Core::ErrorHandler::Fatal("ProjectBrowser", "Cannot prepare the project browser window");
+        }
+
+        Platform.SetDarkMode(true);
+        Platform.SetTitle(L"Macaw Project Browser");
+        Platform.SetMinimumClientSize(1000, 640);
+        Platform.Restore();
+        Platform.SetCenteredClientSize(1280, 800);
+
+        if (!Platform.PumpMessages()) {
+            return false;
+        }
+
+        const HWND Window{Platform.GetWindowHandle()};
+
+        if (!Renderer.InitializeUi(Window, Platform.GetWidth(), Platform.GetHeight())) {
             Core::ErrorHandler::Fatal("ProjectBrowser", "Cannot initialize the project browser renderer");
         }
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-
         ImGuiIO& Input{ImGui::GetIO()};
         Input.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         Input.IniFilename = nullptr;
         Input.LogFilename = nullptr;
+        const HMODULE Module{GetModuleHandleW(nullptr)};
+        const HRSRC FontResource{FindResourceW(Module, MAKEINTRESOURCEW(MacawSplashRegularFontResource), RT_RCDATA)};
+        const HGLOBAL FontData{FontResource != nullptr ? LoadResource(Module, FontResource) : nullptr};
+        void* FontBytes{FontData != nullptr ? LockResource(FontData) : nullptr};
 
-        if (std::filesystem::exists("C:/Windows/Fonts/malgun.ttf")) {
-            Input.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/malgun.ttf", 18.0f);
+        if (FontBytes != nullptr) {
+            ImFontConfig Config{};
+            Config.FontDataOwnedByAtlas = false;
+            Input.Fonts->AddFontFromMemoryTTF(FontBytes, static_cast<int>(SizeofResource(Module, FontResource)), 16.0f, &Config);
         } else {
             Input.Fonts->AddFontDefault();
         }
 
         ImGui::StyleColorsDark();
-
         ImGuiStyle& Style{ImGui::GetStyle()};
-        Style.WindowPadding = ImVec2{32.0f, 28.0f};
-        Style.FramePadding = ImVec2{12.0f, 10.0f};
-        Style.ItemSpacing = ImVec2{12.0f, 14.0f};
-        Style.FrameRounding = 5.0f;
-        Style.ChildRounding = 8.0f;
-        Style.Colors[ImGuiCol_WindowBg] = ImVec4{0.045f, 0.055f, 0.075f, 1.0f};
-        Style.Colors[ImGuiCol_ChildBg] = ImVec4{0.075f, 0.09f, 0.12f, 1.0f};
-        Style.Colors[ImGuiCol_Button] = ImVec4{0.11f, 0.31f, 0.48f, 1.0f};
-        Style.Colors[ImGuiCol_ButtonHovered] = ImVec4{0.15f, 0.43f, 0.63f, 1.0f};
-        Style.Colors[ImGuiCol_ButtonActive] = ImVec4{0.10f, 0.36f, 0.55f, 1.0f};
-
-        mUIScale.Initialize(18.0f);
+        Style.WindowPadding = {0.0f, 0.0f};
+        Style.FramePadding = {10.0f, 7.0f};
+        Style.ItemSpacing = {10.0f, 12.0f};
+        Style.ItemInnerSpacing = {8.0f, 6.0f};
+        Style.FrameRounding = 2.0f;
+        Style.ChildRounding = 3.0f;
+        Style.FrameBorderSize = 1.0f;
+        Style.ScrollbarSize = 10.0f;
+        Style.Colors[ImGuiCol_WindowBg] = {0.125f, 0.125f, 0.125f, 1.0f};
+        Style.Colors[ImGuiCol_ChildBg] = {0.105f, 0.105f, 0.105f, 1.0f};
+        Style.Colors[ImGuiCol_Text] = {0.91f, 0.92f, 0.94f, 1.0f};
+        Style.Colors[ImGuiCol_TextDisabled] = {0.56f, 0.58f, 0.61f, 1.0f};
+        Style.Colors[ImGuiCol_Border] = {0.22f, 0.22f, 0.23f, 1.0f};
+        Style.Colors[ImGuiCol_FrameBg] = {0.058f, 0.058f, 0.062f, 1.0f};
+        Style.Colors[ImGuiCol_FrameBgHovered] = {0.10f, 0.11f, 0.12f, 1.0f};
+        Style.Colors[ImGuiCol_FrameBgActive] = {0.08f, 0.11f, 0.15f, 1.0f};
+        Style.Colors[ImGuiCol_Button] = {0.21f, 0.21f, 0.22f, 1.0f};
+        Style.Colors[ImGuiCol_ButtonHovered] = {0.28f, 0.28f, 0.30f, 1.0f};
+        Style.Colors[ImGuiCol_ButtonActive] = {0.10f, 0.34f, 0.53f, 1.0f};
+        Style.Colors[ImGuiCol_Header] = {0.0f, 0.40f, 0.73f, 1.0f};
+        Style.Colors[ImGuiCol_HeaderHovered] = {0.12f, 0.28f, 0.39f, 1.0f};
+        Style.Colors[ImGuiCol_HeaderActive] = {0.0f, 0.44f, 0.78f, 1.0f};
+        Style.Colors[ImGuiCol_NavCursor] = {0.14f, 0.65f, 0.95f, 1.0f};
+        mUIScale.SetUserScale(1.0f);
+        mUIScale.Initialize(16.0f);
         mUIScale.Update(Platform);
-
-        const bool Win32Ready{ImGui_ImplWin32_Init(Platform.GetWindowHandle())};
+        LoadBranding(Renderer.GetNativeDevice());
+        const bool Win32Ready{ImGui_ImplWin32_Init(Window)};
         const bool DxReady{Win32Ready && ImGui_ImplDX11_Init(static_cast<ID3D11Device*>(Renderer.GetNativeDevice()), static_cast<ID3D11DeviceContext*>(Renderer.GetNativeContext()))};
 
         if (DxReady) {
-            Platform.SetMessageHandler([](HWND Window, UINT Message, WPARAM WParam, LPARAM LParam) {
-                return ImGui_ImplWin32_WndProcHandler(Window, Message, WParam, LParam) != 0;
+            Platform.SetMessageHandler([](HWND Handle, UINT Message, WPARAM WParam, LPARAM LParam) {
+                return ImGui_ImplWin32_WndProcHandler(Handle, Message, WParam, LParam) != 0;
             });
 
-            while (!mSubmitted && Platform.PumpMessages()) {
-                if (Platform.IsMinimized()) {
-                    MsgWaitForMultipleObjects(0, nullptr, false, 16, QS_ALLINPUT);
-
-                    continue;
-                }
-
+            const auto DrawFrame{[this, &Platform, &Renderer, &Error]() {
                 Renderer.BeginFrame(Platform.GetWidth(), Platform.GetHeight());
                 ImGui_ImplDX11_NewFrame();
                 ImGui_ImplWin32_NewFrame();
@@ -159,11 +209,31 @@ namespace Editor {
                 ImGui::Render();
                 Renderer.BeginUiRender();
                 ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-                Renderer.Present();
+
+                return Renderer.PresentFrame();
+            }};
+
+            while (!mSubmitted && !mCancelled && Platform.PumpMessages()) {
+                if (Platform.IsMinimized()) {
+                    Platform.WaitForMessages(16);
+
+                    continue;
+                }
+
+                if (Platform.IsPresentationPending()) {
+                    if (Platform.RevealAfterFrame(DrawFrame)) {
+                        Platform.Activate();
+                    }
+                } else {
+                    DrawFrame();
+                }
             }
         }
 
         Platform.SetMessageHandler({});
+        mTemplatePicker.ReleasePreviews();
+        mPreviews.clear();
+        mMascot.Reset();
 
         if (DxReady) {
             ImGui_ImplDX11_Shutdown();
@@ -192,169 +262,345 @@ namespace Editor {
         return mSubmitted;
     }
 
-    /**
-     * @brief 프로젝트 열기·생성 페이지와 오류 상태를 표시합니다.
-     */
-    void Editor::FProjectBrowser::Draw(Platform::FWindowsApplication& Platform, Renderer::FRenderer& Renderer, const Core::FString& Error) {
+    void FProjectBrowser::LoadBranding(void* Device) {
+        mMascot.Reset();
+        const HMODULE Module{GetModuleHandleW(nullptr)};
+        const HRSRC Resource{FindResourceW(Module, MAKEINTRESOURCEW(MacawBrandResource), RT_RCDATA)};
+        const HGLOBAL Data{Resource != nullptr ? LoadResource(Module, Resource) : nullptr};
+        const auto* Bytes{Data != nullptr ? static_cast<const Core::Uint8*>(LockResource(Data)) : nullptr};
+        Asset::UTexture2D Texture{};
+
+        if (Bytes != nullptr && Texture.LoadFromMemory({Bytes, SizeofResource(Module, Resource)}, "Macaw.png", false) && Texture.CreateResources(static_cast<ID3D11Device*>(Device))) {
+            mMascot = Texture.GetShaderResourceView();
+        }
+    }
+
+    ID3D11ShaderResourceView* FProjectBrowser::GetProjectPreview(const std::filesystem::path& File, void* Device) {
+        const auto Existing{std::find_if(mPreviews.begin(), mPreviews.end(), [&File](const FProjectPreview& Preview) {
+            return Preview.mFile == File;
+        })};
+
+        if (Existing != mPreviews.end()) {
+            return Existing->mTexture.Get();
+        }
+
+        FProjectPreview Preview{};
+        Preview.mFile = File;
+
+        for (const auto& Image : {File.parent_path() / (File.stem().wstring() + L".png"), File.parent_path() / "Saved/AutoScreenshot.png", File.parent_path() / "Preview.png"}) {
+            std::error_code Code{};
+
+            if (!std::filesystem::is_regular_file(Image, Code)) {
+                continue;
+            }
+
+            Asset::UTexture2D Texture{};
+
+            if (Texture.LoadFromFile(Image, false) && Texture.CreateResources(static_cast<ID3D11Device*>(Device))) {
+                Preview.mTexture = Texture.GetShaderResourceView();
+
+                break;
+            }
+        }
+
+        mPreviews.push_back(std::move(Preview));
+
+        return mPreviews.back().mTexture.Get();
+    }
+
+    void FProjectBrowser::Draw(Platform::FWindowsApplication& Platform, Renderer::FRenderer& Renderer, const Core::FString& Error) {
         const float Scale{mUIScale.GetScale()};
         const ImGuiViewport* Viewport{ImGui::GetMainViewport()};
-
+        const ImVec2 Size{Viewport->WorkSize};
         ImGui::SetNextWindowPos(Viewport->WorkPos);
-        ImGui::SetNextWindowSize(Viewport->WorkSize);
-        ImGui::Begin("Project Browser", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
-        ImGui::PushFont(nullptr, 36.0f);
-        ImGui::TextUnformatted("MACAW");
-        ImGui::PopFont();
-        ImGui::TextDisabled("Choose a project or start something new.");
-        ImGui::Spacing();
+        ImGui::SetNextWindowSize(Size);
+        ImGui::Begin("Project Browser", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        const ImVec2 Origin{ImGui::GetWindowPos()};
+        ImDrawList* Draw{ImGui::GetWindowDrawList()};
+        Draw->AddRectFilled(Origin, {Origin.x + Size.x, Origin.y + 74.0f * Scale}, IM_COL32(25, 25, 26, 255));
+        Draw->AddLine({Origin.x, Origin.y + 74.0f * Scale}, {Origin.x + Size.x, Origin.y + 74.0f * Scale}, IM_COL32(53, 53, 55, 255));
 
-        if (ImGui::Button("Open Project", ImVec2{180.0f * Scale, 44.0f * Scale})) {
-            mCreatePage = false;
+        if (mMascot != nullptr) {
+            Draw->AddImage(TextureId(mMascot.Get()), {Origin.x + 20.0f * Scale, Origin.y + 4.0f * Scale}, {Origin.x + 84.0f * Scale, Origin.y + 68.0f * Scale});
         }
 
-        ImGui::SameLine();
-
-        if (ImGui::Button("New Project", ImVec2{180.0f * Scale, 44.0f * Scale})) {
-            mCreatePage = true;
-        }
-
-        ImGui::Separator();
-
-        const float Width{std::min(960.0f * Scale, ImGui::GetContentRegionAvail().x)};
-
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetContentRegionAvail().x - Width) * 0.5f);
-        ImGui::BeginChild("Project Content", ImVec2{Width, 0.0f});
-
-        if (!Error.empty()) {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{1.0f, 0.48f, 0.42f, 1.0f});
-            ImGui::TextWrapped("%s", Error.c_str());
-            ImGui::PopStyleColor();
-        }
+        Draw->AddText(ImGui::GetFont(), 27.0f * Scale, {Origin.x + 89.0f * Scale, Origin.y + 15.0f * Scale}, White, "MACAW");
+        Draw->AddText(ImGui::GetFont(), 11.0f * Scale, {Origin.x + 91.0f * Scale, Origin.y + 46.0f * Scale}, Muted, "G A M E   E N G I N E");
+        Draw->AddText(ImGui::GetFont(), 15.0f * Scale, {Origin.x + Size.x - 176.0f * Scale, Origin.y + 29.0f * Scale}, Muted, "Project Browser");
+        DrawSidebar();
+        const float FooterHeight{mCreatePage ? 146.0f * Scale : 112.0f * Scale};
+        ImGui::SetCursorPos({256.0f * Scale, 94.0f * Scale});
+        ImGui::BeginChild("MainContent", {Size.x - 280.0f * Scale, Size.y - 114.0f * Scale - FooterHeight}, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
         if (mCreatePage) {
             DrawNewProject(Platform, Renderer.GetNativeDevice());
         } else {
-            DrawOpenProject(Platform);
+            DrawOpenProject(Platform, Renderer.GetNativeDevice());
         }
 
+        ImGui::EndChild();
+        ImGui::SetCursorPos({0.0f, Size.y - FooterHeight});
+        ImGui::BeginChild("ProjectFooter", {Size.x, FooterHeight}, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
+        DrawFooter(Platform, Error);
         ImGui::EndChild();
         ImGui::End();
     }
 
-    /**
-     * @brief 기존 프로젝트 열기 UI를 표시합니다.
-     */
-    void Editor::FProjectBrowser::DrawOpenProject(Platform::FWindowsApplication& Platform) {
+    void FProjectBrowser::DrawSidebar() {
         const float Scale{mUIScale.GetScale()};
+        ImGui::SetCursorPos({18.0f * Scale, 96.0f * Scale});
+        ImGui::BeginChild("Categories", {214.0f * Scale, ImGui::GetWindowHeight() - 260.0f * Scale}, ImGuiChildFlags_None);
+        ImGui::SetCursorPos({14.0f * Scale, 14.0f * Scale});
+        ImGui::TextDisabled("PROJECTS");
+        ImGui::SetCursorPos({10.0f * Scale, 46.0f * Scale});
 
-        ImGui::TextUnformatted("Recent projects");
-        ImGui::BeginChild("Recent Projects", ImVec2{0.0f, std::max(120.0f * Scale, ImGui::GetContentRegionAvail().y - 160.0f * Scale)}, ImGuiChildFlags_Borders);
-
-        if (mRecentProjects.empty()) {
-            ImGui::TextDisabled("No projects opened yet.");
-            ImGui::TextWrapped("Use Browse to select an existing .mproject file, or create a new project.");
+        if (ImGui::Selectable("Recent Projects", !mCreatePage, ImGuiSelectableFlags_None, {194.0f * Scale, 38.0f * Scale})) {
+            mCreatePage = false;
         }
 
-        for (Core::Index_t Index{}; Index < mRecentProjects.size(); ++Index) {
-            const auto& Path{mRecentProjects[Index]};
-            const Core::FString Label{Core::FilePath::ToUtf8(Path.stem()) + "##" + std::to_string(Index)};
+        ImGui::SetCursorPos({14.0f * Scale, 108.0f * Scale});
+        ImGui::TextDisabled("NEW PROJECT");
+        ImGui::SetCursorPos({10.0f * Scale, 140.0f * Scale});
+        const ImVec2 Min{ImGui::GetCursorScreenPos()};
+        const ImVec2 Max{Min.x + 194.0f * Scale, Min.y + 132.0f * Scale};
 
-            if (ImGui::Selectable(Label.c_str(), mSelectedFile == Path, ImGuiSelectableFlags_AllowDoubleClick)) {
+        if (ImGui::Selectable("##GamesCategory", mCreatePage, ImGuiSelectableFlags_None, {194.0f * Scale, 132.0f * Scale})) {
+            mCreatePage = true;
+        }
+
+        ImDrawList* Draw{ImGui::GetWindowDrawList()};
+        Draw->AddRectFilledMultiColor({Min.x + 2.0f, Min.y + 2.0f}, {Max.x - 2.0f, Max.y - 2.0f}, IM_COL32(25, 42, 53, 255), IM_COL32(34, 60, 72, 255), IM_COL32(24, 31, 38, 255), IM_COL32(24, 30, 37, 255));
+        const ImVec2 Center{Min.x + 146.0f * Scale, Min.y + 48.0f * Scale};
+        Draw->AddQuadFilled({Center.x, Center.y - 22.0f * Scale}, {Center.x + 25.0f * Scale, Center.y - 8.0f * Scale}, {Center.x, Center.y + 7.0f * Scale}, {Center.x - 25.0f * Scale, Center.y - 8.0f * Scale}, IM_COL32(103, 172, 190, 255));
+        Draw->AddQuadFilled({Center.x - 25.0f * Scale, Center.y - 8.0f * Scale}, {Center.x, Center.y + 7.0f * Scale}, {Center.x, Center.y + 34.0f * Scale}, {Center.x - 25.0f * Scale, Center.y + 19.0f * Scale}, IM_COL32(53, 103, 126, 255));
+        Draw->AddQuadFilled({Center.x, Center.y + 7.0f * Scale}, {Center.x + 25.0f * Scale, Center.y - 8.0f * Scale}, {Center.x + 25.0f * Scale, Center.y + 19.0f * Scale}, {Center.x, Center.y + 34.0f * Scale}, IM_COL32(36, 71, 91, 255));
+        Draw->AddText(ImGui::GetFont(), 23.0f * Scale, {Min.x + 14.0f * Scale, Max.y - 54.0f * Scale}, White, "Games");
+        Draw->AddText(ImGui::GetFont(), 12.0f * Scale, {Min.x + 15.0f * Scale, Max.y - 25.0f * Scale}, Muted, "Build your next world");
+        Draw->AddRect(Min, Max, mCreatePage ? Accent : IM_COL32(60, 66, 72, 255), 2.0f, 0, mCreatePage ? 2.0f : 1.0f);
+        ImGui::EndChild();
+    }
+
+    void FProjectBrowser::DrawOpenProject(Platform::FWindowsApplication& Platform, void* Device) {
+        const float Scale{mUIScale.GetScale()};
+        const float Available{ImGui::GetContentRegionAvail().x};
+        const float DetailsWidth{std::min(330.0f * Scale, Available * 0.38f)};
+        const float GridWidth{Available - DetailsWidth - 24.0f * Scale};
+        ImGui::BeginChild("ProjectGridColumn", {GridWidth, 0.0f}, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::PushFont(nullptr, 23.0f * Scale);
+        ImGui::TextUnformatted("Recent Projects");
+        ImGui::PopFont();
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##ProjectSearch", "Search projects...", mSearch.data(), mSearch.size());
+        ImGui::BeginChild("ProjectGrid", {0.0f, -40.0f * Scale}, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground);
+        const float CardWidth{140.0f * Scale};
+        const float CardHeight{177.0f * Scale};
+        const float Gap{14.0f * Scale};
+        const int Columns{std::max(1, static_cast<int>((GridWidth - 16.0f * Scale + Gap) / (CardWidth + Gap)))};
+        Core::Index_t Visible{};
+
+        for (const auto& Path : mRecentProjects) {
+            const Core::FString Name{Core::FilePath::ToUtf8(Path.stem())};
+
+            if (!MatchesSearch(Name, mSearch.data())) {
+                continue;
+            }
+
+            ImGui::PushID(static_cast<int>(Visible));
+            ImGui::SetCursorPos({static_cast<float>(Visible % Columns) * (CardWidth + Gap) + 2.0f, static_cast<float>(Visible / Columns) * (CardHeight + Gap) + 2.0f});
+            const ImVec2 Min{ImGui::GetCursorScreenPos()};
+            const ImVec2 Max{Min.x + CardWidth, Min.y + CardHeight};
+            const bool Selected{mSelectedFile == Path};
+
+            if (ImGui::Selectable("##Project", Selected, ImGuiSelectableFlags_AllowDoubleClick, {CardWidth, CardHeight})) {
                 mSelectedFile = Path;
                 mSubmitted = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
             }
 
-            ImGui::TextDisabled("%s", Core::FilePath::ToUtf8(Path).c_str());
-            ImGui::Separator();
+            const bool Hovered{ImGui::IsItemHovered()};
+            ImGui::SetItemTooltip("%s", Core::FilePath::ToUtf8(Path).c_str());
+            ImDrawList* Draw{ImGui::GetWindowDrawList()};
+            Draw->AddRectFilled(Min, Max, Selected ? Accent : IM_COL32(48, 48, 50, 255), 2.0f);
+            DrawPreview(Draw, GetProjectPreview(Path, Device), mMascot.Get(), {Min.x + 2.0f, Min.y + 2.0f}, {Max.x - 2.0f, Min.y + CardWidth - 2.0f});
+            const ImVec4 TextBounds{Min.x + 9.0f * Scale, Min.y + CardWidth + 9.0f * Scale, Max.x - 8.0f * Scale, Max.y};
+            Draw->AddText(ImGui::GetFont(), 14.0f * Scale, {TextBounds.x, TextBounds.y}, White, Name.c_str(), nullptr, 0.0f, &TextBounds);
+            Draw->AddRect(Min, Max, Selected ? Accent : Hovered ? IM_COL32(122, 130, 140, 255) : IM_COL32(59, 59, 62, 255), 2.0f, 0, Selected ? 2.0f : 1.0f);
+            ImGui::PopID();
+            ++Visible;
+        }
+
+        if (Visible == 0) {
+            ImGui::SetCursorPos({8.0f * Scale, 26.0f * Scale});
+            ImGui::TextUnformatted(mRecentProjects.empty() ? "Your next project starts here." : "No matching projects.");
+            ImGui::TextDisabled(mRecentProjects.empty() ? "Browse for a .mproject file or choose Games." : "Try a different project name.");
         }
 
         ImGui::EndChild();
-
-        if (ImGui::Button("Browse...", ImVec2{140.0f * Scale, 0.0f})) {
-            const auto Path{Editor::FProjectDialog::Choose(Platform.GetWindowHandle(), false)};
-
-            if (!Path.empty()) {
-                mSelectedFile = Path;
-            }
-        }
-
-        ImGui::SameLine();
-        ImGui::TextWrapped("%s", mSelectedFile.empty() ? "Select a .mproject file" : Core::FilePath::ToUtf8(mSelectedFile).c_str());
-        ImGui::BeginDisabled(mSelectedFile.empty());
-
-        if (ImGui::Button("Open Selected Project", ImVec2{240.0f * Scale, 44.0f * Scale})) {
-            mSubmitted = true;
-        }
-
-        ImGui::EndDisabled();
-    }
-
-    /**
-     * @brief 프로젝트 이름과 폴더를 지정하는 생성 UI를 표시합니다.
-     */
-    void Editor::FProjectBrowser::DrawNewProject(Platform::FWindowsApplication& Platform, void* Device) {
-        const float Scale{mUIScale.GetScale()};
-
-        ImGui::TextUnformatted("Create a new project");
-        mTemplatePicker.Draw(Device);
-
-        if (!mTemplateError.empty()) {
-            ImGui::TextColored({1.0f, 0.48f, 0.42f, 1.0f}, "%s", mTemplateError.c_str());
-        }
-
+        ImGui::TextDisabled("%zu project%s", Visible, Visible == 1 ? "" : "s");
+        ImGui::EndChild();
+        ImGui::SameLine(0.0f, 24.0f * Scale);
+        ImGui::BeginChild("ProjectDetails", {DetailsWidth, 0.0f}, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground);
+        const ImVec2 PreviewMin{ImGui::GetCursorScreenPos()};
+        DrawPreview(ImGui::GetWindowDrawList(), mSelectedFile.empty() ? nullptr : GetProjectPreview(mSelectedFile, Device), mMascot.Get(), PreviewMin, {PreviewMin.x + DetailsWidth, PreviewMin.y + DetailsWidth * 0.60f});
+        ImGui::Dummy({DetailsWidth, DetailsWidth * 0.60f + 4.0f * Scale});
+        ImGui::PushFont(nullptr, 24.0f * Scale);
+        ImGui::TextWrapped("%s", mSelectedFile.empty() ? "Select a project" : Core::FilePath::ToUtf8(mSelectedFile.stem()).c_str());
+        ImGui::PopFont();
+        ImGui::TextDisabled("MACAW PROJECT");
         ImGui::Spacing();
-        ImGui::TextUnformatted("Project name");
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputText("##ProjectName", mProjectName.data(), mProjectName.size());
-        ImGui::TextUnformatted("Location");
-        ImGui::SetNextItemWidth(std::max(80.0f * Scale, ImGui::GetContentRegionAvail().x - 150.0f * Scale));
-        ImGui::InputText("##Location", mLocation.data(), mLocation.size());
-        ImGui::SameLine();
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::TextWrapped("%s", mSelectedFile.empty() ? "Open an existing world or create a new one from a game template." : "Double-click the project card, or choose Open to continue in the editor.");
 
-        if (ImGui::Button("Browse...", ImVec2{138.0f * Scale, 0.0f})) {
-            const auto Path{Editor::FProjectDialog::ChooseDirectory(Platform.GetWindowHandle())};
+        if (!mSelectedFile.empty()) {
+            ImGui::Spacing();
+            ImGui::TextDisabled("PROJECT LOCATION");
+            ImGui::TextWrapped("%s", Core::FilePath::ToUtf8(mSelectedFile.parent_path()).c_str());
 
-            if (!Path.empty()) {
-                const Core::FString Location{Core::FilePath::ToUtf8(Path)};
-
-                mLocation.fill(0);
-                std::copy_n(Location.data(), std::min(Location.size(), mLocation.size() - 1), mLocation.data());
+            if (ImGui::Button("Show in Explorer", {-1.0f, 32.0f * Scale})) {
+                ShellExecuteW(Platform.GetWindowHandle(), L"open", mSelectedFile.parent_path().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
             }
         }
 
-        const bool ValidName{IsProjectNameValid()};
-        const bool ValidLocation{mLocation[0] != '\0' && Core::FilePath::FromUtf8(mLocation.data()).is_absolute()};
+        ImGui::EndChild();
+    }
 
-        if (ValidName && ValidLocation) {
-            ImGui::TextDisabled("Project folder");
-            ImGui::TextWrapped("%s", Core::FilePath::ToUtf8(GetNewProjectFile().parent_path()).c_str());
+    void FProjectBrowser::DrawNewProject(Platform::FWindowsApplication&, void* Device) {
+        const float Scale{mUIScale.GetScale()};
+        const float Available{ImGui::GetContentRegionAvail().x};
+        const float DetailsWidth{std::min(360.0f * Scale, Available * 0.42f)};
+        ImGui::BeginChild("Templates", {Available - DetailsWidth - 24.0f * Scale, 0.0f}, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground);
+        ImGui::PushFont(nullptr, 23.0f * Scale);
+        ImGui::TextUnformatted("Games");
+        ImGui::PopFont();
+        ImGui::TextDisabled("Choose a template to get started");
+        ImGui::Spacing();
+        mTemplatePicker.Draw(Device);
+        ImGui::EndChild();
+        ImGui::SameLine(0.0f, 24.0f * Scale);
+        ImGui::BeginChild("TemplateDetails", {DetailsWidth, 0.0f}, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground);
+        mTemplatePicker.DrawSelectedPreview(Device, DetailsWidth, DetailsWidth * 0.56f);
+        ImGui::Spacing();
+        ImGui::PushFont(nullptr, 24.0f * Scale);
+        ImGui::TextUnformatted(mTemplatePicker.GetSelectedName().c_str());
+        ImGui::PopFont();
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextUnformatted(mTemplatePicker.GetSelectedDescription().c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::TextDisabled("INCLUDED");
+        ImGui::TextWrapped("%s", mTemplatePicker.SelectedRequiresScripts() ? "Third-person character, animation, movement, jumping and follow camera." : "A clean scene, a camera and a cube. A small starting point for your own world.");
+        ImGui::Spacing();
+        ImGui::SetCursorPosY(std::max(ImGui::GetCursorPosY(), ImGui::GetWindowHeight() - 140.0f * Scale));
+        ImGui::SeparatorText("Project Defaults");
+        DrawProperty("Gameplay", mTemplatePicker.SelectedRequiresScripts() ? "C# scripts" : "Native scene", Scale);
+        DrawProperty("Target Platform", "Windows Desktop", Scale);
+        DrawProperty("Renderer", "Direct3D 11", Scale);
+        ImGui::EndChild();
+    }
+
+    void FProjectBrowser::DrawFooter(Platform::FWindowsApplication& Platform, const Core::FString& Error) {
+        const float Scale{mUIScale.GetScale()};
+        const float Width{ImGui::GetWindowWidth()};
+        const ImVec2 Origin{ImGui::GetWindowPos()};
+        ImGui::GetWindowDrawList()->AddLine(Origin, {Origin.x + Width, Origin.y}, IM_COL32(58, 58, 60, 255));
+        ImGui::SetCursorPos({24.0f * Scale, 18.0f * Scale});
+
+        if (mCreatePage) {
+            ImGui::TextDisabled("Project Location");
+            ImGui::SameLine(142.0f * Scale);
+            ImGui::SetNextItemWidth(std::max(180.0f * Scale, Width - 620.0f * Scale));
+            ImGui::InputText("##Location", mLocation.data(), mLocation.size());
+            ImGui::SameLine();
+
+            if (ImGui::Button("...##BrowseLocation", {34.0f * Scale, 0.0f})) {
+                const auto Path{FProjectDialog::ChooseDirectory(Platform.GetWindowHandle())};
+
+                if (!Path.empty()) {
+                    const Core::FString Location{Core::FilePath::ToUtf8(Path)};
+                    mLocation.fill(0);
+                    std::copy_n(Location.data(), std::min(Location.size(), mLocation.size() - 1), mLocation.data());
+                }
+            }
+
+            ImGui::SameLine(Width - 394.0f * Scale);
+            ImGui::TextDisabled("Project Name");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(Width - ImGui::GetCursorPosX() - 24.0f * Scale);
+            ImGui::InputText("##ProjectName", mProjectName.data(), mProjectName.size());
+            ImGui::SetCursorPos({142.0f * Scale, 60.0f * Scale});
+            const Core::FString Validation{GetCreationError()};
+            const Core::FString Message{!Error.empty() ? Error : !mTemplateError.empty() ? mTemplateError : Validation};
+            ImGui::PushTextWrapPos(Width - 24.0f * Scale);
+
+            if (!Message.empty()) {
+                ImGui::TextColored({1.0f, 0.43f, 0.39f, 1.0f}, "%s", Message.c_str());
+            } else {
+                ImGui::TextDisabled("%s", Core::FilePath::ToUtf8(GetNewProjectFile()).c_str());
+            }
+
+            ImGui::PopTextWrapPos();
         } else {
-            ImGui::TextWrapped("Enter a valid project name and an absolute location.");
+            ImGui::TextDisabled("Project File");
+            ImGui::SameLine(142.0f * Scale);
+            ImGui::PushTextWrapPos(Width - 24.0f * Scale);
+            ImGui::TextUnformatted(mSelectedFile.empty() ? "Select a recent project, or browse for a .mproject file." : Core::FilePath::ToUtf8(mSelectedFile).c_str());
+            ImGui::PopTextWrapPos();
+
+            if (!Error.empty()) {
+                ImGui::SetCursorPos({142.0f * Scale, 44.0f * Scale});
+                ImGui::TextColored({1.0f, 0.43f, 0.39f, 1.0f}, "%s", Error.c_str());
+            }
         }
 
-        ImGui::BeginDisabled(!ValidName || !ValidLocation || !mTemplateError.empty() || mTemplatePicker.GetSelectedDirectory().empty());
+        ImGui::SetCursorPos({24.0f * Scale, ImGui::GetWindowHeight() - 45.0f * Scale});
+        ImGui::TextDisabled("MACAW");
+        ImGui::SameLine();
+        ImGui::TextColored({0.32f, 0.72f, 0.81f, 1.0f}, "/");
+        ImGui::SameLine();
+        ImGui::TextDisabled(mCreatePage ? "Create a new world" : "Your worlds, ready to open");
+        ImGui::SetCursorPos({Width - (mCreatePage ? 224.0f : 344.0f) * Scale, ImGui::GetWindowHeight() - 52.0f * Scale});
 
-        if (ImGui::Button("Create Project", ImVec2{220.0f * Scale, 44.0f * Scale})) {
-            mSelectedFile = GetNewProjectFile();
+        if (!mCreatePage) {
+            if (ImGui::Button("Browse...", {110.0f * Scale, 32.0f * Scale})) {
+                const auto Path{FProjectDialog::Choose(Platform.GetWindowHandle(), false)};
+
+                if (!Path.empty()) {
+                    mSelectedFile = Path;
+                }
+            }
+
+            ImGui::SameLine();
+        }
+
+        std::error_code Code{};
+        const bool CanSubmit{mCreatePage ? GetCreationError().empty() && mTemplateError.empty() && !mTemplatePicker.GetSelectedDirectory().empty() : !mSelectedFile.empty() && std::filesystem::is_regular_file(mSelectedFile, Code)};
+        ImGui::BeginDisabled(!CanSubmit);
+        ImGui::PushStyleColor(ImGuiCol_Button, {0.0f, 0.43f, 0.77f, 1.0f});
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.02f, 0.53f, 0.90f, 1.0f});
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, {0.0f, 0.34f, 0.65f, 1.0f});
+
+        if (ImGui::Button(mCreatePage ? "Create" : "Open", {110.0f * Scale, 32.0f * Scale})) {
+            mSelectedFile = mCreatePage ? GetNewProjectFile() : mSelectedFile;
             mSubmitted = true;
         }
 
+        ImGui::PopStyleColor(3);
         ImGui::EndDisabled();
+        ImGui::SameLine();
+
+        if (ImGui::Button("Cancel", {80.0f * Scale, 32.0f * Scale})) {
+            mCancelled = true;
+        }
     }
 
-    /**
-     * @brief 입력 이름과 폴더로 구성한 프로젝트 파일 경로를 반환합니다.
-     */
-    std::filesystem::path Editor::FProjectBrowser::GetNewProjectFile() const {
+    std::filesystem::path FProjectBrowser::GetNewProjectFile() const {
         const std::filesystem::path Name{Core::FilePath::FromUtf8(mProjectName.data())};
 
         return Core::FilePath::FromUtf8(mLocation.data()) / Name / (Name.wstring() + L".mproject");
     }
 
-    /**
-     * @brief 프로젝트 이름이 파일 이름으로 사용 가능한지 검사합니다.
-     */
-    bool Editor::FProjectBrowser::IsProjectNameValid() const {
+    bool FProjectBrowser::IsProjectNameValid() const {
         const Core::FString Name{mProjectName.data()};
 
         if (Name.empty() || Name == "." || Name == ".." || Name.front() == ' ' || Name.back() == ' ' || Name.back() == '.') {
@@ -367,19 +613,43 @@ namespace Editor {
             }
         }
 
+        Core::FString Stem{Name.substr(0, Name.find('.'))};
+        std::transform(Stem.begin(), Stem.end(), Stem.begin(), [](unsigned char Character) {
+            return static_cast<char>(std::toupper(Character));
+        });
+
+        if (Stem == "CON" || Stem == "PRN" || Stem == "AUX" || Stem == "NUL" || (Stem.size() == 4 && (Stem.starts_with("COM") || Stem.starts_with("LPT")) && Stem[3] >= '1' && Stem[3] <= '9')) {
+            return false;
+        }
+
         return true;
     }
 
-    /**
-     * @brief 최근 프로젝트 목록을 디스크에서 읽습니다.
-     */
-    void Editor::FProjectBrowser::LoadRecentProjects() {
-        mRecentProjects.clear();
+    Core::FString FProjectBrowser::GetCreationError() const {
+        if (!IsProjectNameValid()) {
+            return "Enter a valid project name. Reserved names and file path characters cannot be used.";
+        }
 
+        if (mLocation[0] == '\0' || !Core::FilePath::FromUtf8(mLocation.data()).is_absolute()) {
+            return "Choose an absolute project location.";
+        }
+
+        std::error_code Code{};
+        const auto Directory{GetNewProjectFile().parent_path()};
+
+        if (std::filesystem::exists(Directory, Code) && (!std::filesystem::is_directory(Directory, Code) || !std::filesystem::is_empty(Directory, Code))) {
+            return "The project folder already exists and is not empty. Choose a different name or location.";
+        }
+
+        return Code ? "The project location cannot be accessed." : Core::FString{};
+    }
+
+    void FProjectBrowser::LoadRecentProjects() {
+        mRecentProjects.clear();
         std::ifstream Input{RecentProjectsFile(), std::ios::binary};
         Core::FString Line{};
 
-        while (mRecentProjects.size() < 12 && std::getline(Input, Line)) {
+        while (mRecentProjects.size() < 24 && std::getline(Input, Line)) {
             std::error_code Code{};
             const std::filesystem::path Path{Core::FilePath::FromUtf8(Line.c_str())};
 
@@ -387,17 +657,17 @@ namespace Editor {
                 mRecentProjects.push_back(Path);
             }
         }
+
+        if (mSelectedFile.empty() && !mRecentProjects.empty()) {
+            mSelectedFile = mRecentProjects.front();
+        }
     }
 
-    /**
-     * @brief 최근 사용한 프로젝트 목록에 경로를 기록합니다.
-     */
-    void Editor::FProjectBrowser::RememberProject(const std::filesystem::path& ProjectFile) {
-        Editor::FProjectBrowser Browser{};
+    void FProjectBrowser::RememberProject(const std::filesystem::path& ProjectFile) {
+        FProjectBrowser Browser{};
         Browser.LoadRecentProjects();
         std::erase(Browser.mRecentProjects, ProjectFile);
         Browser.mRecentProjects.insert(Browser.mRecentProjects.begin(), ProjectFile);
-
         const std::filesystem::path File{RecentProjectsFile()};
         std::error_code Code{};
 
@@ -413,9 +683,8 @@ namespace Editor {
 
         std::ofstream Output{File, std::ios::binary | std::ios::trunc};
 
-        for (Core::Index_t Index{}; Index < std::min<std::size_t>(12, Browser.mRecentProjects.size()); ++Index) {
+        for (Core::Index_t Index{}; Index < std::min<std::size_t>(24, Browser.mRecentProjects.size()); ++Index) {
             Output << Core::FilePath::ToUtf8(Browser.mRecentProjects[Index]) << '\n';
         }
     }
-
 }

@@ -130,6 +130,12 @@ namespace Editor {
          */
         bool Draw(void* Device = nullptr);
 
+        void DrawSelectedPreview(void* Device, float Width, float Height);
+        const Core::FString& GetSelectedName() const;
+        const Core::FString& GetSelectedDescription() const;
+        bool SelectedRequiresScripts() const;
+        void ReleasePreviews();
+
     private:
 
         /**

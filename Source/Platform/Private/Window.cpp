@@ -9,6 +9,10 @@
 #include "Core/Base/ErrorHandler.h"
 
 #include <windowsx.h>
+#include <dwmapi.h>
+#include <algorithm>
+#include <cmath>
+#include <string>
 #include <utility>
 
 #undef IsMinimized
@@ -206,7 +210,158 @@ namespace Platform {
 
         mWindow = nullptr;
         mRunning = false;
+        mPresentationPending = false;
+        mMinimumWidth = 0;
+        mMinimumHeight = 0;
         mInput = {};
+    }
+
+    void FWindowsApplication::Show() {
+        if (IsRunning()) {
+            ShowWindow(mWindow, SW_SHOW);
+        }
+    }
+
+    void FWindowsApplication::Hide() {
+        if (IsRunning()) {
+            ShowWindow(mWindow, SW_HIDE);
+        }
+    }
+
+    void FWindowsApplication::Restore() {
+        if (IsRunning()) {
+            ShowWindow(mWindow, SW_RESTORE);
+        }
+    }
+
+    void FWindowsApplication::Minimize() {
+        if (IsRunning()) {
+            ShowWindow(mWindow, SW_MINIMIZE);
+        }
+    }
+
+    void FWindowsApplication::Maximize() {
+        if (IsRunning()) {
+            ShowWindow(mWindow, SW_SHOWMAXIMIZED);
+        }
+    }
+
+    void FWindowsApplication::Activate() {
+        if (IsRunning() && !mPresentationPending) {
+            SetForegroundWindow(mWindow);
+            SetFocus(mWindow);
+        }
+    }
+
+    void FWindowsApplication::SetTitle(std::wstring_view Title) {
+        const std::wstring Text{Title};
+
+        if (IsRunning()) {
+            SetWindowTextW(mWindow, Text.c_str());
+        }
+    }
+
+    void FWindowsApplication::SetDarkMode(bool Enabled) {
+        const BOOL Dark{Enabled};
+
+        if (IsRunning()) {
+            DwmSetWindowAttribute(mWindow, DWMWA_USE_IMMERSIVE_DARK_MODE, &Dark, sizeof(Dark));
+        }
+    }
+
+    void FWindowsApplication::SetCenteredClientSize(Core::Uint32 Width, Core::Uint32 Height) {
+        if (!IsRunning() || Width == 0 || Height == 0) {
+            return;
+        }
+
+        const UINT Dpi{GetDpiForWindow(mWindow)};
+        const float Scale{static_cast<float>(Dpi) / 96.0f};
+        const HMONITOR Monitor{MonitorFromWindow(mWindow, MONITOR_DEFAULTTONEAREST)};
+        MONITORINFO Info{};
+        Info.cbSize = sizeof(Info);
+
+        if (!GetMonitorInfoW(Monitor, &Info)) {
+            return;
+        }
+
+        RECT Bounds{0, 0, static_cast<LONG>(std::lround(Width * Scale)), static_cast<LONG>(std::lround(Height * Scale))};
+        AdjustWindowRectExForDpi(&Bounds, static_cast<DWORD>(GetWindowLongPtrW(mWindow, GWL_STYLE)), false, static_cast<DWORD>(GetWindowLongPtrW(mWindow, GWL_EXSTYLE)), Dpi);
+        const LONG WindowWidth{std::min(Bounds.right - Bounds.left, Info.rcWork.right - Info.rcWork.left)};
+        const LONG WindowHeight{std::min(Bounds.bottom - Bounds.top, Info.rcWork.bottom - Info.rcWork.top)};
+        SetWindowPos(mWindow, nullptr, Info.rcWork.left + (Info.rcWork.right - Info.rcWork.left - WindowWidth) / 2, Info.rcWork.top + (Info.rcWork.bottom - Info.rcWork.top - WindowHeight) / 2, WindowWidth, WindowHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    void FWindowsApplication::SetMinimumClientSize(Core::Uint32 Width, Core::Uint32 Height) {
+        mMinimumWidth = Width;
+        mMinimumHeight = Height;
+    }
+
+    bool FWindowsApplication::BeginPresentation() {
+        if (!IsRunning()) {
+            return false;
+        }
+
+        if (mPresentationPending) {
+            return true;
+        }
+
+        const BOOL Cloaked{true};
+
+        if (FAILED(DwmSetWindowAttribute(mWindow, DWMWA_CLOAK, &Cloaked, sizeof(Cloaked)))) {
+            return false;
+        }
+
+        mPresentationPending = true;
+        Hide();
+
+        return true;
+    }
+
+    bool FWindowsApplication::RevealAfterFrame(const FFramePresenter& Presenter) {
+        if (!IsRunning() || !mPresentationPending || !Presenter || IsIconic(mWindow)) {
+            return false;
+        }
+
+        const HWND Window{mWindow};
+        Show();
+        RECT Before{};
+
+        if (!GetClientRect(mWindow, &Before) || Before.right == 0 || Before.bottom == 0) {
+            return false;
+        }
+
+        if (!Presenter() || !IsRunning() || mWindow != Window || !mPresentationPending || IsIconic(mWindow) || !IsWindowVisible(mWindow)) {
+            return false;
+        }
+
+        RECT After{};
+
+        if (!GetClientRect(mWindow, &After) || !EqualRect(&Before, &After) || FAILED(DwmFlush())) {
+            return false;
+        }
+
+        const BOOL Cloaked{false};
+
+        if (FAILED(DwmSetWindowAttribute(mWindow, DWMWA_CLOAK, &Cloaked, sizeof(Cloaked)))) {
+            return false;
+        }
+
+        mPresentationPending = false;
+        DwmFlush();
+
+        return true;
+    }
+
+    bool FWindowsApplication::IsPresentationPending() const {
+        return mPresentationPending;
+    }
+
+    bool FWindowsApplication::IsRunning() const {
+        return mRunning && mWindow != nullptr;
+    }
+
+    void FWindowsApplication::WaitForMessages(Core::Uint32 TimeoutMilliseconds) const {
+        MsgWaitForMultipleObjects(0, nullptr, false, TimeoutMilliseconds, QS_ALLINPUT);
     }
 
     /**
@@ -353,28 +508,67 @@ namespace Platform {
         if (Application != nullptr) {
             Application->ProcessInputMessage(Window, Message, WParam, LParam);
 
-            if (Application->mMessageHandler && Application->mMessageHandler(Window, Message, WParam, LParam)) {
-                return 1;
+            if (Message == WM_GETMINMAXINFO && (Application->mMinimumWidth != 0 || Application->mMinimumHeight != 0)) {
+                auto* Info{reinterpret_cast<MINMAXINFO*>(LParam)};
+                const UINT Dpi{GetDpiForWindow(Window)};
+                const float Scale{static_cast<float>(Dpi) / 96.0f};
+                RECT Bounds{0, 0, static_cast<LONG>(std::lround(Application->mMinimumWidth * Scale)), static_cast<LONG>(std::lround(Application->mMinimumHeight * Scale))};
+                AdjustWindowRectExForDpi(&Bounds, static_cast<DWORD>(GetWindowLongPtrW(Window, GWL_STYLE)), false, static_cast<DWORD>(GetWindowLongPtrW(Window, GWL_EXSTYLE)), Dpi);
+
+                if (Application->mMinimumWidth != 0) {
+                    Info->ptMinTrackSize.x = Bounds.right - Bounds.left;
+                }
+
+                if (Application->mMinimumHeight != 0) {
+                    Info->ptMinTrackSize.y = Bounds.bottom - Bounds.top;
+                }
+
+                return 0;
             }
 
             if (Message == WM_SIZE) {
                 Application->mWidth = LOWORD(LParam);
                 Application->mHeight = HIWORD(LParam);
-
-                return 0;
             }
 
-            if (Message == WM_CLOSE) {
-                DestroyWindow(Window);
+            if (Message == WM_WINDOWPOSCHANGED) {
+                RECT Client{};
 
-                return 0;
+                if (IsIconic(Window)) {
+                    Application->mWidth = 0;
+                    Application->mHeight = 0;
+                } else if (GetClientRect(Window, &Client)) {
+                    Application->mWidth = static_cast<Core::Uint32>(Client.right);
+                    Application->mHeight = static_cast<Core::Uint32>(Client.bottom);
+                }
             }
 
             if (Message == WM_DESTROY) {
                 Application->mRunning = false;
                 Application->mWindow = nullptr;
+                Application->mPresentationPending = false;
+
+                const FMessageHandler Handler{Application->mMessageHandler};
+
+                if (Handler) {
+                    Handler(Window, Message, WParam, LParam);
+                }
 
                 PostQuitMessage(0);
+
+                return 0;
+            }
+
+            if (Application->mMessageHandler && Application->mMessageHandler(Window, Message, WParam, LParam)) {
+                return 1;
+            }
+
+            if (Message == WM_SIZE) {
+                return 0;
+            }
+
+            if (Message == WM_CLOSE) {
+                DestroyWindow(Window);
 
                 return 0;
             }

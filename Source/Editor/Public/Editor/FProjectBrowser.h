@@ -14,6 +14,9 @@
 #include <array>
 #include <filesystem>
 #include <vector>
+#include <wrl/client.h>
+
+struct ID3D11ShaderResourceView;
 
 namespace Platform {
     class FWindowsApplication;
@@ -29,12 +32,21 @@ namespace Editor {
      * @brief 프로젝트 열기·생성 및 최근 프로젝트 선택 UI를 처리합니다.
      */
     class FProjectBrowser {
+    private:
+
+        struct FProjectPreview {
+            std::filesystem::path mFile{};
+            Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mTexture{};
+        };
+
     public:
 
         /**
          * @brief 전달된 설정과 기본값으로 FProjectBrowser 객체를 생성합니다.
          */
         FProjectBrowser();
+
+        ~FProjectBrowser();
 
     public:
 
@@ -71,7 +83,7 @@ namespace Editor {
          * @brief 기존 프로젝트 열기 UI를 표시합니다.
          * @param[in] Platform 창과 플랫폼 입력을 제공하는 객체입니다.
          */
-        void DrawOpenProject(Platform::FWindowsApplication& Platform);
+        void DrawOpenProject(Platform::FWindowsApplication& Platform, void* Device);
 
         /**
          * @brief 프로젝트 이름과 폴더를 지정하는 생성 UI를 표시합니다.
@@ -96,6 +108,12 @@ namespace Editor {
          * @return 조건을 만족하면 true입니다.
          */
         bool IsProjectNameValid() const;
+
+        void LoadBranding(void* Device);
+        ID3D11ShaderResourceView* GetProjectPreview(const std::filesystem::path& File, void* Device);
+        void DrawSidebar();
+        void DrawFooter(Platform::FWindowsApplication& Platform, const Core::FString& Error);
+        Core::FString GetCreationError() const;
 
     private:
 
@@ -124,6 +142,10 @@ namespace Editor {
          */
         std::array<char, 4096> mLocation{};
 
+        std::array<char, 256> mSearch{};
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mMascot{};
+        std::vector<FProjectPreview> mPreviews{};
+
         /**
          * @brief 최근 사용한 프로젝트 경로 목록입니다.
          */
@@ -143,6 +165,7 @@ namespace Editor {
          * @brief 프로젝트 선택 완료 여부입니다.
          */
         bool mSubmitted{};
+        bool mCancelled{};
     };
 
 }

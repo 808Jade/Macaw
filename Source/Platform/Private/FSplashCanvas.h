@@ -110,7 +110,7 @@ namespace Platform {
         bool LoadMacawIcon(Core::Int32 Size);
 
         /**
-         * @brief 아이콘을 쌍선형 보간으로 표본화합니다.
+         * @brief 아이콘의 원본 픽셀을 유지하며 표본화합니다.
          * @param[in] U 가로 정규화 좌표입니다.
          * @param[in] V 세로 정규화 좌표입니다.
          * @return 미리 곱한 알파의 RGBA 값입니다.

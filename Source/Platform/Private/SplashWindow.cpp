@@ -23,12 +23,12 @@ namespace Platform {
         /**
          * @brief 스플래시 레이아웃 기준 너비입니다.
          */
-        constexpr Core::Int32 LogicalWidth{640};
+        constexpr Core::Int32 LogicalWidth{900};
 
         /**
          * @brief 스플래시 레이아웃 기준 높이입니다.
          */
-        constexpr Core::Int32 LogicalHeight{360};
+        constexpr Core::Int32 LogicalHeight{500};
 
         /**
          * @brief 애니메이션 타이머의 밀리초 간격입니다.
@@ -56,7 +56,8 @@ namespace Platform {
             }
 
             const Core::Int32 Length{MultiByteToWideChar(CP_UTF8, 0, Text.data(), static_cast<Core::Int32>(Text.size()), nullptr, 0)};
-            std::wstring Result(static_cast<std::size_t>(std::max(Length, 0)), L'\0');
+            std::wstring Result{};
+            Result.resize(static_cast<std::size_t>(std::max(Length, 0)), L'\0');
             MultiByteToWideChar(CP_UTF8, 0, Text.data(), static_cast<Core::Int32>(Text.size()), Result.data(), Length);
 
             return Result;
@@ -138,6 +139,9 @@ namespace Platform {
 
         mFinishRequested = true;
         mProgress = 1.0f;
+        mStage = L"Opening editor...";
+        mAction.clear();
+        mFile.clear();
         mSignal.wait(Lock, [this]() {
             return mFinished;
         });
@@ -230,7 +234,7 @@ namespace Platform {
             const float Scale{static_cast<float>(GetDpiForWindow(Window)) / 96.0f};
             const Core::Int32 Width{static_cast<Core::Int32>(std::lround(LogicalWidth * Scale))};
             const Core::Int32 Height{static_cast<Core::Int32>(std::lround(LogicalHeight * Scale))};
-            const DWM_WINDOW_CORNER_PREFERENCE Corners{DWMWCP_ROUND};
+            const DWM_WINDOW_CORNER_PREFERENCE Corners{DWMWCP_DONOTROUND};
 
             DwmSetWindowAttribute(Window, DWMWA_WINDOW_CORNER_PREFERENCE, &Corners, sizeof(Corners));
             SetWindowPos(Window, nullptr, CenterX - Width / 2, CenterY - Height / 2, Width, Height, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -296,10 +300,6 @@ namespace Platform {
                 }
             }
 
-            if (!Shown) {
-                ShowWindow(Window, SW_SHOWNORMAL);
-            }
-
             const HDC Surface{GetDC(Window)};
 
             Canvas.Draw(Surface, Stage, Action, File, Displayed, std::chrono::duration<float>(Now - Start).count());
@@ -307,6 +307,7 @@ namespace Platform {
             ValidateRect(Window, nullptr);
 
             if (!Shown) {
+                ShowWindow(Window, SW_SHOWNORMAL);
                 Shown = true;
 
                 const std::lock_guard Lock{mMutex};

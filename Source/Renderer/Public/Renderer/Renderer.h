@@ -181,6 +181,8 @@ namespace Renderer {
          */
         void Present() override;
 
+        bool PresentFrame();
+
         /**
          * @brief 렌더 타깃의 최종 컬러를 스왑 체인 백 버퍼에 복사합니다.
          * @param[in] Target 복사할 렌더러 소유 렌더 타깃입니다.

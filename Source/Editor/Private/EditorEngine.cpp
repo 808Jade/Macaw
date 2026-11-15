@@ -141,9 +141,9 @@ namespace Editor {
     /**
      * @brief UI 입력, 월드 실행과 렌더 동기화를 순서대로 진행합니다.
      */
-    void Editor::UEditorEngine::TickFrame(float DeltaTime) {
+    bool Editor::UEditorEngine::TickFrame(float DeltaTime) {
         if (IsDispatching()) {
-            return;
+            return false;
         }
 
         mPlaySession.Update();
@@ -155,9 +155,7 @@ namespace Editor {
         mPlaySession.Update();
         SynchronizeWorld();
 
-        if (HasUI) {
-            mUI->EndFrame(DeltaTime);
-        }
+        return HasUI && mUI->EndFrame(DeltaTime);
     }
 
     /**

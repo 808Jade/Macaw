@@ -111,7 +111,7 @@ namespace Editor {
          * @param[in] DeltaTime 통계에 표시할 프레임 시간입니다.
          * @note BeginFrame() 이후 엔진 갱신과 월드 렌더 동기화를 수행한 뒤 호출합니다.
          */
-        void EndFrame(float DeltaTime);
+        bool EndFrame(float DeltaTime);
 
         /**
          * @brief 에디터에서 프로그램 종료를 요청했는지 검사합니다.

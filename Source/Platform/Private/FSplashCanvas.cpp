@@ -38,16 +38,6 @@ namespace Platform {
         constexpr FColor White{1.0f, 1.0f, 1.0f};
 
         /**
-         * @brief 스플래시 배경 위쪽 RGB 색상입니다.
-         */
-        constexpr FColor TopBackground{0.075f, 0.09f, 0.13f};
-
-        /**
-         * @brief 스플래시 배경 아래쪽 RGB 색상입니다.
-         */
-        constexpr FColor BottomBackground{0.035f, 0.042f, 0.065f};
-
-        /**
          * @brief 두 RGB 색상을 선형 보간합니다.
          * @param[in] A 첫 번째 피연산자 또는 시작 색상입니다.
          * @param[in] B 두 번째 피연산자 또는 끝 색상입니다.
@@ -195,11 +185,11 @@ namespace Platform {
         SetBkMode(mDC, TRANSPARENT);
 
         mHasPretendard = LoadFonts();
-        mTitleFont = MakeFont(52.0f, FW_BOLD);
+        mTitleFont = MakeFont(76.0f, FW_BOLD);
         mCaptionFont = MakeFont(11.0f, FW_SEMIBOLD);
-        mProjectFont = MakeFont(24.0f, FW_SEMIBOLD);
-        mStageFont = MakeFont(14.0f, FW_SEMIBOLD);
-        mDetailFont = MakeFont(12.0f, FW_NORMAL);
+        mProjectFont = MakeFont(28.0f, FW_SEMIBOLD);
+        mStageFont = MakeFont(13.0f, FW_SEMIBOLD);
+        mDetailFont = MakeFont(11.0f, FW_NORMAL);
 
         ComposeBackground(ProjectName);
 
@@ -214,10 +204,10 @@ namespace Platform {
         std::copy(mBackground.begin(), mBackground.end(), mBits);
         DrawProgress(Progress, Time);
 
-        const Core::Int32 Left{Pixels(40.0f)};
-        const Core::Int32 Right{mWidth - Pixels(40.0f)};
-        const Core::Int32 StageTop{mHeight - Pixels(84.0f)};
-        const Core::Int32 DetailTop{mHeight - Pixels(60.0f)};
+        const Core::Int32 Left{Pixels(44.0f)};
+        const Core::Int32 Right{mWidth - Pixels(44.0f)};
+        const Core::Int32 StageTop{mHeight - Pixels(88.0f)};
+        const Core::Int32 DetailTop{mHeight - Pixels(62.0f)};
         const std::wstring Percent{std::to_wstring(static_cast<Core::Int32>(Progress * 100.0f + 0.5f)) + L"%"};
 
         SelectObject(mDC, mStageFont);
@@ -307,7 +297,8 @@ namespace Platform {
         }
 
         ICONINFO Info{};
-        std::vector<Core::Uint32> Raw(static_cast<std::size_t>(Size * Size));
+        std::vector<Core::Uint32> Raw{};
+        Raw.resize(static_cast<std::size_t>(Size * Size));
         bool Loaded{};
 
         if (GetIconInfo(Icon, &Info)) {
@@ -343,132 +334,117 @@ namespace Platform {
         return true;
     }
 
-    /**
-     * @brief 아이콘을 쌍선형 보간으로 표본화합니다.
-     */
     std::array<float, 4> Platform::FSplashCanvas::SampleIcon(float U, float V) const {
-        const float Last{static_cast<float>(mIconSize - 1)};
-        const float X{std::clamp(U * static_cast<float>(mIconSize) - 0.5f, 0.0f, Last)};
-        const float Y{std::clamp(V * static_cast<float>(mIconSize) - 0.5f, 0.0f, Last)};
-        const Core::Int32 X0{static_cast<Core::Int32>(X)};
-        const Core::Int32 Y0{static_cast<Core::Int32>(Y)};
-        const Core::Int32 X1{std::min(X0 + 1, mIconSize - 1)};
-        const Core::Int32 Y1{std::min(Y0 + 1, mIconSize - 1)};
-        const float TX{X - static_cast<float>(X0)};
-        const float TY{Y - static_cast<float>(Y0)};
-        std::array<float, 4> Result{};
+        const Core::Int32 X{std::clamp(static_cast<Core::Int32>(U * mIconSize), 0, mIconSize - 1)};
+        const Core::Int32 Y{std::clamp(static_cast<Core::Int32>(V * mIconSize), 0, mIconSize - 1)};
+        const Core::Index_t Offset{static_cast<Core::Index_t>((Y * mIconSize + X) * 4)};
 
-        for (Core::Index_t Channel{}; Channel < 4; ++Channel) {
-            const auto At{[&](Core::Int32 PX, Core::Int32 PY) {
-                return mIconPixels[static_cast<std::size_t>((PY * mIconSize + PX) * 4 + Channel)];
-            }};
-
-            const float Top{At(X0, Y0) + (At(X1, Y0) - At(X0, Y0)) * TX};
-            const float Bottom{At(X0, Y1) + (At(X1, Y1) - At(X0, Y1)) * TX};
-
-            Result[Channel] = Top + (Bottom - Top) * TY;
-        }
-
-        return Result;
+        return {mIconPixels[Offset], mIconPixels[Offset + 1], mIconPixels[Offset + 2], mIconPixels[Offset + 3]};
     }
 
-    /**
-     * @brief 그라데이션, 빛번짐, 아이콘과 고정 글자를 배경 버퍼에 합성합니다.
-     */
     void Platform::FSplashCanvas::ComposeBackground(const std::wstring& ProjectName) {
-        const bool HasIcon{LoadMacawIcon(256)};
+        const bool HasIcon{LoadMacawIcon(128)};
         const float Width{static_cast<float>(mWidth)};
         const float Height{static_cast<float>(mHeight)};
-        const float IconSize{196.0f * mScale};
-        const float IconCenterX{Width - 150.0f * mScale};
-        const float IconCenterY{148.0f * mScale};
-        const float IconLeft{IconCenterX - IconSize * 0.5f};
-        const float IconTop{IconCenterY - IconSize * 0.5f};
-        const Core::Int32 FooterTop{mHeight - Pixels(104.0f)};
-        const Core::Int32 AccentHeight{std::max(Pixels(3.0f), 2)};
+        const float IconSize{352.0f * mScale};
+        const float IconLeft{506.0f * mScale};
+        const float IconTop{16.0f * mScale};
+        const Core::Int32 FooterTop{mHeight - Pixels(112.0f)};
+        const FColor BackgroundTop{0.065f, 0.075f, 0.090f};
+        const FColor BackgroundBottom{0.035f, 0.042f, 0.052f};
 
-        for (Core::Index_t Y{}; Y < mHeight; ++Y) {
+        for (Core::Int32 Y{}; Y < mHeight; ++Y) {
             const float FY{static_cast<float>(Y) + 0.5f};
+            const float LogicalY{FY / mScale};
 
-            for (Core::Index_t X{}; X < mWidth; ++X) {
+            for (Core::Int32 X{}; X < mWidth; ++X) {
                 const float FX{static_cast<float>(X) + 0.5f};
-                FColor Color{Lerp(TopBackground, BottomBackground, FY / Height)};
+                const float LogicalX{FX / mScale};
+                FColor Color{Lerp(BackgroundTop, BackgroundBottom, FY / Height)};
+                Color = Add(Color, MacawBlue, 0.16f * Glow(FX, FY, Width * 0.80f, Height * 0.33f, 430.0f * mScale));
+                Color = Add(Color, MacawRed, 0.028f * Glow(FX, FY, Width * 0.63f, Height * 0.18f, 290.0f * mScale));
+                const float Sweep{LogicalX - 490.0f - 0.0013f * (LogicalY - 140.0f) * (LogicalY - 140.0f) + LogicalY * 0.46f};
+                const float Band{std::fmod(std::max(Sweep, 0.0f), 73.0f)};
 
-                Color = Add(Color, MacawRed, 0.22f * Glow(FX, FY, IconCenterX, IconCenterY, 230.0f * mScale));
-                Color = Add(Color, MacawBlue, 0.14f * Glow(FX, FY, 0.08f * Width, 1.08f * Height, 380.0f * mScale));
+                if (Sweep > 0.0f && LogicalX > 470.0f && Y < FooterTop) {
+                    const float Edge{std::max(0.0f, 1.0f - Band / 2.5f)};
+                    const float Fade{std::clamp((LogicalX - 470.0f) / 320.0f, 0.0f, 1.0f)};
+                    Color = Add(Color, MacawBlue, (0.018f + Edge * 0.055f) * Fade);
+                }
 
                 if (HasIcon && FX >= IconLeft && FX < IconLeft + IconSize && FY >= IconTop && FY < IconTop + IconSize) {
                     const std::array<float, 4> Sample{SampleIcon((FX - IconLeft) / IconSize, (FY - IconTop) / IconSize)};
                     const float Inverse{1.0f - Sample[3]};
-
                     Color = {Sample[0] + Color[0] * Inverse, Sample[1] + Color[1] * Inverse, Sample[2] + Color[2] * Inverse};
                 }
 
                 if (Y >= FooterTop) {
-                    Color = Lerp(Color, BottomBackground, 0.55f);
+                    Color = {0.048f, 0.052f, 0.062f};
                 }
 
                 if (Y == FooterTop) {
-                    Color = Lerp(Color, White, 0.07f);
+                    Color = {0.15f, 0.17f, 0.20f};
                 }
 
-                if (Y < AccentHeight) {
-                    Color = Lerp(MacawRed, MacawBlue, FX / Width);
+                if (X == 0 || Y == 0 || X == mWidth - 1 || Y == mHeight - 1) {
+                    Color = {0.19f, 0.21f, 0.24f};
                 }
 
-                mBits[Y * mWidth + X] = Pack(Color, Dither(X, Y));
+                mBits[static_cast<std::size_t>(Y) * mWidth + X] = Pack(Color, Dither(X, Y));
             }
         }
 
-        const Core::Int32 Left{Pixels(40.0f)};
-        const Core::Int32 TextRight{static_cast<Core::Int32>(IconLeft) - Pixels(12.0f)};
-
+        const Core::Int32 Left{Pixels(44.0f)};
+        const Core::Int32 TextRight{Pixels(512.0f)};
+        const HBRUSH RedBrush{CreateSolidBrush(RGB(240, 75, 79))};
+        const HBRUSH BlueBrush{CreateSolidBrush(RGB(28, 173, 225))};
+        const RECT RedMark{Left, Pixels(43.0f), Left + Pixels(22.0f), Pixels(46.0f)};
+        const RECT BlueMark{Left + Pixels(25.0f), Pixels(43.0f), Left + Pixels(47.0f), Pixels(46.0f)};
+        FillRect(mDC, &RedMark, RedBrush);
+        FillRect(mDC, &BlueMark, BlueBrush);
+        DeleteObject(RedBrush);
+        DeleteObject(BlueBrush);
+        SelectObject(mDC, mCaptionFont);
+        SetTextCharacterExtra(mDC, Pixels(2.0f));
+        DrawLine(L"MACAW ENGINE", {Left, Pixels(62.0f), TextRight, Pixels(82.0f)}, 0xA7B2C0, 0);
+        SetTextCharacterExtra(mDC, 0);
+        DrawLine(L"EDITOR", {Pixels(746.0f), Pixels(37.0f), mWidth - Left, Pixels(58.0f)}, 0x8192A5, DT_RIGHT);
         SelectObject(mDC, mTitleFont);
-        SetTextCharacterExtra(mDC, Pixels(6.0f));
-        DrawLine(L"MACAW", {Left - Pixels(2.0f), Pixels(44.0f), TextRight, Pixels(116.0f)}, 0xFFFFFF, 0);
-
+        SetTextCharacterExtra(mDC, Pixels(2.0f));
+        DrawLine(L"MACAW", {Left - Pixels(4.0f), Pixels(106.0f), TextRight, Pixels(201.0f)}, 0xF4F6F8, 0);
         SelectObject(mDC, mCaptionFont);
         SetTextCharacterExtra(mDC, Pixels(3.0f));
-
-        //DrawLine(L"GAME ENGINE  \x00B7  EDITOR", {Left, Pixels(114.0f), TextRight, Pixels(134.0f)}, 0x8C96A8, 0);
-        DrawLine(L"PROJECT", {Left, Pixels(170.0f), TextRight, Pixels(188.0f)}, 0x5F6A7E, 0);
-
+        DrawLine(L"PROJECT", {Left, Pixels(270.0f), TextRight, Pixels(291.0f)}, 0x7B8B9E, 0);
         SelectObject(mDC, mProjectFont);
         SetTextCharacterExtra(mDC, 0);
-        DrawLine(ProjectName, {Left, Pixels(188.0f), TextRight, Pixels(224.0f)}, 0xFFFFFF, DT_END_ELLIPSIS);
-
+        DrawLine(ProjectName, {Left, Pixels(300.0f), TextRight, Pixels(344.0f)}, 0xEFF3F7, DT_END_ELLIPSIS);
         GdiFlush();
         mBackground.assign(mBits, mBits + static_cast<std::size_t>(mWidth) * static_cast<std::size_t>(mHeight));
     }
 
-    /**
-     * @brief 프레임 버퍼에 진행 막대와 반짝임을 그립니다.
-     */
     void Platform::FSplashCanvas::DrawProgress(float Progress, float Time) {
-        const Core::Int32 Left{Pixels(40.0f)};
-        const Core::Int32 Right{mWidth - Pixels(40.0f)};
-        const Core::Int32 Top{mHeight - Pixels(32.0f)};
-        const Core::Int32 Thickness{std::max(Pixels(4.0f), 2)};
+        const Core::Int32 Left{Pixels(44.0f)};
+        const Core::Int32 Right{mWidth - Pixels(44.0f)};
+        const Core::Int32 Top{mHeight - Pixels(27.0f)};
+        const Core::Int32 Thickness{std::max(Pixels(3.0f), 2)};
         const float Span{static_cast<float>(Right - Left)};
         const float Filled{static_cast<float>(Left) + Span * std::clamp(Progress, 0.0f, 1.0f)};
-        const float ShimmerWidth{110.0f * mScale};
-        const float ShimmerCenter{static_cast<float>(Left) - ShimmerWidth + std::fmod(Time * 320.0f * mScale, Span + ShimmerWidth * 2.0f)};
+        const float ShimmerWidth{140.0f * mScale};
+        const float ShimmerCenter{static_cast<float>(Left) - ShimmerWidth + std::fmod(Time * 270.0f * mScale, Span + ShimmerWidth * 2.0f)};
+        const FColor Cyan{0.13f, 0.63f, 0.85f};
 
-        for (Core::Index_t Y{static_cast<Core::Index_t>(Top)}; Y < Top + Thickness; ++Y) {
-            for (Core::Index_t X{static_cast<Core::Index_t>(Left)}; X < Right; ++X) {
+        for (Core::Int32 Y{Top}; Y < Top + Thickness; ++Y) {
+            for (Core::Int32 X{Left}; X < Right; ++X) {
                 const float FX{static_cast<float>(X) + 0.5f};
-                Core::Uint32& Pixel{mBits[Y * mWidth + X]};
+                Core::Uint32& Pixel{mBits[static_cast<std::size_t>(Y) * mWidth + X]};
 
                 if (FX < Filled) {
                     const float Shimmer{std::max(0.0f, 1.0f - std::abs(FX - ShimmerCenter) / ShimmerWidth)};
-                    const FColor Fill{Lerp(MacawRed, MacawBlue, (FX - static_cast<float>(Left)) / Span)};
-
-                    Pixel = Pack(Lerp(Fill, White, 0.45f * Shimmer * Shimmer));
+                    Pixel = Pack(Lerp(Cyan, White, 0.35f * Shimmer * Shimmer));
                 } else {
-                    Pixel = Pack(Lerp(Unpack(Pixel), White, 0.08f));
+                    Pixel = 0x292E37;
                 }
             }
         }
     }
-
 }

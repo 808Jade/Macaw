@@ -15,7 +15,6 @@
 #include "Platform/SplashWindow.h"
 
 #include <array>
-#include <dwmapi.h>
 
 namespace App {
 
@@ -37,7 +36,7 @@ namespace App {
      * @brief 창과 렌더러·에디터를 초기화하고 종료 요청까지 프레임 루프를 실행합니다.
      */
     int App::FApplication::Run() {
-        if (!mPlatform.Create(L"Macaw", 1440, 900)) {
+        if (!mPlatform.Create(L"Macaw", 1440, 900, false)) {
             Core::ErrorHandler::Fatal("Application", "Window creation failed");
         }
 
@@ -59,7 +58,7 @@ namespace App {
 
         while (mPlatform.PumpMessages() && !mEngine.WantsExit()) {
             if (mPlatform.IsMinimized()) {
-                MsgWaitForMultipleObjects(0, nullptr, false, 16, QS_ALLINPUT);
+                mPlatform.WaitForMessages(16);
 
                 continue;
             }
@@ -67,8 +66,9 @@ namespace App {
             {
                 const Core::FScopedStatFrame StatFrame{};
 
-                mEngine.TickFrame(mTimer.Tick());
-                mRenderer.Present();
+                if (mEngine.TickFrame(mTimer.Tick())) {
+                    mRenderer.Present();
+                }
             }
 
             if (mBrowseProjects) {
@@ -76,6 +76,11 @@ namespace App {
 
                 mPendingProject.clear();
                 mBrowseProjects = false;
+
+                if (!mPlatform.BeginPresentation()) {
+                    break;
+                }
+
                 mEngine.Shutdown();
                 mRenderer.Shutdown();
                 mEngine.SetProject(nullptr);
@@ -111,7 +116,7 @@ namespace App {
         Editor::FProjectBrowser Browser{};
         Core::FString Error{};
 
-        while (Browser.Show(mPlatform, mRenderer, Path, Create, mTemplatesDirectory, mTemplateDirectory, Error)) {
+        while (mPlatform.IsRunning() && Browser.Show(mPlatform, mRenderer, Path, Create, mTemplatesDirectory, mTemplateDirectory, Error)) {
             if (OpenProject(Path, Create, Error)) {
                 return true;
             }
@@ -124,40 +129,59 @@ namespace App {
      * @brief 메인 창 대신 스플래시 창을 띄운 채 프로젝트를 불러오고, 끝나면 메인 창을 다시 표시합니다.
      */
     bool App::FApplication::OpenProject(const std::filesystem::path& Path, bool Create, Core::FString& Error) {
-        const HWND Window{mPlatform.GetWindowHandle()};
         Platform::FSplashWindow Splash{};
 
-        Splash.Show(Window, Path.stem().wstring(), Path.parent_path());
-        ShowWindow(Window, SW_HIDE);
+        Splash.Show(mPlatform.GetWindowHandle(), Path.stem().wstring(), Path.parent_path());
+
+        if (!mPlatform.BeginPresentation()) {
+            Error = "Cannot hide the editor window during project loading.";
+            Splash.Close();
+
+            return false;
+        }
+
         Core::LoadingStatus::SetSink(&Splash);
 
         const bool Loaded{LoadProject(Path, Create, Error)};
-
-        // 언리얼 에디터처럼 프로젝트를 연 뒤에는 에디터 창을 최대화하여 표시합니다.
-        ShowWindow(Window, Loaded ? SW_SHOWMAXIMIZED : SW_SHOW);
+        bool FrameReady{};
 
         if (Loaded) {
-            if (mPlatform.PumpMessages() && !mPlatform.IsMinimized()) {
-                {
+            mPlatform.SetMinimumClientSize(0, 0);
+            mPlatform.Maximize();
+
+            if (mPlatform.PumpMessages() && !mPlatform.IsMinimized() && !mEngine.WantsExit()) {
+                FrameReady = mPlatform.RevealAfterFrame([this, &Splash]() {
                     const Core::FScopedStatFrame StatFrame{};
 
-                    mEngine.TickFrame(mTimer.Tick());
-                    mRenderer.Present();
-                }
+                    if (!mEngine.TickFrame(mTimer.Tick()) || !mRenderer.PresentFrame()) {
+                        return false;
+                    }
 
-                DwmFlush();
+                    Splash.Finish();
+
+                    return true;
+                });
             }
 
-            Splash.Finish();
+            if (!FrameReady) {
+                Error = "Cannot prepare the first editor frame.";
+                mEngine.Shutdown();
+                mRenderer.Shutdown();
+                mEngine.SetProject(nullptr);
+                mProject.reset();
+            }
         }
 
         Core::LoadingStatus::SetSink(nullptr);
         Splash.Close();
-        SetForegroundWindow(Window);
-        SetFocus(Window);
+
+        if (FrameReady) {
+            mPlatform.Activate();
+        }
+
         mTimer.Tick();
 
-        return Loaded;
+        return FrameReady;
     }
 
     /**
@@ -195,7 +219,7 @@ namespace App {
         const std::u8string Name{reinterpret_cast<const char8_t*>(mProject->GetName().data()), mProject->GetName().size()};
         const std::wstring Title{L"Macaw - " + std::filesystem::path{Name}.wstring()};
 
-        SetWindowTextW(mPlatform.GetWindowHandle(), Title.c_str());
+        mPlatform.SetTitle(Title);
         Editor::FProjectBrowser::RememberProject(mProject->GetFilePath());
         mTimer.Tick();
 

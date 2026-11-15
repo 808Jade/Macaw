@@ -26,6 +26,8 @@
  */
 #define MacawSplashBoldFontResource 203
 
+#define MacawBrandResource 204
+
 /**
  * @brief 일반 파일 콘텐츠 아이콘의 Windows 리소스 ID입니다.
  */
