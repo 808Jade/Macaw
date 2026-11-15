@@ -326,7 +326,6 @@ namespace Editor {
 
         Draw->AddText(ImGui::GetFont(), 27.0f * Scale, {Origin.x + 89.0f * Scale, Origin.y + 15.0f * Scale}, White, "MACAW");
         Draw->AddText(ImGui::GetFont(), 11.0f * Scale, {Origin.x + 91.0f * Scale, Origin.y + 46.0f * Scale}, Muted, "G A M E   E N G I N E");
-        Draw->AddText(ImGui::GetFont(), 15.0f * Scale, {Origin.x + Size.x - 176.0f * Scale, Origin.y + 29.0f * Scale}, Muted, "Project Browser");
         DrawSidebar();
         const float FooterHeight{mCreatePage ? 146.0f * Scale : 112.0f * Scale};
         ImGui::SetCursorPos({256.0f * Scale, 94.0f * Scale});
