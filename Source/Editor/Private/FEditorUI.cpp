@@ -785,14 +785,14 @@ namespace Editor {
 
 
         ImGui::SetNextWindowClass(&MajorTabs);
-        ImGui::SetNextWindowDockID(Root, ImGuiCond_Always);
+        ImGui::SetNextWindowDockID(Root, ImGuiCond_Once);
 
         if (mPendingContentFocus == 2) {
             ImGui::SetNextWindowFocus();
         }
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
 
-        const bool Visible{ImGui::Begin(Title.c_str(), nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)};
+        const bool Visible{ImGui::Begin(Title.c_str(), nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)};
 
         ImGui::PopStyleVar();
         Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::World, IM_COL32(255, 170, 60, 255));
