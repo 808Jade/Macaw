@@ -9,10 +9,12 @@
 #include "Engine/FSceneViewport.h"
 #include "Engine/FRenderTarget.h"
 #include "ViewportToolbar.h"
+#include "EditorStyle.h"
 #include "Editor/FViewportCommandInfo.h"
 #include "Editor/FAssetDragDrop.h"
 
 #include <imgui.h>
+#include <algorithm>
 #include <utility>
 
 namespace Editor {
@@ -199,7 +201,7 @@ namespace Editor {
     /**
      * @brief 뷰포트 타깃 이미지·툴바를 표시하고 입력과 리사이즈를 전달합니다.
      */
-    void Editor::FEditorViewport::DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput) {
+    void Editor::FEditorViewport::DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput, const std::function<void(Core::Index_t)>& ToolbarExtras) {
         using Core::EKey;
 
         mImageSize = {};
@@ -212,20 +214,64 @@ namespace Editor {
         bool Submitted{};
 
         {
-            if (mPlayClient != nullptr) {
-                ImGui::TextDisabled(mPlayInputCaptured ? "Playing | Shift+F1: Release input | Esc: Stop" : "Playing | Click viewport to control | Esc: Stop");
-            } else {
-                ImGui::BeginDisabled(!AllowInput);
-                Editor::ViewportToolbar::Draw(&mClient);
-                ImGui::EndDisabled();
-            }
-
             const ImVec2 Available{ImGui::GetContentRegionAvail()};
 
             if (Available.x >= 1.0f && Available.y >= 1.0f && mViewport->Resize(static_cast<Core::Uint32>(Available.x), static_cast<Core::Uint32>(Available.y))) {
                 Engine::FRenderTarget* Target{mViewport->GetRenderTarget()};
+                const ImVec2 Start{ImGui::GetCursorScreenPos()};
+                const float Padding{6.0f * ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
+                ImDrawList* Layers{ImGui::GetWindowDrawList()};
+                ImVec2 LeftMinimum{};
+                ImVec2 LeftMaximum{};
+                ImVec2 RightMinimum{};
+                ImVec2 RightMaximum{};
 
+                // 언리얼처럼 툴바를 뷰포트 이미지 위에 겹칩니다. 툴바를 먼저 제출해 입력 우선권을 주고 채널을 나눠 이미지보다 위에 그립니다.
+                Layers->ChannelsSplit(2);
+                Layers->ChannelsSetCurrent(1);
+                ImGui::SetCursorScreenPos(ImVec2{Start.x + Padding, Start.y + Padding});
+
+                if (mPlayClient != nullptr) {
+                    ImGui::TextUnformatted(mPlayInputCaptured ? "Playing | Shift+F1: Release input | Esc: Stop" : "Playing | Click viewport to control | Esc: Stop");
+                } else {
+                    ImGui::BeginDisabled(!AllowInput);
+                    Editor::ViewportToolbar::Draw(&mClient);
+
+                    LeftMinimum = ImGui::GetItemRectMin();
+                    LeftMaximum = ImGui::GetItemRectMax();
+
+                    ImGui::SetCursorScreenPos(ImVec2{std::max(LeftMaximum.x + Padding, Start.x + Available.x - Padding - mRightToolbarWidth), Start.y + Padding});
+                    Editor::EditorStyle::PushViewportToolbar();
+                    ImGui::BeginGroup();
+
+                    if (ToolbarExtras) {
+                        ToolbarExtras(0);
+                        ImGui::SameLine();
+                    }
+
+                    Editor::ViewportToolbar::DrawViewOptions(&mClient);
+
+                    if (ToolbarExtras) {
+                        ImGui::SameLine();
+                        ToolbarExtras(1);
+                    }
+
+                    ImGui::EndGroup();
+                    Editor::EditorStyle::PopViewportToolbar();
+
+                    RightMinimum = ImGui::GetItemRectMin();
+                    RightMaximum = ImGui::GetItemRectMax();
+                    mRightToolbarWidth = RightMaximum.x - RightMinimum.x;
+
+                    ImGui::EndDisabled();
+                }
+
+                Layers->ChannelsSetCurrent(0);
+                ImGui::SetCursorScreenPos(Start);
                 ImGui::Image(ImTextureRef{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Target->GetNativeTexture()))}, Available);
+                Layers->ChannelsMerge();
+
+                const bool OverToolbar{ImGui::IsMouseHoveringRect(LeftMinimum, LeftMaximum) || ImGui::IsMouseHoveringRect(RightMinimum, RightMaximum)};
 
                 const ImVec2 Origin{ImGui::GetItemRectMin()};
 
@@ -233,7 +279,7 @@ namespace Editor {
                 mImageSize = {Available.x, Available.y};
                 mDrawList = ImGui::GetWindowDrawList();
 
-                const bool Hovered{AllowInput && ImGui::IsItemHovered()};
+                const bool Hovered{AllowInput && ImGui::IsItemHovered() && !OverToolbar};
                 const bool LeftPressed{Input.WasPressed(EKey::MouseLeft)};
                 const bool Blocked{!AllowInput || !Input.IsFocused() || ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup)};
 

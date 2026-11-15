@@ -23,6 +23,12 @@ namespace Editor {
          * @note 그리드 설정 메뉴는 열 수 있지만 그리드 기능이 지원되기 전까지 항목은 비활성입니다.
          */
         void Draw(Editor::FEditorViewportClient* Client);
+
+        /**
+         * @brief 뷰 모드·표시 플래그·카메라 설정 드롭다운을 한 줄로 표시합니다.
+         * @param[in] Client 설정을 읽고 변경할 뷰포트 클라이언트입니다.
+         */
+        void DrawViewOptions(Editor::FEditorViewportClient* Client);
     }
 
 }

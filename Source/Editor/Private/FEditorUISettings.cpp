@@ -187,6 +187,8 @@ namespace Editor {
         mThemes = Editor::FImGuiThemeCatalog{};
         mThemeIndex = 0;
         mFontSize = 16.0f;
+        mContentOpen = true;
+        mLayoutVersion = 0;
         mUIScale.SetUserScale(0.0f);
         mSettingsPath = mContext->GetProject()->GetRootPath() / "Saved/EditorSettings.json";
         mSettingsStatus.clear();
@@ -343,6 +345,17 @@ namespace Editor {
         Archive.Serialize("Details", Details);
         Archive.Serialize("Console", Console);
         Archive.Serialize("Statistics", Statistics);
+
+        bool ContentBrowser{mContentOpen};
+        Core::Uint32 LayoutVersion{mLayoutVersion};
+
+        if (!Archive.IsLoading() || Archive.HasField("ContentBrowser")) {
+            Archive.Serialize("ContentBrowser", ContentBrowser);
+        }
+
+        if (!Archive.IsLoading() || Archive.HasField("LayoutVersion")) {
+            Archive.Serialize("LayoutVersion", LayoutVersion);
+        }
         Archive.Serialize("KeyboardNavigation", KeyboardNavigation);
         Archive.Serialize("TitleBarOnly", TitleBarOnly);
         Archive.Serialize("DoubleClickTime", DoubleClickTime);
@@ -361,6 +374,8 @@ namespace Editor {
             mDetailsPanel.SetVisible(Details);
             mConsolePanel.SetVisible(Console);
             mShowStatistics = Statistics;
+            mContentOpen = ContentBrowser;
+            mLayoutVersion = LayoutVersion;
             Input.ConfigFlags = KeyboardNavigation ? Input.ConfigFlags | ImGuiConfigFlags_NavEnableKeyboard : Input.ConfigFlags & ~ImGuiConfigFlags_NavEnableKeyboard;
             Input.ConfigWindowsMoveFromTitleBarOnly = TitleBarOnly;
             Input.MouseDoubleClickTime = std::isfinite(DoubleClickTime) ? std::clamp(DoubleClickTime, 0.1f, 1.0f) : 0.3f;
@@ -383,9 +398,15 @@ namespace Editor {
      * @brief 상단 메뉴에 테마·UI 배율·VSync와 설정 창 열기 항목을 표시합니다.
      */
     void Editor::FEditorUI::DrawSettingsMenu() {
-        if (!ImGui::BeginMenu("Settings")) {
-            return;
+        if (ImGui::MenuItem("Editor Preferences...", "Ctrl+,")) {
+            OpenSettings(0);
         }
+
+        if (ImGui::MenuItem("Project Settings...")) {
+            OpenSettings(5);
+        }
+
+        ImGui::Separator();
 
         if (ImGui::BeginMenu("Theme")) {
             for (Core::Index_t Index{}; Index < mThemes.GetCount(); ++Index) {
@@ -414,14 +435,6 @@ namespace Editor {
         }
 
         ImGui::EndDisabled();
-        ImGui::Separator();
-
-        if (ImGui::MenuItem("Settings...", "Ctrl+,")) {
-            mSettingsOpen = true;
-            mFocusSettings = true;
-        }
-
-        ImGui::EndMenu();
     }
 
     /**

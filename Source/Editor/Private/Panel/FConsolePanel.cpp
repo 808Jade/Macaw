@@ -163,7 +163,7 @@ namespace Editor {
      * @brief FConsolePanel의 초기 상태와 전달받은 의존성을 구성합니다.
      */
     Editor::FConsolePanel::FConsolePanel(Editor::FEditorContext* Context)
-		: Editor::FEditorPanel{Context, "Console", true},
+		: Editor::FEditorPanel{Context, "Output Log###Console", true},
 		  mOutput{std::make_unique<Editor::FConsolePanel::FOutput>()} {
     }
 

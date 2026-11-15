@@ -72,6 +72,11 @@ namespace Editor {
      * @brief 이 파일에서 사용하는 내부 보조 기능과 상태를 묶습니다.
      */
     namespace {
+        // 표시 이름만 언리얼과 맞추고 ### 뒤의 식별자는 유지하여 저장된 배치와 호환합니다.
+        constexpr const char* ContentBrowserName{"      Content Browser###Content"};
+
+        // 메이저 탭끼리만 루트 도킹 영역에 붙도록 구분하는 창 분류 식별자입니다.
+        constexpr ImGuiID MajorTabClass{0x4D414A52};
 
         /**
          * @brief 콘텐츠 종류별 리소스 아이콘, 대체 글리프와 표시 색상입니다.
@@ -212,6 +217,17 @@ namespace Editor {
 
         mPlatform = Platform;
 
+        if (!mTabIconsAssigned) {
+            mPlaceActorsPanel.SetTabIcon(Editor::EditorStyle::EIcon::Add);
+            mOutlinerPanel.SetTabIcon(Editor::EditorStyle::EIcon::Outliner);
+            mDetailsPanel.SetTabIcon(Editor::EditorStyle::EIcon::Details);
+            mConsolePanel.SetTabIcon(Editor::EditorStyle::EIcon::Log);
+            mSequencerPanel.SetTabIcon(Editor::EditorStyle::EIcon::Sequence);
+            mAnimGraphPanel.SetTabIcon(Editor::EditorStyle::EIcon::Component);
+
+            mTabIconsAssigned = true;
+        }
+
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
 
@@ -296,13 +312,17 @@ namespace Editor {
             mContentSearch.fill('\0');
             NavigateContent(Path.parent_path());
             mSelectedContentPath = Path;
-            ImGui::SetWindowFocus("Content");
+            FocusContentBrowser();
         });
         mDetailsPanel.SetScriptBuildService(&mScriptBuilds);
-        mMeshViewer = std::make_unique<Editor::FMeshViewer>(Renderer, mContext->GetProject()->GetAssets());
-        mBlendSpaceEditor = std::make_unique<Editor::FBlendSpaceEditor>(mContext->GetProject()->GetAssets(), mAssetCatalog.get(), mThumbnails.get());
-        mAnimGraphEditor = std::make_unique<Editor::FAnimGraphEditor>(mContext->GetProject()->GetAssets(), mAssetCatalog.get(), mThumbnails.get());
-        mAnimSequenceEditor = std::make_unique<Editor::FAnimSequenceEditor>(Renderer, mContext->GetProject()->GetAssets(), mAssetCatalog.get(), mThumbnails.get());
+        Editor::EditorStyle::SetAssetBrowseHandler([this](const std::filesystem::path& Path) {
+            mContentFilter.reset();
+            mContentSearch.fill('\0');
+            NavigateContent(Path.parent_path());
+            mSelectedContentPath = Path;
+            mContentOpen = true;
+            FocusContentBrowser();
+        });
         mDetailsPanel.SetAnimGraphOpener([this]() {
             mAnimGraphPanel.Open();
         });
@@ -419,13 +439,16 @@ namespace Editor {
         mContentDropBounds.clear();
         mPlaceActorsPanel.ClearIcons();
         mContentIcons.clear();
-        mMeshViewer.reset();
-        mBlendSpaceEditor.reset();
-        mAnimGraphEditor.reset();
-        mAnimSequenceEditor.reset();
+        mMeshViewers.clear();
+        mBlendSpaceEditors.clear();
+        mAnimGraphEditors.clear();
+        mAnimSequenceEditors.clear();
+        mMaterialTabs.clear();
+        mTextureTabs.clear();
         mDetailsPanel.SetAnimGraphOpener({});
         mDetailsPanel.SetAssetServices(nullptr, nullptr);
         mDetailsPanel.SetAssetNavigation({}, {});
+        Editor::EditorStyle::SetAssetBrowseHandler({});
         mThumbnails.reset();
         mAssetCatalog.reset();
         mContentSearch.fill('\0');
@@ -520,12 +543,14 @@ namespace Editor {
             RefreshContent();
         }
 
-        if (mEditingMaterial != nullptr) {
-            mThumbnails->GetMaterialPreview(mEditingMaterial);
+        for (const FMaterialTab& Tab : mMaterialTabs) {
+            if (Asset::UMaterial* Material{Tab.mMaterial.Get()}) {
+                mThumbnails->GetMaterialPreview(Material);
+            }
         }
 
         DrawMenu();
-        DrawEditorToolbar();
+        DrawStatusBar();
         BuildLayout();
 
         Editor::FEditorContext* Inspection{mPlaySession->IsActive() ? mPlaySession->GetInspectionContext() : mContext};
@@ -568,20 +593,35 @@ namespace Editor {
             }
         }
 
-        if (mMeshViewer != nullptr) {
-            mMeshViewer->DrawUI(mPlatform->GetInput());
-        }
+        const auto DrawTabs{[this](auto& Tabs, auto Draw) {
+            for (std::size_t Index{}; Index < Tabs.size();) {
+                BeginMajorTab();
+                Draw(*Tabs[Index].mEditor);
+                EndMajorTab();
 
-        if (mBlendSpaceEditor != nullptr) {
-            mBlendSpaceEditor->Draw();
-        }
+                if (Tabs[Index].mEditor->IsOpen()) {
+                    ++Index;
+                } else {
+                    Tabs.erase(Tabs.begin() + static_cast<std::ptrdiff_t>(Index));
+                }
+            }
+        }};
 
-        if (mAnimGraphEditor != nullptr) {
-            mAnimGraphEditor->Draw();
-        }
+        DrawTabs(mMeshViewers, [this](Editor::FMeshViewer& Viewer) {
+            Viewer.DrawUI(mPlatform->GetInput());
+        });
+        DrawTabs(mBlendSpaceEditors, [](Editor::FBlendSpaceEditor& Editor) {
+            Editor.Draw();
+        });
+        DrawTabs(mAnimGraphEditors, [](Editor::FAnimGraphEditor& Editor) {
+            Editor.Draw();
+        });
+        DrawTabs(mAnimSequenceEditors, [this, DeltaTime](Editor::FAnimSequenceEditor& Editor) {
+            Editor.Draw(DeltaTime, mContext->CanEditWorld());
+        });
 
-        if (mAnimSequenceEditor != nullptr) {
-            mAnimSequenceEditor->Draw(DeltaTime, mContext->CanEditWorld());
+        if (mPendingContentFocus > 0) {
+            --mPendingContentFocus;
         }
 
         mPlaySession->ProcessInput(DeltaTime, !ImGui::GetIO().WantTextInput && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup));
@@ -716,32 +756,123 @@ namespace Editor {
      * @brief 에디터 패널의 초기 ImGui 도킹 레이아웃을 구성합니다.
      */
     void Editor::FEditorUI::BuildLayout() {
-        const ImGuiID Dockspace{ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport())};
+        constexpr Core::Uint32 CurrentLayout{4};
+        const float Scale{mUIScale.GetScale()};
+        const bool Upgrade{mLayoutVersion < CurrentLayout};
 
-        if (ImGui::DockBuilderGetNode(Dockspace) != nullptr && ImGui::DockBuilderGetNode(Dockspace)->ChildNodes[0] == nullptr && ImGui::DockBuilderGetNode(Dockspace)->ChildNodes[1] == nullptr) {
-            ImGui::DockBuilderRemoveNode(Dockspace);
-            ImGui::DockBuilderAddNode(Dockspace, ImGuiDockNodeFlags_DockSpace);
-            ImGui::DockBuilderSetNodeSize(Dockspace, ImGui::GetMainViewport()->WorkSize);
+        // 언리얼의 메이저 탭: 루트 도킹 영역에는 레벨 에디터와 에셋 에디터만 탭으로 붙고, 패널은 레벨 에디터 안쪽 도킹 영역에 붙습니다.
+        ImGuiWindowClass MajorTabs{};
 
-            ImGuiID Center{Dockspace};
-            const ImGuiID Left{ImGui::DockBuilderSplitNode(Center, ImGuiDir_Left, 0.19f, nullptr, &Center)};
-            const ImGuiID Right{ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, 0.32f, nullptr, &Center)};
-            const ImGuiID Bottom{ImGui::DockBuilderSplitNode(Center, ImGuiDir_Down, 0.24f, nullptr, &Center)};
+        MajorTabs.ClassId = MajorTabClass;
+        MajorTabs.DockingAllowUnclassed = false;
+
+        // 언리얼의 탭처럼 닫기·메뉴 버튼이 없는 넉넉한 높이의 탭 표시줄을 사용합니다.
+        constexpr ImGuiDockNodeFlags TabBarFlags{ImGuiDockNodeFlags_NoCloseButton | ImGuiDockNodeFlags_NoWindowMenuButton};
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{12.0f * Scale, 6.0f * Scale});
+
+        const ImGuiID Root{ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), TabBarFlags, &MajorTabs)};
+
+        ImGui::PopStyleVar();
+
+        mRootDock = Root;
+
+        if (Upgrade) {
+            ImGui::DockBuilderRemoveNodeChildNodes(Root);
+        }
+
+        const Core::FString Title{Editor::EditorStyle::TabIconPadding + (mContext->GetScenePath().empty() ? Core::FString{"Untitled"} : Core::FilePath::ToUtf8(mContext->GetScenePath().stem())) + (mContext->IsSceneDirty() ? "*" : "") + "###LevelEditor"};
+
+
+        ImGui::SetNextWindowClass(&MajorTabs);
+        ImGui::SetNextWindowDockID(Root, ImGuiCond_Always);
+
+        if (mPendingContentFocus == 2) {
+            ImGui::SetNextWindowFocus();
+        }
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
+
+        const bool Visible{ImGui::Begin(Title.c_str(), nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)};
+
+        ImGui::PopStyleVar();
+        Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::World, IM_COL32(255, 170, 60, 255));
+
+        const ImGuiID Inner{ImGui::GetID("LevelDockSpace")};
+
+        if (!Visible) {
+            // 다른 메이저 탭이 선택된 동안에도 패널의 도킹 상태를 유지합니다.
+            ImGui::DockSpace(Inner, ImVec2{}, TabBarFlags | ImGuiDockNodeFlags_KeepAliveOnly);
+            ImGui::End();
+
+            return;
+        }
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{0.0f, 2.0f * Scale});
+        DrawEditorToolbar();
+        ImGui::PopStyleVar();
+
+        const ImGuiDockNode* Node{ImGui::DockBuilderGetNode(Inner)};
+
+        if (Upgrade || Node == nullptr || (Node->ChildNodes[0] == nullptr && Node->ChildNodes[1] == nullptr && Node->Windows.Size == 0)) {
+            // 언리얼 에디터의 기본 배치: 가운데 뷰포트, 오른쪽 위 아웃라이너, 오른쪽 아래 디테일, 아래 콘텐츠 브라우저.
+            ImGui::DockBuilderRemoveNode(Inner);
+            ImGui::DockBuilderAddNode(Inner, ImGuiDockNodeFlags_DockSpace);
+            // 창을 키워도 옆 패널은 픽셀 크기를 유지하므로, 비율이 아니라 UI 배율에 맞춘 고정 크기로 나눕니다.
+            const ImVec2 Available{ImGui::GetContentRegionAvail()};
+            const float RightWidth{std::min(400.0f * Scale, Available.x * 0.35f)};
+            const float LeftWidth{std::min(260.0f * Scale, (Available.x - RightWidth) * 0.3f)};
+            const float BottomHeight{std::min(300.0f * Scale, Available.y * 0.4f)};
+
+            ImGui::DockBuilderSetNodeSize(Inner, Available);
+
+            ImGuiID Center{Inner};
+            const ImGuiID Right{ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, RightWidth / std::max(1.0f, Available.x), nullptr, &Center)};
+            const ImGuiID Left{ImGui::DockBuilderSplitNode(Center, ImGuiDir_Left, LeftWidth / std::max(1.0f, Available.x - RightWidth), nullptr, &Center)};
+            const ImGuiID Bottom{ImGui::DockBuilderSplitNode(Center, ImGuiDir_Down, BottomHeight / std::max(1.0f, Available.y), nullptr, &Center)};
 
             ImGuiID Outliner{};
-            const ImGuiID Placement{ImGui::DockBuilderSplitNode(Left, ImGuiDir_Down, 0.55f, nullptr, &Outliner)};
+            const ImGuiID Details{ImGui::DockBuilderSplitNode(Right, ImGuiDir_Down, 0.62f, nullptr, &Outliner)};
 
-            ImGui::DockBuilderDockWindow(mPlaceActorsPanel.GetName().c_str(), Placement);
+            ImGui::DockBuilderDockWindow(mPlaceActorsPanel.GetName().c_str(), Left);
             ImGui::DockBuilderDockWindow(mOutlinerPanel.GetName().c_str(), Outliner);
-            ImGui::DockBuilderDockWindow(mDetailsPanel.GetName().c_str(), Right);
+            ImGui::DockBuilderDockWindow(mDetailsPanel.GetName().c_str(), Details);
             ImGui::DockBuilderDockWindow(mConsolePanel.GetName().c_str(), Bottom);
             ImGui::DockBuilderDockWindow(mSequencerPanel.GetName().c_str(), Bottom);
             ImGui::DockBuilderDockWindow(mAnimGraphPanel.GetName().c_str(), Bottom);
-            ImGui::DockBuilderDockWindow("Content", Bottom);
+            ImGui::DockBuilderDockWindow(ContentBrowserName, Bottom);
             ImGui::DockBuilderDockWindow(mViewport->GetName().c_str(), Center);
 
-            ImGui::DockBuilderFinish(Dockspace);
+            ImGui::DockBuilderFinish(Inner);
+
+            if (Upgrade) {
+                mPlaceActorsPanel.SetVisible(false);
+                mOutlinerPanel.SetVisible(true);
+                mDetailsPanel.SetVisible(true);
+                mContentOpen = true;
+                mLayoutVersion = CurrentLayout;
+                mSettingsDirty = true;
+            }
         }
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{10.0f * Scale, 5.0f * Scale});
+        ImGui::DockSpace(Inner, ImVec2{}, TabBarFlags);
+        ImGui::PopStyleVar();
+        ImGui::End();
+    }
+
+    void Editor::FEditorUI::BeginMajorTab() {
+        ImGuiWindowClass MajorTabs{};
+
+        MajorTabs.ClassId = MajorTabClass;
+        MajorTabs.DockingAllowUnclassed = false;
+
+        ImGui::SetNextWindowClass(&MajorTabs);
+        ImGui::SetNextWindowDockID(mRootDock, ImGuiCond_Appearing);
+    }
+
+    void Editor::FEditorUI::EndMajorTab() {
+        // 에디터가 닫혀 있어 창을 만들지 않았다면 남은 예약이 다음 창에 적용되지 않도록 지웁니다.
+        ImGui::GetCurrentContext()->NextWindowData.ClearFlags();
     }
 
     /**
@@ -754,30 +885,236 @@ namespace Editor {
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{8.0f * Scale, 4.0f * Scale});
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+
+        const float Height{ImGui::GetFrameHeight() + ImGui::GetStyle().WindowPadding.y * 2.0f};
+
+        if (ImGui::BeginChild("##EditorToolbar", ImVec2{0.0f, Height}, ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+            const bool CanEdit{mContext->CanEditWorld()};
+            const auto Divider{[Scale]() {
+                ImGui::SameLine(0.0f, 8.0f * Scale);
+                ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+                ImGui::SameLine(0.0f, 8.0f * Scale);
+            }};
+
+            if (Editor::EditorStyle::IconButton("SaveLevel", Editor::EditorStyle::EIcon::Save, false, CanEdit && !mContext->IsSceneEditActive(), false, "현재 레벨 저장 (Ctrl+S)")) {
+                SaveLevel(false);
+            }
+
+            Divider();
+
+            const Editor::EditorStyle::EIcon AddIcon{Editor::EditorStyle::EIcon::Add};
+
+            if (Editor::EditorStyle::LabelButton("##QuickAdd", &AddIcon, true, CanEdit, "프로젝트에 빠르게 추가")) {
+                ImGui::OpenPopup("QuickAddMenu");
+            }
+
+            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
+
+            if (ImGui::BeginPopup("QuickAddMenu")) {
+                DrawAddMenu();
+                ImGui::EndPopup();
+            }
+
+            ImGui::SameLine(0.0f, 4.0f * Scale);
+
+            const Editor::EditorStyle::EIcon CinematicsIcon{Editor::EditorStyle::EIcon::Sequence};
+
+            if (Editor::EditorStyle::LabelButton("##Cinematics", &CinematicsIcon, true, true, "시네마틱")) {
+                ImGui::OpenPopup("CinematicsMenu");
+            }
+
+            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
+
+            if (ImGui::BeginPopup("CinematicsMenu")) {
+                if (ImGui::MenuItem("Sequencer", nullptr, mSequencerPanel.IsVisible())) {
+                    mSequencerPanel.Open();
+                }
+
+                if (ImGui::MenuItem("Add Level Sequence Actor", nullptr, false, CanEdit)) {
+                    mContext->SpawnActorPreset("LevelSequenceActor");
+                }
+
+                ImGui::EndPopup();
+            }
+
+            Divider();
+            DrawPlayControls();
+
+            if (mPlaySession->IsActive()) {
+                ImGui::SameLine(0.0f, 12.0f * Scale);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("%s", mPlaySession->IsPaused() ? "Paused" : "Playing");
+            }
+
+            const Editor::EditorStyle::EIcon SettingsIcon{Editor::EditorStyle::EIcon::Settings};
+            const float SettingsWidth{ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetFontSize() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize("Settings").x + 12.0f * Scale};
+
+            ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowWidth() - SettingsWidth - ImGui::GetStyle().WindowPadding.x));
+
+            if (Editor::EditorStyle::LabelButton("Settings", &SettingsIcon, true)) {
+                ImGui::OpenPopup("SettingsMenu");
+            }
+
+            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing, ImVec2{1.0f, 0.0f});
+
+            if (ImGui::BeginPopup("SettingsMenu")) {
+                DrawSettingsMenu();
+                ImGui::EndPopup();
+            }
+        }
+
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(3);
+        Editor::EditorStyle::PopViewportToolbar();
+    }
+
+    void Editor::FEditorUI::DrawAddMenu() {
+        ImGui::SeparatorText("Shapes");
+
+        if (ImGui::MenuItem("Cube")) {
+            mContext->SpawnPrimitive(Engine::EPrimitiveType::Cube);
+        }
+
+        if (ImGui::MenuItem("Sphere")) {
+            mContext->SpawnPrimitive(Engine::EPrimitiveType::Sphere);
+        }
+
+        if (ImGui::MenuItem("Plane")) {
+            mContext->SpawnPrimitive(Engine::EPrimitiveType::Plane);
+        }
+
+        ImGui::SeparatorText("Basic");
+
+        if (ImGui::MenuItem("Camera Actor")) {
+            mContext->SpawnCamera();
+        }
+
+        if (ImGui::MenuItem("Text")) {
+            mContext->SpawnText();
+        }
+
+        if (ImGui::MenuItem("Billboard")) {
+            mContext->SpawnBillboard();
+        }
+
+        ImGui::Separator();
+
+        if (ImGui::MenuItem("Place Actors Panel", nullptr, mPlaceActorsPanel.IsVisible())) {
+            mPlaceActorsPanel.Open();
+        }
+
+        if (ImGui::MenuItem("Import Content...", nullptr, false, mContext->GetProject() != nullptr)) {
+            ImportAsset();
+        }
+    }
+
+    void Editor::FEditorUI::SaveLevel(bool SaveAs) {
+        const auto Path{SaveAs || mContext->GetScenePath().empty() ? ChooseFile(true) : mContext->GetScenePath()};
+
+        if (!Path.empty()) {
+            mContext->SaveScene(Path);
+            mRefreshContent = true;
+        }
+    }
+
+    void Editor::FEditorUI::OpenLevel() {
+        const auto Path{ChooseFile(false)};
+
+        if (!Path.empty() && ConfirmSceneChange()) {
+            mContext->LoadScene(Path);
+        }
+    }
+
+    void Editor::FEditorUI::FocusContentBrowser() {
+        // 레벨 탭을 먼저 앞으로 가져온 다음 프레임에 콘텐츠 브라우저에 포커스를 줍니다.
+        mContentOpen = true;
+        mPendingContentFocus = 3;
+    }
+
+    void Editor::FEditorUI::OpenSettings(Core::Index_t Section) {
+        mSettingsSection = Section;
+        mSettingsOpen = true;
+        mFocusSettings = true;
+    }
+
+    void Editor::FEditorUI::DrawStatusBar() {
+        const float Scale{mUIScale.GetScale()};
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{6.0f * Scale, 3.0f * Scale});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{6.0f * Scale, 2.0f * Scale});
         ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{0.0f, 0.0f, 0.0f, 0.0f});
 
         const float Height{ImGui::GetFrameHeight() + ImGui::GetStyle().WindowPadding.y * 2.0f};
         const ImGuiWindowFlags Flags{ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoFocusOnAppearing};
 
-        if (ImGui::BeginViewportSideBar("##EditorToolbar", ImGui::GetMainViewport(), ImGuiDir_Up, Height, Flags)) {
-            DrawPlayControls();
-            ImGui::SameLine(0.0f, 12.0f);
-            ImGui::AlignTextToFramePadding();
-            ImGui::TextDisabled("%s%s%s", mPlaySession->IsActive() ? mPlaySession->IsPaused() ? "[Paused] " : "[Playing] " : "", mContext->GetScenePath().empty() ? "Untitled" : Core::FilePath::ToUtf8(mContext->GetScenePath().filename()).c_str(), mContext->IsSceneDirty() ? " *" : "");
+        if (ImGui::BeginViewportSideBar("##EditorStatusBar", ImGui::GetMainViewport(), ImGuiDir_Down, Height, Flags)) {
+            const Editor::EditorStyle::EIcon FolderIcon{Editor::EditorStyle::EIcon::Folder};
+            const Editor::EditorStyle::EIcon LogIcon{Editor::EditorStyle::EIcon::Log};
 
-            if (mScriptBuilds.IsBuilding()) {
-                ImGui::SameLine(0.0f, 16.0f);
-                ImGui::TextDisabled("C# 빌드 중...");
-            } else if (mScriptBuilds.HasCompileErrors()) {
-                ImGui::SameLine(0.0f, 16.0f);
-                ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "C# 컴파일 오류: 콘솔을 확인하세요");
+            if (Editor::EditorStyle::LabelButton("Content Drawer", &FolderIcon, false, true, "콘텐츠 브라우저 열기 (Ctrl+Space)")) {
+                mContentOpen = true;
+
+                FocusContentBrowser();
+            }
+
+            ImGui::SameLine(0.0f, 4.0f * Scale);
+
+            if (Editor::EditorStyle::LabelButton("Output Log", &LogIcon, false, true, "출력 로그 열기")) {
+                mConsolePanel.Open();
+            }
+
+            ImGui::SameLine(0.0f, 10.0f * Scale);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("Cmd");
+            ImGui::SameLine(0.0f, 6.0f * Scale);
+            ImGui::SetNextItemWidth(300.0f * Scale);
+
+            if (ImGui::InputTextWithHint("##StatusCommand", "Enter Console Command", mStatusCommand.data(), mStatusCommand.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                const Core::FString Command{mStatusCommand.data()};
+
+                if (Command.find_first_not_of(" \t") != Core::FString::npos) {
+                    mContext->ExecuteConsoleCommand(Command);
+                }
+
+                mStatusCommand.fill('\0');
+                ImGui::SetKeyboardFocusHere(-1);
+            }
+
+            const bool Dirty{mContext->IsSceneDirty()};
+            const bool BuildFailed{!mScriptBuilds.IsBuilding() && mScriptBuilds.HasCompileErrors()};
+            const char* Build{mScriptBuilds.IsBuilding() ? "C# 빌드 중..." : BuildFailed ? "C# 컴파일 오류: 출력 로그를 확인하세요" : ""};
+            const char* Saved{Dirty ? "1 Unsaved" : "All Saved"};
+            const float RightWidth{ImGui::CalcTextSize(Saved).x + (Build[0] != '\0' ? ImGui::CalcTextSize(Build).x + 16.0f * Scale : 0.0f)};
+
+            ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowWidth() - RightWidth - ImGui::GetStyle().WindowPadding.x - 4.0f * Scale));
+            ImGui::AlignTextToFramePadding();
+
+            if (Build[0] != '\0') {
+                if (BuildFailed) {
+                    ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "%s", Build);
+                } else {
+                    ImGui::TextDisabled("%s", Build);
+                }
+
+                ImGui::SameLine(0.0f, 16.0f * Scale);
+            }
+
+            if (Dirty) {
+                ImGui::TextColored({1.0f, 0.72f, 0.0f, 1.0f}, "%s", Saved);
+            } else {
+                ImGui::TextDisabled("%s", Saved);
             }
         }
 
         ImGui::End();
-        ImGui::PopStyleColor();
-        ImGui::PopStyleVar(2);
-        Editor::EditorStyle::PopViewportToolbar();
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(4);
     }
 
     /**
@@ -817,31 +1154,40 @@ namespace Editor {
     void Editor::FEditorUI::DrawPlayControls() {
         ImGui::PushID("PIEControls");
 
+        const float Scale{mUIScale.GetScale()};
         const bool Active{mPlaySession->IsActive()};
         const bool Paused{mPlaySession->IsPaused()};
         const bool CanStart{!Active && mViewportLayout.CanChangeLayout() && mPlaySession->CanStart()};
-        const char* PlayTooltip{Active ? "중지 (Esc)" : mPlayPending ? "C# 빌드를 기다리는 중 (클릭하면 취소)" : CanStart ? "플레이 (Alt+P)" : "플레이하려면 활성 월드 카메라가 있고 에디터가 다른 작업 중이 아니어야 합니다"};
 
-        if (Editor::EditorStyle::IconButton("PlayStop", Active ? Editor::EditorStyle::EIcon::Stop : Editor::EditorStyle::EIcon::Play, mPlayPending, Active || CanStart, false, PlayTooltip)) {
-            if (Active) {
-                mPlaySession->Stop();
-            } else if (mPlayPending) {
-                mPlayPending = false;
-            } else {
-                RequestPlay();
+        // 언리얼과 같이 재생 중에는 첫 버튼이 일시 정지로 바뀌고, 정지 버튼은 항상 같은 자리에 둡니다.
+        if (Active && !Paused) {
+            if (Editor::EditorStyle::IconButton("Pause", Editor::EditorStyle::EIcon::Pause, false, true, false, "일시 정지")) {
+                mPlaySession->SetPaused(true);
+            }
+        } else {
+            const char* PlayTooltip{Paused ? "재개" : mPlayPending ? "C# 빌드를 기다리는 중 (클릭하면 취소)" : CanStart ? "플레이 (Alt+P)" : "플레이하려면 활성 월드 카메라가 있고 에디터가 다른 작업 중이 아니어야 합니다"};
+
+            if (Editor::EditorStyle::IconButton("Play", Editor::EditorStyle::EIcon::Play, mPlayPending, Paused || CanStart || mPlayPending, false, PlayTooltip)) {
+                if (Paused) {
+                    mPlaySession->SetPaused(false);
+                } else if (mPlayPending) {
+                    mPlayPending = false;
+                } else {
+                    RequestPlay();
+                }
             }
         }
 
-        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::SameLine(0.0f, 2.0f * Scale);
 
-        if (Editor::EditorStyle::IconButton("PauseResume", Paused ? Editor::EditorStyle::EIcon::Play : Editor::EditorStyle::EIcon::Pause, Paused, Active, false, Paused ? "재개" : "일시 정지")) {
-            mPlaySession->SetPaused(!Paused);
+        if (Editor::EditorStyle::IconButton("Step", Editor::EditorStyle::EIcon::Step, false, Active && Paused, false, "한 프레임 진행")) {
+            mPlaySession->Step();
         }
 
-        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::SameLine(0.0f, 2.0f * Scale);
 
-        if (Editor::EditorStyle::IconButton("Step", Editor::EditorStyle::EIcon::Step, false, Active && Paused, false, "1틱 진행")) {
-            mPlaySession->Step();
+        if (Editor::EditorStyle::IconButton("Stop", Editor::EditorStyle::EIcon::Stop, false, Active, false, "중지 (Esc)")) {
+            mPlaySession->Stop();
         }
 
         ImGui::PopID();
@@ -853,53 +1199,31 @@ namespace Editor {
     void Editor::FEditorUI::DrawMenu() {
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("File")) {
+                const bool CanSave{!mContext->IsSceneEditActive()};
+
                 ImGui::BeginDisabled(!mContext->CanEditWorld());
 
-                if (ImGui::MenuItem("New Project...")) {
-                    ChooseProject(true);
-                }
-
-                if (ImGui::MenuItem("Open Project...")) {
-                    ChooseProject(false);
-                }
-
-                ImGui::Separator();
-
-                if (ImGui::MenuItem("New Scene", "Ctrl+N")) {
+                if (ImGui::MenuItem("New Level", "Ctrl+N")) {
                     if (ConfirmSceneChange()) {
                         mContext->NewScene();
                     }
                 }
 
-                if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) {
-                    const auto Path{ChooseFile(false)};
-
-                    if (!Path.empty() && ConfirmSceneChange()) {
-                        mContext->LoadScene(Path);
-                    }
+                if (ImGui::MenuItem("Open Level...", "Ctrl+O")) {
+                    OpenLevel();
                 }
 
-                const bool CanSave{!mContext->IsSceneEditActive()};
+                ImGui::Separator();
 
-                if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, CanSave)) {
-                    const auto Path{mContext->GetScenePath().empty() ? ChooseFile(true) : mContext->GetScenePath()};
-
-                    if (!Path.empty()) {
-                        mContext->SaveScene(Path);
-                        mRefreshContent = true;
-                    }
+                if (ImGui::MenuItem("Save Current Level", "Ctrl+S", false, CanSave)) {
+                    SaveLevel(false);
                 }
 
-                if (ImGui::MenuItem("Save Scene As...", nullptr, false, CanSave)) {
-                    const auto Path{ChooseFile(true)};
-
-                    if (!Path.empty()) {
-                        mContext->SaveScene(Path);
-                        mRefreshContent = true;
-                    }
+                if (ImGui::MenuItem("Save Current Level As...", "Ctrl+Alt+S", false, CanSave)) {
+                    SaveLevel(true);
                 }
 
-                if (ImGui::MenuItem("Set Current Scene as Startup", nullptr, false, CanSave && !mContext->GetScenePath().empty())) {
+                if (ImGui::MenuItem("Set Current Level as Startup", nullptr, false, CanSave && !mContext->GetScenePath().empty())) {
                     Core::FString Error{};
 
                     if (!mContext->SaveScene(mContext->GetScenePath()) || !mContext->GetProject()->SetStartupScene(mContext->GetScenePath(), Error)) {
@@ -909,7 +1233,21 @@ namespace Editor {
 
                 ImGui::Separator();
 
-                if (ImGui::MenuItem("Export Game...", nullptr, false, mContext->GetProject() != nullptr)) {
+                if (ImGui::MenuItem("Import Into Level...", nullptr, false, mContext->GetProject() != nullptr)) {
+                    ImportAsset();
+                }
+
+                ImGui::Separator();
+
+                if (ImGui::MenuItem("New Project...")) {
+                    ChooseProject(true);
+                }
+
+                if (ImGui::MenuItem("Open Project...")) {
+                    ChooseProject(false);
+                }
+
+                if (ImGui::MenuItem("Package Project...", nullptr, false, mContext->GetProject() != nullptr)) {
                     ExportGame();
                 }
 
@@ -928,23 +1266,52 @@ namespace Editor {
                     mContext->Undo();
                 }
 
-                if (ImGui::MenuItem("Redo", "Ctrl+Y / Ctrl+Shift+Z", false, mContext->CanRedo())) {
+                if (ImGui::MenuItem("Redo", "Ctrl+Y", false, mContext->CanRedo())) {
                     mContext->Redo();
+                }
+
+                ImGui::Separator();
+
+                if (ImGui::MenuItem("Editor Preferences...", "Ctrl+,")) {
+                    OpenSettings(0);
+                }
+
+                if (ImGui::MenuItem("Project Settings...")) {
+                    OpenSettings(5);
                 }
 
                 ImGui::EndMenu();
             }
 
-            if (ImGui::BeginMenu("View")) {
-                ImGui::MenuItem("Statistics", nullptr, &mShowStatistics);
+            if (ImGui::BeginMenu("Window")) {
+                const auto PanelItem{[](const char* Label, Editor::FEditorPanel& Panel) {
+                    if (ImGui::MenuItem(Label, nullptr, Panel.IsVisible())) {
+                        if (Panel.IsVisible()) {
+                            Panel.SetVisible(false);
+                        } else {
+                            Panel.Open();
+                        }
+                    }
+                }};
 
-                if (ImGui::MenuItem("Anim Graph", nullptr, mAnimGraphPanel.IsVisible())) {
-                    if (mAnimGraphPanel.IsVisible()) {
-                        mAnimGraphPanel.SetVisible(false);
-                    } else {
-                        mAnimGraphPanel.Open();
+                PanelItem("Place Actors", mPlaceActorsPanel);
+                PanelItem("Outliner", mOutlinerPanel);
+                PanelItem("Details", mDetailsPanel);
+
+                if (ImGui::MenuItem("Content Browser", "Ctrl+Space", mContentOpen)) {
+                    mContentOpen = !mContentOpen;
+
+                    if (mContentOpen) {
+                        FocusContentBrowser();
                     }
                 }
+
+                ImGui::Separator();
+                PanelItem("Sequencer", mSequencerPanel);
+                PanelItem("Anim Graph", mAnimGraphPanel);
+                ImGui::Separator();
+                PanelItem("Output Log", mConsolePanel);
+                ImGui::MenuItem("Statistics", nullptr, &mShowStatistics);
 
                 if (ImGui::BeginMenu("Stat Overlay")) {
                     Editor::FViewportStatistics* Statistics{GetActiveViewport()->GetStatistics()};
@@ -960,15 +1327,27 @@ namespace Editor {
                     ImGui::EndMenu();
                 }
 
+                ImGui::Separator();
+
+                if (ImGui::BeginMenu("Load Layout")) {
+                    if (ImGui::MenuItem("Default Editor Layout")) {
+                        mLayoutVersion = 0;
+                    }
+
+                    ImGui::EndMenu();
+                }
+
                 ImGui::EndMenu();
             }
 
-            if (ImGui::BeginMenu("Scripts", mContext->GetProject() != nullptr)) {
-                if (ImGui::MenuItem("C# 프로젝트 열기")) {
+            if (ImGui::BeginMenu("Tools", mContext->GetProject() != nullptr)) {
+                ImGui::SeparatorText("Programming");
+
+                if (ImGui::MenuItem("Open C# Project")) {
                     mScriptBuilds.OpenProject();
                 }
 
-                if (ImGui::MenuItem("스크립트 빌드", nullptr, false, mScriptBuilds.HasProject() && !mScriptBuilds.IsBuilding())) {
+                if (ImGui::MenuItem("Compile Scripts", nullptr, false, mScriptBuilds.HasProject() && !mScriptBuilds.IsBuilding())) {
                     mScriptBuilds.Rebuild();
                 }
 
@@ -978,7 +1357,10 @@ namespace Editor {
                 ImGui::EndMenu();
             }
 
-            DrawSettingsMenu();
+            const Core::FString& Project{mContext->GetProject()->GetName()};
+
+            ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowWidth() - ImGui::CalcTextSize(Project.c_str()).x - ImGui::GetStyle().WindowPadding.x * 2.0f));
+            ImGui::TextDisabled("%s", Project.c_str());
             ImGui::EndMainMenuBar();
         }
 
@@ -986,9 +1368,14 @@ namespace Editor {
 
         const Core::FInput& Input{mPlatform->GetInput()};
 
-        if (Input.IsDown(EKey::Control) && !ImGui::GetIO().WantTextInput && Input.WasPressed(EKey::Comma)) {
-            mSettingsOpen = true;
-            mFocusSettings = true;
+        if (Input.IsDown(EKey::Control) && !ImGui::GetIO().WantTextInput) {
+            if (Input.WasPressed(EKey::Comma)) {
+                OpenSettings(0);
+            } else if (Input.WasPressed(EKey::Space)) {
+                mContentOpen = true;
+
+                FocusContentBrowser();
+            }
         }
 
         if (!ImGui::GetIO().WantTextInput && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup)) {
@@ -1000,6 +1387,12 @@ namespace Editor {
         }
 
         if (Input.IsDown(EKey::Control) && !ImGui::GetIO().WantTextInput && mContext->CanEditWorld()) {
+            const auto AnyFocused{[](const auto& Tabs) {
+                return std::any_of(Tabs.begin(), Tabs.end(), [](const auto& Tab) {
+                    return Tab.mEditor->IsFocused();
+                });
+            }};
+            const bool AssetEditorFocused{AnyFocused(mAnimGraphEditors) || AnyFocused(mBlendSpaceEditors) || AnyFocused(mAnimSequenceEditors)};
             const ImGuiWindow* Focused{ImGui::GetCurrentContext()->NavWindow};
             const ImGuiWindow* Root{Focused != nullptr ? Focused->RootWindow : nullptr};
             const bool SceneFocused{Root != nullptr && (Root == ImGui::FindWindowByName(mViewport->GetName().c_str()) || Root == ImGui::FindWindowByName(mOutlinerPanel.GetName().c_str()) || Root == ImGui::FindWindowByName(mDetailsPanel.GetName().c_str()) || Root == ImGui::FindWindowByName(mPlaceActorsPanel.GetName().c_str()))};
@@ -1012,19 +1405,10 @@ namespace Editor {
                 }
             }
 
-            if (Input.WasPressed(EKey::S) && (mAnimGraphEditor == nullptr || !mAnimGraphEditor->IsFocused()) && (mBlendSpaceEditor == nullptr || !mBlendSpaceEditor->IsFocused()) && (mAnimSequenceEditor == nullptr || !mAnimSequenceEditor->IsFocused())) {
-                const auto Path{mContext->GetScenePath().empty() ? ChooseFile(true) : mContext->GetScenePath()};
-
-                if (!Path.empty()) {
-                    mContext->SaveScene(Path);
-                    mRefreshContent = true;
-                }
+            if (Input.WasPressed(EKey::S) && !AssetEditorFocused) {
+                SaveLevel(Input.IsDown(EKey::Alt));
             } else if (Input.WasPressed(EKey::O)) {
-                const auto Path{ChooseFile(false)};
-
-                if (!Path.empty() && ConfirmSceneChange()) {
-                    mContext->LoadScene(Path);
-                }
+                OpenLevel();
             } else if (Input.WasPressed(EKey::N)) {
                 if (ConfirmSceneChange()) {
                     mContext->NewScene();
@@ -1378,7 +1762,7 @@ namespace Editor {
         }
 
         const ImVec2 Position{static_cast<float>(Point.x), static_cast<float>(Point.y)};
-        ImGuiWindow* Browser{ImGui::FindWindowByName("Content")};
+        ImGuiWindow* Browser{ImGui::FindWindowByName(ContentBrowserName)};
         ImGuiWindow* Hovered{};
 
         for (Core::Index_t Index{static_cast<Core::Index_t>(Context->Windows.Size)}; Index > 0; --Index) {
@@ -1474,7 +1858,19 @@ namespace Editor {
         mContentDropDirectories.clear();
         mContentDropBounds.clear();
 
-        if (ImGui::Begin("Content")) {
+        if (!mContentOpen) {
+            return;
+        }
+
+        if (mPendingContentFocus == 1) {
+            ImGui::SetNextWindowFocus();
+        }
+
+        const bool ContentExpanded{ImGui::Begin(ContentBrowserName, &mContentOpen)};
+
+        Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Folder);
+
+        if (ContentExpanded) {
             const ImVec2 Minimum{ImGui::GetWindowPos()};
             const ImVec2 Size{ImGui::GetWindowSize()};
 
@@ -1661,7 +2057,7 @@ namespace Editor {
             return "지금 열려 있는 씬입니다. 다른 씬을 연 뒤에 다시 시도하세요.";
         }
 
-        if (mEditingMaterial != nullptr && Contains(mMaterialPath)) {
+        if (std::any_of(mMaterialTabs.begin(), mMaterialTabs.end(), [&Contains](const FMaterialTab& Tab) { return Contains(Tab.mPath); })) {
             return "편집 중인 머티리얼입니다. 머티리얼 편집기를 닫은 뒤에 다시 시도하세요.";
         }
 
@@ -1811,20 +2207,20 @@ namespace Editor {
             mContext->GetProject()->GetParticleSystems()->RetireAssets(Absolute);
             mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
 
-            if (mMeshViewer != nullptr) {
-                mMeshViewer->CloseRetired(Absolute);
+            for (auto& Tab : mMeshViewers) {
+                Tab.mEditor->CloseRetired(Absolute);
             }
 
-            if (mBlendSpaceEditor != nullptr) {
-                mBlendSpaceEditor->CloseRetired(Absolute);
+            for (auto& Tab : mBlendSpaceEditors) {
+                Tab.mEditor->CloseRetired(Absolute);
             }
 
-            if (mAnimGraphEditor != nullptr) {
-                mAnimGraphEditor->CloseRetired(Absolute);
+            for (auto& Tab : mAnimGraphEditors) {
+                Tab.mEditor->CloseRetired(Absolute);
             }
 
-            if (mAnimSequenceEditor != nullptr) {
-                mAnimSequenceEditor->CloseRetired(Absolute);
+            for (auto& Tab : mAnimSequenceEditors) {
+                Tab.mEditor->CloseRetired(Absolute);
             }
 
             mSelectedContentPath = mContentActionTarget.parent_path() / NewFile;
@@ -1875,20 +2271,20 @@ namespace Editor {
             mContext->GetProject()->GetParticleSystems()->RetireAssets(Absolute);
             mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
 
-            if (mMeshViewer != nullptr) {
-                mMeshViewer->CloseRetired(Absolute);
+            for (auto& Tab : mMeshViewers) {
+                Tab.mEditor->CloseRetired(Absolute);
             }
 
-            if (mBlendSpaceEditor != nullptr) {
-                mBlendSpaceEditor->CloseRetired(Absolute);
+            for (auto& Tab : mBlendSpaceEditors) {
+                Tab.mEditor->CloseRetired(Absolute);
             }
 
-            if (mAnimGraphEditor != nullptr) {
-                mAnimGraphEditor->CloseRetired(Absolute);
+            for (auto& Tab : mAnimGraphEditors) {
+                Tab.mEditor->CloseRetired(Absolute);
             }
 
-            if (mAnimSequenceEditor != nullptr) {
-                mAnimSequenceEditor->CloseRetired(Absolute);
+            for (auto& Tab : mAnimSequenceEditors) {
+                Tab.mEditor->CloseRetired(Absolute);
             }
 
             mRefreshContent = true;
@@ -2058,7 +2454,71 @@ namespace Editor {
      * @brief 선택한 텍스처의 미리보기 창을 그립니다.
      */
     void Editor::FEditorUI::DrawTexturePreview() {
+        for (std::size_t Index{}; Index < mTextureTabs.size();) {
+            FTextureTab& Tab{mTextureTabs[Index]};
+
+            mPreviewTexture = Tab.mTexture;
+            mPreviewTexturePath = Tab.mPath;
+            mTextureViewer = std::move(Tab.mViewer);
+            mFocusTexturePreview = Tab.mFocus;
+
+            BeginMajorTab();
+            DrawTextureTab();
+            EndMajorTab();
+
+            if (mPreviewTexture == nullptr) {
+                mTextureTabs.erase(mTextureTabs.begin() + static_cast<std::ptrdiff_t>(Index));
+            } else {
+                Tab.mViewer = std::move(mTextureViewer);
+                Tab.mFocus = mFocusTexturePreview;
+                ++Index;
+            }
+        }
+
+        mPreviewTexture = nullptr;
+        mTextureViewer.reset();
+        mPreviewTexturePath.clear();
+        mFocusTexturePreview = false;
+    }
+
+    void Editor::FEditorUI::DrawMaterialEditor() {
+        for (std::size_t Index{}; Index < mMaterialTabs.size();) {
+            FMaterialTab& Tab{mMaterialTabs[Index]};
+
+            mEditingMaterial = Tab.mMaterial;
+            mMaterialPath = Tab.mPath;
+            mMaterialError = Tab.mError;
+            mMaterialDirty = Tab.mDirty;
+
+            if (Tab.mFocus) {
+                ImGui::SetNextWindowFocus();
+
+                Tab.mFocus = false;
+            }
+
+            BeginMajorTab();
+            DrawMaterialTab();
+            EndMajorTab();
+
+            if (mEditingMaterial == nullptr) {
+                mMaterialTabs.erase(mMaterialTabs.begin() + static_cast<std::ptrdiff_t>(Index));
+            } else {
+                Tab.mError = mMaterialError;
+                Tab.mDirty = mMaterialDirty;
+                ++Index;
+            }
+        }
+
+        mEditingMaterial = nullptr;
+        mMaterialPath.clear();
+        mMaterialError.clear();
+        mMaterialDirty = false;
+    }
+
+    void Editor::FEditorUI::DrawTextureTab() {
         if (mPreviewTexture == nullptr || !mPreviewTexture->HasResources()) {
+            mPreviewTexture = nullptr;
+
             return;
         }
 
@@ -2074,7 +2534,14 @@ namespace Editor {
             mFocusTexturePreview = false;
         }
 
-        if (ImGui::Begin("Texture Preview", &Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+        const Core::FString Title{Editor::EditorStyle::TabIconPadding + Core::FilePath::ToUtf8(mPreviewTexturePath.stem()) + "###Texture Preview:" + Core::FilePath::ToGenericUtf8(mPreviewTexturePath)};
+
+        const bool Expanded{ImGui::Begin(Title.c_str(), &Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)};
+
+        Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Sprite, IM_COL32(220, 80, 80, 255));
+
+        if (Expanded) {
+            Editor::EditorStyle::AssetToolbar(mPreviewTexturePath, false, false);
             ImGui::TextUnformatted(Core::FilePath::ToGenericUtf8(mPreviewTexturePath).c_str());
             ImGui::Text("Size: %u x %u", mPreviewTexture->GetSizeX(), mPreviewTexture->GetSizeY());
             ImGui::Separator();
@@ -2466,69 +2933,111 @@ namespace Editor {
      * @brief 종류에 맞게 선택 에셋을 열거나 액터 배치에 사용합니다.
      */
     void Editor::FEditorUI::OpenContentAsset(const std::filesystem::path& Path, Asset::EAssetType Type) {
+        const Core::FString Key{Core::FilePath::ToGenericUtf8(Path)};
+        Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
+
+        // 같은 에셋이 이미 탭으로 열려 있으면 그 탭을 앞으로 가져오고, 아니면 새 탭을 만듭니다.
+        const auto OpenTab{[this, &Key, &Path](auto& Tabs, const char* Prefix, const char* Failure, auto Create) {
+            for (auto& Tab : Tabs) {
+                if (Tab.mKey == Key && Tab.mEditor->IsOpen()) {
+                    ImGui::SetWindowFocus(Tab.mEditor->GetWindowId().c_str());
+
+                    return static_cast<decltype(Tab.mEditor.get())>(nullptr);
+                }
+            }
+
+            Core::FString Error{};
+            auto Editor{Create()};
+
+            Editor->SetWindowId(Core::FString{Prefix} + Key);
+
+            if (!Editor->Open(Path, Error)) {
+                mContext->AddLog(Error.empty() ? Failure : Error);
+
+                return static_cast<decltype(Editor.get())>(nullptr);
+            }
+
+            Tabs.push_back({Key, std::move(Editor)});
+
+            return Tabs.back().mEditor.get();
+        }};
+
         if (Type == Asset::EAssetType::Scene) {
             if (ConfirmSceneChange()) {
                 mContext->LoadScene(Path);
             }
         } else if (Type == Asset::EAssetType::Mesh || Type == Asset::EAssetType::SkeletalMesh) {
-            Core::FString Error{};
-
-            if (mMeshViewer != nullptr && !mMeshViewer->Open(Path, Error)) {
-                mContext->AddLog(Error);
-            }
+            OpenTab(mMeshViewers, "###Mesh Viewer:", "Cannot open the mesh", [this, Assets]() {
+                return std::make_unique<Editor::FMeshViewer>(mContext->GetRenderer(), Assets);
+            });
         } else if (Type == Asset::EAssetType::Material) {
-            if (!ConfirmMaterialChange()) {
-                return;
+            for (FMaterialTab& Tab : mMaterialTabs) {
+                if (Tab.mPath == Path) {
+                    Tab.mFocus = true;
+
+                    return;
+                }
             }
 
-            Asset::UMaterial* Material{mContext->GetProject()->GetAssets()->LoadMaterial(Path, mMaterialError)};
+            Core::FString Error{};
+            Asset::UMaterial* Material{Assets->LoadMaterial(Path, Error)};
 
             if (Material != nullptr) {
-                mEditingMaterial = Material;
-                mMaterialPath = Path;
-                mMaterialDirty = false;
+                FMaterialTab Tab{};
+
+                Tab.mMaterial = Material;
+                Tab.mPath = Path;
+                Tab.mFocus = true;
+
+                mMaterialTabs.push_back(std::move(Tab));
             } else {
-                mContext->AddLog(mMaterialError);
+                mContext->AddLog(Error);
             }
         } else if (Type == Asset::EAssetType::Texture) {
+            for (FTextureTab& Tab : mTextureTabs) {
+                if (Tab.mPath == Path) {
+                    Tab.mFocus = true;
+
+                    return;
+                }
+            }
+
             Core::FString Error{};
-            Asset::UTexture2D* Texture{mContext->GetProject()->GetAssets()->LoadTexture(Path, Error)};
+            Asset::UTexture2D* Texture{Assets->LoadTexture(Path, Error)};
 
             if (Texture != nullptr && Texture->CreateResources(static_cast<ID3D11Device*>(mContext->GetRenderer()->GetNativeDevice()))) {
-                mTextureViewer.reset();
-                mPreviewTexture = Texture;
-                mPreviewTexturePath = Path;
-                mFocusTexturePreview = true;
+                FTextureTab Tab{};
+
+                Tab.mTexture = Texture;
+                Tab.mPath = Path;
+                Tab.mFocus = true;
+
+                mTextureTabs.push_back(std::move(Tab));
                 mContext->AddLog("Loaded " + Core::FilePath::ToUtf8(Path));
             } else {
                 mContext->AddLog(Error.empty() ? "Cannot preview the texture" : Error);
             }
         } else if (Type == Asset::EAssetType::AnimGraph) {
-            Core::FString Error{};
-
-            if (mAnimGraphEditor != nullptr && !mAnimGraphEditor->Open(Path, Error)) {
-                mContext->AddLog(Error.empty() ? "Cannot open the anim graph" : Error);
-            }
+            OpenTab(mAnimGraphEditors, "###AnimGraphEditor:", "Cannot open the anim graph", [this, Assets]() {
+                return std::make_unique<Editor::FAnimGraphEditor>(Assets, mAssetCatalog.get(), mThumbnails.get());
+            });
         } else if (Type == Asset::EAssetType::BlendSpace) {
-            Core::FString Error{};
+            OpenTab(mBlendSpaceEditors, "###BlendSpaceEditor:", "Cannot open the blend space", [this, Assets]() {
+                return std::make_unique<Editor::FBlendSpaceEditor>(Assets, mAssetCatalog.get(), mThumbnails.get());
+            });
+        } else if (Type == Asset::EAssetType::AnimSequence) {
+            Editor::FAnimSequenceEditor* Opened{OpenTab(mAnimSequenceEditors, "###AnimSequenceEditor:", "Cannot open the animation sequence", [this, Assets]() {
+                return std::make_unique<Editor::FAnimSequenceEditor>(mContext->GetRenderer(), Assets, mAssetCatalog.get(), mThumbnails.get());
+            })};
 
-            if (mBlendSpaceEditor != nullptr && !mBlendSpaceEditor->Open(Path, Error)) {
-                mContext->AddLog(Error.empty() ? "Cannot open the blend space" : Error);
-            }
-        } else if (Type == Asset::EAssetType::AnimSequence && mAnimSequenceEditor != nullptr) {
-            Core::FString Error{};
-            const bool WasOpen{mAnimSequenceEditor->IsOpen()};
-
-            if (!mAnimSequenceEditor->Open(Path, Error)) {
-                mContext->AddLog(Error.empty() ? "Cannot open the animation sequence" : Error);
-            } else if (!WasOpen) {
+            if (Opened != nullptr) {
                 Core::FString PreviewMesh{};
                 Core::FString PreviewSkeleton{};
                 Engine::AActor* Actor{mContext->GetSelectedActor()};
                 auto* Component{Actor != nullptr ? CoreUObject::Cast<Engine::USkeletalMeshComponent>(Actor->GetRootComponent()) : nullptr};
 
                 if (Component != nullptr && !mThumbnails->GetAnimationPreview(Path, PreviewMesh, PreviewSkeleton)) {
-                    mAnimSequenceEditor->SetPreviewMesh(Component->GetMeshPath(), Component->GetSkeletonPath());
+                    Opened->SetPreviewMesh(Component->GetMeshPath(), Component->GetSkeletonPath());
                 }
             }
         }
@@ -2706,7 +3215,7 @@ namespace Editor {
     /**
      * @brief 편집 중인 머티리얼의 프로퍼티와 저장 상태를 표시합니다.
      */
-    void Editor::FEditorUI::DrawMaterialEditor() {
+    void Editor::FEditorUI::DrawMaterialTab() {
         if (mEditingMaterial == nullptr) {
             return;
         }
@@ -2715,7 +3224,17 @@ namespace Editor {
 
         ImGui::SetNextWindowSize({560.0f, 700.0f}, ImGuiCond_FirstUseEver);
 
-        if (ImGui::Begin(mMaterialDirty ? "Material Editor*###MaterialEditor" : "Material Editor###MaterialEditor", &Open)) {
+        const Core::FString Title{Editor::EditorStyle::TabIconPadding + Core::FilePath::ToUtf8(mMaterialPath.stem()) + (mMaterialDirty ? "*" : "") + "###MaterialEditor:" + Core::FilePath::ToGenericUtf8(mMaterialPath)};
+
+        const bool Expanded{ImGui::Begin(Title.c_str(), &Open)};
+
+        Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Material, IM_COL32(64, 192, 64, 255));
+
+        if (Expanded) {
+            if (Editor::EditorStyle::AssetToolbar(mMaterialPath, mMaterialDirty && mContext->CanEditWorld())) {
+                SaveMaterial();
+            }
+
             ImGui::TextUnformatted(Core::FilePath::ToGenericUtf8(mMaterialPath).c_str());
 
             if (void* Preview{mThumbnails->GetMaterialPreview(mEditingMaterial)}) {
@@ -2723,12 +3242,6 @@ namespace Editor {
             }
 
             ImGui::BeginDisabled(!mContext->CanEditWorld());
-
-            if (ImGui::Button("Save")) {
-                SaveMaterial();
-            }
-
-            ImGui::SameLine();
 
             if (ImGui::Button("Reload") && ConfirmMaterialChange()) {
                 mContext->GetProject()->GetAssets()->ReloadMaterial(mMaterialPath, mMaterialError);

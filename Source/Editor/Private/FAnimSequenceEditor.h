@@ -99,6 +99,17 @@ namespace Editor {
          */
         bool IsFocused() const;
 
+        /**
+         * @brief 이 에디터 창의 ImGui 식별자를 지정하여 같은 종류의 에디터를 여러 탭으로 열 수 있게 합니다.
+         * @param[in] Id ###로 시작하는 창 식별자입니다.
+         */
+        void SetWindowId(Core::FString Id);
+
+        /**
+         * @brief 이 에디터 창의 ImGui 식별자를 반환합니다.
+         */
+        const Core::FString& GetWindowId() const;
+
     private:
 
         /**
@@ -210,6 +221,11 @@ namespace Editor {
          * @brief 현재 편집 중인 에셋 파일 경로입니다.
          */
         std::filesystem::path mPath{};
+
+        /**
+         * @brief 이 에디터 창의 ImGui 식별자입니다.
+         */
+        Core::FString mWindowId{"###AnimSequenceEditor"};
 
         /**
          * @brief 변경 처리 확인 후 열 에셋 경로입니다.

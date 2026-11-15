@@ -15,6 +15,8 @@
 #include "Editor/FAssetThumbnailCache.h"
 #include "Editor/FEditorAssetCatalog.h"
 
+#include "EditorStyle.h"
+
 #include <imgui.h>
 #include <imgui_internal.h>
 
@@ -33,7 +35,6 @@ namespace Editor {
         /**
          * @brief 표시 이름과 무관하게 창 상태를 유지하는 ImGui 창 ID입니다.
          */
-        constexpr char WindowId[]{"###BlendSpaceEditor"};
 
         /**
          * @brief 정규화한 경로가 지정 루트 내부에 속하는지 검사합니다.
@@ -126,7 +127,7 @@ namespace Editor {
         const Asset::FBlendParameter& Parameter{mEditing->GetBlendParameter(Asset::EBlendSpaceAxis::X)};
 
         mPreviewInput = std::clamp(mPreviewInput, Parameter.mMin, Parameter.mMax);
-        ImGui::SetWindowFocus(WindowId);
+        ImGui::SetWindowFocus(mWindowId.c_str());
 
         return true;
     }
@@ -135,8 +136,16 @@ namespace Editor {
         return mOpen;
     }
 
+    void FBlendSpaceEditor::SetWindowId(Core::FString Id) {
+        mWindowId = std::move(Id);
+    }
+
+    const Core::FString& FBlendSpaceEditor::GetWindowId() const {
+        return mWindowId;
+    }
+
     bool FBlendSpaceEditor::IsFocused() const {
-        ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(WindowId) : nullptr};
+        ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(mWindowId.c_str()) : nullptr};
         ImGuiWindow* Focused{ImGui::GetCurrentContext()->NavWindow};
 
         return Window != nullptr && Focused != nullptr && ImGui::IsWindowChildOf(Focused, Window, true, false);
@@ -211,12 +220,14 @@ namespace Editor {
             return;
         }
 
-        const Core::FString Title{std::format("Blend Space - {}{}{}", mEditing->GetName(), mDirty ? " *" : "", WindowId)};
+        const Core::FString Title{std::format("{}{}{}{}", Editor::EditorStyle::TabIconPadding, mEditing->GetName(), mDirty ? "*" : "", mWindowId.c_str())};
         bool Visible{true};
 
         ImGui::SetNextWindowSize({960.0f, 640.0f}, ImGuiCond_FirstUseEver);
 
         const bool Expanded{ImGui::Begin(Title.c_str(), &Visible)};
+
+        Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Grid, IM_COL32(255, 168, 111, 255));
 
         if (!Visible) {
             ImGui::End();
@@ -226,6 +237,10 @@ namespace Editor {
         }
 
         if (Expanded) {
+            if (Editor::EditorStyle::AssetToolbar(mPath, mDirty)) {
+                Save();
+            }
+
             ImGui::Checkbox("격자에 맞춤", &mSnapToGrid);
             ImGui::SameLine();
             ImGui::Checkbox("샘플 이름", &mShowSampleNames);

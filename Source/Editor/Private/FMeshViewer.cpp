@@ -29,6 +29,8 @@
 #include "Asset/UMaterial.h"
 #include "RenderCore/IRendererModule.h"
 
+#include "EditorStyle.h"
+
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -109,6 +111,14 @@ namespace Editor {
     /**
      * @brief 창의 열림 상태를 검사합니다.
      */
+    void Editor::FMeshViewer::SetWindowId(Core::FString Id) {
+        mWindowId = std::move(Id);
+    }
+
+    const Core::FString& Editor::FMeshViewer::GetWindowId() const {
+        return mWindowId;
+    }
+
     bool Editor::FMeshViewer::IsOpen() const {
         return mOpen;
     }
@@ -284,7 +294,20 @@ namespace Editor {
             ImGui::SetNextWindowSize({860.0f, 700.0f}, ImGuiCond_FirstUseEver);
         }
 
-        if (ImGui::Begin("Mesh Viewer", Standalone ? nullptr : &mOpen, Flags)) {
+        // 탭에는 에셋 이름을 보여 주고 ### 뒤의 식별자는 유지합니다.
+        const Core::FString Title{(Standalone ? "" : Editor::EditorStyle::TabIconPadding) + Core::FilePath::ToUtf8(Core::FilePath::FromUtf8(mPath).stem()) + mWindowId};
+
+        const bool Expanded{ImGui::Begin(Title.c_str(), Standalone ? nullptr : &mOpen, Flags)};
+
+        if (!Standalone) {
+            Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Local, IM_COL32(0, 220, 220, 255));
+        }
+
+        if (Expanded) {
+            if (!Standalone) {
+                Editor::EditorStyle::AssetToolbar(Core::FilePath::FromUtf8(mPath), false, false);
+            }
+
             ImGui::TextUnformatted(mPath.c_str());
             ImGui::Text("Vertices: %u | Triangles: %u | SubMeshes: %zu | Materials: %zu", mMesh->GetVertexCount(), mMesh->GetIndexCount() / 3, mMesh->GetMeshData().GetSubMeshes().size(), mContent->GetMaterials().size());
 

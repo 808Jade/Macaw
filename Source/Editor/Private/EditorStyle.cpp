@@ -9,6 +9,8 @@
 
 #include <imgui_internal.h>
 #include <array>
+#include <cmath>
+#include <utility>
 
 namespace Editor {
 
@@ -21,7 +23,45 @@ namespace Editor {
      * @brief 현재 창의 드로 목록에 지정한 벡터 아이콘을 그립니다.
      */
     void Editor::EditorStyle::DrawIcon(EIcon Icon, const ImVec2& Origin, float Size, ImU32 Color) {
-        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
+        Editor::EditorStyle::DrawIcon(ImGui::GetWindowDrawList(), Icon, Origin, Size, Color);
+    }
+
+    void Editor::EditorStyle::TabIcon(EIcon Icon, ImU32 Color) {
+        const ImGuiWindow* Window{ImGui::GetCurrentWindow()};
+
+        if (!Window->DockIsActive || Window->DockNode == nullptr || Window->DockNode->HostWindow == nullptr || Window->DockNode->IsHiddenTabBar()) {
+            return;
+        }
+
+        // 호스트 창이 이번 프레임에 그려지지 않으면(다른 메이저 탭이 선택된 동안의 패널 등) 드로 목록이 비어 있거나 ImGui가 메모리를 회수한 상태이므로 그리지 않습니다.
+        const ImGuiWindow* Host{Window->DockNode->HostWindow};
+
+        if (Host->LastFrameActive != ImGui::GetFrameCount() || Host->Hidden || Host->DrawList->CmdBuffer.Size == 0) {
+            return;
+        }
+
+        const ImRect Tab{Window->DC.DockTabItemRect};
+
+        if (Tab.GetWidth() <= 0.0f || Tab.GetHeight() <= 0.0f) {
+            return;
+        }
+
+        // 탭은 도킹 호스트 창의 드로 목록에 그려지므로 같은 목록에 덧그려야 메뉴나 팝업에 가려집니다.
+        ImDrawList* DrawList{Window->DockNode->HostWindow->DrawList};
+        const float Size{ImGui::GetFontSize()};
+        const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
+        ImVec4 Tint{Color != 0 ? ImGui::ColorConvertU32ToFloat4(Color) : ImGui::GetStyleColorVec4(ImGuiCol_Text)};
+
+        if (!Window->DockTabIsVisible) {
+            Tint.w *= 0.55f;
+        }
+
+        DrawList->PushClipRect(Tab.Min, Tab.Max, false);
+        Editor::EditorStyle::DrawIcon(DrawList, Icon, ImVec2{Tab.Min.x + 9.0f * Scale, Tab.Min.y + (Tab.GetHeight() - Size) * 0.5f}, Size, ImGui::ColorConvertFloat4ToU32(Tint));
+        DrawList->PopClipRect();
+    }
+
+    void Editor::EditorStyle::DrawIcon(ImDrawList* DrawList, EIcon Icon, const ImVec2& Origin, float Size, ImU32 Color) {
         const float Scale{Size / 20.0f};
         const float Thickness{1.6f * Scale};
         const auto Point{[&Origin, Scale](float X, float Y) {
@@ -209,6 +249,88 @@ namespace Editor {
             }
 
             break;
+        case EIcon::Save: {
+            const std::array<ImVec2, 5> Disk{Point(3.0f, 3.0f), Point(14.0f, 3.0f), Point(17.0f, 6.0f), Point(17.0f, 17.0f), Point(3.0f, 17.0f)};
+
+            DrawList->AddPolyline(Disk.data(), static_cast<int>(Disk.size()), Color, Thickness, ImDrawFlags_Closed);
+            DrawList->AddRectFilled(Point(6.0f, 3.0f), Point(13.0f, 7.5f), Color);
+            DrawList->AddRect(Point(6.0f, 11.0f), Point(14.0f, 17.0f), Color, 0.0f, ImDrawFlags_None, Thickness);
+
+            break;
+        }
+
+        case EIcon::Add: {
+            const std::array<ImVec2, 6> Cube{Point(2.0f, 7.0f), Point(8.0f, 4.0f), Point(14.0f, 7.0f), Point(14.0f, 14.0f), Point(8.0f, 17.0f), Point(2.0f, 14.0f)};
+
+            DrawList->AddPolyline(Cube.data(), static_cast<int>(Cube.size()), Color, Thickness, ImDrawFlags_Closed);
+            Line(2.0f, 7.0f, 8.0f, 10.0f);
+            Line(8.0f, 10.0f, 14.0f, 7.0f);
+            Line(8.0f, 10.0f, 8.0f, 17.0f);
+            DrawList->AddLine(Point(16.0f, 1.0f), Point(16.0f, 7.0f), IM_COL32(110, 200, 90, 255), Thickness * 1.3f);
+            DrawList->AddLine(Point(13.0f, 4.0f), Point(19.0f, 4.0f), IM_COL32(110, 200, 90, 255), Thickness * 1.3f);
+
+            break;
+        }
+
+        case EIcon::Settings:
+            DrawList->AddCircle(Point(10.0f, 10.0f), 5.5f * Scale, Color, 20, Thickness * 1.4f);
+            DrawList->AddCircleFilled(Point(10.0f, 10.0f), 1.8f * Scale, Color);
+
+            for (Core::Index_t Index{}; Index < 8; ++Index) {
+                const float Angle{static_cast<float>(Index) * 0.78539816f};
+                const float X{cosf(Angle)};
+                const float Y{sinf(Angle)};
+
+                DrawList->AddLine(Point(10.0f + X * 6.0f, 10.0f + Y * 6.0f), Point(10.0f + X * 8.5f, 10.0f + Y * 8.5f), Color, Thickness * 1.6f);
+            }
+
+            break;
+        case EIcon::Folder: {
+            const std::array<ImVec2, 6> Folder{Point(2.0f, 5.0f), Point(8.0f, 5.0f), Point(10.0f, 7.0f), Point(18.0f, 7.0f), Point(18.0f, 16.0f), Point(2.0f, 16.0f)};
+
+            DrawList->AddConvexPolyFilled(Folder.data(), static_cast<int>(Folder.size()), Color);
+
+            break;
+        }
+
+        case EIcon::Log:
+            DrawList->AddRect(Point(2.0f, 3.0f), Point(18.0f, 17.0f), Color, 2.0f * Scale, ImDrawFlags_None, Thickness);
+            Line(5.0f, 7.0f, 8.0f, 10.0f);
+            Line(8.0f, 10.0f, 5.0f, 13.0f);
+            Line(10.0f, 13.0f, 15.0f, 13.0f);
+
+            break;
+        case EIcon::Outliner:
+            for (Core::Index_t Index{}; Index < 3; ++Index) {
+                const float Y{5.0f + static_cast<float>(Index) * 5.0f};
+
+                DrawList->AddCircleFilled(Point(4.0f, Y), 1.4f * Scale, Color);
+                Line(7.5f, Y, 17.0f, Y);
+            }
+
+            break;
+        case EIcon::Details: {
+            const std::array<ImVec2, 5> Pencil{Point(4.0f, 16.0f), Point(4.5f, 12.5f), Point(13.5f, 3.5f), Point(16.5f, 6.5f), Point(7.5f, 15.5f)};
+
+            DrawList->AddPolyline(Pencil.data(), static_cast<int>(Pencil.size()), Color, Thickness, ImDrawFlags_Closed);
+            Line(11.5f, 5.5f, 14.5f, 8.5f);
+
+            break;
+        }
+
+        case EIcon::Material:
+            DrawList->AddCircleFilled(Point(10.0f, 10.0f), 7.5f * Scale, Color, 24);
+            DrawList->AddCircleFilled(Point(7.5f, 7.5f), 2.2f * Scale, IM_COL32(255, 255, 255, 150), 12);
+
+            break;
+        case EIcon::Select: {
+            const std::array<ImVec2, 7> Arrow{Point(5.0f, 2.0f), Point(5.0f, 16.0f), Point(8.5f, 12.5f), Point(11.0f, 18.0f), Point(13.0f, 17.0f), Point(10.5f, 11.5f), Point(15.0f, 11.5f)};
+
+            DrawList->AddPolyline(Arrow.data(), static_cast<int>(Arrow.size()), Color, Thickness, ImDrawFlags_Closed);
+
+            break;
+        }
+
         }
     }
 
@@ -272,13 +394,95 @@ namespace Editor {
     /**
      * @brief 현재 ImGui 스타일 스택에 뷰포트 툴바의 간격, 모서리와 버튼 색상을 적용합니다.
      */
+    bool Editor::EditorStyle::LabelButton(const char* Label, const EIcon* Icon, bool Dropdown, bool Enabled, const char* Tooltip) {
+        const ImGuiStyle& Style{ImGui::GetStyle()};
+        const float Scale{Style.FontScaleMain * Style.FontScaleDpi};
+        const float Height{ImGui::GetFrameHeight()};
+        const float IconSize{ImGui::GetFontSize()};
+        const char* End{ImGui::FindRenderedTextEnd(Label)};
+        const ImVec2 TextSize{ImGui::CalcTextSize(Label, End)};
+        const float Width{Style.FramePadding.x * 2.0f + TextSize.x + (Icon != nullptr ? IconSize + (TextSize.x > 0.0f ? Style.ItemInnerSpacing.x : 0.0f) : 0.0f) + (Dropdown ? 12.0f * Scale : 0.0f)};
+
+        ImGui::PushID(Label);
+        ImGui::BeginDisabled(!Enabled);
+
+        const bool Pressed{ImGui::Button("##Button", ImVec2{Width, Height})};
+        const ImVec2 Minimum{ImGui::GetItemRectMin()};
+        const ImU32 Color{ImGui::GetColorU32(ImGuiCol_Text)};
+        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
+        float X{Minimum.x + Style.FramePadding.x};
+
+        if (Icon != nullptr) {
+            Editor::EditorStyle::DrawIcon(*Icon, ImVec2{X, Minimum.y + (Height - IconSize) * 0.5f}, IconSize, Color);
+
+            X += IconSize + Style.ItemInnerSpacing.x;
+        }
+
+        DrawList->AddText(ImVec2{X, Minimum.y + (Height - TextSize.y) * 0.5f}, Color, Label, End);
+
+        if (Dropdown) {
+            const float ArrowX{Minimum.x + Width - Style.FramePadding.x - 3.0f * Scale};
+            const float ArrowY{Minimum.y + Height * 0.5f};
+
+            DrawList->AddTriangleFilled(ImVec2{ArrowX - 3.5f * Scale, ArrowY - 2.0f * Scale}, ImVec2{ArrowX + 3.5f * Scale, ArrowY - 2.0f * Scale}, ImVec2{ArrowX, ArrowY + 2.0f * Scale}, Color);
+        }
+
+        ImGui::EndDisabled();
+
+        if (Tooltip != nullptr && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::SetTooltip("%s", Tooltip);
+        }
+
+        ImGui::PopID();
+
+        return Pressed;
+    }
+
+    namespace {
+        std::function<void(const std::filesystem::path&)> AssetBrowseHandler{};
+    }
+
+    void Editor::EditorStyle::SetAssetBrowseHandler(std::function<void(const std::filesystem::path&)> Handler) {
+        AssetBrowseHandler = std::move(Handler);
+    }
+
+    bool Editor::EditorStyle::AssetToolbar(const std::filesystem::path& AssetPath, bool CanSave, bool ShowSave) {
+        bool Saved{};
+
+        ImGui::PushID("AssetToolbar");
+        Editor::EditorStyle::PushViewportToolbar();
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+
+        if (ShowSave) {
+            Saved = Editor::EditorStyle::IconButton("SaveAsset", EIcon::Save, false, CanSave, false, "에셋 저장 (Ctrl+S)");
+
+            ImGui::SameLine();
+        }
+
+        if (Editor::EditorStyle::IconButton("BrowseAsset", EIcon::Folder, false, static_cast<bool>(AssetBrowseHandler) && !AssetPath.empty(), false, "콘텐츠 브라우저에서 찾기")) {
+            AssetBrowseHandler(AssetPath);
+        }
+
+        ImGui::PopStyleVar();
+        Editor::EditorStyle::PopViewportToolbar();
+        ImGui::PopID();
+        ImGui::Separator();
+
+        return Saved;
+    }
+
     void Editor::EditorStyle::PushViewportToolbar() {
         const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
 
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{5.0f * Scale, 5.0f * Scale});
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{2.0f * Scale, 4.0f * Scale});
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f * Scale);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f * Scale);
+
+        ImVec4 Background{ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg)};
+
+        Background.w = 0.92f;
+
+        ImGui::PushStyleColor(ImGuiCol_Button, Background);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
     }

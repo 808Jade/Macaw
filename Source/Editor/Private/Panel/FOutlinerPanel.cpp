@@ -57,7 +57,7 @@ namespace Editor {
      * @brief FOutlinerPanel의 초기 상태와 전달받은 의존성을 구성합니다.
      */
     Editor::FOutlinerPanel::FOutlinerPanel(Editor::FEditorContext* Context)
-		: Editor::FEditorPanel{Context, "World Outliner"} {
+		: Editor::FEditorPanel{Context, "Outliner###World Outliner"} {
     }
 
     /**

@@ -139,7 +139,8 @@ namespace App {
         }
 
         Splash.Close();
-        ShowWindow(Window, SW_SHOW);
+        // 언리얼 에디터처럼 프로젝트를 연 뒤에는 에디터 창을 최대화하여 표시합니다.
+        ShowWindow(Window, Loaded ? SW_SHOWMAXIMIZED : SW_SHOW);
         SetForegroundWindow(Window);
         SetFocus(Window);
 

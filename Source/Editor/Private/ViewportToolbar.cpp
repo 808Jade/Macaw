@@ -26,7 +26,7 @@ namespace Editor {
             bool Drawn{};
 
             for (const Editor::FViewportCommandInfo& Info : Editor::FViewportCommandInfo::GetCommands()) {
-                if (!Info.mTransformMode || (!Menu && Info.mCommand == Editor::EViewportCommand::Select)) {
+                if (!Info.mTransformMode) {
                     continue;
                 }
 
@@ -38,9 +38,9 @@ namespace Editor {
                 const bool Selected{Client->IsCommandChecked(Command)};
                 const bool Enabled{Client->CanExecuteCommand(Command)};
                 const Core::FString Shortcut{Info.GetShortcutLabel()};
-                const char* TooltipName{Command == Editor::EViewportCommand::Translate ? "이동" : Command == Editor::EViewportCommand::Rotate ? "회전" : Command == Editor::EViewportCommand::Scale ? "크기 조절" : Info.mLabel};
+                const char* TooltipName{Command == Editor::EViewportCommand::Select ? "선택" : Command == Editor::EViewportCommand::Translate ? "이동" : Command == Editor::EViewportCommand::Rotate ? "회전" : Command == Editor::EViewportCommand::Scale ? "크기 조절" : Info.mLabel};
                 const Core::FString Tooltip{Core::FString{TooltipName} + " (" + Shortcut + ")"};
-                const bool Pressed{Menu ? Command == Editor::EViewportCommand::Select ? ImGui::MenuItem(Info.mLabel, Shortcut.c_str(), Selected, Enabled) : Editor::EditorStyle::IconMenuItem(Info.mLabel, Info.mIcon, Selected, Enabled) : Editor::EditorStyle::IconButton(Info.mLabel, Info.mIcon, Selected, Enabled, false, Tooltip.c_str())};
+                const bool Pressed{Menu ? Command == Editor::EViewportCommand::Select ? ImGui::MenuItem(Info.mLabel, Shortcut.c_str(), Selected, Enabled) : Editor::EditorStyle::IconMenuItem(Info.mLabel, Info.mIcon, Selected, Enabled) : Editor::EditorStyle::IconButton(Info.mLabel, Command == Editor::EViewportCommand::Select ? Editor::EditorStyle::EIcon::Select : Info.mIcon, Selected, Enabled, false, Tooltip.c_str())};
 
                 Drawn = true;
 
@@ -122,7 +122,7 @@ namespace Editor {
         void DrawViewSettings(Editor::FEditorViewportClient* Client) {
             const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
             const std::array<Engine::EViewMode, 5> Modes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
-            const std::array<const char*, 5> Names{"Lit_Gouraud", "Lit_Lambert", "Lit_Phong", "Unlit", "Wireframe"};
+            const std::array<const char*, 5> Names{"Lit (Gouraud)", "Lit (Lambert)", "Lit", "Unlit", "Wireframe"};
             const auto Current{std::find(Modes.begin(), Modes.end(), Client->GetColorViewMode())};
             const Core::Index_t Index{static_cast<Core::Index_t>(Current != Modes.end() ? static_cast<std::size_t>(Current - Modes.begin()) : 2)};
             const auto& Buffers{Editor::BufferVisualization::Modes};
@@ -131,9 +131,13 @@ namespace Editor {
             const Core::Index_t BufferIndex{static_cast<Core::Index_t>(SelectedBuffer == Buffers.end() ? 0u : static_cast<std::size_t>(SelectedBuffer - Buffers.begin()))};
             const char* Preview{BufferIndex == 0 ? Names[Index] : BufferNames[BufferIndex]};
 
-            ImGui::SetNextItemWidth(175.0f * Scale);
+            if (Editor::EditorStyle::LabelButton((Core::FString{Preview} + "##ViewMode").c_str(), nullptr, true, true, "뷰 모드")) {
+                ImGui::OpenPopup("ViewModeMenu");
+            }
 
-            if (ImGui::BeginCombo("##ViewMode", Preview)) {
+            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
+
+            if (ImGui::BeginPopup("ViewModeMenu")) {
                 for (Core::Index_t Mode{}; Mode < Modes.size(); ++Mode) {
                     if (ImGui::Selectable(Names[Mode], Client->GetViewMode() == Modes[Mode])) {
                         Client->SetViewMode(Modes[Mode]);
@@ -152,13 +156,18 @@ namespace Editor {
                     ImGui::EndMenu();
                 }
 
-                ImGui::EndCombo();
+                ImGui::EndPopup();
             }
 
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(115.0f * Scale);
 
-            if (ImGui::BeginCombo("##ViewFilter", "View Filter")) {
+            if (Editor::EditorStyle::LabelButton("Show", nullptr, true, true, "표시 플래그")) {
+                ImGui::OpenPopup("ShowMenu");
+            }
+
+            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
+
+            if (ImGui::BeginPopup("ShowMenu")) {
                 ImGui::SeparatorText("Show Flags");
 
                 Engine::FEngineShowFlags Flags{Client->GetShowFlags()};
@@ -196,13 +205,20 @@ namespace Editor {
                     Client->SetShowFlags(Flags);
                 }
 
-                ImGui::EndCombo();
+                ImGui::EndPopup();
             }
 
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(95.0f * Scale);
 
-            if (ImGui::BeginCombo("##CameraSettings", "Camera")) {
+            const Editor::EditorStyle::EIcon CameraIcon{Editor::EditorStyle::EIcon::Camera};
+
+            if (Editor::EditorStyle::LabelButton("##CameraSettings", &CameraIcon, true, true, "카메라 설정")) {
+                ImGui::OpenPopup("CameraMenu");
+            }
+
+            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
+
+            if (ImGui::BeginPopup("CameraMenu")) {
                 ImGui::SeparatorText("Camera Settings");
 
                 float Sensitivity{Client->GetCameraSensitivity()};
@@ -230,7 +246,7 @@ namespace Editor {
                     Client->SetPerspectiveCamera(Camera);
                 }
 
-                ImGui::EndCombo();
+                ImGui::EndPopup();
             }
         }
 
@@ -248,39 +264,6 @@ namespace Editor {
         ImGui::PushID("ViewportToolbar");
         Editor::EditorStyle::PushViewportToolbar();
         ImGui::BeginGroup();
-        DrawViewSettings(Client);
-
-        if (Editor::EditorStyle::IconButton("Transform Tools", Editor::EditorStyle::EIcon::Tools, ImGui::IsPopupOpen("TransformTools"), true, true, "변환 도구")) {
-            ImGui::OpenPopup("TransformTools");
-        }
-
-        ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f}, ImGuiCond_Appearing);
-
-        if (ImGui::BeginPopup("TransformTools")) {
-            ImGui::SeparatorText("Transform Tools");
-            DrawModeCommands(Client, true);
-            ImGui::Separator();
-
-            if (ImGui::BeginMenu("Coordinate System", Client->CanExecuteCommand(Editor::EViewportCommand::WorldSpace) || Client->CanExecuteCommand(Editor::EViewportCommand::LocalSpace))) {
-                DrawCoordinateMenu(Client);
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Grid Settings")) {
-                DrawGridSettings(Client);
-                ImGui::EndMenu();
-            }
-
-            ImGui::Separator();
-
-            const Editor::FViewportCommandInfo* Cycle{Editor::FViewportCommandInfo::Find(Editor::EViewportCommand::CycleTransformMode)};
-            const Core::FString Shortcut{Cycle->GetShortcutLabel()};
-
-            ImGui::TextDisabled("%s: %s", Shortcut.c_str(), Cycle->mLabel);
-            ImGui::EndPopup();
-        }
-
-        ImGui::SameLine(0.0f, 6.0f);
         DrawModeCommands(Client, false);
         ImGui::SameLine(0.0f, 6.0f);
 
@@ -306,9 +289,11 @@ namespace Editor {
 
         ImGui::SameLine(0.0f, 6.0f);
 
-        if (ImGui::Button("Snap")) {
+        if (Editor::EditorStyle::LabelButton("Snap", nullptr, true, true, "스냅 설정")) {
             ImGui::OpenPopup("GizmoSnapping");
         }
+
+        ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f}, ImGuiCond_Appearing);
 
         if (ImGui::BeginPopup("GizmoSnapping")) {
             ImGui::BeginDisabled(!Client->CanEditGizmoSettings());
@@ -328,6 +313,12 @@ namespace Editor {
 
         ImGui::EndGroup();
         Editor::EditorStyle::PopViewportToolbar();
+        ImGui::PopID();
+    }
+
+    void Editor::ViewportToolbar::DrawViewOptions(Editor::FEditorViewportClient* Client) {
+        ImGui::PushID("ViewportViewOptions");
+        DrawViewSettings(Client);
         ImGui::PopID();
     }
 

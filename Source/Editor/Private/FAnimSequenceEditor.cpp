@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <limits>
 #include <unordered_set>
+#include "EditorStyle.h"
+
 #include <imgui.h>
 #include <imgui_internal.h>
 
@@ -33,7 +35,6 @@ namespace {
     /**
      * @brief 표시 이름과 무관하게 창 상태를 유지하는 ImGui 창 ID입니다.
      */
-    constexpr char WindowId[]{"###AnimSequenceEditor"};
 
     /**
      * @brief 시퀀스의 루트 모션 추출·고정 설정을 복사합니다.
@@ -100,7 +101,7 @@ bool FAnimSequenceEditor::Open(const std::filesystem::path& Path, Core::FString&
     }
 
     if (mOpen && Relative == mPath) {
-        ImGui::SetWindowFocus(WindowId);
+        ImGui::SetWindowFocus(mWindowId.c_str());
 
         return true;
     }
@@ -108,7 +109,7 @@ bool FAnimSequenceEditor::Open(const std::filesystem::path& Path, Core::FString&
     if (mOpen && mDirty) {
         mPendingPath = Relative;
         mConfirmClose = true;
-        ImGui::SetWindowFocus(WindowId);
+        ImGui::SetWindowFocus(mWindowId.c_str());
 
         return true;
     }
@@ -165,7 +166,7 @@ bool FAnimSequenceEditor::OpenNow(const std::filesystem::path& Path, Core::FStri
         mPreview->Play();
     }
 
-    ImGui::SetWindowFocus(WindowId);
+    ImGui::SetWindowFocus(mWindowId.c_str());
 
     return true;
 }
@@ -241,8 +242,16 @@ bool FAnimSequenceEditor::IsOpen() const {
     return mOpen;
 }
 
+void FAnimSequenceEditor::SetWindowId(Core::FString Id) {
+    mWindowId = std::move(Id);
+}
+
+const Core::FString& FAnimSequenceEditor::GetWindowId() const {
+    return mWindowId;
+}
+
 bool FAnimSequenceEditor::IsFocused() const {
-    ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(WindowId) : nullptr};
+    ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(mWindowId.c_str()) : nullptr};
     ImGuiWindow* Focused{ImGui::GetCurrentContext()->NavWindow};
 
     return Window != nullptr && Focused != nullptr && ImGui::IsWindowChildOf(Focused, Window, true, false);
@@ -315,11 +324,19 @@ void FAnimSequenceEditor::Draw(float DeltaTime, bool CanSave) {
     ImGui::SetNextWindowSize({1160.0f, 760.0f}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints({700.0f * Scale, 480.0f * Scale}, {std::numeric_limits<float>::max(), std::numeric_limits<float>::max()});
 
-    const Core::FString Title{Core::FilePath::ToUtf8(mPath.stem()) + " - Animation Sequence" + (mDirty ? " *" : "") + WindowId};
+    const Core::FString Title{Editor::EditorStyle::TabIconPadding + Core::FilePath::ToUtf8(mPath.stem()) + (mDirty ? "*" : "") + mWindowId.c_str()};
     bool Open{true};
 
-    if (ImGui::Begin(Title.c_str(), &Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+    const bool Expanded{ImGui::Begin(Title.c_str(), &Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)};
+
+    Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Skeleton, IM_COL32(80, 123, 255, 255));
+
+    if (Expanded) {
         HandleShortcuts(CanSave);
+
+        if (Editor::EditorStyle::AssetToolbar(mPath, CanSave && !mSourceChanged && mDirty)) {
+            Save();
+        }
 
         if (!ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup)) {
             mPreview->Tick(DeltaTime);
@@ -374,7 +391,7 @@ void FAnimSequenceEditor::Draw(float DeltaTime, bool CanSave) {
         if (mDirty) {
             mConfirmClose = true;
             mPendingPath.clear();
-            ImGui::SetWindowCollapsed(WindowId, false);
+            ImGui::SetWindowCollapsed(mWindowId.c_str(), false);
         } else {
             Close();
         }

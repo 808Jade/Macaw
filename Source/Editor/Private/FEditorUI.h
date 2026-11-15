@@ -188,6 +188,49 @@ namespace Editor {
         void DrawSettingsMenu();
 
         /**
+         * @brief 하단 상태 바에 콘텐츠 브라우저·출력 로그 버튼, 명령 입력과 저장·빌드 상태를 그립니다.
+         */
+        void DrawStatusBar();
+
+        /**
+         * @brief 다음에 만드는 창을 루트 도킹 영역의 메이저 탭으로 예약합니다.
+         * @note 에셋 에디터 창을 그리기 직전에 호출하고 그린 뒤 EndMajorTab()을 호출합니다.
+         */
+        void BeginMajorTab();
+
+        /**
+         * @brief BeginMajorTab()의 예약이 쓰이지 않았으면 지웁니다.
+         */
+        void EndMajorTab();
+
+        /**
+         * @brief 툴바의 추가 메뉴에 기본 액터 생성 항목과 액터 배치 패널 열기 항목을 표시합니다.
+         */
+        void DrawAddMenu();
+
+        /**
+         * @brief 현재 레벨을 저장합니다.
+         * @param[in] SaveAs true이면 항상 저장 위치를 묻습니다.
+         */
+        void SaveLevel(bool SaveAs);
+
+        /**
+         * @brief 저장하지 않은 변경을 확인한 뒤 고른 레벨 파일을 엽니다.
+         */
+        void OpenLevel();
+
+        /**
+         * @brief 설정 창을 지정한 분류로 엽니다.
+         * @param[in] Section 표시할 설정 분류의 인덱스입니다.
+         */
+        void OpenSettings(Core::Index_t Section);
+
+        /**
+         * @brief 레벨 에디터 탭을 앞으로 가져오고 콘텐츠 브라우저를 열어 포커스를 줍니다.
+         */
+        void FocusContentBrowser();
+
+        /**
          * @brief 선택한 설정 분류의 편집 UI와 저장·초기화 상태를 표시합니다.
          */
         void DrawSettings();
@@ -389,6 +432,16 @@ namespace Editor {
          * @brief 편집 중인 머티리얼의 프로퍼티와 저장 상태를 표시합니다.
          */
         void DrawMaterialEditor();
+
+        /**
+         * @brief 편집 멤버에 옮겨 둔 머티리얼 탭 하나의 창을 그립니다.
+         */
+        void DrawMaterialTab();
+
+        /**
+         * @brief 미리보기 멤버에 옮겨 둔 텍스처 탭 하나의 창을 그립니다.
+         */
+        void DrawTextureTab();
 
         /**
          * @brief 편집 사본을 프로젝트 머티리얼에 저장합니다.
@@ -661,6 +714,36 @@ namespace Editor {
         bool mShowStatistics{};
 
         /**
+         * @brief 콘텐츠 브라우저 창의 표시 여부입니다.
+         */
+        bool mContentOpen{true};
+
+        /**
+         * @brief 저장된 도킹 배치의 버전이며 현재 기본 배치보다 낮으면 기본 배치를 다시 구성합니다.
+         */
+        Core::Uint32 mLayoutVersion{};
+
+        /**
+         * @brief 메이저 탭이 붙는 루트 도킹 영역의 ImGui 식별자입니다.
+         */
+        Core::Uint32 mRootDock{};
+
+        /**
+         * @brief 패널 탭 아이콘을 이미 지정했는지 나타내며 프로젝트를 다시 열 때 제목이 중복 변환되지 않게 합니다.
+         */
+        bool mTabIconsAssigned{};
+
+        /**
+         * @brief 콘텐츠 브라우저 포커스 요청의 남은 단계이며 3에서 시작해 프레임마다 줄고 2이면 레벨 탭을, 1이면 콘텐츠 브라우저를 포커스합니다.
+         */
+        Core::Uint32 mPendingContentFocus{};
+
+        /**
+         * @brief 상태 바의 명령 입력 버퍼입니다.
+         */
+        std::array<char, 256> mStatusCommand{};
+
+        /**
          * @brief 에디터 종료 요청 여부입니다.
          */
         bool mExit{};
@@ -836,24 +919,106 @@ namespace Editor {
         bool mMaterialDirty{};
 
         /**
-         * @brief 편집 월드와 분리한 정적 메시 미리보기 창입니다.
+         * @brief 메이저 탭으로 열린 에셋 에디터 하나와 그 에셋 경로·창 식별자입니다.
+         * @tparam T 에디터 창 타입입니다.
          */
-        std::unique_ptr<Editor::FMeshViewer> mMeshViewer{};
+        template <typename T>
+        struct TAssetTab {
+            /**
+             * @brief 이미 열린 탭을 찾을 때 비교하는 에셋의 Content 상대 경로입니다.
+             */
+            Core::FString mKey{};
+
+            /**
+             * @brief 에디터 창의 소유 포인터입니다.
+             */
+            std::unique_ptr<T> mEditor{};
+        };
 
         /**
-         * @brief 블렌드 스페이스 에셋 편집 창입니다.
+         * @brief 메이저 탭으로 열린 머티리얼 편집 상태입니다.
          */
-        std::unique_ptr<Editor::FBlendSpaceEditor> mBlendSpaceEditor{};
+        struct FMaterialTab {
+            /**
+             * @brief 편집 중인 머티리얼입니다.
+             */
+            CoreUObject::TObjectRef<Asset::UMaterial> mMaterial{};
+
+            /**
+             * @brief 머티리얼 에셋의 Content 상대 경로입니다.
+             */
+            std::filesystem::path mPath{};
+
+            /**
+             * @brief 마지막 편집·저장 오류입니다.
+             */
+            Core::FString mError{};
+
+            /**
+             * @brief 저장하지 않은 변경이 있는지 나타냅니다.
+             */
+            bool mDirty{};
+
+            /**
+             * @brief 다음 프레임에 이 탭을 앞으로 가져올지 나타냅니다.
+             */
+            bool mFocus{};
+        };
 
         /**
-         * @brief 애니메이션 그래프 에셋 편집 창입니다.
+         * @brief 메이저 탭으로 열린 텍스처 미리보기 상태입니다.
          */
-        std::unique_ptr<Editor::FAnimGraphEditor> mAnimGraphEditor{};
+        struct FTextureTab {
+            /**
+             * @brief 미리보기 중인 텍스처입니다.
+             */
+            CoreUObject::TObjectRef<Asset::UTexture2D> mTexture{};
+
+            /**
+             * @brief 텍스처 에셋의 Content 상대 경로입니다.
+             */
+            std::filesystem::path mPath{};
+
+            /**
+             * @brief 텍스처를 그리는 뷰어입니다.
+             */
+            std::unique_ptr<Viewer::FAssetViewer> mViewer{};
+
+            /**
+             * @brief 다음 프레임에 이 탭을 앞으로 가져올지 나타냅니다.
+             */
+            bool mFocus{};
+        };
 
         /**
-         * @brief 애니메이션 시퀀스 편집기의 소유 포인터입니다.
+         * @brief 에셋별로 열린 메시 미리보기 탭입니다.
          */
-        std::unique_ptr<Editor::FAnimSequenceEditor> mAnimSequenceEditor{};
+        Core::TArray<TAssetTab<Editor::FMeshViewer>> mMeshViewers{};
+
+        /**
+         * @brief 에셋별로 열린 블렌드 스페이스 편집 탭입니다.
+         */
+        Core::TArray<TAssetTab<Editor::FBlendSpaceEditor>> mBlendSpaceEditors{};
+
+        /**
+         * @brief 에셋별로 열린 애니메이션 그래프 편집 탭입니다.
+         */
+        Core::TArray<TAssetTab<Editor::FAnimGraphEditor>> mAnimGraphEditors{};
+
+        /**
+         * @brief 에셋별로 열린 애니메이션 시퀀스 편집 탭입니다.
+         */
+        Core::TArray<TAssetTab<Editor::FAnimSequenceEditor>> mAnimSequenceEditors{};
+
+        /**
+         * @brief 열린 머티리얼 편집 탭입니다. 그리는 동안 탭 하나의 상태를 편집 멤버로 옮겨 사용합니다.
+         */
+        Core::TArray<FMaterialTab> mMaterialTabs{};
+
+        /**
+         * @brief 열린 텍스처 미리보기 탭입니다. 그리는 동안 탭 하나의 상태를 미리보기 멤버로 옮겨 사용합니다.
+         */
+        Core::TArray<FTextureTab> mTextureTabs{};
 
         /**
          * @brief 브라우저와 Details가 공유하는 실제 에셋 목록입니다.

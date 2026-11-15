@@ -6,6 +6,8 @@
 
 #include "Editor/Panel/FEditorPanel.h"
 
+#include "EditorStyle.h"
+
 #include <imgui.h>
 #include <utility>
 
@@ -39,7 +41,13 @@ namespace Editor {
             mFocusRequested = false;
         }
 
-        if (ImGui::Begin(mName.c_str(), mClosable ? &mVisible : nullptr)) {
+        const bool Expanded{ImGui::Begin(mName.c_str(), mClosable ? &mVisible : nullptr)};
+
+        if (mTabIcon.has_value()) {
+            Editor::EditorStyle::TabIcon(*mTabIcon);
+        }
+
+        if (Expanded) {
             DrawContent(DeltaTime);
         }
 
@@ -70,6 +78,15 @@ namespace Editor {
     /**
      * @brief 패널을 표시하고 다음 그리기에서 창에 포커스를 줍니다.
      */
+    void Editor::FEditorPanel::SetTabIcon(Editor::EEditorIcon Icon) {
+        const std::size_t Separator{mName.find("###")};
+        const Core::FString Label{mName.substr(0, Separator)};
+        const Core::FString Identifier{Separator == Core::FString::npos ? mName : mName.substr(Separator + 3)};
+
+        mName = Editor::EditorStyle::TabIconPadding + Label + "###" + Identifier;
+        mTabIcon = Icon;
+    }
+
     void Editor::FEditorPanel::Open() {
         mVisible = true;
         mFocusRequested = true;

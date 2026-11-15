@@ -772,7 +772,13 @@ namespace Editor {
         }
 
         const ImGuiTreeNodeFlags Flags{DefaultOpen || Searching ? ImGuiTreeNodeFlags_DefaultOpen : ImGuiTreeNodeFlags_None};
+        ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_TableHeaderBg));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+
         const bool Open{ImGui::CollapsingHeader(Label, Flags)};
+
+        ImGui::PopStyleColor(3);
 
         if (Searching) {
             ImGui::PopID();

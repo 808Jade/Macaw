@@ -15,6 +15,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -177,46 +178,47 @@ namespace Editor {
         }
 
         Editor::FEditorViewportClient* Client{Viewport->GetClient()};
-        const bool Playing{Viewport->GetActiveClient() != Client};
         const bool AllowInput{CapturedViewport == nullptr || CapturedViewport == Viewport};
 
-        Editor::EditorStyle::PushViewportToolbar();
+        const auto ToolbarExtras{[this, Index, Client](Core::Index_t Part) {
+            ImGui::BeginDisabled(!CanChangeLayout());
 
-        const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
-        const float LayoutButtonX{ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight()};
-
-        ImGui::BeginDisabled(Playing || !CanChangeLayout());
-        ImGui::SetNextItemWidth(std::min(120.0f * Scale, std::max(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x, 60.0f * Scale)));
-
-        if (ImGui::BeginCombo("##ViewType", Playing ? "Play" : Client->GetViewTypeName())) {
-            const std::array<const char*, 7> Names{"Perspective", "Top", "Bottom", "Front", "Back", "Left", "Right"};
-
-            for (Core::Index_t Type{}; Type < Names.size(); ++Type) {
-                const Editor::EEditorViewportType ViewType{static_cast<Editor::EEditorViewportType>(Type)};
-
-                if (ImGui::Selectable(Names[Type], Client->GetViewType() == ViewType)) {
-                    Client->SetViewType(ViewType);
-
-                    mActiveViewport = Index;
+            if (Part == 0) {
+                if (Editor::EditorStyle::LabelButton((Core::FString{Client->GetViewTypeName()} + "##ViewType").c_str(), nullptr, true, true, "뷰포트 종류")) {
+                    ImGui::OpenPopup("ViewTypeMenu");
                 }
+
+                ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f}, ImGuiCond_Appearing);
+
+                if (ImGui::BeginPopup("ViewTypeMenu")) {
+                    const std::array<const char*, 7> Names{"Perspective", "Top", "Bottom", "Front", "Back", "Left", "Right"};
+
+                    for (Core::Index_t Type{}; Type < Names.size(); ++Type) {
+                        const Editor::EEditorViewportType ViewType{static_cast<Editor::EEditorViewportType>(Type)};
+
+                        if (Type == 1) {
+                            ImGui::SeparatorText("Orthographic");
+                        }
+
+                        if (ImGui::MenuItem(Names[Type], nullptr, Client->GetViewType() == ViewType)) {
+                            Client->SetViewType(ViewType);
+
+                            mActiveViewport = Index;
+                        }
+                    }
+
+                    ImGui::EndPopup();
+                }
+            } else if (Editor::EditorStyle::IconButton("ViewportLayout", mQuadView ? Editor::EditorStyle::EIcon::Maximize : Editor::EditorStyle::EIcon::QuadView, false, true, false, mQuadView ? "뷰포트 최대화" : "4분할 뷰포트로 전환")) {
+                mActiveViewport = Index;
+
+                SetQuadView(!mQuadView);
             }
 
-            ImGui::EndCombo();
-        }
+            ImGui::EndDisabled();
+        }};
 
-        ImGui::SameLine(LayoutButtonX);
-
-        if (Editor::EditorStyle::IconButton("ViewportLayout", mQuadView ? Editor::EditorStyle::EIcon::Maximize : Editor::EditorStyle::EIcon::QuadView, false, true, false, mQuadView ? "뷰포트 최대화" : "4분할 뷰포트로 전환")) {
-            mActiveViewport = Index;
-
-            SetQuadView(!mQuadView);
-        }
-
-        ImGui::EndDisabled();
-        Editor::EditorStyle::PopViewportToolbar();
-        ImGui::Separator();
-
-        Viewport->DrawContents(Input, DeltaTime, AllowInput);
+        Viewport->DrawContents(Input, DeltaTime, AllowInput, ToolbarExtras);
 
         mVisible[Index] = true;
 
@@ -249,7 +251,19 @@ namespace Editor {
 
         const ImGuiWindowFlags Flags{ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs};
 
-        if (ImGui::Begin(mViewport->GetName().c_str(), nullptr, Flags)) {
+        // 언리얼처럼 뷰포트가 영역에 혼자 있으면 탭 표시줄을 숨깁니다.
+        ImGuiWindowClass ViewportClass{};
+
+        ViewportClass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_AutoHideTabBar;
+
+        ImGui::SetNextWindowClass(&ViewportClass);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
+
+        const bool Visible{ImGui::Begin(mViewport->GetName().c_str(), nullptr, Flags)};
+
+        ImGui::PopStyleVar();
+
+        if (Visible) {
             const ImVec2 Origin{ImGui::GetCursorScreenPos()};
             const ImVec2 Available{ImGui::GetContentRegionAvail()};
             const bool QuadView{mQuadView};
@@ -299,7 +313,13 @@ namespace Editor {
                     ImGui::SetCursorScreenPos(Positions[Index]);
                     ImGui::PushID(Index);
 
-                    if (ImGui::BeginChild("ViewportPane", Sizes[Index], ImGuiChildFlags_Borders, Flags)) {
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
+
+                    const bool PaneVisible{ImGui::BeginChild("ViewportPane", Sizes[Index], ImGuiChildFlags_Borders, Flags)};
+
+                    ImGui::PopStyleVar();
+
+                    if (PaneVisible) {
                         DrawViewport(Index, Input, DeltaTime, CapturedViewport);
                     }
 

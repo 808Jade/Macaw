@@ -155,6 +155,22 @@ namespace Editor {
         bool IsFocused() const;
 
         /**
+         * @brief 이 에디터 창의 ImGui 식별자를 지정하여 같은 종류의 에디터를 여러 탭으로 열 수 있게 합니다.
+         * @param[in] Id ###로 시작하는 창 식별자입니다.
+         */
+        void SetWindowId(Core::FString Id);
+
+        /**
+         * @brief 이 에디터 창의 ImGui 식별자를 반환합니다.
+         */
+        const Core::FString& GetWindowId() const;
+
+        /**
+         * @brief 에디터 창이 열려 있는지 반환합니다.
+         */
+        bool IsOpen() const;
+
+        /**
          * @brief 포즈 그래프 노드에 연결된 상태 머신 보기를 엽니다.
          * @param NodeId 원본 그래프 노드 ID입니다.
          * @return 상태 머신 데이터를 찾았으면 true입니다.
@@ -357,6 +373,11 @@ namespace Editor {
          * @brief Content 기준 경로입니다.
          */
         std::filesystem::path mPath{};
+
+        /**
+         * @brief 이 에디터 창의 ImGui 식별자입니다.
+         */
+        Core::FString mWindowId{"###AnimGraphEditor"};
 
         /**
          * @brief 선택한 노드 식별자이며 없으면 -2입니다.

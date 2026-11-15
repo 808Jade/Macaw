@@ -116,7 +116,43 @@ namespace Editor {
         /**
          * @brief 숨긴 객체를 나타내는 빗금 친 눈 아이콘입니다.
          */
-        Hidden
+        Hidden,
+        /**
+         * @brief 저장 디스크 아이콘입니다.
+         */
+        Save,
+        /**
+         * @brief 액터 추가 아이콘입니다.
+         */
+        Add,
+        /**
+         * @brief 설정 톱니바퀴 아이콘입니다.
+         */
+        Settings,
+        /**
+         * @brief 폴더 아이콘입니다.
+         */
+        Folder,
+        /**
+         * @brief 출력 로그 아이콘입니다.
+         */
+        Log,
+        /**
+         * @brief 선택 커서 아이콘입니다.
+         */
+        Select,
+        /**
+         * @brief 아웃라이너 목록 아이콘입니다.
+         */
+        Outliner,
+        /**
+         * @brief 디테일 패널 아이콘입니다.
+         */
+        Details,
+        /**
+         * @brief 머티리얼 구체 아이콘입니다.
+         */
+        Material
     };
 
 }

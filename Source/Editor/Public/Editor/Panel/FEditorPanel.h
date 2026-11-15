@@ -8,6 +8,9 @@
 
 #include "Core/ReflectionMacros.h"
 #include "Core/Types.h"
+#include "Editor/EEditorIcon.h"
+
+#include <optional>
 
 namespace Editor {
 
@@ -75,6 +78,13 @@ namespace Editor {
         void Open();
 
         /**
+         * @brief 패널 탭 왼쪽에 그릴 아이콘을 지정하고 창 제목에 아이콘 자리를 만듭니다.
+         * @param[in] Icon 탭에 그릴 아이콘입니다.
+         * @note 창 식별자가 바뀌지 않도록 배치를 구성하기 전에 한 번만 호출합니다.
+         */
+        void SetTabIcon(Editor::EEditorIcon Icon);
+
+        /**
          * @brief 연결된 공통 편집 컨텍스트를 반환합니다.
          * @return 연결된 공통 편집 컨텍스트의 비소유 주소입니다.
          */
@@ -118,6 +128,11 @@ namespace Editor {
          * @brief 다음 그리기에서 창에 포커스를 줄지 여부입니다.
          */
         bool mFocusRequested{};
+
+        /**
+         * @brief 패널 탭 왼쪽에 그릴 아이콘입니다.
+         */
+        std::optional<Editor::EEditorIcon> mTabIcon{};
     };
 
 }

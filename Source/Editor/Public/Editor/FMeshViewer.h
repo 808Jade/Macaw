@@ -107,6 +107,17 @@ namespace Editor {
         bool IsOpen() const;
 
         /**
+         * @brief 이 에디터 창의 ImGui 식별자를 지정하여 같은 종류의 에디터를 여러 탭으로 열 수 있게 합니다.
+         * @param[in] Id ###로 시작하는 창 식별자입니다.
+         */
+        void SetWindowId(Core::FString Id);
+
+        /**
+         * @brief 이 에디터 창의 ImGui 식별자를 반환합니다.
+         */
+        const Core::FString& GetWindowId() const;
+
+        /**
          * @brief 열린 메시나 스켈레톤이 지정한 경로 아래에 있으면 뷰어를 닫습니다.
          * @details 에셋을 지우거나 옮겨 캐시에서 은퇴시킬 때 호출해, 옛 에셋을 계속 편집하지 않게 합니다.
          * @param[in] Path 은퇴시킨 에셋 파일 또는 폴더 경로입니다.
@@ -279,6 +290,11 @@ namespace Editor {
          * @brief 미리보기 에셋의 표시 경로입니다.
          */
         Core::FString mPath{};
+
+        /**
+         * @brief 이 뷰어 창의 ImGui 식별자입니다.
+         */
+        Core::FString mWindowId{"###Mesh Viewer"};
 
         /**
          * @brief 최근 미리보기 실패의 설명입니다.

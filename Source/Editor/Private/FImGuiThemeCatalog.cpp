@@ -177,6 +177,102 @@ namespace Editor {
         }
     }
 
+    namespace {
+        ImVec4 Gray(int Value, float Alpha = 1.0f) {
+            return ImVec4{static_cast<float>(Value) / 255.0f, static_cast<float>(Value) / 255.0f, static_cast<float>(Value) / 255.0f, Alpha};
+        }
+
+        // 언리얼 에디터 5의 기본 색 구성(패널 #242424, 배경 #151515, 입력 #0F0F0F, 강조 #0070E0)을 ImGui 스타일에 대응시킵니다.
+        void ApplyUnrealStyle(ImGuiStyle& Style) {
+            const ImVec4 Primary{0.0f, 112.0f / 255.0f, 224.0f / 255.0f, 1.0f};
+            const ImVec4 Clear{0.0f, 0.0f, 0.0f, 0.0f};
+            ImVec4* Colors{Style.Colors};
+
+            Style.WindowPadding = ImVec2{6.0f, 6.0f};
+            Style.FramePadding = ImVec2{6.0f, 3.0f};
+            Style.ItemSpacing = ImVec2{6.0f, 4.0f};
+            Style.ItemInnerSpacing = ImVec2{4.0f, 4.0f};
+            Style.CellPadding = ImVec2{4.0f, 2.0f};
+            Style.IndentSpacing = 16.0f;
+            Style.ScrollbarSize = 12.0f;
+            Style.GrabMinSize = 10.0f;
+            Style.WindowRounding = 0.0f;
+            Style.ChildRounding = 0.0f;
+            Style.PopupRounding = 4.0f;
+            Style.FrameRounding = 4.0f;
+            Style.GrabRounding = 4.0f;
+            Style.ScrollbarRounding = 6.0f;
+            Style.TabRounding = 4.0f;
+            Style.WindowBorderSize = 1.0f;
+            Style.ChildBorderSize = 1.0f;
+            Style.PopupBorderSize = 1.0f;
+            Style.FrameBorderSize = 1.0f;
+            Style.TabBorderSize = 0.0f;
+            Style.TabBarBorderSize = 1.0f;
+            Style.TabBarOverlineSize = 2.0f;
+            Style.DockingSeparatorSize = 3.0f;
+            Style.SeparatorTextBorderSize = 1.0f;
+            Style.WindowMenuButtonPosition = ImGuiDir_None;
+            Style.WindowTitleAlign = ImVec2{0.0f, 0.5f};
+
+            Colors[ImGuiCol_Text] = Gray(192);
+            Colors[ImGuiCol_TextDisabled] = Gray(110);
+            Colors[ImGuiCol_WindowBg] = Gray(36);
+            Colors[ImGuiCol_ChildBg] = Clear;
+            Colors[ImGuiCol_PopupBg] = Gray(36);
+            Colors[ImGuiCol_Border] = Gray(56);
+            Colors[ImGuiCol_BorderShadow] = Clear;
+            Colors[ImGuiCol_FrameBg] = Gray(15);
+            Colors[ImGuiCol_FrameBgHovered] = Gray(26);
+            Colors[ImGuiCol_FrameBgActive] = Gray(15);
+            Colors[ImGuiCol_TitleBg] = Gray(21);
+            Colors[ImGuiCol_TitleBgActive] = Gray(21);
+            Colors[ImGuiCol_TitleBgCollapsed] = Gray(21);
+            Colors[ImGuiCol_MenuBarBg] = Gray(21);
+            Colors[ImGuiCol_ScrollbarBg] = Gray(26, 0.6f);
+            Colors[ImGuiCol_ScrollbarGrab] = Gray(87);
+            Colors[ImGuiCol_ScrollbarGrabHovered] = Gray(128);
+            Colors[ImGuiCol_ScrollbarGrabActive] = Gray(128);
+            Colors[ImGuiCol_CheckMark] = Primary;
+            Colors[ImGuiCol_SliderGrab] = Gray(87);
+            Colors[ImGuiCol_SliderGrabActive] = Primary;
+            Colors[ImGuiCol_Button] = Gray(56);
+            Colors[ImGuiCol_ButtonHovered] = Gray(87);
+            Colors[ImGuiCol_ButtonActive] = Gray(42);
+            Colors[ImGuiCol_Header] = Primary;
+            Colors[ImGuiCol_HeaderHovered] = ImVec4{Primary.x, Primary.y, Primary.z, 0.75f};
+            Colors[ImGuiCol_HeaderActive] = Primary;
+            Colors[ImGuiCol_Separator] = Gray(21);
+            Colors[ImGuiCol_SeparatorHovered] = Primary;
+            Colors[ImGuiCol_SeparatorActive] = Primary;
+            Colors[ImGuiCol_ResizeGrip] = Clear;
+            Colors[ImGuiCol_ResizeGripHovered] = Gray(87);
+            Colors[ImGuiCol_ResizeGripActive] = Primary;
+            Colors[ImGuiCol_InputTextCursor] = Gray(255);
+            Colors[ImGuiCol_Tab] = Gray(21);
+            Colors[ImGuiCol_TabHovered] = Gray(47);
+            Colors[ImGuiCol_TabSelected] = Gray(36);
+            Colors[ImGuiCol_TabSelectedOverline] = Primary;
+            Colors[ImGuiCol_TabDimmed] = Gray(21);
+            Colors[ImGuiCol_TabDimmedSelected] = Gray(36);
+            Colors[ImGuiCol_TabDimmedSelectedOverline] = Clear;
+            Colors[ImGuiCol_DockingPreview] = ImVec4{Primary.x, Primary.y, Primary.z, 0.7f};
+            Colors[ImGuiCol_DockingEmptyBg] = Gray(21);
+            Colors[ImGuiCol_TableHeaderBg] = Gray(47);
+            Colors[ImGuiCol_TableBorderStrong] = Gray(21);
+            Colors[ImGuiCol_TableBorderLight] = Gray(26);
+            Colors[ImGuiCol_TableRowBg] = Clear;
+            Colors[ImGuiCol_TableRowBgAlt] = Gray(255, 0.025f);
+            Colors[ImGuiCol_TextLink] = ImVec4{38.0f / 255.0f, 187.0f / 255.0f, 1.0f, 1.0f};
+            Colors[ImGuiCol_TextSelectedBg] = ImVec4{Primary.x, Primary.y, Primary.z, 0.5f};
+            Colors[ImGuiCol_DragDropTarget] = Primary;
+            Colors[ImGuiCol_NavCursor] = Primary;
+            Colors[ImGuiCol_NavWindowingHighlight] = Gray(255, 0.7f);
+            Colors[ImGuiCol_NavWindowingDimBg] = Gray(0, 0.4f);
+            Colors[ImGuiCol_ModalWindowDimBg] = Gray(0, 0.5f);
+        }
+    }
+
     /**
      * @brief 기본 설정으로 FImGuiThemeCatalog 객체를 초기화합니다.
      */
@@ -184,10 +280,7 @@ namespace Editor {
         ImGuiStyle Style{};
 
         ImGui::StyleColorsDark(&Style);
-
-        Style.WindowRounding = 3.0f;
-        Style.FrameRounding = 3.0f;
-        Style.GrabRounding = 3.0f;
+        ApplyUnrealStyle(Style);
 
         mNames.push_back("Macaw Dark");
         mAuthors.push_back("Macaw");

@@ -15,6 +15,8 @@
 #include "Editor/FEditorAssetCatalog.h"
 #include "Engine/Animation/FAnimGraphNodeRegistry.h"
 
+#include "EditorStyle.h"
+
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_node_editor.h>
@@ -39,7 +41,6 @@ namespace Editor {
         /**
          * @brief 표시 이름과 무관하게 창 상태를 유지하는 ImGui 창 ID입니다.
          */
-        constexpr char WindowId[]{"###AnimGraphEditor"};
 
         /**
          * @brief 그래프 변수의 ImGui 드래그 페이로드 식별자입니다.
@@ -292,7 +293,7 @@ namespace Editor {
         mView = {};
         mView.mGraph = mEditing;
         ActivateView(mView);
-        ImGui::SetWindowFocus(WindowId);
+        ImGui::SetWindowFocus(mWindowId.c_str());
 
         return true;
     }
@@ -310,8 +311,20 @@ namespace Editor {
         }
     }
 
+    void FAnimGraphEditor::SetWindowId(Core::FString Id) {
+        mWindowId = std::move(Id);
+    }
+
+    const Core::FString& FAnimGraphEditor::GetWindowId() const {
+        return mWindowId;
+    }
+
+    bool FAnimGraphEditor::IsOpen() const {
+        return mOpen;
+    }
+
     bool FAnimGraphEditor::IsFocused() const {
-        ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(WindowId) : nullptr};
+        ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(mWindowId.c_str()) : nullptr};
         ImGuiWindow* Focused{ImGui::GetCurrentContext()->NavWindow};
 
         return Window != nullptr && Focused != nullptr && ImGui::IsWindowChildOf(Focused, Window, true, false);
@@ -344,12 +357,14 @@ namespace Editor {
             return;
         }
 
-        const Core::FString Title{std::format("Anim Graph - {}{}{}", mRootEditing->GetName(), mDirty ? " *" : "", WindowId)};
+        const Core::FString Title{std::format("{}{}{}{}", Editor::EditorStyle::TabIconPadding, mRootEditing->GetName(), mDirty ? "*" : "", mWindowId.c_str())};
         bool Visible{true};
 
         ImGui::SetNextWindowSize({1180.0f, 680.0f}, ImGuiCond_FirstUseEver);
 
         const bool Expanded{ImGui::Begin(Title.c_str(), &Visible)};
+
+        Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Component, IM_COL32(200, 100, 100, 255));
 
         if (!Visible) {
             ImGui::End();
@@ -358,7 +373,8 @@ namespace Editor {
             return;
         }
 
-        const bool SaveRequested{IsFocused() && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S)};
+        const bool ToolbarSave{Expanded && Editor::EditorStyle::AssetToolbar(mPath, mDirty)};
+        const bool SaveRequested{ToolbarSave || (IsFocused() && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))};
 
         if (Expanded && !mError.empty()) {
             ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "%s", mError.c_str());
