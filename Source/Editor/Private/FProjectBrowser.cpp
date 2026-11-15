@@ -358,25 +358,12 @@ namespace Editor {
             mCreatePage = false;
         }
 
-        ImGui::SetCursorPos({14.0f * Scale, 108.0f * Scale});
-        ImGui::TextDisabled("NEW PROJECT");
-        ImGui::SetCursorPos({10.0f * Scale, 140.0f * Scale});
-        const ImVec2 Min{ImGui::GetCursorScreenPos()};
-        const ImVec2 Max{Min.x + 194.0f * Scale, Min.y + 132.0f * Scale};
+        ImGui::SetCursorPos({10.0f * Scale, 96.0f * Scale});
 
-        if (ImGui::Selectable("##GamesCategory", mCreatePage, ImGuiSelectableFlags_None, {194.0f * Scale, 132.0f * Scale})) {
+        if (ImGui::Selectable("New Project", mCreatePage, ImGuiSelectableFlags_None, {194.0f * Scale, 38.0f * Scale})) {
             mCreatePage = true;
         }
 
-        ImDrawList* Draw{ImGui::GetWindowDrawList()};
-        Draw->AddRectFilledMultiColor({Min.x + 2.0f, Min.y + 2.0f}, {Max.x - 2.0f, Max.y - 2.0f}, IM_COL32(25, 42, 53, 255), IM_COL32(34, 60, 72, 255), IM_COL32(24, 31, 38, 255), IM_COL32(24, 30, 37, 255));
-        const ImVec2 Center{Min.x + 146.0f * Scale, Min.y + 48.0f * Scale};
-        Draw->AddQuadFilled({Center.x, Center.y - 22.0f * Scale}, {Center.x + 25.0f * Scale, Center.y - 8.0f * Scale}, {Center.x, Center.y + 7.0f * Scale}, {Center.x - 25.0f * Scale, Center.y - 8.0f * Scale}, IM_COL32(103, 172, 190, 255));
-        Draw->AddQuadFilled({Center.x - 25.0f * Scale, Center.y - 8.0f * Scale}, {Center.x, Center.y + 7.0f * Scale}, {Center.x, Center.y + 34.0f * Scale}, {Center.x - 25.0f * Scale, Center.y + 19.0f * Scale}, IM_COL32(53, 103, 126, 255));
-        Draw->AddQuadFilled({Center.x, Center.y + 7.0f * Scale}, {Center.x + 25.0f * Scale, Center.y - 8.0f * Scale}, {Center.x + 25.0f * Scale, Center.y + 19.0f * Scale}, {Center.x, Center.y + 34.0f * Scale}, IM_COL32(36, 71, 91, 255));
-        Draw->AddText(ImGui::GetFont(), 23.0f * Scale, {Min.x + 14.0f * Scale, Max.y - 54.0f * Scale}, White, "Games");
-        Draw->AddText(ImGui::GetFont(), 12.0f * Scale, {Min.x + 15.0f * Scale, Max.y - 25.0f * Scale}, Muted, "Build your next world");
-        Draw->AddRect(Min, Max, mCreatePage ? Accent : IM_COL32(60, 66, 72, 255), 2.0f, 0, mCreatePage ? 2.0f : 1.0f);
         ImGui::EndChild();
     }
 
@@ -411,7 +398,11 @@ namespace Editor {
             const ImVec2 Max{Min.x + CardWidth, Min.y + CardHeight};
             const bool Selected{mSelectedFile == Path};
 
-            if (ImGui::Selectable("##Project", Selected, ImGuiSelectableFlags_AllowDoubleClick, {CardWidth, CardHeight})) {
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{});
+            const bool Pressed{ImGui::Selectable("##Project", Selected, ImGuiSelectableFlags_AllowDoubleClick, {CardWidth, CardHeight})};
+            ImGui::PopStyleVar();
+
+            if (Pressed) {
                 mSelectedFile = Path;
                 mSubmitted = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
             }
@@ -431,7 +422,7 @@ namespace Editor {
         if (Visible == 0) {
             ImGui::SetCursorPos({8.0f * Scale, 26.0f * Scale});
             ImGui::TextUnformatted(mRecentProjects.empty() ? "Your next project starts here." : "No matching projects.");
-            ImGui::TextDisabled(mRecentProjects.empty() ? "Browse for a .mproject file or choose Games." : "Try a different project name.");
+            ImGui::TextDisabled(mRecentProjects.empty() ? "Browse for a .mproject file or choose New Project." : "Try a different project name.");
         }
 
         ImGui::EndChild();
@@ -470,7 +461,7 @@ namespace Editor {
         const float DetailsWidth{std::min(360.0f * Scale, Available * 0.42f)};
         ImGui::BeginChild("Templates", {Available - DetailsWidth - 24.0f * Scale, 0.0f}, ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground);
         ImGui::PushFont(nullptr, 23.0f * Scale);
-        ImGui::TextUnformatted("Games");
+        ImGui::TextUnformatted("New Project");
         ImGui::PopFont();
         ImGui::TextDisabled("Choose a template to get started");
         ImGui::Spacing();
@@ -553,12 +544,6 @@ namespace Editor {
             }
         }
 
-        ImGui::SetCursorPos({24.0f * Scale, ImGui::GetWindowHeight() - 45.0f * Scale});
-        ImGui::TextDisabled("MACAW");
-        ImGui::SameLine();
-        ImGui::TextColored({0.32f, 0.72f, 0.81f, 1.0f}, "/");
-        ImGui::SameLine();
-        ImGui::TextDisabled(mCreatePage ? "Create a new world" : "Your worlds, ready to open");
         ImGui::SetCursorPos({Width - (mCreatePage ? 224.0f : 344.0f) * Scale, ImGui::GetWindowHeight() - 52.0f * Scale});
 
         if (!mCreatePage) {

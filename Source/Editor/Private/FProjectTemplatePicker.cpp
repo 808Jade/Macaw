@@ -220,7 +220,11 @@ namespace Editor {
             const ImVec2 Min{ImGui::GetCursorScreenPos()};
             const ImVec2 Max{Min.x + Width, Min.y + Height};
 
-            if (ImGui::Selectable("##Template", mSelectedIndex == Index, ImGuiSelectableFlags_None, {Width, Height})) {
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{});
+            const bool Pressed{ImGui::Selectable("##Template", mSelectedIndex == Index, ImGuiSelectableFlags_None, {Width, Height})};
+            ImGui::PopStyleVar();
+
+            if (Pressed) {
                 mSelectedIndex = Index;
                 Changed = true;
             }
