@@ -84,11 +84,6 @@ namespace Renderer {
         }
 
         /**
-         * @brief 메시 정점 및 픽셀 셰이더의 내장 HLSL 소스입니다.
-         */
-        constexpr char MeshShader[]{"Lit.hlsl"};
-
-        /**
          * @brief 보조 선분 정점 및 픽셀 셰이더의 내장 HLSL 소스입니다.
          */
         constexpr char LineShader[]{"Line.hlsl"};
@@ -116,6 +111,8 @@ namespace Renderer {
      * @brief 프로젝트 콘텐츠의 셰이더 경로와 컴파일 캐시 경로를 설정합니다.
      */
     void Renderer::FRenderer::SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory) {
+        mMaterialPipelines.clear();
+        mShaderInstances.clear();
         mShaderDirectory = ContentRoot / "Shaders";
         mShaderManager.SetCacheDirectory(CacheDirectory);
     }
@@ -706,7 +703,7 @@ namespace Renderer {
             return false;
         }
 
-        Core::TArray<std::shared_ptr<const RenderCore::FShader>> ChangedShaders{};
+        Core::TArray<CoreUObject::TObjectRef<RenderCore::UShader>> ChangedShaders{};
         Core::FString Diagnostics{};
         const bool Success{mShaderManager.ReloadChanged(ChangedShaders, Diagnostics)};
 
@@ -720,7 +717,7 @@ namespace Renderer {
 
         if (Success) {
             for (auto Iterator{mMaterialPipelines.begin()}; Iterator != mMaterialPipelines.end();) {
-                if (Iterator->second == nullptr) {
+                if (Iterator->second == nullptr || !Iterator->second->HasResources()) {
                     Iterator = mMaterialPipelines.erase(Iterator);
 
                     continue;
@@ -751,7 +748,7 @@ namespace Renderer {
     /**
      * @brief 내장 HLSL 소스를 지정한 진입점과 프로파일로 컴파일합니다.
      */
-    bool Renderer::FRenderer::Compile(const char* Source, const char* Entry, const char* Target, std::shared_ptr<const RenderCore::FShader>& Code) {
+    bool Renderer::FRenderer::Compile(const char* Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code) {
         RenderCore::FShaderDescription Description{};
         const bool EngineFirst{std::string_view{Source} == LineShader || std::string_view{Source} == GizmoShader || std::string_view{Source} == "Sprite.hlsl" || std::string_view{Source} == "PostProcess.hlsl" || std::string_view{Source} == "Decal.hlsl" || std::string_view{Source} == "DeferredLighting.hlsl" || std::string_view{Source} == "Sky.hlsl" || std::string_view{Source} == "Grid.hlsl" || std::string_view{Source} == "TileLightCulling.hlsl" || std::string_view{Source} == "Depth.hlsl"};
 
@@ -783,9 +780,9 @@ namespace Renderer {
      * @brief 장면 렌더링에 사용할 셰이더와 입력 레이아웃을 생성합니다.
      */
     bool Renderer::FRenderer::CreateShaders() {
-        std::shared_ptr<const RenderCore::FShader> VertexCode{};
-        std::shared_ptr<const RenderCore::FShader> PixelCode{};
-        std::shared_ptr<const RenderCore::FShader> ComputeCode{};
+        CoreUObject::TObjectRef<RenderCore::UShader> VertexCode{};
+        CoreUObject::TObjectRef<RenderCore::UShader> PixelCode{};
+        CoreUObject::TObjectRef<RenderCore::UShader> ComputeCode{};
         Microsoft::WRL::ComPtr<ID3D11VertexShader> LineVertex{};
         Microsoft::WRL::ComPtr<ID3D11PixelShader> LinePixel{};
         Microsoft::WRL::ComPtr<ID3D11InputLayout> LineLayout{};
@@ -805,8 +802,8 @@ namespace Renderer {
             return false;
         }
 
-        VertexCode.reset();
-        PixelCode.reset();
+        VertexCode.Reset();
+        PixelCode.Reset();
 
         if (!Compile(GizmoShader, "VertexMain", "vs_5_0", VertexCode) || !Compile(GizmoShader, "PixelMain", "ps_5_0", PixelCode)) {
             return false;
@@ -956,7 +953,7 @@ namespace Renderer {
         }
 
         mDefaultMaterial = CoreUObject::NewObject<Asset::UMaterial>();
-        mDefaultMaterial->SetShaderPath(Core::FString{"Shaders/"} + MeshShader);
+        mDefaultMaterial->SetShader(RenderCore::UShader::GetDefault());
         mDefaultMaterialTexture = CoreUObject::NewObject<Asset::UTexture2D>();
 
         if (!mDefaultMaterialTexture->SetPixels(1, 1, Asset::ETextureFormat::RGBA8, Core::TArray<Core::Uint8>{255, 255, 255, 255}) || !mDefaultMaterialTexture->CreateResources(mDevice.Get()) || GetMaterialPipeline(*mDefaultMaterial) == nullptr) {
@@ -1160,9 +1157,22 @@ namespace Renderer {
     /**
      * @brief 코드·패스·인스턴싱·스키닝 조합의 GPU 셰이더 인스턴스를 조회합니다.
      */
-    std::shared_ptr<Renderer::FShaderInstance> Renderer::FRenderer::GetShaderInstance(const RenderCore::FShaderDescription& Description, Renderer::EMeshPass Pass, bool Instanced, bool Skinned) {
+    std::shared_ptr<Renderer::FShaderInstance> Renderer::FRenderer::GetShaderInstance(const RenderCore::FShaderDescription& Description, Renderer::EMeshPass Pass, bool Instanced, bool Skinned, RenderCore::UShader* SourceShader) {
         Core::FString Diagnostics{};
-        std::shared_ptr<const RenderCore::FShader> Code{mShaderManager.Load(Description, Diagnostics)};
+        Core::FString VariantKey{};
+        CoreUObject::TObjectRef<RenderCore::UShader> Code{};
+
+        if (SourceShader != nullptr) {
+            if (mShaderManager.Load(*SourceShader, Description, VariantKey, Diagnostics)) {
+                Code = SourceShader;
+            }
+        } else {
+            Code = mShaderManager.Load(Description, Diagnostics);
+
+            if (Code != nullptr) {
+                VariantKey = Code->GetCacheKey();
+            }
+        }
 
         if (!Diagnostics.empty()) {
             Core::ErrorHandler::Report("Shader", Diagnostics, Core::ErrorHandler::EErrorLevel::Warning);
@@ -1172,9 +1182,10 @@ namespace Renderer {
             return nullptr;
         }
 
-        const Core::FString Key{Code->GetCacheKey() + "|" + std::to_string(static_cast<Core::Uint32>(Pass)) + (Instanced ? "|Instanced" : "|Single") + (Skinned ? "|Skinned" : "|Static")};
+        const auto Handle{Code.GetHandle()};
+        const Core::FString Key{std::to_string(Handle.mIndex) + ":" + std::to_string(Handle.mGeneration) + "|" + VariantKey + "|" + std::to_string(static_cast<Core::Uint32>(Pass)) + (Instanced ? "|Instanced" : "|Single") + (Skinned ? "|Skinned" : "|Static")};
         const auto Existing{mShaderInstances.find(Key)};
-        std::shared_ptr<Renderer::FShaderInstance> Shader{Existing != mShaderInstances.end() ? Existing->second : std::make_shared<Renderer::FShaderInstance>(std::move(Code), Pass, Instanced, Skinned)};
+        std::shared_ptr<Renderer::FShaderInstance> Shader{Existing != mShaderInstances.end() ? Existing->second : std::make_shared<Renderer::FShaderInstance>(Code, VariantKey, Pass, Instanced, Skinned)};
 
         if (!Shader->CreateResources(mDevice.Get(), Diagnostics)) {
             Core::ErrorHandler::Report("Shader", Diagnostics, Core::ErrorHandler::EErrorLevel::Warning);
@@ -1197,20 +1208,27 @@ namespace Renderer {
             Mode = Engine::EViewMode::Lit_Phong;
         }
 
-        const std::filesystem::path RelativePath{Core::FilePath::FromUtf8(Material.GetShaderPath()).lexically_normal()};
+        RenderCore::UShader* Shader{Material.GetShader().Get()};
+
+        if (Shader == nullptr) {
+            return nullptr;
+        }
+
+        const std::filesystem::path RelativePath{Core::FilePath::FromUtf8(Shader->GetSourcePath()).lexically_normal()};
         Core::FString ShaderPath{Core::FilePath::ToGenericUtf8(RelativePath)};
         std::transform(ShaderPath.begin(), ShaderPath.end(), ShaderPath.begin(), [](unsigned char Character) {
             return static_cast<char>(std::tolower(Character));
         });
 
-        const bool Unlit{Mode == Engine::EViewMode::Unlit || (ShaderPath == "shaders/unlit.hlsl" && Mode != Engine::EViewMode::WorldNormal)};
+        const bool Unlit{Mode == Engine::EViewMode::Unlit || (Shader->IsUnlit() && Mode != Engine::EViewMode::WorldNormal)};
         const Engine::EViewMode PixelMode{Unlit ? Engine::EViewMode::Unlit : Mode == Engine::EViewMode::Lit_Gouraud || Mode == Engine::EViewMode::Lit_Lambert || Mode == Engine::EViewMode::WorldNormal ? Mode : Engine::EViewMode::Lit_Phong};
         const bool Shadowed{ReceiveShadows && !Unlit && (Mode == Engine::EViewMode::Lit_Lambert || Mode == Engine::EViewMode::Lit_Phong)};
         const bool NormalMap{Material.GetNormalMapTexture() != nullptr};
         const bool Translucent{Material.GetBlendMode() == Asset::EBlendMode::Translucent};
         const Renderer::EMeshPass Pass{Translucent ? Renderer::EMeshPass::TranslucencyMeshPass : Renderer::EMeshPass::OpaqueMeshPass};
         const bool Instanced{!Skinned};
-        const Core::FString Key{ShaderPath + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Core::Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : "|Static") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
+        const auto ShaderHandle{Shader->GetHandle()};
+        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Core::Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : "|Static") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
         const auto Existing{mMaterialPipelines.find(Key)};
 
         if (Existing != mMaterialPipelines.end()) {
@@ -1222,9 +1240,9 @@ namespace Renderer {
         }
 
         const std::filesystem::path VertexSource{FindTextContent(mShaderDirectory.parent_path(), Skinned ? "Shaders/SkinnedMesh.vs.hlsl" : "Shaders/StaticMesh.vs.hlsl", true)};
-        const bool Builtin{ShaderPath == "shaders/lit.hlsl" || ShaderPath == "shaders/unlit.hlsl" || ShaderPath == "shaders/mesh.hlsl"};
+        const bool Builtin{Shader->IsBuiltin()};
         const bool OverridePixel{Mode == Engine::EViewMode::Unlit || Mode == Engine::EViewMode::WorldNormal};
-        const bool WritesGBuffer{!Translucent && (Builtin || OverridePixel)};
+        const bool WritesGBuffer{!Translucent && (Shader->WritesGBuffer() || OverridePixel)};
         const std::filesystem::path PixelSource{FindTextContent(mShaderDirectory.parent_path(), OverridePixel ? std::filesystem::path{"Shaders/Lit.hlsl"} : RelativePath, Builtin || OverridePixel)};
         RenderCore::FShaderDescription VertexDescription{};
         VertexDescription.mSourcePath = VertexSource;
@@ -1243,7 +1261,7 @@ namespace Renderer {
         RenderCore::FShaderDescription PixelDescription{};
         PixelDescription.mSourcePath = PixelSource;
         PixelDescription.mIncludeDirectories = {PixelSource.parent_path(), VertexSource.parent_path(), mShaderDirectory};
-        PixelDescription.mEntryPoint = "PixelMain";
+        PixelDescription.mEntryPoint = OverridePixel ? "PixelMain" : Shader->GetEntryPoint();
         PixelDescription.mTargetProfile = "ps_5_0";
 
         if (WritesGBuffer) {
@@ -1277,7 +1295,7 @@ namespace Renderer {
 #endif
 
         std::shared_ptr<Renderer::FShaderInstance> Vertex{GetShaderInstance(VertexDescription, Pass, Instanced, Skinned)};
-        std::shared_ptr<Renderer::FShaderInstance> Pixel{GetShaderInstance(PixelDescription, Pass, false, false)};
+        std::shared_ptr<Renderer::FShaderInstance> Pixel{GetShaderInstance(PixelDescription, Pass, false, false, Shader)};
         std::unique_ptr<Renderer::FMaterialPipeline> Pipeline{};
 
         if (Vertex != nullptr && Pixel != nullptr) {

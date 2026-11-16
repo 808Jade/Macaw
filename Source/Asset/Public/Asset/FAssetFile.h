@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Guid.h"
 #include "Core/ReflectionMacros.h"
 #include "CoreUObject/Reflection/TNativeEnum.h"
 
@@ -75,7 +76,8 @@ namespace Asset {
         /**
          * @brief UObject Emitter와 모듈의 구성·설정을 JSON 본문으로 저장하는 파티클 시스템 에셋입니다.
          */
-        ParticleSystem
+        ParticleSystem,
+        Shader
     };
 
     /**
@@ -101,7 +103,9 @@ namespace Asset {
          * @param[out] Error 실패 원인을 받을 오류 문자열입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        static bool Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Core::Uint8> Payload, Core::FString& Error);
+        static bool Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Core::Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid = Core::FGuid::Null());
+
+        static bool GetIdentity(const std::filesystem::path& Path, Asset::EAssetType& Type, Core::FGuid& Guid, Core::FString& Error);
 
         /**
          * @brief 에셋 종류와 데이터 무결성을 검사하여 페이로드를 읽습니다.

@@ -14,6 +14,7 @@
 #include "Asset/USkeleton.h"
 #include "Asset/UTexture2D.h"
 #include "Asset/UMaterial.h"
+#include "RenderCore/Shader/UShader.h"
 #include "Asset/Sequence/ULevelSequence.h"
 #include "Asset/Animation/UAnimSequence.h"
 #include "Asset/Animation/UBlendSpace1D.h"
@@ -40,6 +41,13 @@ namespace Asset {
      * @brief 이 구현 파일에서만 사용하는 내부 상태와 보조 함수입니다.
      */
     namespace {
+
+        bool RestoreAssetIdentity(const std::filesystem::path& Path, CoreUObject::UObject& Object, Core::FString& Error) {
+            Asset::EAssetType Type{};
+            Core::FGuid Guid{Core::FGuid::Null()};
+
+            return Asset::FAssetFile::GetIdentity(Path, Type, Guid, Error) && (!Guid.IsValid() || Object.RestoreGuid(Guid));
+        }
 
         /**
          * @brief 에셋 상대 경로를 대소문자 구분 없이 조회할 캐시 키로 변환합니다.
@@ -734,6 +742,10 @@ namespace Asset {
             return nullptr;
         }
 
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Mesh, Error)) {
+            return nullptr;
+        }
+
         Asset::UStaticMesh* Result{Mesh.get()};
 
         Mesh->SetName(Core::FilePath::ToUtf8(Path.stem()));
@@ -779,6 +791,10 @@ namespace Asset {
         if (Archive.HasError() || Archive.GetRemainingBytes() != 0 || !Mesh->SetMeshData(std::move(Data), std::move(SkinWeights))) {
             Error = Archive.HasError() ? Archive.GetError() : "Invalid skeletal mesh asset data";
 
+            return nullptr;
+        }
+
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Mesh, Error)) {
             return nullptr;
         }
 
@@ -838,6 +854,10 @@ namespace Asset {
             return nullptr;
         }
 
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Skeleton, Error)) {
+            return nullptr;
+        }
+
         Asset::USkeleton* Result{Skeleton.get()};
 
         Skeleton->SetName(Core::FilePath::ToUtf8(Path.stem()));
@@ -893,6 +913,10 @@ namespace Asset {
         auto Sequence{CoreUObject::NewObject<Asset::UAnimSequence>()};
 
         if (!Sequence->SetDataModel(std::move(Model), Error)) {
+            return nullptr;
+        }
+
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Sequence, Error)) {
             return nullptr;
         }
 
@@ -968,6 +992,10 @@ namespace Asset {
             return nullptr;
         }
 
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Texture, Error)) {
+            return nullptr;
+        }
+
         if (!Data.ApplyTo(*Texture, Error)) {
             return nullptr;
         }
@@ -984,6 +1012,10 @@ namespace Asset {
      */
     bool Asset::FAssetManager::SaveMesh(const std::filesystem::path& Path, const Asset::UStaticMesh& Mesh, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
+
+        if (!ValidateAssetIdentity(Target, Mesh.GetGuid(), Error)) {
+            return false;
+        }
 
         if (Target.empty() || !Mesh.IsValid()) {
             if (Error.empty()) {
@@ -1009,7 +1041,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Mesh, Payload, Error)) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Mesh, Payload, Error, GetSaveIdentity(Target, Mesh.GetGuid()))) {
             return false;
         }
 
@@ -1021,6 +1053,10 @@ namespace Asset {
      */
     bool Asset::FAssetManager::SaveSkeletalMesh(const std::filesystem::path& Path, const Asset::USkeletalMesh& Mesh, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
+
+        if (!ValidateAssetIdentity(Target, Mesh.GetGuid(), Error)) {
+            return false;
+        }
 
         if (Target.empty() || !Mesh.IsValid()) {
             if (Error.empty()) {
@@ -1047,7 +1083,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::SkeletalMesh, Payload, Error)) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::SkeletalMesh, Payload, Error, GetSaveIdentity(Target, Mesh.GetGuid()))) {
             return false;
         }
 
@@ -1056,6 +1092,10 @@ namespace Asset {
 
     bool Asset::FAssetManager::SaveSkeleton(const std::filesystem::path& Path, const Asset::USkeleton& Skeleton, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
+
+        if (!ValidateAssetIdentity(Target, Skeleton.GetGuid(), Error)) {
+            return false;
+        }
 
         if (Target.empty() || !Skeleton.IsValid()) {
             if (Error.empty()) {
@@ -1081,7 +1121,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Skeleton, Payload, Error)) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Skeleton, Payload, Error, GetSaveIdentity(Target, Skeleton.GetGuid()))) {
             return false;
         }
 
@@ -1090,6 +1130,10 @@ namespace Asset {
 
     bool Asset::FAssetManager::SaveAnimSequence(const std::filesystem::path& Path, const Asset::UAnimSequence& Sequence, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
+
+        if (!ValidateAssetIdentity(Target, Sequence.GetGuid(), Error)) {
+            return false;
+        }
 
         if (Target.empty() || !Sequence.IsValid()) {
             if (Error.empty()) {
@@ -1119,7 +1163,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::AnimSequence, Payload, Error)) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::AnimSequence, Payload, Error, GetSaveIdentity(Target, Sequence.GetGuid()))) {
             return false;
         }
 
@@ -1131,6 +1175,10 @@ namespace Asset {
      */
     bool Asset::FAssetManager::SaveTexture(const std::filesystem::path& Path, const Asset::UTexture2D& Texture, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
+
+        if (!ValidateAssetIdentity(Target, Texture.GetGuid(), Error)) {
+            return false;
+        }
 
         if (Target.empty() || !Texture.IsValid() || Texture.GetPixels().empty()) {
             if (Error.empty()) {
@@ -1155,7 +1203,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Texture, Payload, Error)) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Texture, Payload, Error, GetSaveIdentity(Target, Texture.GetGuid()))) {
             return false;
         }
 
@@ -1177,6 +1225,10 @@ namespace Asset {
         ImportedPath.clear();
 
         const std::wstring Extension{Core::FilePath::ToLowerExtension(Source)};
+        if (Extension == L".hlsl") {
+            return ImportShader(Source, Directory, ImportedPath, Error);
+        }
+
         const bool Texture{Extension == L".png" || Extension == L".jpg" || Extension == L".jpeg" || Extension == L".bmp" || Extension == L".tga" || Extension == L".dds" || Extension == L".hdr"};
 
         if (!Texture && !Asset::IMeshImporter::IsSupported(Source)) {
@@ -1566,6 +1618,7 @@ namespace Asset {
         Retire(mTextures);
         Retire(mNormalMaps);
         Retire(mMaterials);
+        Retire(mShaders);
         Retire(mSequences);
         Retire(mBlendSpaces);
         Retire(mAnimGraphs);
@@ -1638,6 +1691,10 @@ namespace Asset {
         auto Sequence{CoreUObject::NewObject<Asset::ULevelSequence>()};
         Sequence->Serialize(Archive);
 
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Sequence, Error)) {
+            return nullptr;
+        }
+
         if (Archive.HasError()) {
             Error = Archive.GetError();
 
@@ -1688,6 +1745,10 @@ namespace Asset {
     bool Asset::FAssetManager::SaveSequence(const std::filesystem::path& Path, Asset::ULevelSequence& Sequence, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
 
+        if (!ValidateAssetIdentity(Target, Sequence.GetGuid(), Error)) {
+            return false;
+        }
+
         if (Target.empty()) {
             return false;
         }
@@ -1704,7 +1765,7 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        return Asset::FAssetFile::Save(Target, Asset::EAssetType::Sequence, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error);
+        return Asset::FAssetFile::Save(Target, Asset::EAssetType::Sequence, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Sequence.GetGuid()));
     }
 
     Asset::UBlendSpace* Asset::FAssetManager::LoadBlendSpace(const std::filesystem::path& Path, Core::FString& Error) {
@@ -1751,6 +1812,10 @@ namespace Asset {
         BlendSpace->SetName(Core::FilePath::ToUtf8(Path.stem()));
 
         BlendSpace->Serialize(Archive, *this);
+
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *BlendSpace, Error)) {
+            return nullptr;
+        }
 
         if (Archive.HasError()) {
             Error = Archive.GetError();
@@ -1805,6 +1870,10 @@ namespace Asset {
     bool Asset::FAssetManager::SaveBlendSpace(const std::filesystem::path& Path, Asset::UBlendSpace& BlendSpace, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
 
+        if (!ValidateAssetIdentity(Target, BlendSpace.GetGuid(), Error)) {
+            return false;
+        }
+
         if (Target.empty()) {
             return false;
         }
@@ -1829,7 +1898,7 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::BlendSpace, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error)) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::BlendSpace, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, BlendSpace.GetGuid()))) {
             return false;
         }
 
@@ -1872,6 +1941,10 @@ namespace Asset {
         auto Graph{CoreUObject::NewObject<Asset::UAnimGraph>()};
 
         Graph->Serialize(Archive);
+
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Graph, Error)) {
+            return nullptr;
+        }
 
         if (Archive.HasError()) {
             Error = Archive.GetError();
@@ -1928,6 +2001,10 @@ namespace Asset {
     bool Asset::FAssetManager::SaveAnimGraph(const std::filesystem::path& Path, Asset::UAnimGraph& Graph, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
 
+        if (!ValidateAssetIdentity(Target, Graph.GetGuid(), Error)) {
+            return false;
+        }
+
         if (Target.empty()) {
             return false;
         }
@@ -1950,7 +2027,7 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::AnimGraph, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error)) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::AnimGraph, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Graph.GetGuid()))) {
             return false;
         }
 
@@ -1967,6 +2044,15 @@ namespace Asset {
     bool Asset::FAssetManager::SaveMaterial(const std::filesystem::path& Path, const Asset::UMaterial& Material, Core::FString& Error) {
         const auto Target{ResolvePath(Path, Error)};
         auto Candidate{CoreUObject::NewObject<Asset::UMaterial>()};
+        Asset::EAssetType ExistingType{};
+        Core::FGuid ExistingGuid{Core::FGuid::Null()};
+        Core::FString HeaderError{};
+        Asset::FAssetFile::GetIdentity(Target, ExistingType, ExistingGuid, HeaderError);
+        Candidate->RestoreGuid(ExistingGuid.IsValid() ? ExistingGuid : Material.GetGuid());
+
+        if (Target.empty() || LoadAsset(Material.GetShader().GetGuid(), Error, RenderCore::UShader::StaticClass()) == nullptr || !ValidateAssetIdentity(Target, Candidate->GetGuid(), Error)) {
+            return false;
+        }
 
         if (Target.empty() || !ApplyMaterialSettings(*Candidate, Material, Error) || !Asset::FMaterialFile::Save(Target, *this, *Candidate, Error)) {
             return false;
@@ -2011,7 +2097,7 @@ namespace Asset {
      */
     bool Asset::FAssetManager::ApplyMaterialSettings(Asset::UMaterial& Target, const Asset::UMaterial& Source, Core::FString& Error) {
         Target.SetName(Source.GetName());
-        Target.SetShaderPath(Source.GetShaderPath());
+        Target.SetShader(Source.GetShader());
         Target.SetBaseColor(Source.GetBaseColor());
         Target.SetBlendMode(Source.GetBlendMode());
         Target.SetBaseColorTexturePath(Source.GetBaseColorTexturePath());
@@ -2029,7 +2115,7 @@ namespace Asset {
         Target.SetEmissiveTexturePath(Source.GetEmissiveTexturePath());
         Target.SetReflectionTexturePath(Source.GetReflectionTexturePath());
 
-        return Target.ResolveTexture(*this, Error);
+        return Target.ResolveShader(*this, Error) && Target.ResolveTexture(*this, Error);
     }
 
     /**

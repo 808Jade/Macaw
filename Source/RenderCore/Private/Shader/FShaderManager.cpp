@@ -6,10 +6,26 @@
 
 #include "RenderCore/Shader/FShaderManager.h"
 #include "Core/LoadingStatus.h"
+#include "CoreUObject/Reflection/NewObject.h"
+
+#include <algorithm>
 
 #include <utility>
 
 namespace RenderCore {
+
+    namespace {
+
+        /**
+         * @brief 셰이더의 객체 세대 핸들과 컴파일 변형 키로 변경 추적 키를 생성합니다.
+         */
+        Core::FString GetManagedKey(const RenderCore::UShader& Shader, const Core::FString& VariantKey) {
+            const auto Handle{Shader.GetHandle()};
+
+            return std::to_string(Handle.mIndex) + ":" + std::to_string(Handle.mGeneration) + "|" + VariantKey;
+        }
+
+    }
 
     /**
      * @brief 전달받은 설정과 의존성으로 FShaderManager의 초기 상태를 구성합니다.
@@ -21,7 +37,7 @@ namespace RenderCore {
     /**
      * @brief 셰이더를 메모리 캐시에서 조회하거나 디스크 캐시·컴파일로 준비합니다.
      */
-    std::shared_ptr<const RenderCore::FShader> RenderCore::FShaderManager::Load(const RenderCore::FShaderDescription& Description, Core::FString& Diagnostics) {
+    CoreUObject::TObjectRef<RenderCore::UShader> RenderCore::FShaderManager::Load(const RenderCore::FShaderDescription& Description, Core::FString& Diagnostics) {
         RenderCore::FShaderDescription Normalized{Description};
 
         if (!Normalized.Normalize(Diagnostics)) {
@@ -36,10 +52,10 @@ namespace RenderCore {
             return nullptr;
         }
 
-        const auto Existing{mShaders.find(Key)};
+        const auto Existing{mOwnedShaders.find(Key)};
 
-        if (Existing != mShaders.end()) {
-            return Existing->second;
+        if (Existing != mOwnedShaders.end()) {
+            return Existing->second.get();
         }
 
         RenderCore::FShaderCompilation Compilation{};
@@ -49,33 +65,88 @@ namespace RenderCore {
             return nullptr;
         }
 
-        auto Shader{std::make_shared<RenderCore::FShader>(std::move(Normalized), Key, std::move(Compilation), LoadedFromCache)};
+        auto Shader{CoreUObject::NewObject<RenderCore::UShader>(std::move(Normalized), Key, std::move(Compilation), LoadedFromCache)};
+        CoreUObject::TObjectRef<RenderCore::UShader> Result{Shader.get()};
+        mShaders[GetManagedKey(*Shader, Key)] = FManagedVariant{Result, Key};
+        mOwnedShaders.emplace(Key, std::move(Shader));
 
-        mShaders.emplace(Key, Shader);
+        return Result;
+    }
 
-        return Shader;
+    /**
+     * @brief 호출자가 소유하는 셰이더 객체에 컴파일 변형을 준비하고 변경 추적에 등록합니다.
+     */
+    bool RenderCore::FShaderManager::Load(RenderCore::UShader& Shader, const RenderCore::FShaderDescription& Description, Core::FString& VariantKey, Core::FString& Diagnostics) {
+        VariantKey.clear();
+        RenderCore::FShaderDescription Normalized{Description};
+
+        if (!Normalized.Normalize(Diagnostics)) {
+            return false;
+        }
+
+        VariantKey = Normalized.GetCacheKey();
+
+        if (VariantKey.empty()) {
+            Diagnostics = "Cannot compute shader cache key";
+
+            return false;
+        }
+
+        const Core::FString ManagedKey{GetManagedKey(Shader, VariantKey)};
+        const auto Existing{mShaders.find(ManagedKey)};
+        const auto Current{Shader.GetCompilation(VariantKey)};
+
+        if (Existing != mShaders.end() && Existing->second.mShader == &Shader && Current != nullptr) {
+            return true;
+        }
+
+        if (Current == nullptr || !mCache.IsCurrent(*Current)) {
+            RenderCore::FShaderCompilation Compilation{};
+            bool LoadedFromCache{};
+
+            if (!LoadCompilation(Normalized, Compilation, LoadedFromCache, Diagnostics)) {
+                return false;
+            }
+
+            Shader.Initialize(std::move(Normalized), VariantKey, std::move(Compilation), LoadedFromCache);
+        }
+
+        mShaders[ManagedKey] = FManagedVariant{&Shader, VariantKey};
+
+        return true;
     }
 
     /**
      * @brief 셰이더의 의존성 스냅샷과 파일 상태를 비교하여 변경을 감지합니다.
      */
-    bool RenderCore::FShaderManager::HasChanges(const RenderCore::FShader& Shader) const {
-        return !mCache.IsCurrent(*Shader.GetCompilation());
+    bool RenderCore::FShaderManager::HasChanges(const RenderCore::UShader& Shader) const {
+        return std::any_of(Shader.mCompiledVariants.begin(), Shader.mCompiledVariants.end(), [this](const auto& Entry) {
+            return !mCache.IsCurrent(*Entry.second.mCompilation);
+        });
     }
 
     /**
      * @brief 변경된 셰이더를 재컴파일하고 갱신에 성공한 셰이더를 모읍니다.
      */
-    bool RenderCore::FShaderManager::ReloadChanged(Core::TArray<std::shared_ptr<const RenderCore::FShader>>& ChangedShaders, Core::FString& Diagnostics) {
+    bool RenderCore::FShaderManager::ReloadChanged(Core::TArray<CoreUObject::TObjectRef<RenderCore::UShader>>& ChangedShaders, Core::FString& Diagnostics) {
         ChangedShaders.clear();
         Diagnostics.clear();
-
         bool Success{true};
 
-        for (const auto& Entry : mShaders) {
-            const std::shared_ptr<RenderCore::FShader>& Shader{Entry.second};
+        for (auto Iterator{mShaders.begin()}; Iterator != mShaders.end();) {
+            const FManagedVariant& Entry{Iterator->second};
+            RenderCore::UShader* Shader{Entry.mShader.Get()};
+            const auto Current{Shader != nullptr ? Shader->GetCompilation(Entry.mVariantKey) : nullptr};
 
-            if (!HasChanges(*Shader)) {
+            if (Current == nullptr) {
+                Iterator = mShaders.erase(Iterator);
+
+                continue;
+            }
+
+            ++Iterator;
+
+            if (mCache.IsCurrent(*Current)) {
                 continue;
             }
 
@@ -83,11 +154,14 @@ namespace RenderCore {
             bool LoadedFromCache{};
             Core::FString Message{};
 
-            if (!LoadCompilation(Shader->GetDescription(), Compilation, LoadedFromCache, Message)) {
+            if (!LoadCompilation(Shader->GetDescription(Entry.mVariantKey), Compilation, LoadedFromCache, Message)) {
                 Success = false;
             } else {
-                Shader->Commit(std::move(Compilation), LoadedFromCache);
-                ChangedShaders.push_back(Shader);
+                Shader->Commit(Entry.mVariantKey, std::move(Compilation), LoadedFromCache);
+
+                if (std::find(ChangedShaders.begin(), ChangedShaders.end(), Entry.mShader) == ChangedShaders.end()) {
+                    ChangedShaders.push_back(Entry.mShader);
+                }
             }
 
             if (!Message.empty()) {
@@ -99,10 +173,11 @@ namespace RenderCore {
     }
 
     /**
-     * @brief 관리 중인 셰이더의 공유 참조를 모두 제거합니다.
+     * @brief 관리 중인 셰이더 참조와 소유한 셰이더 객체를 정리합니다.
      */
     void RenderCore::FShaderManager::Clear() {
         mShaders.clear();
+        mOwnedShaders.clear();
     }
 
     /**

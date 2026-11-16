@@ -8,6 +8,7 @@
 #include "Core/FilePath.h"
 #include "Asset/FAssetManager.h"
 #include "Asset/UMaterial.h"
+#include "CoreUObject/FObjectReference.h"
 #include "Serialization/MemoryArchive.h"
 
 namespace Asset {
@@ -30,7 +31,7 @@ namespace Asset {
 		  mEmissiveTexturePath{Material.GetEmissiveTexturePath()},
 		  mReflectionTexturePath{Material.GetReflectionTexturePath()},
 		  mName{Material.GetName()},
-		  mShaderPath{Material.GetShaderPath()},
+		  mShaderGuid{Material.GetShader().GetGuid()},
 		  mBaseColor{Material.GetBaseColor()},
 		  mBaseColorTexturePath{Material.GetBaseColorTexturePath()},
 		  mNormalMapTexturePath{Material.GetNormalMapTexturePath()},
@@ -45,18 +46,30 @@ namespace Asset {
      * @brief 재질 설정을 바이너리 아카이브에 기록하거나 읽고 지원하지 않는 버전을 거부합니다.
      */
     void Asset::FMaterialAssetData::Serialize(Serialization::FMemoryArchive& Archive) {
-        Core::Uint32 Version{3};
+        Core::Uint32 Version{4};
 
         Archive.Serialize("Version", Version);
 
-        if (Archive.HasError() || (Version != 1 && Version != 2 && Version != 3)) {
+        if (Archive.HasError() || Version < 1 || Version > 4) {
             Archive.SetError("Unsupported material asset version");
 
             return;
         }
 
         Archive.Serialize("Name", mName);
-        Archive.Serialize("Shader", mShaderPath);
+
+        if (Version >= 4) {
+            Archive.Serialize("Shader", mShaderGuid);
+
+            if (!mShaderGuid.IsValid()) {
+                Archive.SetError("Invalid shader asset GUID");
+
+                return;
+            }
+        } else {
+            Archive.Serialize("Shader", mLegacyShaderPath);
+        }
+
         Archive.Serialize("BaseColor", mBaseColor);
         Archive.Serialize("BaseColorTexture", mBaseColorTexturePath);
         Archive.Serialize("NormalMap", mNormalMapTexturePath);
@@ -95,8 +108,24 @@ namespace Asset {
     /**
      * @brief 저장한 재질 설정을 각 Setter의 검증을 거쳐 런타임 재질에 적용합니다.
      */
-    bool Asset::FMaterialAssetData::ApplyTo(Asset::UMaterial& Material, Core::FString& Error) const {
-        if (!Material.SetName(mName) || !Material.SetShaderPath(mShaderPath) || !Material.SetBaseColor(mBaseColor) || !Material.SetBlendMode(mBlendMode) || !Material.SetBaseColorTexturePath(mBaseColorTexturePath) || !Material.SetNormalMapTexturePath(mNormalMapTexturePath) || !Material.SetSpecularStrength(mSpecularStrength) || !Material.SetShininess(mShininess) || !Material.SetNormalStrength(mNormalStrength) || !Material.SetTwoSided(mTwoSided) || !Material.SetSpecularColor(mSpecularColor) || !Material.SetAmbientColor(mAmbientColor) || !Material.SetEmissiveColor(mEmissiveColor) || !Material.SetReflectionColor(mReflectionColor) || !Material.SetReflectionStrength(mReflectionStrength) || !Material.SetSpecularTexturePath(mSpecularTexturePath) || !Material.SetEmissiveTexturePath(mEmissiveTexturePath) || !Material.SetReflectionTexturePath(mReflectionTexturePath)) {
+    bool Asset::FMaterialAssetData::ApplyTo(Asset::UMaterial& Material, Core::FString& Error, Asset::FAssetManager* Assets) const {
+        CoreUObject::TObjectRef<RenderCore::UShader> Shader{};
+
+        if (mShaderGuid.IsValid()) {
+            Shader = RenderCore::UShader::FindBuiltin(mShaderGuid);
+
+            if (Shader == nullptr) {
+                Shader = *CoreUObject::FObjectReference{mShaderGuid}.ToObjectRef<RenderCore::UShader>();
+            }
+        } else {
+            Shader = Assets != nullptr ? Assets->LoadShaderSource(mLegacyShaderPath, Error) : RenderCore::UShader::FindBuiltin(mLegacyShaderPath);
+        }
+
+        if (Assets != nullptr && !Assets->ResolveReference(Shader, Error)) {
+            return false;
+        }
+
+        if (!Material.SetName(mName) || !Material.SetShader(Shader) || !Material.SetBaseColor(mBaseColor) || !Material.SetBlendMode(mBlendMode) || !Material.SetBaseColorTexturePath(mBaseColorTexturePath) || !Material.SetNormalMapTexturePath(mNormalMapTexturePath) || !Material.SetSpecularStrength(mSpecularStrength) || !Material.SetShininess(mShininess) || !Material.SetNormalStrength(mNormalStrength) || !Material.SetTwoSided(mTwoSided) || !Material.SetSpecularColor(mSpecularColor) || !Material.SetAmbientColor(mAmbientColor) || !Material.SetEmissiveColor(mEmissiveColor) || !Material.SetReflectionColor(mReflectionColor) || !Material.SetReflectionStrength(mReflectionStrength) || !Material.SetSpecularTexturePath(mSpecularTexturePath) || !Material.SetEmissiveTexturePath(mEmissiveTexturePath) || !Material.SetReflectionTexturePath(mReflectionTexturePath)) {
             Error = "Invalid material asset settings";
 
             return false;
@@ -115,7 +144,7 @@ namespace Asset {
             return false;
         }
 
-        for (const Core::FString* Reference : {&mShaderPath, &mBaseColorTexturePath, &mNormalMapTexturePath, &mSpecularTexturePath, &mEmissiveTexturePath, &mReflectionTexturePath}) {
+        for (const Core::FString* Reference : {&mLegacyShaderPath, &mBaseColorTexturePath, &mNormalMapTexturePath, &mSpecularTexturePath, &mEmissiveTexturePath, &mReflectionTexturePath}) {
             if (!Reference->empty() && Assets.ResolvePath(Core::FilePath::FromUtf8(*Reference), Error).empty()) {
                 return false;
             }

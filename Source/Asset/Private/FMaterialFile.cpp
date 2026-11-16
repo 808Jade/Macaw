@@ -33,7 +33,14 @@ namespace Asset {
             return false;
         }
 
-        return Data.ValidateReferences(Assets, Error) && Data.ApplyTo(Material, Error) && Material.ResolveTexture(Assets, Error);
+        Asset::EAssetType Type{};
+        Core::FGuid Guid{Core::FGuid::Null()};
+
+        if (!Asset::FAssetFile::GetIdentity(Path, Type, Guid, Error) || (Guid.IsValid() && !Material.RestoreGuid(Guid))) {
+            return false;
+        }
+
+        return Data.ValidateReferences(Assets, Error) && Data.ApplyTo(Material, Error, &Assets) && Material.ResolveTexture(Assets, Error);
     }
 
     /**
@@ -59,7 +66,7 @@ namespace Asset {
             return false;
         }
 
-        return Asset::FAssetFile::Save(Path, Asset::EAssetType::Material, Payload, Error);
+        return Asset::FAssetFile::Save(Path, Asset::EAssetType::Material, Payload, Error, Material.GetGuid());
     }
 
 }

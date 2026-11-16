@@ -1,12 +1,13 @@
 /**
  * @file UMaterial.h
- * @brief 셰이더 경로·기본색·텍스처·양면 정책과 GPU 상수를 관리합니다.
+ * @brief 셰이더 참조·기본색·텍스처·양면 정책과 GPU 상수를 관리합니다.
  * @ingroup Asset
  */
 
 #pragma once
 
 #include "CoreUObject/TObjectRef.h"
+#include "RenderCore/Shader/UShader.h"
 
 #include "Core/Types.h"
 #include "Core/FRevision.h"
@@ -26,7 +27,7 @@ namespace Asset {
     class UTexture2D;
 
     /**
-     * @brief 셰이더 경로·기본색·텍스처·양면 정책과 GPU 상수를 관리합니다.
+     * @brief 셰이더 참조·기본색·텍스처·양면 정책과 GPU 상수를 관리합니다.
      */
     UCLASS()
     class UMaterial final : public CoreUObject::UObject {
@@ -45,17 +46,19 @@ namespace Asset {
 
     public:
         /**
-         * @brief Content 기준 머티리얼 셰이더 경로를 반환합니다.
+         * @brief 머티리얼의 셰이더 객체 참조를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const Core::FString& GetShaderPath() const;
+        const CoreUObject::TObjectRef<RenderCore::UShader>& GetShader() const;
 
         /**
-         * @brief Content 기준 머티리얼 셰이더 경로를 설정합니다.
-         * @param[in] Path Content 기준 셰이더 경로입니다.
+         * @brief 머티리얼의 셰이더 객체 참조를 설정합니다.
+         * @param[in] Shader 적용할 셰이더 객체 참조입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetShaderPath(const Core::FString& Path);
+        bool SetShader(const CoreUObject::TObjectRef<RenderCore::UShader>& Shader);
+
+        bool ResolveShader(Asset::FAssetManager& Assets, Core::FString& Error);
 
         /**
          * @brief 머티리얼 기본 RGBA 색상을 반환합니다.
@@ -318,10 +321,10 @@ namespace Asset {
 
     private:
         /**
-         * @brief Content 기준 머티리얼 셰이더 경로입니다.
+         * @brief 머티리얼이 사용하는 셰이더 객체 참조입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "Shader", Getter = GetShaderPath, Setter = SetShaderPath)
-        Core::FString mShaderPath{"Shaders/Lit.hlsl"};
+        UPROPERTY(Edit, Serialize, Name = "Shader", Getter = GetShader, Setter = SetShader)
+        CoreUObject::TObjectRef<RenderCore::UShader> mShader{};
 
         /**
          * @brief 머티리얼의 기본 RGBA 색상입니다.

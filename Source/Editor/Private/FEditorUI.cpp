@@ -1502,7 +1502,7 @@ namespace Editor {
         Dialog.lStructSize = sizeof(Dialog);
         Dialog.hwndOwner = mPlatform->GetWindowHandle();
         Dialog.lpstrTitle = L"Import Asset";
-        Dialog.lpstrFilter = L"Supported Assets\0*.obj;*.fbx;*.gltf;*.glb;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.dds;*.hdr\0";
+        Dialog.lpstrFilter = L"Supported Assets\0*.obj;*.fbx;*.gltf;*.glb;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.dds;*.hdr;*.hlsl\0";
         Dialog.lpstrFile = Buffer.data();
         Dialog.nMaxFile = static_cast<DWORD>(Buffer.size());
         Dialog.Flags = OFN_EXPLORER | OFN_NOCHANGEDIR | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
@@ -1656,7 +1656,7 @@ namespace Editor {
         if (std::any_of(Sources.begin(), Sources.end(), [](const std::filesystem::path& Source) {
                 return !Asset::IMeshImporter::IsSupported(Source);
             })) {
-            ImGui::TextDisabled("Image files in this batch are imported without these options.");
+            ImGui::TextDisabled("Non-mesh files in this batch are imported without these options.");
         }
 
         ImGui::Separator();
@@ -1888,15 +1888,15 @@ namespace Editor {
             DrawContentBreadcrumbs();
             ImGui::SetNextItemWidth(120.0f);
 
-            const char* FilterName{!mContentFilter.has_value() ? "All Assets" : *mContentFilter == Asset::EAssetType::Mesh ? "Meshes" : *mContentFilter == Asset::EAssetType::SkeletalMesh ? "Skeletal Meshes" : *mContentFilter == Asset::EAssetType::Skeleton ? "Skeletons" : *mContentFilter == Asset::EAssetType::Material ? "Materials" : *mContentFilter == Asset::EAssetType::Texture ? "Textures" : *mContentFilter == Asset::EAssetType::Sequence ? "Sequences" : *mContentFilter == Asset::EAssetType::AnimSequence ? "Animation Sequences" : *mContentFilter == Asset::EAssetType::BlendSpace ? "Blend Spaces" : *mContentFilter == Asset::EAssetType::AnimGraph ? "Anim Graphs" : *mContentFilter == Asset::EAssetType::ParticleSystem ? "Particle Systems" : "Scenes"};
+            const char* FilterName{!mContentFilter.has_value() ? "All Assets" : *mContentFilter == Asset::EAssetType::Mesh ? "Meshes" : *mContentFilter == Asset::EAssetType::SkeletalMesh ? "Skeletal Meshes" : *mContentFilter == Asset::EAssetType::Skeleton ? "Skeletons" : *mContentFilter == Asset::EAssetType::Shader ? "Shaders" : *mContentFilter == Asset::EAssetType::Material ? "Materials" : *mContentFilter == Asset::EAssetType::Texture ? "Textures" : *mContentFilter == Asset::EAssetType::Sequence ? "Sequences" : *mContentFilter == Asset::EAssetType::AnimSequence ? "Animation Sequences" : *mContentFilter == Asset::EAssetType::BlendSpace ? "Blend Spaces" : *mContentFilter == Asset::EAssetType::AnimGraph ? "Anim Graphs" : *mContentFilter == Asset::EAssetType::ParticleSystem ? "Particle Systems" : "Scenes"};
 
             if (ImGui::BeginCombo("##AssetType", FilterName)) {
                 if (ImGui::Selectable("All Assets", !mContentFilter.has_value())) {
                     mContentFilter.reset();
                 }
 
-                for (Asset::EAssetType Type : {Asset::EAssetType::Mesh, Asset::EAssetType::SkeletalMesh, Asset::EAssetType::Skeleton, Asset::EAssetType::Material, Asset::EAssetType::Texture, Asset::EAssetType::Scene, Asset::EAssetType::Sequence, Asset::EAssetType::AnimSequence, Asset::EAssetType::BlendSpace, Asset::EAssetType::AnimGraph, Asset::EAssetType::ParticleSystem}) {
-                    const char* Name{Type == Asset::EAssetType::Mesh ? "Meshes" : Type == Asset::EAssetType::SkeletalMesh ? "Skeletal Meshes" : Type == Asset::EAssetType::Skeleton ? "Skeletons" : Type == Asset::EAssetType::Material ? "Materials" : Type == Asset::EAssetType::Texture ? "Textures" : Type == Asset::EAssetType::Sequence ? "Sequences" : Type == Asset::EAssetType::AnimSequence ? "Animation Sequences" : Type == Asset::EAssetType::BlendSpace ? "Blend Spaces" : Type == Asset::EAssetType::AnimGraph ? "Anim Graphs" : Type == Asset::EAssetType::ParticleSystem ? "Particle Systems" : "Scenes"};
+                for (Asset::EAssetType Type : {Asset::EAssetType::Mesh, Asset::EAssetType::SkeletalMesh, Asset::EAssetType::Skeleton, Asset::EAssetType::Material, Asset::EAssetType::Shader, Asset::EAssetType::Texture, Asset::EAssetType::Scene, Asset::EAssetType::Sequence, Asset::EAssetType::AnimSequence, Asset::EAssetType::BlendSpace, Asset::EAssetType::AnimGraph, Asset::EAssetType::ParticleSystem}) {
+                    const char* Name{Type == Asset::EAssetType::Mesh ? "Meshes" : Type == Asset::EAssetType::SkeletalMesh ? "Skeletal Meshes" : Type == Asset::EAssetType::Skeleton ? "Skeletons" : Type == Asset::EAssetType::Shader ? "Shaders" : Type == Asset::EAssetType::Material ? "Materials" : Type == Asset::EAssetType::Texture ? "Textures" : Type == Asset::EAssetType::Sequence ? "Sequences" : Type == Asset::EAssetType::AnimSequence ? "Animation Sequences" : Type == Asset::EAssetType::BlendSpace ? "Blend Spaces" : Type == Asset::EAssetType::AnimGraph ? "Anim Graphs" : Type == Asset::EAssetType::ParticleSystem ? "Particle Systems" : "Scenes"};
 
                     if (ImGui::Selectable(Name, mContentFilter == Type)) {
                         mContentFilter = Type;
@@ -2842,7 +2842,7 @@ namespace Editor {
                         const bool HasThumbnail{!Directory && Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
                         void* Thumbnail{HasThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
                         const bool ScriptFile{mBrowsingScripts && !Directory};
-                        const char* Kind{ScriptFile ? "C# Script" : Directory ? "Folder" : Type == mAssetTypes.end() ? "File" : Type->second == Asset::EAssetType::Mesh ? "Mesh" : Type->second == Asset::EAssetType::SkeletalMesh ? "Skeletal Mesh" : Type->second == Asset::EAssetType::Skeleton ? "Skeleton" : Type->second == Asset::EAssetType::Material ? "Material" : Type->second == Asset::EAssetType::Texture ? "Texture" : Type->second == Asset::EAssetType::Sequence ? "Sequence" : Type->second == Asset::EAssetType::AnimSequence ? "Animation Sequence" : Type->second == Asset::EAssetType::BlendSpace ? "Blend Space" : Type->second == Asset::EAssetType::AnimGraph ? "Anim Graph" : Type->second == Asset::EAssetType::ParticleSystem ? "Particle System" : "Scene"};
+                        const char* Kind{ScriptFile ? "C# Script" : Directory ? "Folder" : Type == mAssetTypes.end() ? "File" : Type->second == Asset::EAssetType::Mesh ? "Mesh" : Type->second == Asset::EAssetType::SkeletalMesh ? "Skeletal Mesh" : Type->second == Asset::EAssetType::Skeleton ? "Skeleton" : Type->second == Asset::EAssetType::Shader ? "Shader" : Type->second == Asset::EAssetType::Material ? "Material" : Type->second == Asset::EAssetType::Texture ? "Texture" : Type->second == Asset::EAssetType::Sequence ? "Sequence" : Type->second == Asset::EAssetType::AnimSequence ? "Animation Sequence" : Type->second == Asset::EAssetType::BlendSpace ? "Blend Space" : Type->second == Asset::EAssetType::AnimGraph ? "Anim Graph" : Type->second == Asset::EAssetType::ParticleSystem ? "Particle System" : "Scene"};
                         const Core::FString Actual{Core::FilePath::ToGenericUtf8(Path)};
                         const Core::FString Name{Core::FilePath::ToUtf8(Directory ? Path.filename() : Path.stem())};
                         const FContentIcon& Icon{GetContentIcon(Kind)};
@@ -2887,8 +2887,10 @@ namespace Editor {
                         const bool BlendSpace{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::BlendSpace};
                         const bool AnimGraph{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::AnimGraph};
 
-                        if ((HasThumbnail || AnimSequence || BlendSpace || AnimGraph) && mContext->CanEditWorld() && ImGui::BeginDragDropSource()) {
-                            const char* Payload{AnimSequence ? Editor::EditorAssetDragDrop::AnimSequencePayload : BlendSpace ? Editor::EditorAssetDragDrop::BlendSpacePayload : AnimGraph ? Editor::EditorAssetDragDrop::AnimGraphPayload : Type->second == Asset::EAssetType::Mesh || Type->second == Asset::EAssetType::SkeletalMesh ? Editor::EditorAssetDragDrop::MeshPayload : Type->second == Asset::EAssetType::Skeleton ? Editor::EditorAssetDragDrop::SkeletonPayload : Type->second == Asset::EAssetType::Material ? Editor::EditorAssetDragDrop::MaterialPayload : Editor::EditorAssetDragDrop::TexturePayload};
+                        const bool Shader{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::Shader};
+
+                        if ((HasThumbnail || AnimSequence || BlendSpace || AnimGraph || Shader) && mContext->CanEditWorld() && ImGui::BeginDragDropSource()) {
+                            const char* Payload{Shader ? Editor::EditorAssetDragDrop::ShaderPayload : AnimSequence ? Editor::EditorAssetDragDrop::AnimSequencePayload : BlendSpace ? Editor::EditorAssetDragDrop::BlendSpacePayload : AnimGraph ? Editor::EditorAssetDragDrop::AnimGraphPayload : Type->second == Asset::EAssetType::Mesh || Type->second == Asset::EAssetType::SkeletalMesh ? Editor::EditorAssetDragDrop::MeshPayload : Type->second == Asset::EAssetType::Skeleton ? Editor::EditorAssetDragDrop::SkeletonPayload : Type->second == Asset::EAssetType::Material ? Editor::EditorAssetDragDrop::MaterialPayload : Editor::EditorAssetDragDrop::TexturePayload};
 
                             ImGui::SetDragDropPayload(Payload, Actual.c_str(), Actual.size() + 1);
 
@@ -3196,18 +3198,29 @@ namespace Editor {
      * @brief 머티리얼 편집 사본의 셰이더 경로를 검증하여 교체합니다.
      */
     bool Editor::FEditorUI::SetMaterialShader(const Core::FString& Path) {
+        Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
+        RenderCore::UShader* Shader{Path.empty() ? RenderCore::UShader::GetDefault() : RenderCore::UShader::FindBuiltin(Path)};
+
+        if (Shader == nullptr) {
+            Shader = Assets->LoadShader(Core::FilePath::FromUtf8(Path), mMaterialError);
+        }
+
+        if (Shader == nullptr) {
+            return false;
+        }
+
         auto Candidate{CoreUObject::NewObject<Asset::UMaterial>()};
         Candidate->SetTwoSided(mEditingMaterial->IsTwoSided());
 
         Renderer::FRenderer* Renderer{dynamic_cast<Renderer::FRenderer*>(mContext->GetRenderer())};
 
-        if (!Candidate->SetShaderPath(Path) || Renderer == nullptr || Renderer->GetMaterialPipeline(*Candidate) == nullptr) {
+        if (!Candidate->SetShader(Shader) || Renderer == nullptr || Renderer->GetMaterialPipeline(*Candidate) == nullptr) {
             mMaterialError = "Cannot use this material shader. Check the shader diagnostics in the log.";
 
             return false;
         }
 
-        mEditingMaterial->SetShaderPath(Path);
+        mEditingMaterial->SetShader(Shader);
         mMaterialError.clear();
         mMaterialDirty = true;
 
@@ -3251,33 +3264,22 @@ namespace Editor {
 
             ImGui::Separator();
 
-            if (ImGui::BeginCombo("Shader", mEditingMaterial->GetShaderPath().c_str())) {
-                Core::TArray<Core::FString> Shaders{"Shaders/Lit.hlsl", "Shaders/Unlit.hlsl"};
+            const RenderCore::UShader* Shader{mEditingMaterial->GetShader().Get()};
 
-                for (const auto& Path : mAssetPaths) {
-                    const Core::FString Name{Core::FilePath::ToUtf8(Path)};
-
-                    if (Path.extension() == L".hlsl" && !Name.ends_with(".vs.hlsl") && Path.filename() != L"Line.hlsl" && Path.filename() != L"Gizmo.hlsl" && Path.filename() != L"Text.hlsl" && Path.filename() != L"DeferredLighting.hlsl" && std::find(Shaders.begin(), Shaders.end(), Name) == Shaders.end()) {
-                        Shaders.push_back(Name);
-                    }
-                }
-
-                for (const Core::FString& Shader : Shaders) {
-                    if (ImGui::Selectable(Shader.c_str(), mEditingMaterial->GetShaderPath() == Shader)) {
-                        SetMaterialShader(Shader);
+            if (ImGui::BeginCombo("Builtin Shader", Shader != nullptr ? Shader->GetName().c_str() : "Missing")) {
+                for (RenderCore::UShader* Builtin : {RenderCore::UShader::GetDefault(), RenderCore::UShader::GetUnlit()}) {
+                    if (ImGui::Selectable(Builtin->GetName().c_str(), Shader == Builtin)) {
+                        SetMaterialShader(Builtin->GetSourcePath());
                     }
                 }
 
                 ImGui::EndCombo();
             }
 
-            std::array<char, 512> ShaderPath{};
-            const Core::FString& CurrentShader{mEditingMaterial->GetShaderPath()};
+            Core::FString ShaderPath{mContext->GetProject()->GetAssets()->GetShaderPath(Shader)};
 
-            std::copy_n(CurrentShader.begin(), std::min(CurrentShader.size(), ShaderPath.size() - 1), ShaderPath.begin());
-
-            if (ImGui::InputText("Shader Path", ShaderPath.data(), ShaderPath.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
-                SetMaterialShader(ShaderPath.data());
+            if (mAssetPicker.Draw(*mAssetCatalog, *mThumbnails, "Shader Asset", ShaderPath, Asset::EAssetType::Shader)) {
+                SetMaterialShader(ShaderPath);
             }
 
             auto Color{mEditingMaterial->GetBaseColor().ToArray()};

@@ -46,13 +46,14 @@ namespace Asset {
          * @param[out] Error 실패 원인을 받을 오류 문자열입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool ReadHeader(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType& Type, Core::Uint64& Size, Core::FString& Error) {
+        bool ReadHeader(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType& Type, Core::Uint64& Size, Core::FGuid& Guid, Core::FString& Error) {
             Error.clear();
+            Guid = Core::FGuid::Null();
 
             std::error_code Code{};
             const Core::Uint64 FileSize{std::filesystem::file_size(Path, Code)};
 
-            if (Code || Path.extension() != L".masset" || FileSize < HeaderSize || FileSize - HeaderSize > MaximumPayload) {
+            if (Code || Path.extension() != L".masset" || FileSize < HeaderSize || FileSize - HeaderSize > MaximumPayload + 16) {
                 Error = "Cannot read asset file or invalid asset size";
 
                 return false;
@@ -69,8 +70,15 @@ namespace Asset {
             Input.read(reinterpret_cast<char*>(&TypeValue), sizeof(TypeValue));
             Input.read(reinterpret_cast<char*>(&Size), sizeof(Size));
 
-            if (!Input || Magic != AssetMagic || Version != AssetVersion || TypeValue < static_cast<Core::Uint32>(Asset::EAssetType::Scene) || TypeValue > static_cast<Core::Uint32>(Asset::EAssetType::ParticleSystem) || Size == 0 || Size != FileSize - HeaderSize) {
+            if (Version == 2) {
+                Input.read(reinterpret_cast<char*>(Guid.mBytes.data()), Guid.mBytes.size());
+            }
+
+            const Core::Uint64 ActualHeaderSize{HeaderSize + (Version == 2 ? Guid.mBytes.size() : 0)};
+
+            if (!Input || Magic != AssetMagic || (Version != AssetVersion && Version != 2) || TypeValue < static_cast<Core::Uint32>(Asset::EAssetType::Scene) || TypeValue > static_cast<Core::Uint32>(Asset::EAssetType::Shader) || (Version == 2 && !Guid.IsValid()) || FileSize < ActualHeaderSize || Size == 0 || Size > MaximumPayload || Size != FileSize - ActualHeaderSize) {
                 Error = "Invalid asset header, version or type";
+                Guid = Core::FGuid::Null();
 
                 return false;
             }
@@ -87,17 +95,25 @@ namespace Asset {
     bool Asset::FAssetFile::GetType(const std::filesystem::path& Path, Asset::EAssetType& Type, Core::FString& Error) {
         std::ifstream Input{};
         Core::Uint64 Size{};
+        Core::FGuid Guid{Core::FGuid::Null()};
 
-        return ReadHeader(Path, Input, Type, Size, Error);
+        return ReadHeader(Path, Input, Type, Size, Guid, Error);
+    }
+
+    bool FAssetFile::GetIdentity(const std::filesystem::path& Path, Asset::EAssetType& Type, Core::FGuid& Guid, Core::FString& Error) {
+        std::ifstream Input{};
+        Core::Uint64 Size{};
+
+        return ReadHeader(Path, Input, Type, Size, Guid, Error);
     }
 
     /**
      * @brief 에셋 종류와 바이트 수를 담은 헤더 및 페이로드를 원자적으로 저장합니다.
      */
-    bool Asset::FAssetFile::Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Core::Uint8> Payload, Core::FString& Error) {
+    bool Asset::FAssetFile::Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Core::Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid) {
         Error.clear();
 
-        if (Path.extension() != L".masset" || Payload.empty() || Payload.size() > MaximumPayload || Type < Asset::EAssetType::Scene || Type > Asset::EAssetType::ParticleSystem) {
+        if (Path.extension() != L".masset" || Payload.empty() || Payload.size() > MaximumPayload || Type < Asset::EAssetType::Scene || Type > Asset::EAssetType::Shader) {
             Error = "Invalid asset path, type or payload";
 
             return false;
@@ -114,8 +130,9 @@ namespace Asset {
 
         Asset::EAssetType ExistingType{Type};
         Core::FString ExistingError{};
+        Core::FGuid ExistingGuid{Core::FGuid::Null()};
 
-        if (GetType(Target, ExistingType, ExistingError) && ExistingType != Type) {
+        if (GetIdentity(Target, ExistingType, ExistingGuid, ExistingError) && ExistingType != Type) {
             Error = "Cannot overwrite an asset with a different asset type";
 
             return false;
@@ -129,11 +146,18 @@ namespace Asset {
 
         const Core::Uint32 TypeValue{static_cast<Core::Uint32>(Type)};
         const Core::Uint64 Size{Payload.size()};
+        const Core::FGuid Identity{Guid.IsValid() ? Guid : ExistingGuid};
+        const Core::Uint32 Version{Identity.IsValid() ? 2U : AssetVersion};
         std::ostream& Output{Writer.GetStream()};
         Output.write(AssetMagic.data(), AssetMagic.size());
-        Output.write(reinterpret_cast<const char*>(&AssetVersion), sizeof(AssetVersion));
+        Output.write(reinterpret_cast<const char*>(&Version), sizeof(Version));
         Output.write(reinterpret_cast<const char*>(&TypeValue), sizeof(TypeValue));
         Output.write(reinterpret_cast<const char*>(&Size), sizeof(Size));
+
+        if (Version == 2) {
+            Output.write(reinterpret_cast<const char*>(Identity.mBytes.data()), Identity.mBytes.size());
+        }
+
         Output.write(reinterpret_cast<const char*>(Payload.data()), static_cast<std::streamsize>(Size));
 
         return Writer.Commit(Error);
@@ -148,8 +172,9 @@ namespace Asset {
         std::ifstream Input{};
         Asset::EAssetType ActualType{Type};
         Core::Uint64 Size{};
+        Core::FGuid Guid{Core::FGuid::Null()};
 
-        if (!ReadHeader(Path, Input, ActualType, Size, Error)) {
+        if (!ReadHeader(Path, Input, ActualType, Size, Guid, Error)) {
             return false;
         }
 

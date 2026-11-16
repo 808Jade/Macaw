@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include "RenderCore/Shader/FShader.h"
+#include "RenderCore/Shader/UShader.h"
+#include "CoreUObject/TObjectRef.h"
 #include "RenderCore/Shader/FShaderCache.h"
 #include "RenderCore/Shader/FShaderCompiler.h"
 
@@ -16,6 +17,23 @@ namespace RenderCore {
      * @brief 셰이더 캐시 로드와 변경 감지 및 재컴파일를 담당합니다.
      */
     class FShaderManager {
+    private:
+        /**
+         * @brief 객체 참조와 변형 키를 함께 보관하여 재컴파일 대상을 추적합니다.
+         */
+        struct FManagedVariant {
+        public:
+            /**
+             * @brief 컴파일 결과를 보관하는 셰이더 객체의 비소유 참조입니다.
+             */
+            CoreUObject::TObjectRef<RenderCore::UShader> mShader{};
+
+            /**
+             * @brief 이 항목이 추적하는 컴파일 변형의 캐시 키입니다.
+             */
+            Core::FString mVariantKey{};
+        };
+
     public:
         /**
          * @brief 전달받은 설정과 의존성으로 FShaderManager의 초기 상태를 구성합니다.
@@ -55,14 +73,24 @@ namespace RenderCore {
          * @param[out] Diagnostics 실패 원인과 컴파일 메시지를 받을 문자열입니다.
          * @return 준비한 셰이더이며, 실패하면 nullptr입니다.
          */
-        std::shared_ptr<const RenderCore::FShader> Load(const RenderCore::FShaderDescription& Description, Core::FString& Diagnostics);
+        CoreUObject::TObjectRef<RenderCore::UShader> Load(const RenderCore::FShaderDescription& Description, Core::FString& Diagnostics);
+
+        /**
+         * @brief 호출자가 소유하는 셰이더 객체에 컴파일 변형을 준비하고 변경 추적에 등록합니다.
+         * @param[in,out] Shader 컴파일 결과를 보관할 셰이더 객체입니다.
+         * @param[in] Description 소스 경로·진입점·프로필·매크로 등의 컴파일 설정입니다.
+         * @param[out] VariantKey 준비한 컴파일 변형의 캐시 키입니다.
+         * @param[out] Diagnostics 실패 원인과 컴파일 메시지를 받을 문자열입니다.
+         * @return 지정한 객체의 컴파일 변형을 준비하면 true입니다.
+         */
+        bool Load(RenderCore::UShader& Shader, const RenderCore::FShaderDescription& Description, Core::FString& VariantKey, Core::FString& Diagnostics);
 
         /**
          * @brief 셰이더의 의존성 스냅샷과 파일 상태를 비교하여 변경을 감지합니다.
          * @param[in] Shader 소스 파일 변경 여부를 검사할 셰이더입니다.
          * @return 검사 조건을 만족하면 true, 그렇지 않으면 false입니다.
          */
-        bool HasChanges(const RenderCore::FShader& Shader) const;
+        bool HasChanges(const RenderCore::UShader& Shader) const;
 
         /**
          * @brief 변경된 셰이더를 재컴파일하고 갱신에 성공한 셰이더를 모읍니다.
@@ -70,10 +98,10 @@ namespace RenderCore {
          * @param[out] Diagnostics 실패 원인과 컴파일 메시지를 받을 문자열입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool ReloadChanged(Core::TArray<std::shared_ptr<const RenderCore::FShader>>& ChangedShaders, Core::FString& Diagnostics);
+        bool ReloadChanged(Core::TArray<CoreUObject::TObjectRef<RenderCore::UShader>>& ChangedShaders, Core::FString& Diagnostics);
 
         /**
-         * @brief 관리 중인 셰이더의 공유 참조를 모두 제거합니다.
+         * @brief 관리 중인 셰이더 참조와 소유한 셰이더 객체를 정리합니다.
          */
         void Clear();
 
@@ -106,9 +134,14 @@ namespace RenderCore {
         RenderCore::FShaderCache mCache{};
 
         /**
-         * @brief 정규화한 식별 문자열별로 공유 소유하는 셰이더 목록입니다.
+         * @brief 객체 세대 핸들과 변형 키로 추적하는 비소유 셰이더 참조 목록입니다.
          */
-        Core::TMap<Core::FString, std::shared_ptr<RenderCore::FShader>> mShaders{};
+        Core::TMap<Core::FString, RenderCore::FShaderManager::FManagedVariant> mShaders{};
+
+        /**
+         * @brief 정규화한 컴파일 설정 키별로 관리자가 소유하는 셰이더 객체입니다.
+         */
+        Core::TMap<Core::FString, std::unique_ptr<RenderCore::UShader>> mOwnedShaders{};
     };
 
 }

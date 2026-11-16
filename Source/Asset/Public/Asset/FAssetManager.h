@@ -9,6 +9,9 @@
 #include "Asset/FAssetFile.h"
 #include "Asset/Import/FAssetImportOption.h"
 #include "Core/Types.h"
+#include "Core/GuidHash.h"
+#include "CoreUObject/UObject.h"
+#include "CoreUObject/TObjectRef.h"
 #include "Core/ReflectionMacros.h"
 
 #include <filesystem>
@@ -18,6 +21,10 @@ namespace CoreUObject {
 
     class UObject;
 
+}
+
+namespace RenderCore {
+    class UShader;
 }
 
 namespace Asset {
@@ -60,6 +67,19 @@ namespace Asset {
         Asset::FAssetManager& operator=(const Asset::FAssetManager&) = delete;
 
     public:
+
+        bool RefreshAssetRegistry(Core::FString& Error);
+        std::filesystem::path FindAssetPath(const Core::FGuid& Guid, Core::FString& Error);
+        CoreUObject::UObject* LoadAsset(const Core::FGuid& Guid, Core::FString& Error, const CoreUObject::UClass* ExpectedClass = nullptr);
+
+        template <typename T>
+        bool ResolveReference(CoreUObject::TObjectRef<T>& Reference, Core::FString& Error);
+
+        RenderCore::UShader* LoadShader(const std::filesystem::path& Path, Core::FString& Error);
+        RenderCore::UShader* LoadShaderSource(const Core::FString& SourcePath, Core::FString& Error);
+        bool ImportShader(const std::filesystem::path& Source, const std::filesystem::path& Directory, std::filesystem::path& ImportedPath, Core::FString& Error);
+        bool SaveShader(const std::filesystem::path& Path, RenderCore::UShader& Shader, Core::FString& Error);
+        Core::FString GetShaderPath(const RenderCore::UShader* Shader) const;
 
         /**
          * @brief 에셋 경로의 기준이 되는 콘텐츠 폴더를 반환합니다.
@@ -360,6 +380,9 @@ namespace Asset {
 
     private:
 
+        Core::FGuid GetSaveIdentity(const std::filesystem::path& Path, const Core::FGuid& Guid) const;
+        bool ValidateAssetIdentity(const std::filesystem::path& Path, const Core::FGuid& Guid, Core::FString& Error);
+
         /**
          * @brief 원본 메시와 재질·외부 텍스처를 임포트 옵션에 따라 프로젝트 에셋으로 가져와 메시 참조를 저장합니다.
          * @param[in] Source 임포트할 원본 메시 파일 경로입니다.
@@ -381,6 +404,9 @@ namespace Asset {
         bool ApplyMaterialSettings(Asset::UMaterial& Target, const Asset::UMaterial& Source, Core::FString& Error);
 
     private:
+
+        Core::TMap<Core::FGuid, std::filesystem::path, Core::FGuidHash> mAssetPaths{};
+        Core::TMap<Core::FString, std::unique_ptr<RenderCore::UShader>> mShaders{};
 
         /**
          * @brief 에셋 접근을 제한하는 프로젝트 콘텐츠 폴더의 절대 경로입니다.
@@ -447,5 +473,30 @@ namespace Asset {
          */
         Core::TArray<std::unique_ptr<CoreUObject::UObject>> mRetired{};
     };
+
+    template <typename T>
+    bool FAssetManager::ResolveReference(CoreUObject::TObjectRef<T>& Reference, Core::FString& Error) {
+        Error.clear();
+
+        if (Reference.Get() != nullptr || !Reference.GetGuid().IsValid()) {
+            return true;
+        }
+
+        CoreUObject::UObject* Object{LoadAsset(Reference.GetGuid(), Error, T::StaticClass())};
+
+        if (Object == nullptr) {
+            return false;
+        }
+
+        if (!Object->IsA<T>()) {
+            Error = "The asset type does not match the object reference";
+
+            return false;
+        }
+
+        Reference = static_cast<T*>(Object);
+
+        return true;
+    }
 
 }

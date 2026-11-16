@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Guid.h"
 #include "Asset/EBlendMode.h"
 #include "Core/ReflectionMacros.h"
 #include "Core/Math/FVector4.h"
@@ -49,7 +50,7 @@ namespace Asset {
          * @param[out] Error 실패 원인을 기록할 문자열입니다.
          * @return 모든 값을 수락하면 true이며 하나라도 유효하지 않으면 Error를 기록하고 false입니다.
          */
-        bool ApplyTo(Asset::UMaterial& Material, Core::FString& Error) const;
+        bool ApplyTo(Asset::UMaterial& Material, Core::FString& Error, Asset::FAssetManager* Assets = nullptr) const;
 
         /**
          * @brief 재질 이름과 비어 있지 않은 셰이더·텍스처 경로가 프로젝트 경계 안에 있는지 검증합니다.
@@ -106,9 +107,10 @@ namespace Asset {
         Core::FString mName{};
 
         /**
-         * @brief Content 폴더 기준 재질 셰이더의 상대 경로입니다.
+         * @brief 재질이 참조하는 셰이더 에셋의 GUID입니다.
          */
-        Core::FString mShaderPath{};
+        Core::FGuid mShaderGuid{Core::FGuid::Null()};
+        Core::FString mLegacyShaderPath{};
 
         /**
          * @brief 재질의 선형 RGBA 기본색입니다.

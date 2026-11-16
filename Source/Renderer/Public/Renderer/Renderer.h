@@ -300,9 +300,10 @@ namespace Renderer {
          * @param[in] Pass 변형·입력 레이아웃을 고를 메시 패스입니다.
          * @param[in] Instanced 인스턴스 정점 스트림을 사용하면 true입니다.
          * @param[in] Skinned 본 인덱스·가중치 스트림을 사용하면 true입니다.
+         * @param[in] SourceShader 컴파일 결과를 보관할 객체의 비소유 주소이며, nullptr이면 관리자가 소유하는 셰이더를 사용합니다.
          * @return 조합에 대응하는 공유 셰이더 인스턴스입니다.
          */
-        std::shared_ptr<Renderer::FShaderInstance> GetShaderInstance(const RenderCore::FShaderDescription& Description, Renderer::EMeshPass Pass, bool Instanced, bool Skinned);
+        std::shared_ptr<Renderer::FShaderInstance> GetShaderInstance(const RenderCore::FShaderDescription& Description, Renderer::EMeshPass Pass, bool Instanced, bool Skinned, RenderCore::UShader* SourceShader = nullptr);
 
         /**
          * @brief 스왑 체인을 조정하고 백 버퍼 렌더 타깃 뷰를 생성합니다.
@@ -338,7 +339,7 @@ namespace Renderer {
          * @param[out] Code 성공 시 컴파일된 셰이더를 받습니다.
          * @return 성공하면 true, 컴파일에 실패하면 false입니다.
          */
-        bool Compile(const char* Source, const char* Entry, const char* Target, std::shared_ptr<const RenderCore::FShader>& Code);
+        bool Compile(const char* Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code);
 
         /**
          * @brief 월드 선은 깊이를 기록하고 편집 오버레이 선은 깊이 검사 없이 그립니다.

@@ -308,7 +308,12 @@ std::size_t FAssetThumbnailCache::MaterialSignature(const Asset::UMaterial* Mate
         return 0;
     }
 
-    std::size_t Hash{std::hash<Core::FString>{}(Material->GetShaderPath())};
+    std::size_t Hash{std::hash<Core::FString>{}(Material->GetShader().GetGuid().ToString() + (Material->GetShader() != nullptr ? Material->GetShader()->GetSourcePath() + Material->GetShader()->GetEntryPoint() : Core::FString{}))};
+
+    if (Material->GetShader() != nullptr) {
+        Hash ^= static_cast<std::size_t>(Material->GetShader()->IsUnlit()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
+        Hash ^= static_cast<std::size_t>(Material->GetShader()->WritesGBuffer()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
+    }
 
     Hash ^= std::hash<Core::FString>{}(Material->GetBaseColorTexturePath()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
     Hash ^= std::hash<Core::FString>{}(Material->GetNormalMapTexturePath()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);

@@ -7,7 +7,8 @@
 #pragma once
 
 #include "EMeshPass.h"
-#include "RenderCore/Shader/FShader.h"
+#include "RenderCore/Shader/UShader.h"
+#include "CoreUObject/TObjectRef.h"
 
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -22,11 +23,12 @@ namespace Renderer {
         /**
          * @brief 공유 셰이더 코드와 패스·인스턴싱·스키닝 변형을 연결합니다.
          * @param[in] Code 컴파일된 셰이더 코드 객체입니다.
+         * @param[in] VariantKey 사용할 컴파일 변형의 캐시 키입니다.
          * @param[in] Pass 변형·입력 레이아웃을 고를 메시 패스입니다.
          * @param[in] Instanced 인스턴스 정점 스트림을 사용하면 true입니다.
          * @param[in] Skinned 본 인덱스·가중치 스트림을 사용하면 true입니다.
          */
-        FShaderInstance(std::shared_ptr<const RenderCore::FShader> Code, Renderer::EMeshPass Pass, bool Instanced, bool Skinned);
+        FShaderInstance(CoreUObject::TObjectRef<RenderCore::UShader> Code, Core::FString VariantKey, Renderer::EMeshPass Pass, bool Instanced, bool Skinned);
 
     public:
         /**
@@ -63,9 +65,14 @@ namespace Renderer {
 
     private:
         /**
-         * @brief GPU 자원을 만들 공유 셰이더 코드입니다.
+         * @brief GPU 자원을 만들 셰이더 객체의 비소유 참조입니다.
          */
-        std::shared_ptr<const RenderCore::FShader> mCode{};
+        CoreUObject::TObjectRef<RenderCore::UShader> mCode{};
+
+        /**
+         * @brief GPU 자원 생성과 리비전 조회에 사용할 컴파일 변형의 캐시 키입니다.
+         */
+        Core::FString mVariantKey{};
 
         /**
          * @brief 입력 레이아웃과 변형을 결정할 메시 패스입니다.

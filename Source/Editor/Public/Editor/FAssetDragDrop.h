@@ -48,6 +48,8 @@ namespace Editor {
          */
         inline constexpr char MaterialPayload[]{"MACAW_MATERIAL_ASSET"};
 
+        inline constexpr char ShaderPayload[]{"MACAW_SHADER_ASSET"};
+
         /**
          * @brief 텍스처 에셋 경로를 전달하는 드래그 페이로드 식별자입니다.
          */

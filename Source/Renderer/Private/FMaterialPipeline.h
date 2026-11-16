@@ -7,7 +7,7 @@
 #pragma once
 
 #include "EMeshPass.h"
-#include "RenderCore/Shader/FShader.h"
+#include "RenderCore/Shader/UShader.h"
 
 #include <d3d11.h>
 #include <wrl/client.h>

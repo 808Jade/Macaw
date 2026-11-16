@@ -1,6 +1,6 @@
 /**
  * @file UMaterial.cpp
- * @brief 셰이더 경로·기본색·텍스처·양면 정책과 GPU 상수를 관리합니다.
+ * @brief 셰이더 참조·기본색·텍스처·양면 정책과 GPU 상수를 관리합니다.
  * @ingroup Asset
  */
 
@@ -45,7 +45,9 @@ namespace Asset {
     /**
      * @brief 전달된 설정과 기본값으로 UMaterial 객체를 생성합니다.
      */
-    Asset::UMaterial::UMaterial() = default;
+    Asset::UMaterial::UMaterial()
+		: mShader{RenderCore::UShader::GetDefault()} {
+    }
 
     /**
      * @brief 기본 소멸자이며, GPU 상수 버퍼는 ComPtr 멤버가 해제합니다.
@@ -53,23 +55,27 @@ namespace Asset {
     Asset::UMaterial::~UMaterial() = default;
 
     /**
-     * @brief Content 기준 머티리얼 셰이더 경로를 반환합니다.
+     * @brief 머티리얼의 셰이더 객체 참조를 반환합니다.
      */
-    const Core::FString& Asset::UMaterial::GetShaderPath() const {
-        return mShaderPath;
+    const CoreUObject::TObjectRef<RenderCore::UShader>& Asset::UMaterial::GetShader() const {
+        return mShader;
     }
 
     /**
-     * @brief Content 기준 머티리얼 셰이더 경로를 설정합니다.
+     * @brief 머티리얼의 셰이더 객체 참조를 설정합니다.
      */
-    bool Asset::UMaterial::SetShaderPath(const Core::FString& Path) {
-        if (!IsContentPath(Path) || !Path.ends_with(".hlsl")) {
+    bool Asset::UMaterial::SetShader(const CoreUObject::TObjectRef<RenderCore::UShader>& Shader) {
+        if (!Shader.GetGuid().IsValid()) {
             return false;
         }
 
-        mShaderPath = Path;
+        mShader = Shader;
 
         return true;
+    }
+
+    bool Asset::UMaterial::ResolveShader(Asset::FAssetManager& Assets, Core::FString& Error) {
+        return Assets.ResolveReference(mShader, Error) && mShader != nullptr;
     }
 
     /**

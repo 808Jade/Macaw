@@ -15,8 +15,9 @@ namespace Renderer {
     /**
      * @brief 공유 셰이더 코드와 패스·인스턴싱·스키닝 변형을 연결합니다.
      */
-    Renderer::FShaderInstance::FShaderInstance(std::shared_ptr<const RenderCore::FShader> Code, Renderer::EMeshPass Pass, bool Instanced, bool Skinned)
+    Renderer::FShaderInstance::FShaderInstance(CoreUObject::TObjectRef<RenderCore::UShader> Code, Core::FString VariantKey, Renderer::EMeshPass Pass, bool Instanced, bool Skinned)
 		: mCode{std::move(Code)},
+		  mVariantKey{std::move(VariantKey)},
 		  mPass{Pass},
 		  mInstanced{Instanced && !Skinned},
 		  mSkinned{Skinned} {
@@ -26,14 +27,14 @@ namespace Renderer {
      * @brief GPU 자원이 존재하고 코드의 최신 리비전을 반영했는지 검사합니다.
      */
     bool Renderer::FShaderInstance::IsCurrent() const {
-        return HasResources() && mRevision == mCode->GetRevision();
+        return mCode != nullptr && HasResources() && mRevision == mCode->GetRevision(mVariantKey);
     }
 
     /**
      * @brief 셰이더 단계에 필요한 GPU 셰이더와 입력 레이아웃이 있는지 검사합니다.
      */
     bool Renderer::FShaderInstance::HasResources() const {
-        return mVertexShader != nullptr ? mInputLayout != nullptr : mPixelShader != nullptr;
+        return mCode != nullptr && (mVertexShader != nullptr ? mInputLayout != nullptr : mPixelShader != nullptr);
     }
 
     /**
@@ -59,10 +60,16 @@ namespace Renderer {
             return false;
         }
 
-        const auto Compilation{mCode->GetCompilation()};
+        const auto Compilation{mCode->GetCompilation(mVariantKey)};
+        if (Compilation == nullptr) {
+            Error = "The shader compilation is no longer available";
+
+            return false;
+        }
+
         const std::span<const Core::Uint8> Bytes{Compilation->mByteCode};
 
-        if (mCode->GetDescription().mTargetProfile.starts_with("ps_")) {
+        if (mCode->GetDescription(mVariantKey).mTargetProfile.starts_with("ps_")) {
             Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};
 
             if (FAILED(Device->CreatePixelShader(Bytes.data(), Bytes.size(), nullptr, Pixel.GetAddressOf()))) {
@@ -72,12 +79,12 @@ namespace Renderer {
             }
 
             mPixelShader = std::move(Pixel);
-            mRevision = mCode->GetRevision();
+            mRevision = mCode->GetRevision(mVariantKey);
 
             return true;
         }
 
-        if (!mCode->GetDescription().mTargetProfile.starts_with("vs_")) {
+        if (!mCode->GetDescription(mVariantKey).mTargetProfile.starts_with("vs_")) {
             Error = "Unsupported shader instance stage";
 
             return false;
@@ -120,7 +127,7 @@ namespace Renderer {
 
         mVertexShader = std::move(Vertex);
         mInputLayout = std::move(Layout);
-        mRevision = mCode->GetRevision();
+        mRevision = mCode->GetRevision(mVariantKey);
 
         return true;
     }
