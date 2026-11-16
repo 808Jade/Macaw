@@ -21,7 +21,7 @@ namespace Renderer {
     /**
      * @brief 지정한 크기의 아틀라스 전체를 빈 영역으로 초기화합니다.
      */
-    Renderer::FShadowAtlasAllocator::FShadowAtlasAllocator(Core::Uint32 Size)
+    Renderer::FShadowAtlasAllocator::FShadowAtlasAllocator(Uint32 Size)
         : mSize{Size} {
         Reset();
     }
@@ -37,7 +37,7 @@ namespace Renderer {
     /**
      * @brief 요청한 크기의 비어 있는 정사각형 아틀라스 영역을 할당합니다.
      */
-    std::optional<Renderer::FShadowAtlasBlock> Renderer::FShadowAtlasAllocator::Allocate(Core::Uint32 Size) {
+    std::optional<Renderer::FShadowAtlasBlock> Renderer::FShadowAtlasAllocator::Allocate(Uint32 Size) {
         if (Size == 0 || Size > mSize || !std::has_single_bit(Size)) {
             return std::nullopt;
         }
@@ -48,7 +48,7 @@ namespace Renderer {
     /**
      * @brief 지정한 노드에서 빈 영역을 찾고 필요하면 사분할하여 할당합니다.
      */
-    std::optional<Renderer::FShadowAtlasBlock> Renderer::FShadowAtlasAllocator::AllocateNode(Core::Index_t Index, Core::Uint32 Size) {
+    std::optional<Renderer::FShadowAtlasBlock> Renderer::FShadowAtlasAllocator::AllocateNode(Index_t Index, Uint32 Size) {
         const FNode Node{mNodes[Index]};
 
         if (Node.mOccupied || Node.mBlock.mSize < Size) {
@@ -56,7 +56,7 @@ namespace Renderer {
         }
 
         if (Node.mSplit) {
-            for (Core::Index_t Child : Node.mChildren) {
+            for (Index_t Child : Node.mChildren) {
                 const auto Block{AllocateNode(Child, Size)};
 
                 if (Block.has_value()) {
@@ -73,13 +73,13 @@ namespace Renderer {
             return Node.mBlock;
         }
 
-        const Core::Uint32 Half{Node.mBlock.mSize / 2};
-        const Core::Index_t First{static_cast<Core::Index_t>(mNodes.size())};
+        const Uint32 Half{Node.mBlock.mSize / 2};
+        const Index_t First{static_cast<Index_t>(mNodes.size())};
 
         mNodes[Index].mChildren = {First, First + 1, First + 2, First + 3};
         mNodes[Index].mSplit = true;
 
-        for (Core::Uint32 Child{}; Child < 4; ++Child) {
+        for (Uint32 Child{}; Child < 4; ++Child) {
             mNodes.push_back({{Node.mBlock.mX + (Child & 1) * Half, Node.mBlock.mY + (Child >> 1) * Half, Half}});
         }
 

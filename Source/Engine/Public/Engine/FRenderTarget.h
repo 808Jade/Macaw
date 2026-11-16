@@ -27,13 +27,13 @@ namespace Engine {
          * @brief 가로 픽셀 수를 반환합니다.
          * @return 가로 픽셀 수입니다.
          */
-        virtual Core::Uint32 GetWidth() const = 0;
+        virtual Uint32 GetWidth() const = 0;
 
         /**
          * @brief 세로 픽셀 수를 반환합니다.
          * @return 세로 픽셀 수입니다.
          */
-        virtual Core::Uint32 GetHeight() const = 0;
+        virtual Uint32 GetHeight() const = 0;
 
         /**
          * @brief UI에서 샘플링할 셰이더 리소스 뷰의 비소유 주소를 반환합니다.

@@ -18,7 +18,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UENUM(Script)
-    enum class EPrimitiveType : Core::Uint8 {
+    enum class EPrimitiveType : Uint8 {
         /**
          * @brief 기본 평면 메시입니다.
          */

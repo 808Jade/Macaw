@@ -26,6 +26,9 @@
  */
 #define MacawSplashBoldFontResource 203
 
+/**
+ * @brief 실행 파일에 포함된 Macaw 브랜드 이미지 리소스 식별자입니다.
+ */
 #define MacawBrandResource 204
 
 /**

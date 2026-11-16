@@ -65,7 +65,7 @@ namespace Renderer {
          * @param[in] PixelCode 픽셀 셰이더 바이트코드입니다.
          * @return 모든 자원을 생성하면 true입니다.
          */
-        bool CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode);
+        bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode);
 
         /**
          * @brief 문자 정점을 공통 동적 버퍼에 업로드하고 텍스트를 그립니다.

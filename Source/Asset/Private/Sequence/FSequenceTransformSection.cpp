@@ -31,7 +31,7 @@ namespace Asset {
     /**
      * @brief 지정한 시간이 포함되도록 섹션 구간을 넓힙니다.
      */
-    void Asset::FSequenceTransformSection::ExpandToInclude(Core::Int32 Tick) {
+    void Asset::FSequenceTransformSection::ExpandToInclude(Int32 Tick) {
         mStartTick = Tick < mStartTick ? Tick : mStartTick;
         mEndTick = Tick > mEndTick ? Tick : mEndTick;
     }
@@ -39,14 +39,14 @@ namespace Asset {
     /**
      * @brief 지정한 채널을 반환합니다.
      */
-    Asset::FSequenceChannel& Asset::FSequenceTransformSection::GetChannel(Core::Index_t Channel) {
+    Asset::FSequenceChannel& Asset::FSequenceTransformSection::GetChannel(Index_t Channel) {
         return mChannels[Channel];
     }
 
     /**
      * @brief 채널의 저장 이름을 반환합니다.
      */
-    const char* Asset::FSequenceTransformSection::GetChannelName(Core::Index_t Channel) {
+    const char* Asset::FSequenceTransformSection::GetChannelName(Index_t Channel) {
         return ChannelNames[Channel];
     }
 
@@ -56,7 +56,7 @@ namespace Asset {
     FTransform Asset::FSequenceTransformSection::Evaluate(double Tick, const FTransform& Base) const {
         FTransform Result{Base};
         const auto Sample{[this, Tick](Asset::ESequenceTransformChannel Channel, float& Value) {
-            return mChannels[static_cast<Core::Index_t>(Channel)].Evaluate(Tick, Value);
+            return mChannels[static_cast<Index_t>(Channel)].Evaluate(Tick, Value);
         }};
 
         Sample(Asset::ESequenceTransformChannel::LocationX, Result.mLocation.x);
@@ -101,7 +101,7 @@ namespace Asset {
             return;
         }
 
-        for (Core::Index_t Index{}; Index < ChannelCount && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < ChannelCount && !Archive.HasError(); ++Index) {
             if (Archive.IsLoading() ? !Archive.HasField(ChannelNames[Index]) : mChannels[Index].GetKeys().empty()) {
                 continue;
             }

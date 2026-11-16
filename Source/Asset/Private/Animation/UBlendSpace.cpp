@@ -29,7 +29,7 @@ namespace Asset {
         /**
          * @brief 직렬화하는 블렌드 공간 파일 형식 버전입니다.
          */
-        constexpr Core::Uint32 BlendSpaceFormatVersion{1};
+        constexpr Uint32 BlendSpaceFormatVersion{1};
 
         /**
          * @brief 블렌드 축의 이름·범위·격자 설정이 유효한지 확인합니다.
@@ -42,13 +42,13 @@ namespace Asset {
     }
 
     const Asset::FBlendParameter& UBlendSpace::GetBlendParameter(Asset::EBlendSpaceAxis Axis) const {
-        const Core::Index_t AxisIndex{static_cast<Core::Index_t>(Axis)};
+        const Index_t AxisIndex{static_cast<Index_t>(Axis)};
 
         return mBlendParameters[std::min(AxisIndex, std::size(mBlendParameters) - 1)];
     }
 
     bool UBlendSpace::SetBlendParameter(Asset::EBlendSpaceAxis Axis, const Asset::FBlendParameter& Parameter) {
-        const Core::Index_t AxisIndex{static_cast<Core::Index_t>(Axis)};
+        const Index_t AxisIndex{static_cast<Index_t>(Axis)};
 
         if (AxisIndex >= GetNumAxes() || AxisIndex >= std::size(mBlendParameters) || !IsValidParameter(Parameter)) {
             return false;
@@ -63,9 +63,9 @@ namespace Asset {
         return mSamples;
     }
 
-    Core::Index_t UBlendSpace::AddSample(const Asset::UAnimSequence* Animation, const FVector& SampleValue) {
+    Index_t UBlendSpace::AddSample(const Asset::UAnimSequence* Animation, const FVector& SampleValue) {
         if (mSamples.size() >= MaxSamples || !SampleValue.IsFinite()) {
-            return Core::InvalidIndex;
+            return InvalidIndex;
         }
 
         mSamples.push_back({Animation, SampleValue});
@@ -74,7 +74,7 @@ namespace Asset {
         return mSamples.size() - 1;
     }
 
-    bool UBlendSpace::RemoveSample(Core::Index_t Index) {
+    bool UBlendSpace::RemoveSample(Index_t Index) {
         if (Index >= mSamples.size()) {
             return false;
         }
@@ -85,7 +85,7 @@ namespace Asset {
         return true;
     }
 
-    bool UBlendSpace::SetSampleAnimation(Core::Index_t Index, const Asset::UAnimSequence* Animation) {
+    bool UBlendSpace::SetSampleAnimation(Index_t Index, const Asset::UAnimSequence* Animation) {
         if (Index >= mSamples.size()) {
             return false;
         }
@@ -95,7 +95,7 @@ namespace Asset {
         return true;
     }
 
-    bool UBlendSpace::SetSampleValue(Core::Index_t Index, const FVector& SampleValue) {
+    bool UBlendSpace::SetSampleValue(Index_t Index, const FVector& SampleValue) {
         if (Index >= mSamples.size() || !SampleValue.IsFinite()) {
             return false;
         }
@@ -109,7 +109,7 @@ namespace Asset {
     FVector UBlendSpace::ClampInput(const FVector& Input) const {
         std::array<float, 3> Values{Input.ToArray()};
 
-        for (Core::Index_t AxisIndex{}; AxisIndex < Values.size(); ++AxisIndex) {
+        for (Index_t AxisIndex{}; AxisIndex < Values.size(); ++AxisIndex) {
             const float Value{std::isfinite(Values[AxisIndex]) ? Values[AxisIndex] : 0.0f};
 
             Values[AxisIndex] = AxisIndex < GetNumAxes() ? std::clamp(Value, mBlendParameters[AxisIndex].mMin, mBlendParameters[AxisIndex].mMax) : 0.0f;
@@ -161,7 +161,7 @@ namespace Asset {
     }
 
     void UBlendSpace::Serialize(Core::FArchive& Archive, Asset::FAssetManager& Assets) {
-        Core::Uint32 Version{BlendSpaceFormatVersion};
+        Uint32 Version{BlendSpaceFormatVersion};
 
         Archive.Serialize("FormatVersion", Version);
 
@@ -175,7 +175,7 @@ namespace Asset {
             return;
         }
 
-        Core::Uint32 Count{GetNumAxes()};
+        Uint32 Count{GetNumAxes()};
 
         if (!Archive.BeginArray("Axes", Count)) {
             return;
@@ -188,7 +188,7 @@ namespace Asset {
             return;
         }
 
-        for (Core::Index_t AxisIndex{}; AxisIndex < Count && !Archive.HasError(); ++AxisIndex) {
+        for (Index_t AxisIndex{}; AxisIndex < Count && !Archive.HasError(); ++AxisIndex) {
             if (!Archive.BeginObject(std::to_string(AxisIndex))) {
                 break;
             }
@@ -221,7 +221,7 @@ namespace Asset {
             return;
         }
 
-        Count = static_cast<Core::Uint32>(mSamples.size());
+        Count = static_cast<Uint32>(mSamples.size());
 
         if (!Archive.BeginArray("Samples", Count)) {
             return;
@@ -242,7 +242,7 @@ namespace Asset {
 
         auto& Samples{Archive.IsLoading() ? LoadedSamples : mSamples};
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }

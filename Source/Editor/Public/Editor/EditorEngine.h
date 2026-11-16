@@ -74,6 +74,7 @@ namespace Editor {
         /**
          * @brief 입력을 수집하고 패널, 월드 동기화와 에디터 프레임 렌더링을 진행합니다.
          * @param[in] DeltaTime 이전 프레임 이후 경과한 시간(초)입니다.
+         * @return 다음 프레임을 계속 실행할 수 있으면 true입니다.
          */
         bool TickFrame(float DeltaTime);
 

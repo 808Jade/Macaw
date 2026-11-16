@@ -17,7 +17,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UENUM()
-    enum class ELightType : Core::Uint8 {
+    enum class ELightType : Uint8 {
         /**
          * @brief 방향과 위치에 무관한 환경광입니다.
          */

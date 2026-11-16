@@ -52,6 +52,8 @@ namespace Viewer {
 
 namespace Editor {
 
+    class FEditorTab;
+
     /**
      * @brief 편집 월드와 분리한 렌더 장면, 카메라와 재질 미리보기를 소유합니다.
      */
@@ -101,6 +103,20 @@ namespace Editor {
         void DrawUI(const Core::FInput& Input, bool Standalone = false);
 
         /**
+         * @brief 호스트 주 탭에 편집기 위젯과 도킹 배치를 등록합니다.
+         * @param[in] Tab 편집기를 포함할 호스트 탭 또는 등록할 외부 소유 탭입니다.
+         * @param[in] Input 이번 프레임의 키·마우스 입력 상태입니다.
+         */
+        void InitializeToolkit(Editor::FEditorTab& Tab, const Core::FInput& Input);
+
+        /**
+         * @brief 툴킷에 포함된 편집기 상태와 저장 가능 여부를 프레임별로 갱신합니다.
+         * @param[in] DeltaTime 이전 프레임 이후 경과한 시간이며 단위는 초입니다.
+         * @param[in] CanSave 현재 편집 내용을 저장할 수 있는지 지정합니다.
+         */
+        void UpdateToolkit(float DeltaTime, bool CanSave);
+
+        /**
          * @brief 창의 열림 상태를 검사합니다.
          * @return 뷰어가 열려 있으면 true입니다.
          */
@@ -108,12 +124,13 @@ namespace Editor {
 
         /**
          * @brief 이 에디터 창의 ImGui 식별자를 지정하여 같은 종류의 에디터를 여러 탭으로 열 수 있게 합니다.
-         * @param[in] Id ###로 시작하는 창 식별자입니다.
+         * @param[in] Id 세 개의 해시 기호로 시작하는 ImGui 창 식별자입니다.
          */
         void SetWindowId(Core::FString Id);
 
         /**
          * @brief 이 에디터 창의 ImGui 식별자를 반환합니다.
+         * @return 호스트 창을 구분하는 ImGui 창 식별자 문자열입니다.
          */
         const Core::FString& GetWindowId() const;
 
@@ -148,15 +165,21 @@ namespace Editor {
 
         /**
          * @brief 미리보기 옆에 본 계층 선택·기즈모 설정·포즈 복원 패널을 표시합니다.
+         * @param[in] FillWidth 포즈 표시가 사용 가능한 가로 영역을 채울지 지정합니다.
          */
-        void DrawPose();
+        void DrawPose(bool FillWidth = false);
+
+        /**
+         * @brief 메시 미리 보기의 정보와 표시 속성을 그립니다.
+         */
+        void DrawProperties();
 
         /**
          * @brief 본 하나와 그 자손을 계층 트리 노드로 표시하고 클릭하면 조작 대상으로 선택합니다.
          * @param Bone 표시할 본 번호입니다.
          * @param Children 본 번호별 자식 본 번호 목록입니다.
          */
-        void DrawBoneNode(Core::Index_t Bone, const Core::TArray<Core::TArray<Core::Index_t>>& Children);
+        void DrawBoneNode(Index_t Bone, const Core::TArray<Core::TArray<Index_t>>& Children);
 
         /**
          * @brief 마우스 위치의 광선과 본 표시 도형을 비교하여 선택 본을 갱신합니다.
@@ -179,7 +202,7 @@ namespace Editor {
          * @param Bone 월드 위치·회전을 계산할 스켈레톤 본 인덱스입니다.
          * @return 공통 코어에 전달할 기즈모 배치입니다.
          */
-        Editor::FGizmoPlacement GetBonePlacement(Core::Index_t Bone) const;
+        Editor::FGizmoPlacement GetBonePlacement(Index_t Bone) const;
 
         /**
          * @brief 기즈모의 호버와 드래그 입력을 처리합니다.
@@ -190,13 +213,13 @@ namespace Editor {
          * @return 기즈모가 마우스를 사용 중이어서 카메라 조작을 막아야 하면 true입니다.
          * @param[in] Input 키·마우스 상태를 조회할 공통 입력입니다.
          */
-        bool UpdateBoneGizmo(Core::Index_t Bone, const Core::FInput& Input, const Engine::FSceneView& View, const FVector2& Mouse, bool Hovered);
+        bool UpdateBoneGizmo(Index_t Bone, const Core::FInput& Input, const Engine::FSceneView& View, const FVector2& Mouse, bool Hovered);
 
         /**
          * @brief 기즈모의 드래그 결과를 선택한 본의 부모 기준 로컬 변환으로 바꾸어 적용합니다.
          * @param Bone 기즈모 변환을 적용할 스켈레톤 본 인덱스입니다.
          */
-        void ApplyBoneGizmo(Core::Index_t Bone);
+        void ApplyBoneGizmo(Index_t Bone);
 
         /**
          * @brief 카메라 입력을 처리하고 공통 렌더 경로로 메시와 본 도형을 그리며 아이콘·스프라이트·텍스트 표시는 제외합니다.
@@ -274,7 +297,7 @@ namespace Editor {
         /**
          * @brief 기즈모 조작 대상으로 선택한 본입니다.
          */
-        std::optional<Core::Index_t> mPoseBone{};
+        std::optional<Index_t> mPoseBone{};
 
         /**
          * @brief 현재 본 계층을 보조 도형으로 표시할지 지정합니다.
@@ -295,6 +318,11 @@ namespace Editor {
          * @brief 이 뷰어 창의 ImGui 식별자입니다.
          */
         Core::FString mWindowId{"###Mesh Viewer"};
+
+        /**
+         * @brief 편집기를 포함하는 호스트 주 탭의 비소유 주소입니다.
+         */
+        Editor::FEditorTab* mHostTab{};
 
         /**
          * @brief 최근 미리보기 실패의 설명입니다.

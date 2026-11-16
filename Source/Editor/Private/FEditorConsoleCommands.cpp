@@ -169,12 +169,12 @@ namespace Editor {
 
             mConsoleCommands.Register(std::move(Command));
         }};
-        const auto RegisterShadowNumber{[&RegisterShadow](Core::FString Name, Core::FString Usage, Core::TArray<Core::FString> Choices, auto Field, Core::Uint32 Minimum, Core::Uint32 Maximum, Core::Uint32 Step = 1, Core::FString Alias = {}) {
+        const auto RegisterShadowNumber{[&RegisterShadow](Core::FString Name, Core::FString Usage, Core::TArray<Core::FString> Choices, auto Field, Uint32 Minimum, Uint32 Maximum, Uint32 Step = 1, Core::FString Alias = {}) {
             RegisterShadow(std::move(Name), std::move(Usage), std::move(Choices), [Field, Minimum, Maximum, Step](RenderCore::FShadowSettings& Settings, std::string_view Value) -> std::optional<Core::FString> {
                 auto& Current{Settings.*Field};
 
                 if (!Value.empty()) {
-                    Core::Uint32 Parsed{};
+                    Uint32 Parsed{};
                     const auto [End, Error]{std::from_chars(Value.data(), Value.data() + Value.size(), Parsed)};
 
                     if (Error != std::errc{} || End != Value.data() + Value.size() || Parsed < Minimum || Parsed > Maximum || (Parsed - Minimum) % Step != 0) {
@@ -184,7 +184,7 @@ namespace Editor {
                     Current = static_cast<std::remove_reference_t<decltype(Current)>>(Parsed);
                 }
 
-                return std::to_string(static_cast<Core::Uint32>(Current));
+                return std::to_string(static_cast<Uint32>(Current));
             }, std::move(Alias));
         }};
         RegisterShadowNumber("r.shadow.CacheWholeSceneShadows", "[0/1]", {"0", "1"}, &RenderCore::FShadowSettings::mCacheWholeSceneShadows, 0, 1, 1, "r.shadow.CWSS");

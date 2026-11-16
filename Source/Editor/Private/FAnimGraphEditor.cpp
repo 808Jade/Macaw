@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "FAnimGraphEditor.h"
+#include "Editor/FEditorToolkitHost.h"
 #include "FAnimGraphNodeBuilder.h"
 #include "Asset/FAssetManager.h"
 #include "Asset/Animation/UAnimGraph.h"
@@ -81,7 +82,7 @@ namespace Editor {
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return Getter 노드를 식별하는 키입니다.
          */
-        std::uintptr_t GetterKey(Core::Int32 Id) {
+        std::uintptr_t GetterKey(Int32 Id) {
             return GetterBit | ((static_cast<std::uintptr_t>(Id) + 1) << 8);
         }
 
@@ -90,8 +91,8 @@ namespace Editor {
          * @param Key 해석할 노드 편집기 식별 키입니다.
          * @return 원본 Getter ID입니다.
          */
-        Core::Int32 DecodeGetter(std::uintptr_t Key) {
-            return (Key & GetterBit) != 0 ? static_cast<Core::Int32>(((Key & ~GetterBit) >> 8) - 1) : -1;
+        Int32 DecodeGetter(std::uintptr_t Key) {
+            return (Key & GetterBit) != 0 ? static_cast<Int32>(((Key & ~GetterBit) >> 8) - 1) : -1;
         }
 
         /**
@@ -99,7 +100,7 @@ namespace Editor {
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 노드를 식별하는 편집기 키입니다.
          */
-        std::uintptr_t NodeKey(Core::Int32 Id) {
+        std::uintptr_t NodeKey(Int32 Id) {
             return Id == Asset::UAnimGraph::OutputNodeId ? OutputNode : (static_cast<std::uintptr_t>(Id) + 1) << 8;
         }
 
@@ -109,7 +110,7 @@ namespace Editor {
          * @param Pin 대상 입력 핀 번호이며 첫 입력은 0입니다.
          * @return 입력 핀을 식별하는 키입니다.
          */
-        std::uintptr_t InputPinKey(Core::Int32 Node, Core::Index_t Pin) {
+        std::uintptr_t InputPinKey(Int32 Node, Index_t Pin) {
             return Node == Asset::UAnimGraph::OutputNodeId ? OutputInputPin : NodeKey(Node) | static_cast<std::uintptr_t>(Pin + 1);
         }
 
@@ -118,7 +119,7 @@ namespace Editor {
          * @param Node 키로 변환하거나 조회할 노드 ID입니다.
          * @return 출력 핀을 식별하는 키입니다.
          */
-        std::uintptr_t OutputPinKey(Core::Int32 Node) {
+        std::uintptr_t OutputPinKey(Int32 Node) {
             return NodeKey(Node) | OutputPinBits;
         }
 
@@ -128,8 +129,8 @@ namespace Editor {
          * @param Parameter 조회하거나 연결할 파라미터 이름 또는 인덱스입니다.
          * @return 다른 노드·핀 종류와 구분되는 편집기 키입니다.
          */
-        std::uintptr_t FloatInputKey(Core::Int32 Node, Core::Index_t Parameter) {
-            return FloatInputBit | InputPinKey(Node, static_cast<Core::Int32>(Parameter));
+        std::uintptr_t FloatInputKey(Int32 Node, Index_t Parameter) {
+            return FloatInputBit | InputPinKey(Node, static_cast<Int32>(Parameter));
         }
 
         /**
@@ -147,7 +148,7 @@ namespace Editor {
          * @param Parameter 조회하거나 연결할 파라미터 이름 또는 인덱스입니다.
          * @return 레지스트리 소유의 파라미터 메타데이터이며 없으면 nullptr입니다.
          */
-        const Engine::FAnimGraphParameterInfo* FindFloatInput(const Asset::FAnimGraphNode* Node, Core::Int32 Parameter) {
+        const Engine::FAnimGraphParameterInfo* FindFloatInput(const Asset::FAnimGraphNode* Node, Int32 Parameter) {
             const Engine::FAnimGraphNodeType* Type{Node != nullptr ? Engine::FAnimGraphNodeRegistry::Find(Node->mType) : nullptr};
 
             if (Type == nullptr || Parameter < 0 || static_cast<std::size_t>(Parameter) >= Type->mParameters.size()) {
@@ -169,12 +170,12 @@ namespace Editor {
             /**
              * @brief 핀 키에서 복원한 포즈 노드 ID입니다.
              */
-            Core::Int32 mNode{};
+            Int32 mNode{};
 
             /**
              * @brief 노드 내부 입력 핀 번호입니다.
              */
-            Core::Int32 mPin{};
+            Int32 mPin{};
 
             /**
              * @brief 출력 핀이면 true, 입력 핀이면 false입니다.
@@ -194,7 +195,7 @@ namespace Editor {
 
             const std::uintptr_t Low{Key & 0xFF};
 
-            return {static_cast<Core::Int32>((Key >> 8) - 1), Low == OutputPinBits ? 0 : static_cast<Core::Int32>(Low) - 1, Low == OutputPinBits};
+            return {static_cast<Int32>((Key >> 8) - 1), Low == OutputPinBits ? 0 : static_cast<Int32>(Low) - 1, Low == OutputPinBits};
         }
 
         /**
@@ -202,12 +203,12 @@ namespace Editor {
          * @param Key 해석할 노드 편집기 식별 키입니다.
          * @return 원본 노드 ID입니다.
          */
-        Core::Int32 DecodeNode(std::uintptr_t Key) {
+        Int32 DecodeNode(std::uintptr_t Key) {
             if ((Key & GetterBit) != 0) {
                 return -2;
             }
 
-            return Key == OutputNode ? Asset::UAnimGraph::OutputNodeId : static_cast<Core::Int32>((Key >> 8) - 1);
+            return Key == OutputNode ? Asset::UAnimGraph::OutputNodeId : static_cast<Int32>((Key >> 8) - 1);
         }
 
         /**
@@ -324,6 +325,10 @@ namespace Editor {
     }
 
     bool FAnimGraphEditor::IsFocused() const {
+        if (mHostTab != nullptr) {
+            return mHostTab->IsFocused();
+        }
+
         ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(mWindowId.c_str()) : nullptr};
         ImGuiWindow* Focused{ImGui::GetCurrentContext()->NavWindow};
 
@@ -352,47 +357,24 @@ namespace Editor {
         return true;
     }
 
-    void FAnimGraphEditor::Draw() {
-        if (!mOpen || mEditing == nullptr) {
-            return;
-        }
-
-        const Core::FString Title{std::format("{}{}{}{}", Editor::EditorStyle::TabIconPadding, mRootEditing->GetName(), mDirty ? "*" : "", mWindowId.c_str())};
-        bool Visible{true};
-
-        ImGui::SetNextWindowSize({1180.0f, 680.0f}, ImGuiCond_FirstUseEver);
-
-        const bool Expanded{ImGui::Begin(Title.c_str(), &Visible)};
-
-        Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Component, IM_COL32(200, 100, 100, 255));
-
-        if (!Visible) {
-            ImGui::End();
-            Close();
-
-            return;
-        }
-
-        const bool ToolbarSave{Expanded && Editor::EditorStyle::AssetToolbar(mPath, mDirty)};
-        const bool SaveRequested{ToolbarSave || (IsFocused() && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))};
-
-        if (Expanded && !mError.empty()) {
-            ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "%s", mError.c_str());
-        }
-
-        if (Expanded && ImGui::BeginTable("AnimGraphEditorLayout", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV, ImGui::GetContentRegionAvail())) {
-            ImGui::TableSetupColumn("Variables", ImGuiTableColumnFlags_WidthFixed, 230.0f);
-            ImGui::TableSetupColumn("Graph", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableNextRow();
-
-            ImGui::TableSetColumnIndex(0);
-
-            if (ImGui::BeginChild("Variables")) {
-                DrawVariables(SaveRequested);
+    void FAnimGraphEditor::InitializeToolkit(FEditorTab& Tab) {
+        mHostTab = &Tab;
+        Tab.SetIcon(EEditorIcon::Component, IM_COL32(200, 100, 100, 255));
+        FEditorToolkitHost& Host{Tab.GetToolkitHost()};
+        Host.AddWidget("Variables", "Variables", [this](float) {
+            if (mEditing != nullptr) {
+                DrawVariables(mSaveRequested);
+            }
+        }, EEditorDockRegion::Left);
+        Host.AddWidget("Graph", "Graph", [this](float) {
+            if (mEditing == nullptr) {
+                return;
             }
 
-            ImGui::EndChild();
-            ImGui::TableSetColumnIndex(1);
+            if (!mError.empty()) {
+                ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "%s", mError.c_str());
+            }
+
             DrawNavigation();
 
             if (mView.mMode == EGraphView::Machine) {
@@ -402,15 +384,25 @@ namespace Editor {
             } else {
                 DrawGraph();
             }
+        });
+    }
 
-            ImGui::EndTable();
+    void FAnimGraphEditor::UpdateToolkit(float, bool) {
+        mSaveRequested = false;
+
+        if (mRootEditing != nullptr) {
+            mHostTab->SetName(EditorStyle::TabIconPadding + mRootEditing->GetName() + (mDirty ? "*" : "") + mWindowId);
         }
+    }
 
-        if (SaveRequested && mDirty) {
+    void FAnimGraphEditor::HandleCommands(bool CanSave) {
+        mSaveRequested = CanSave && IsFocused() && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup) && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S);
+    }
+
+    void FAnimGraphEditor::FinishToolkit() {
+        if (mSaveRequested && mDirty) {
             Save();
         }
-
-        ImGui::End();
     }
 
     void FAnimGraphEditor::DrawVariables(bool SaveRequested) {
@@ -443,7 +435,7 @@ namespace Editor {
 
         ImGui::Spacing();
 
-        Core::Index_t Remove{Core::InvalidIndex};
+        Index_t Remove{InvalidIndex};
 
         if (ImGui::BeginChild("VariableList", {}, ImGuiChildFlags_NavFlattened)) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{TextHeight * 0.45f, TextHeight * 0.35f});
@@ -451,7 +443,7 @@ namespace Editor {
             ImGui::PushStyleColor(ImGuiCol_ChildBg, {0.11f, 0.14f, 0.18f, 1.0f});
             ImGui::PushStyleColor(ImGuiCol_Border, {0.29f, 0.35f, 0.43f, 0.55f});
 
-            for (Core::Index_t Index{}; Index < mRootEditing->GetVariables().size(); ++Index) {
+            for (Index_t Index{}; Index < mRootEditing->GetVariables().size(); ++Index) {
                 if (DrawVariable(Index, SaveRequested)) {
                     Remove = Index;
                 }
@@ -474,7 +466,7 @@ namespace Editor {
         }
     }
 
-    bool FAnimGraphEditor::DrawVariable(Core::Index_t Index, bool SaveRequested) {
+    bool FAnimGraphEditor::DrawVariable(Index_t Index, bool SaveRequested) {
         ImGui::PushID(static_cast<int>(Index));
         const bool Visible{ImGui::BeginChild("Variable", {}, ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_NavFlattened, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)};
         bool Remove{};
@@ -584,17 +576,17 @@ namespace Editor {
         return Remove;
     }
 
-    Core::Index_t FAnimGraphEditor::FindVariableIndex(const Core::FString& Name) const {
+    Index_t FAnimGraphEditor::FindVariableIndex(const Core::FString& Name) const {
         const auto& Variables{mEditing->GetVariables()};
         const auto Found{std::find_if(Variables.begin(), Variables.end(), [&Name](const Asset::FAnimGraphVariable& Variable) {
             return Variable.mName == Name;
         })};
 
-        return Found == Variables.end() ? Core::InvalidIndex : static_cast<Core::Index_t>(Found - Variables.begin());
+        return Found == Variables.end() ? InvalidIndex : static_cast<Index_t>(Found - Variables.begin());
     }
 
     void FAnimGraphEditor::DrawValueGetters() {
-        Core::TArray<Core::Int32> Bound{};
+        Core::TArray<Int32> Bound{};
 
         for (const Asset::FAnimGraphNode& Node : mEditing->GetNodes()) {
             const Engine::FAnimGraphNodeType* Type{Engine::FAnimGraphNodeRegistry::Find(Node.mType)};
@@ -616,7 +608,7 @@ namespace Editor {
 
                 if (const Asset::FAnimGraphVariableGetter* Getter{mEditing->FindBoundGetter(Node, Info.mName)}; Getter != nullptr) {
                     Bound.push_back(Getter->mId);
-                } else if (const Core::Int32 Id{mEditing->AddVariableGetter(*Binding, Node.mX - 245.0f, Node.mY - 170.0f)}; Id >= 0) {
+                } else if (const Int32 Id{mEditing->AddVariableGetter(*Binding, Node.mX - 245.0f, Node.mY - 170.0f)}; Id >= 0) {
                     ed::SetNodePosition(ed::NodeId{GetterKey(Id)}, {Node.mX - 245.0f, Node.mY - 170.0f});
                     Bound.push_back(Id);
                 }
@@ -624,9 +616,9 @@ namespace Editor {
         }
 
         for (const Asset::FAnimGraphVariableGetter& Getter : mEditing->GetVariableGetters()) {
-            const Core::Index_t Index{FindVariableIndex(Getter.mVariable)};
+            const Index_t Index{FindVariableIndex(Getter.mVariable)};
 
-            if (Index == Core::InvalidIndex) {
+            if (Index == InvalidIndex) {
                 continue;
             }
 
@@ -654,7 +646,7 @@ namespace Editor {
                 continue;
             }
 
-            for (Core::Index_t Index{}; Index < Type->mParameters.size(); ++Index) {
+            for (Index_t Index{}; Index < Type->mParameters.size(); ++Index) {
                 const Engine::FAnimGraphParameterInfo& Info{Type->mParameters[Index]};
                 const Asset::FAnimGraphVariableGetter* Getter{IsBindableFloat(Info) ? mEditing->FindBoundGetter(Node, Info.mName) : nullptr};
 
@@ -685,7 +677,7 @@ namespace Editor {
 
         const ImVec4 PoseColor{Editor::FAnimGraphNodeBuilder::PoseColor()};
         const ImVec4 FloatColor{Editor::FAnimGraphNodeBuilder::FloatColor()};
-        const auto HasOutput{[this](Core::Int32 Id) {
+        const auto HasOutput{[this](Int32 Id) {
             return std::any_of(mEditing->GetLinks().begin(), mEditing->GetLinks().end(), [Id](const Asset::FAnimGraphLink& Link) {
                 return Link.mFromNode == Id;
             });
@@ -716,7 +708,7 @@ namespace Editor {
             Builder.FitHeader(Title, TypeTitle);
             Builder.FitPins(PinCount > 0 ? Type->mPoseInputs.front().c_str() : nullptr, "Pose");
 
-            for (Core::Index_t Pin{1}; Pin < PinCount; ++Pin) {
+            for (Index_t Pin{1}; Pin < PinCount; ++Pin) {
                 Builder.FitPins(Type->mPoseInputs[Pin].c_str());
             }
 
@@ -744,7 +736,7 @@ namespace Editor {
             Builder.Begin(ed::NodeId{NodeKey(Node.mId)}, 210.0f);
             Builder.Header(Title, TypeTitle);
 
-            for (Core::Index_t Pin{}; Pin < PinCount; ++Pin) {
+            for (Index_t Pin{}; Pin < PinCount; ++Pin) {
                 const bool Connected{mEditing->FindInput(Node.mId, Pin) != Asset::UAnimGraph::OutputNodeId};
 
                 Builder.InputPin(ed::PinId{InputPinKey(Node.mId, Pin)}, Type->mPoseInputs[Pin].c_str(), Connected, PoseColor);
@@ -762,12 +754,12 @@ namespace Editor {
                 Builder.BeginBody();
                 Builder.DrawText(UnknownType.c_str(), {1.0f, 0.45f, 0.4f, 1.0f});
             } else {
-                for (Core::Index_t Index{}; Index < Parameters.size(); ++Index) {
+                for (Index_t Index{}; Index < Parameters.size(); ++Index) {
                     const Engine::FAnimGraphParameterInfo& Info{Type->mParameters[Index]};
 
                     if (IsBindableFloat(Info)) {
                         const Core::FString* Binding{Node.FindParameter(Info.mName + ".Binding")};
-                        const bool Connected{Binding != nullptr && FindVariableIndex(*Binding) != Core::InvalidIndex};
+                        const bool Connected{Binding != nullptr && FindVariableIndex(*Binding) != InvalidIndex};
 
                         Builder.InputPin(ed::PinId{FloatInputKey(Node.mId, Index)}, Parameters[Index].c_str(), Connected, FloatColor);
                     }
@@ -779,7 +771,7 @@ namespace Editor {
                     Builder.BeginBody();
                 }
 
-                for (Core::Index_t Index{}; Index < Parameters.size(); ++Index) {
+                for (Index_t Index{}; Index < Parameters.size(); ++Index) {
                     if (const Engine::FAnimGraphParameterInfo& Info{Type->mParameters[Index]}; !IsBindableFloat(Info)) {
                         Builder.DrawProperty(Info.mName.c_str(), Parameters[Index].c_str());
                     }
@@ -871,7 +863,7 @@ namespace Editor {
             }
 
             while (ed::QueryDeletedNode(&Node)) {
-                const Core::Int32 Id{DecodeNode(Node.Get())};
+                const Int32 Id{DecodeNode(Node.Get())};
 
                 // Output 노드는 지울 수 없습니다.
                 if (Id == Asset::UAnimGraph::OutputNodeId) {
@@ -895,7 +887,7 @@ namespace Editor {
         // 캔버스 좌표에서 마우스 위치를 기억해 두고, 팝업은 노드 에디터를 잠시 멈춘 화면 좌표에서 그립니다.
         const ImVec2 CanvasMouse{ImGui::GetMousePos()};
         ed::NodeId ContextNode{};
-        Core::Int32 OpenMachineId{-1};
+        Int32 OpenMachineId{-1};
 
         ed::Suspend();
 
@@ -905,7 +897,7 @@ namespace Editor {
             if (const ImGuiPayload* Payload{ImGui::AcceptDragDropPayload(VariablePayload)}; Payload != nullptr && Payload->Data != nullptr && Payload->DataSize > 1 && static_cast<const char*>(Payload->Data)[Payload->DataSize - 1] == '\0') {
                 const Core::FString Name{static_cast<const char*>(Payload->Data), static_cast<std::size_t>(Payload->DataSize - 1)};
 
-                if (const Core::Int32 Id{mEditing->AddVariableGetter(Name, CanvasMouse.x, CanvasMouse.y)}; Id >= 0) {
+                if (const Int32 Id{mEditing->AddVariableGetter(Name, CanvasMouse.x, CanvasMouse.y)}; Id >= 0) {
                     ed::SetNodePosition(ed::NodeId{GetterKey(Id)}, CanvasMouse);
                     mDirty = true;
                 } else {
@@ -933,7 +925,7 @@ namespace Editor {
 
             for (const Engine::FAnimGraphNodeType& Type : Engine::FAnimGraphNodeRegistry::GetNodeTypes()) {
                 if (ImGui::MenuItem(Type.mTitle.c_str())) {
-                    const Core::Int32 Id{mEditing->AddNode(Type.mType, Type.mTitle, mCreateX, mCreateY)};
+                    const Int32 Id{mEditing->AddNode(Type.mType, Type.mTitle, mCreateX, mCreateY)};
 
                     if (Id >= 0) {
                         ed::SetNodePosition(ed::NodeId{NodeKey(Id)}, {mCreateX, mCreateY});
@@ -951,8 +943,8 @@ namespace Editor {
         ImGui::SetNextWindowSizeConstraints({360.0f, 0.0f}, {500.0f, ImGui::GetIO().DisplaySize.y});
 
         if (ImGui::BeginPopup("AnimGraphNodeMenu")) {
-            const Core::Int32 Id{DecodeNode(mContextNode)};
-            const Core::Int32 Getter{DecodeGetter(mContextNode)};
+            const Int32 Id{DecodeNode(mContextNode)};
+            const Int32 Getter{DecodeGetter(mContextNode)};
             const bool CanDelete{mEditing->FindVariableGetter(Getter) != nullptr || mEditing->FindNode(Id) != nullptr};
             mSelectedNode = Id;
             ImGui::PushItemWidth(220.0f);
@@ -979,7 +971,7 @@ namespace Editor {
             }
 
             if (ImGui::MenuItem("입력 연결 끊기", nullptr, false, Id != -2)) {
-                for (Core::Index_t Pin{}; Pin < 255; ++Pin) {
+                for (Index_t Pin{}; Pin < 255; ++Pin) {
                     mDirty |= mEditing->Disconnect(Id, Pin);
                 }
 
@@ -1037,7 +1029,7 @@ namespace Editor {
         }
 
         const std::uintptr_t DoubleClickedKey{ed::GetDoubleClickedNode().Get()};
-        const Core::Int32 DoubleClicked{DecodeNode(DoubleClickedKey)};
+        const Int32 DoubleClicked{DecodeNode(DoubleClickedKey)};
         const auto* OpenNode{mEditing->FindNode(DoubleClicked)};
         const bool OpenMachine{(DoubleClickedKey & GetterBit) == 0 && OpenNode != nullptr && OpenNode->mType == "StateMachine"};
         ed::End();

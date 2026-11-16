@@ -82,7 +82,7 @@ namespace RenderCore {
         /**
          * @brief HLSL 컴파일러에 전달할 컴파일 옵션 비트입니다.
          */
-        Core::Uint32 mCompileFlags{D3DCOMPILE_ENABLE_STRICTNESS};
+        Uint32 mCompileFlags{D3DCOMPILE_ENABLE_STRICTNESS};
     };
 
 }

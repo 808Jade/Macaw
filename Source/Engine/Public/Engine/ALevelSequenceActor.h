@@ -66,7 +66,7 @@ namespace Engine {
         /**
          * @brief 바인딩에 씬 객체를 연결하고 기존 연결은 교체합니다.
          * @param[in] BindingId 시퀀스 바인딩 ID입니다.
-         * @param[in] ObjectId 연결할 액터 또는 공간 컴포넌트의 GUID입니다.
+         * @param[in] Object 연결할 액터 또는 씬 컴포넌트의 비소유 참조입니다.
          */
         void SetBindingTarget(const Core::FGuid& BindingId, CoreUObject::TObjectRef<CoreUObject::UObject> Object);
 

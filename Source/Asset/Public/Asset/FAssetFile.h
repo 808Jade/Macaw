@@ -21,7 +21,7 @@ namespace Asset {
      * @brief Macaw 에셋 파일의 페이로드 종류를 구분합니다.
      */
     UENUM()
-    enum class EAssetType : Core::Uint32 {
+    enum class EAssetType : Uint32 {
 
         /**
          * @brief 액터·컴포넌트와 월드 참조를 저장하는 장면 에셋입니다.
@@ -103,7 +103,7 @@ namespace Asset {
          * @param[out] Error 실패 원인을 받을 오류 문자열입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        static bool Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Core::Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid = Core::FGuid::Null());
+        static bool Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid = Core::FGuid::Null());
 
         static bool GetIdentity(const std::filesystem::path& Path, Asset::EAssetType& Type, Core::FGuid& Guid, Core::FString& Error);
 
@@ -115,7 +115,7 @@ namespace Asset {
          * @param[out] Error 실패 원인을 받을 오류 문자열입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        static bool Load(const std::filesystem::path& Path, Asset::EAssetType Type, Core::TArray<Core::Uint8>& Payload, Core::FString& Error);
+        static bool Load(const std::filesystem::path& Path, Asset::EAssetType Type, Core::TArray<Uint8>& Payload, Core::FString& Error);
     };
 
 }

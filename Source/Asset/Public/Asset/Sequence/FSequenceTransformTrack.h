@@ -46,7 +46,7 @@ namespace Asset {
          * @brief 모든 섹션이 지정한 시간을 포함하도록 넓힙니다.
          * @param[in] Tick 포함할 시간이며 틱 단위입니다.
          */
-        void ExpandSections(Core::Int32 Tick);
+        void ExpandSections(Int32 Tick);
 
     private:
         /**

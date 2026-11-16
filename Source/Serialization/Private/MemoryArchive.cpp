@@ -15,7 +15,7 @@ namespace Serialization {
     /**
      * @brief 바이트를 추가할 배열로 저장 아카이브를 구성합니다.
      */
-    Serialization::FMemoryArchive::FMemoryArchive(Core::TArray<Core::Uint8>& Bytes)
+    Serialization::FMemoryArchive::FMemoryArchive(Core::TArray<Uint8>& Bytes)
 		: Core::FArchive{Core::EArchiveMode::Saving},
 		  mWriteBytes{&Bytes} {
     }
@@ -23,7 +23,7 @@ namespace Serialization {
     /**
      * @brief 읽기 전용 바이트 배열로 로드 아카이브를 구성합니다.
      */
-    Serialization::FMemoryArchive::FMemoryArchive(const Core::TArray<Core::Uint8>& Bytes)
+    Serialization::FMemoryArchive::FMemoryArchive(const Core::TArray<Uint8>& Bytes)
 		: Core::FArchive{Core::EArchiveMode::Loading},
 		  mReadBytes{&Bytes} {
     }
@@ -58,7 +58,7 @@ namespace Serialization {
     /**
      * @brief 배열 컨테이너에 진입하고 로드 시 원소 개수를 읽습니다.
      */
-    bool Serialization::FMemoryArchive::BeginArray(std::string_view Name, Core::Uint32& Count) {
+    bool Serialization::FMemoryArchive::BeginArray(std::string_view Name, Uint32& Count) {
         Serialize(Name, Count);
 
         if (!HasError() && Count > 100000) {
@@ -78,7 +78,7 @@ namespace Serialization {
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
     void Serialization::FMemoryArchive::Serialize(std::string_view, bool& Value) {
-        Core::Uint8 Byte{static_cast<Core::Uint8>(Value)};
+        Uint8 Byte{static_cast<Uint8>(Value)};
 
         SerializeBytes(&Byte, sizeof(Byte));
 
@@ -96,21 +96,21 @@ namespace Serialization {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Serialization::FMemoryArchive::Serialize(std::string_view, Core::Int32& Value) {
+    void Serialization::FMemoryArchive::Serialize(std::string_view, Int32& Value) {
         SerializeBytes(&Value, sizeof(Value));
     }
 
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Serialization::FMemoryArchive::Serialize(std::string_view, Core::Uint32& Value) {
+    void Serialization::FMemoryArchive::Serialize(std::string_view, Uint32& Value) {
         SerializeBytes(&Value, sizeof(Value));
     }
 
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Serialization::FMemoryArchive::Serialize(std::string_view, Core::Uint64& Value) {
+    void Serialization::FMemoryArchive::Serialize(std::string_view, Uint64& Value) {
         SerializeBytes(&Value, sizeof(Value));
     }
 
@@ -139,13 +139,13 @@ namespace Serialization {
             return;
         }
 
-        if (!IsLoading() && Value.size() > std::numeric_limits<Core::Uint32>::max()) {
+        if (!IsLoading() && Value.size() > std::numeric_limits<Uint32>::max()) {
             SetError("Memory archive string is too large");
 
             return;
         }
 
-        Core::Uint32 Length{IsLoading() ? 0 : static_cast<Core::Uint32>(Value.size())};
+        Uint32 Length{IsLoading() ? 0 : static_cast<Uint32>(Value.size())};
 
         Serialize(Name, Length);
 

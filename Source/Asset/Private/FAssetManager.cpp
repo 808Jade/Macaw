@@ -132,7 +132,7 @@ namespace Asset {
 
             std::error_code Code{};
 
-            for (Core::Index_t Index{1}; std::filesystem::exists(Target, Code) && !Code; ++Index) {
+            for (Index_t Index{1}; std::filesystem::exists(Target, Code) && !Code; ++Index) {
                 Target = Directory / (Base.wstring() + L"_" + std::to_wstring(Index) + L".masset");
             }
 
@@ -219,7 +219,7 @@ namespace Asset {
             Asset::FAssetSerialization::SerializeValues(Archive, Mesh.GetTangents());
             Asset::FAssetSerialization::SerializeValues(Archive, Mesh.GetColors());
 
-            Core::Uint32 Channels{Archive.IsLoading() ? 0 : static_cast<Core::Uint32>(Mesh.GetUVChannels().size())};
+            Uint32 Channels{Archive.IsLoading() ? 0 : static_cast<Uint32>(Mesh.GetUVChannels().size())};
 
             Archive.Serialize("UVChannels", Channels);
 
@@ -243,7 +243,7 @@ namespace Asset {
                 return;
             }
 
-            Core::Uint32 ExtensionVersion{1};
+            Uint32 ExtensionVersion{1};
 
             Archive.Serialize("SectionsVersion", ExtensionVersion);
 
@@ -253,7 +253,7 @@ namespace Asset {
                 return;
             }
 
-            Core::Uint32 SlotCount{Archive.IsLoading() ? 0 : static_cast<Core::Uint32>(Mesh.GetMaterialSlots().size())};
+            Uint32 SlotCount{Archive.IsLoading() ? 0 : static_cast<Uint32>(Mesh.GetMaterialSlots().size())};
 
             if (!Archive.BeginArray("MaterialSlots", SlotCount) || (Archive.IsLoading() && SlotCount > Archive.GetRemainingBytes() / 8)) {
                 Archive.SetError("Invalid mesh material slot count");
@@ -265,7 +265,7 @@ namespace Asset {
                 Mesh.GetMaterialSlots().clear();
             }
 
-            for (Core::Index_t Index{}; Index < SlotCount && !Archive.HasError(); ++Index) {
+            for (Index_t Index{}; Index < SlotCount && !Archive.HasError(); ++Index) {
                 Core::FString Name{Archive.IsLoading() ? Core::FString{} : Mesh.GetMaterialSlots()[Index].GetName()};
                 Core::FString Path{Archive.IsLoading() ? Core::FString{} : Mesh.GetMaterialSlots()[Index].GetMaterialPath()};
 
@@ -279,7 +279,7 @@ namespace Asset {
 
             Archive.EndArray();
 
-            Core::Uint32 SectionCount{Archive.IsLoading() ? 0 : static_cast<Core::Uint32>(Mesh.GetSubMeshes().size())};
+            Uint32 SectionCount{Archive.IsLoading() ? 0 : static_cast<Uint32>(Mesh.GetSubMeshes().size())};
 
             if (!Archive.BeginArray("SubMeshes", SectionCount) || (Archive.IsLoading() && SectionCount > Archive.GetRemainingBytes() / 12)) {
                 Archive.SetError("Invalid submesh count");
@@ -291,10 +291,10 @@ namespace Asset {
                 Mesh.GetSubMeshes().clear();
             }
 
-            for (Core::Index_t Index{}; Index < SectionCount && !Archive.HasError(); ++Index) {
-                Core::Uint32 First{static_cast<Core::Uint32>(Archive.IsLoading() ? 0 : Mesh.GetSubMeshes()[Index].GetFirstIndex())};
-                Core::Uint32 Count{Archive.IsLoading() ? 0 : Mesh.GetSubMeshes()[Index].GetIndexCount()};
-                Core::Uint32 Slot{static_cast<Core::Uint32>(Archive.IsLoading() ? 0 : Mesh.GetSubMeshes()[Index].GetMaterialIndex())};
+            for (Index_t Index{}; Index < SectionCount && !Archive.HasError(); ++Index) {
+                Uint32 First{static_cast<Uint32>(Archive.IsLoading() ? 0 : Mesh.GetSubMeshes()[Index].GetFirstIndex())};
+                Uint32 Count{Archive.IsLoading() ? 0 : Mesh.GetSubMeshes()[Index].GetIndexCount()};
+                Uint32 Slot{static_cast<Uint32>(Archive.IsLoading() ? 0 : Mesh.GetSubMeshes()[Index].GetMaterialIndex())};
 
                 Archive.Serialize("FirstIndex", First);
                 Archive.Serialize("IndexCount", Count);
@@ -314,7 +314,7 @@ namespace Asset {
          * @param Bones 부모 인덱스와 바인드 변환을 가진 본 배열입니다.
          */
         void SerializeBones(Serialization::FMemoryArchive& Archive, Core::TArray<Asset::FMeshImportBone>& Bones) {
-            Core::Uint32 BoneCount{Archive.IsLoading() ? 0 : static_cast<Core::Uint32>(Bones.size())};
+            Uint32 BoneCount{Archive.IsLoading() ? 0 : static_cast<Uint32>(Bones.size())};
 
             if (Archive.HasError() || !Archive.BeginArray("Bones", BoneCount) || BoneCount == 0 || BoneCount > Asset::MaxSkeletonBones || (Archive.IsLoading() && BoneCount > Archive.GetRemainingBytes() / 72)) {
                 Archive.SetError("Invalid skeleton bone count");
@@ -327,9 +327,9 @@ namespace Asset {
                 Bones.reserve(BoneCount);
             }
 
-            for (Core::Index_t Index{}; Index < BoneCount && !Archive.HasError(); ++Index) {
+            for (Index_t Index{}; Index < BoneCount && !Archive.HasError(); ++Index) {
                 Core::FString Name{Archive.IsLoading() ? Core::FString{} : Bones[Index].GetName()};
-                Core::Int32 Parent{static_cast<Core::Int32>(Archive.IsLoading() ? -1 : Bones[Index].GetParentIndex())};
+                Int32 Parent{static_cast<Int32>(Archive.IsLoading() ? -1 : Bones[Index].GetParentIndex())};
                 FMatrix BindPose{Archive.IsLoading() ? FMatrix{} : Bones[Index].GetBindPose()};
 
                 Archive.Serialize("Name", Name);
@@ -350,7 +350,7 @@ namespace Asset {
          * @param Bones 부모 인덱스와 바인드 변환을 가진 본 배열입니다.
          */
         void SerializeSkeleton(Serialization::FMemoryArchive& Archive, Core::TArray<Asset::FMeshImportBone>& Bones) {
-            Core::Uint32 Version{1};
+            Uint32 Version{1};
 
             Archive.Serialize("SkeletonVersion", Version);
 
@@ -373,7 +373,7 @@ namespace Asset {
          * @param RootBone 루트 모션 추출 대상 본 이름입니다.
          */
         void SerializeAnimSequence(Serialization::FMemoryArchive& Archive, Asset::FAnimDataModel& Model, bool& EnableRootMotion, Asset::ERootMotionRootLock& RootLock, bool& ForceRootLock, Core::FString& RootBone) {
-            Core::Uint32 Version{2};
+            Uint32 Version{2};
 
             Archive.Serialize("AnimSequenceVersion", Version);
 
@@ -384,7 +384,7 @@ namespace Asset {
             }
 
             Asset::FFrameRate FrameRate{Model.GetFrameRate()};
-            Core::Uint32 Frames{Model.GetNumberOfFrames()};
+            Uint32 Frames{Model.GetNumberOfFrames()};
 
             Archive.Serialize("FrameRateNumerator", FrameRate.mNumerator);
             Archive.Serialize("FrameRateDenominator", FrameRate.mDenominator);
@@ -398,10 +398,10 @@ namespace Asset {
 
             const std::size_t Keys{static_cast<std::size_t>(Frames) + 1};
             auto& Tracks{Model.GetBoneAnimationTracks()};
-            Core::Uint32 TrackCount{Archive.IsLoading() ? 0 : static_cast<Core::Uint32>(Tracks.size())};
+            Uint32 TrackCount{Archive.IsLoading() ? 0 : static_cast<Uint32>(Tracks.size())};
 
             // 트랙 하나는 최소한 이름 길이와 세 채널의 키 수, 키 하나씩(12 + 16 + 12바이트)을 가집니다.
-            constexpr std::size_t MinimumTrackBytes{sizeof(Core::Uint32) * 4 + 40};
+            constexpr std::size_t MinimumTrackBytes{sizeof(Uint32) * 4 + 40};
 
             if (!Archive.BeginArray("Tracks", TrackCount) || TrackCount == 0 || TrackCount > Asset::FAnimDataModel::MaxTracks || (Archive.IsLoading() && TrackCount > Archive.GetRemainingBytes() / MinimumTrackBytes)) {
                 Archive.SetError("Invalid animation sequence track count");
@@ -415,7 +415,7 @@ namespace Asset {
 
             // 채널마다 키 수를 먼저 기록하며, 키 수는 1 또는 프레임 수 + 1만 허용합니다.
             const auto SerializeChannel{[&Archive, Keys](std::string_view Name, auto& Channel, std::size_t KeyBytes) {
-                Core::Uint32 Count{Archive.IsLoading() ? 0 : static_cast<Core::Uint32>(Channel.size())};
+                Uint32 Count{Archive.IsLoading() ? 0 : static_cast<Uint32>(Channel.size())};
 
                 if (!Archive.BeginArray(Name, Count) || (Count != 1 && Count != Keys) || (Archive.IsLoading() && Count > Archive.GetRemainingBytes() / KeyBytes)) {
                     Archive.SetError("Invalid animation sequence key count");
@@ -452,14 +452,14 @@ namespace Asset {
             Archive.EndArray();
 
             if (Version >= 2) {
-                Core::Uint32 Lock{static_cast<Core::Uint32>(RootLock)};
+                Uint32 Lock{static_cast<Uint32>(RootLock)};
 
                 Archive.Serialize("EnableRootMotion", EnableRootMotion);
                 Archive.Serialize("RootMotionRootLock", Lock);
                 Archive.Serialize("ForceRootLock", ForceRootLock);
                 Archive.Serialize("RootMotionBone", RootBone);
 
-                if (Lock > static_cast<Core::Uint32>(Asset::ERootMotionRootLock::Zero) || RootBone.find('\0') != Core::FString::npos) {
+                if (Lock > static_cast<Uint32>(Asset::ERootMotionRootLock::Zero) || RootBone.find('\0') != Core::FString::npos) {
                     Archive.SetError("Invalid root motion settings");
 
                     return;
@@ -482,7 +482,7 @@ namespace Asset {
          * @param LegacyBones 구형 파일의 본 데이터를 받을 선택 출력 배열입니다.
          */
         void SerializeSkeletalMesh(Serialization::FMemoryArchive& Archive, Asset::FMeshData& Mesh, Core::TArray<Asset::FMeshImportSkinWeight>& SkinWeights, Core::TArray<Asset::FMeshImportBone>* LegacyBones = nullptr) {
-            Core::Uint32 Version{2};
+            Uint32 Version{2};
 
             Archive.Serialize("SkeletalMeshVersion", Version);
 
@@ -498,11 +498,11 @@ namespace Asset {
                 SerializeBones(Archive, *LegacyBones);
             }
 
-            Core::Uint32 VertexCount{Archive.IsLoading() ? 0 : static_cast<Core::Uint32>(SkinWeights.size())};
+            Uint32 VertexCount{Archive.IsLoading() ? 0 : static_cast<Uint32>(SkinWeights.size())};
 
             Archive.Serialize("SkinWeightCount", VertexCount);
 
-            constexpr std::size_t WeightBytes{Asset::FMeshImportSkinWeight::MaxInfluences * (sizeof(Core::Uint32) + sizeof(float))};
+            constexpr std::size_t WeightBytes{Asset::FMeshImportSkinWeight::MaxInfluences * (sizeof(Uint32) + sizeof(float))};
 
             if (Archive.HasError() || VertexCount != Mesh.GetPositions().size() || VertexCount > 16000000 || (Archive.IsLoading() && VertexCount > Archive.GetRemainingBytes() / WeightBytes)) {
                 Archive.SetError("Invalid skeletal mesh skin weight count");
@@ -515,11 +515,11 @@ namespace Asset {
                 SkinWeights.reserve(VertexCount);
             }
 
-            for (Core::Index_t Vertex{}; Vertex < VertexCount && !Archive.HasError(); ++Vertex) {
-                std::array<Core::Uint32, Asset::FMeshImportSkinWeight::MaxInfluences> BoneIndices{Archive.IsLoading() ? std::array<Core::Uint32, Asset::FMeshImportSkinWeight::MaxInfluences>{} : SkinWeights[Vertex].GetBoneIndices()};
+            for (Index_t Vertex{}; Vertex < VertexCount && !Archive.HasError(); ++Vertex) {
+                std::array<Uint32, Asset::FMeshImportSkinWeight::MaxInfluences> BoneIndices{Archive.IsLoading() ? std::array<Uint32, Asset::FMeshImportSkinWeight::MaxInfluences>{} : SkinWeights[Vertex].GetBoneIndices()};
                 std::array<float, Asset::FMeshImportSkinWeight::MaxInfluences> Weights{Archive.IsLoading() ? std::array<float, Asset::FMeshImportSkinWeight::MaxInfluences>{} : SkinWeights[Vertex].GetWeights()};
 
-                for (Core::Index_t Influence{}; Influence < Asset::FMeshImportSkinWeight::MaxInfluences; ++Influence) {
+                for (Index_t Influence{}; Influence < Asset::FMeshImportSkinWeight::MaxInfluences; ++Influence) {
                     Archive.Serialize("BoneIndex", BoneIndices[Influence]);
                     Archive.Serialize("Weight", Weights[Influence]);
                 }
@@ -723,13 +723,13 @@ namespace Asset {
             return Existing->second.get();
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::Mesh, Payload, Error)) {
             return nullptr;
         }
 
-        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Core::Uint8>&>(Payload)};
+        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Asset::FMeshData Data{};
 
         SerializeMesh(Archive, Data);
@@ -773,13 +773,13 @@ namespace Asset {
             return Existing->second.get();
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::SkeletalMesh, Payload, Error)) {
             return nullptr;
         }
 
-        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Core::Uint8>&>(Payload)};
+        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Asset::FMeshData Data{};
         Core::TArray<Asset::FMeshImportBone> LegacyBones{};
         Core::TArray<Asset::FMeshImportSkinWeight> SkinWeights{};
@@ -835,13 +835,13 @@ namespace Asset {
             return Existing->second.get();
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::Skeleton, Payload, Error)) {
             return nullptr;
         }
 
-        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Core::Uint8>&>(Payload)};
+        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Core::TArray<Asset::FMeshImportBone> Bones{};
 
         SerializeSkeleton(Archive, Bones);
@@ -889,13 +889,13 @@ namespace Asset {
             return Existing->second.get();
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::AnimSequence, Payload, Error)) {
             return nullptr;
         }
 
-        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Core::Uint8>&>(Payload)};
+        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Asset::FAnimDataModel Model{};
         bool EnableRootMotion{};
         Asset::ERootMotionRootLock RootLock{Asset::ERootMotionRootLock::AnimFirstFrame};
@@ -974,13 +974,13 @@ namespace Asset {
             return Result;
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::Texture, Payload, Error)) {
             return nullptr;
         }
 
-        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Core::Uint8>&>(Payload)};
+        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Asset::FTextureAssetData Data{};
         Data.Serialize(Archive);
 
@@ -1025,7 +1025,7 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FMeshData Data{Mesh.GetMeshData()};
 
@@ -1066,7 +1066,7 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FMeshData Data{Mesh.GetMeshData()};
         Core::TArray<Asset::FMeshImportSkinWeight> SkinWeights{Mesh.GetSkinWeights()};
@@ -1105,7 +1105,7 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
         Core::TArray<Asset::FMeshImportBone> Bones{Skeleton.GetBones()};
 
@@ -1143,7 +1143,7 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FAnimDataModel Model{Sequence.GetDataModel()};
         bool EnableRootMotion{Sequence.IsRootMotionEnabled()};
@@ -1188,7 +1188,7 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FTextureAssetData Data{Texture};
         Data.Serialize(Archive);
@@ -1278,7 +1278,7 @@ namespace Asset {
 
         auto Folder{Parent / Base};
 
-        for (Core::Index_t Index{}; !std::filesystem::create_directory(Folder, Code); ++Index) {
+        for (Index_t Index{}; !std::filesystem::create_directory(Folder, Code); ++Index) {
             if (Code && Code != std::errc::file_exists) {
                 Error = "Cannot create the import folder: " + Code.message();
 
@@ -1416,9 +1416,9 @@ namespace Asset {
         Core::TMap<Core::FString, Core::FString> Textures{};
 
         // 결과 재질별로 저장한 머티리얼 에셋 경로입니다. 여러 메시가 같은 재질을 쓰면 한 번만 저장하고, 쓰이지 않는 재질은 저장하지 않습니다.
-        Core::TMap<Core::Index_t, Core::FString> MaterialPaths{};
+        Core::TMap<Index_t, Core::FString> MaterialPaths{};
 
-        const auto ImportMaterial{[&](Core::Index_t Index, Core::FString& MaterialPath) {
+        const auto ImportMaterial{[&](Index_t Index, Core::FString& MaterialPath) {
             const Asset::FMeshImportMaterial& SourceMaterial{Materials[Index]};
             auto Material{CoreUObject::NewObject<Asset::UMaterial>()};
             Material->SetName(SourceMaterial.GetName());
@@ -1481,7 +1481,7 @@ namespace Asset {
 
         auto& Meshes{Imported.GetMeshes()};
 
-        for (Core::Index_t MeshIndex{}; MeshIndex < Meshes.size(); ++MeshIndex) {
+        for (Index_t MeshIndex{}; MeshIndex < Meshes.size(); ++MeshIndex) {
             Asset::FMeshImportMesh& ImportedMesh{Meshes[MeshIndex]};
             Asset::FMeshData& Data{ImportedMesh.GetMeshData()};
             const auto& MaterialIndices{ImportedMesh.GetMaterialIndices()};
@@ -1492,8 +1492,8 @@ namespace Asset {
                 return false;
             }
 
-            for (Core::Index_t Slot{}; Slot < MaterialIndices.size(); ++Slot) {
-                const Core::Index_t MaterialIndex{static_cast<Core::Index_t>(MaterialIndices[Slot])};
+            for (Index_t Slot{}; Slot < MaterialIndices.size(); ++Slot) {
+                const Index_t MaterialIndex{static_cast<Index_t>(MaterialIndices[Slot])};
 
                 if (MaterialIndex >= Materials.size()) {
                     Error = "An imported mesh slot references an invalid material";
@@ -1585,7 +1585,6 @@ namespace Asset {
 
     /**
      * @brief 경로와 하위 폴더에 해당하는 에셋을 캐시에서 은퇴시켜 기존 참조의 수명을 유지합니다.
-     * @param[in] Path 은퇴시킬 콘텐츠 내부 에셋 또는 폴더의 경로입니다.
      * @details 각 캐시의 소유권을 mRetired로 이전하며 파일은 변경하지 않습니다.
      */
     void Asset::FAssetManager::RetireAssets(const std::filesystem::path& Path) {
@@ -1674,7 +1673,7 @@ namespace Asset {
             return Existing->second.get();
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::Sequence, Payload, Error)) {
             return nullptr;
@@ -1765,7 +1764,7 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        return Asset::FAssetFile::Save(Target, Asset::EAssetType::Sequence, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Sequence.GetGuid()));
+        return Asset::FAssetFile::Save(Target, Asset::EAssetType::Sequence, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Sequence.GetGuid()));
     }
 
     Asset::UBlendSpace* Asset::FAssetManager::LoadBlendSpace(const std::filesystem::path& Path, Core::FString& Error) {
@@ -1783,7 +1782,7 @@ namespace Asset {
             return Existing->second.get();
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::BlendSpace, Payload, Error)) {
             return nullptr;
@@ -1898,7 +1897,7 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::BlendSpace, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, BlendSpace.GetGuid()))) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::BlendSpace, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, BlendSpace.GetGuid()))) {
             return false;
         }
 
@@ -1924,7 +1923,7 @@ namespace Asset {
             return Existing->second.get();
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::AnimGraph, Payload, Error)) {
             return nullptr;
@@ -2027,7 +2026,7 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::AnimGraph, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Graph.GetGuid()))) {
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::AnimGraph, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Graph.GetGuid()))) {
             return false;
         }
 

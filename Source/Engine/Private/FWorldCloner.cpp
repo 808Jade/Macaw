@@ -157,7 +157,7 @@ namespace Engine {
         Remapping.at(SourceWorld->GetGuid()) = World->GetGuid();
         Remapping.at(SourceWorld->GetPersistentLevel()->GetGuid()) = World->GetPersistentLevel()->GetGuid();
 
-        Core::TArray<Core::Uint8> Bytes{};
+        Core::TArray<Uint8> Bytes{};
         Serialization::FMemoryArchive Writer{Bytes};
         Writer.SetObjectGuidRemapping(&Remapping);
         Engine::FWorldSerializer::Serialize(Writer, Source);
@@ -168,7 +168,7 @@ namespace Engine {
             return nullptr;
         }
 
-        Serialization::FMemoryArchive Reader{static_cast<const Core::TArray<Core::Uint8>&>(Bytes)};
+        Serialization::FMemoryArchive Reader{static_cast<const Core::TArray<Uint8>&>(Bytes)};
         Reader.SetObjectGuidRemapping(&Remapping);
         Engine::FWorldSerializer::Serialize(Reader, Context.get());
 
@@ -238,7 +238,7 @@ namespace Engine {
         Remapping.emplace(World->GetGuid(), World->GetGuid());
         Remapping.emplace(World->GetPersistentLevel()->GetGuid(), World->GetPersistentLevel()->GetGuid());
 
-        Core::TArray<Core::Uint8> Bytes{};
+        Core::TArray<Uint8> Bytes{};
         Serialization::FMemoryArchive Writer{Bytes};
         Writer.SetObjectGuidRemapping(&Remapping);
         Engine::FWorldSerializer::SaveActors(Writer, Sources);
@@ -249,7 +249,7 @@ namespace Engine {
             return {};
         }
 
-        Serialization::FMemoryArchive Reader{static_cast<const Core::TArray<Core::Uint8>&>(Bytes)};
+        Serialization::FMemoryArchive Reader{static_cast<const Core::TArray<Uint8>&>(Bytes)};
         Reader.SetObjectGuidRemapping(&Remapping);
 
         auto Copies{Engine::FWorldSerializer::LoadActors(Reader)};

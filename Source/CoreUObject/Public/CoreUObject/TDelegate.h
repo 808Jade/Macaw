@@ -22,7 +22,7 @@ namespace CoreUObject {
     /**
      * @brief 델리게이트 구독을 해제할 때 사용하는 등록 번호입니다. 0은 등록 실패를 뜻합니다.
      */
-    using FDelegateHandle = Core::Uint64;
+    using FDelegateHandle = Uint64;
 
     /**
      * @brief 다음에 발급할 델리게이트 등록 번호입니다. 한 번 발급한 번호는 다시 사용하지 않습니다.

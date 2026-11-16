@@ -55,7 +55,7 @@ namespace Renderer {
     /**
      * @brief 정점·픽셀 바이트 코드로 그리드 셰이더를 생성하고 둘 다 성공한 경우에만 교체합니다.
      */
-    bool Renderer::FGridResources::CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode) {
+    bool Renderer::FGridResources::CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode) {
         Microsoft::WRL::ComPtr<ID3D11VertexShader> Vertex{};
         Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};
 
@@ -72,7 +72,7 @@ namespace Renderer {
     /**
      * @brief 불투명 깊이로 가려지는 그리드를 깊이 기록 없이 색상 타깃에 혼합합니다.
      */
-    Core::Uint32 Renderer::FGridResources::Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View, float Spacing) {
+    Uint32 Renderer::FGridResources::Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View, float Spacing) {
         if (mVertexShader == nullptr || mPixelShader == nullptr) {
             return 0;
         }

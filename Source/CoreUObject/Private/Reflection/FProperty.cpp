@@ -30,7 +30,7 @@ namespace CoreUObject {
         /**
          * @brief 과도한 배열 할당을 막는 원소 수 상한입니다.
          */
-        constexpr Core::Uint32 MaximumArrayCount{100000};
+        constexpr Uint32 MaximumArrayCount{100000};
     }
 
     /**
@@ -74,7 +74,7 @@ namespace CoreUObject {
      * @brief 요청한 프로퍼티 플래그가 설정되어 있는지 검사합니다.
      */
     bool CoreUObject::FProperty::HasFlag(Core::EPropertyFlags Flag) const {
-        return (static_cast<Core::Uint32>(mFlags) & static_cast<Core::Uint32>(Flag)) != 0;
+        return (static_cast<Uint32>(mFlags) & static_cast<Uint32>(Flag)) != 0;
     }
 
     /**
@@ -142,7 +142,7 @@ namespace CoreUObject {
         }
 
         if (mType == CoreUObject::EPropertyType::Enum) {
-            const Core::Int32* Number{std::get_if<Core::Int32>(&Value)};
+            const Int32* Number{std::get_if<Int32>(&Value)};
 
             if (Number == nullptr || std::none_of(mEnumValues.begin(), mEnumValues.end(), [Number](const CoreUObject::FEnumValue& Entry) {
                 return Entry.mValue == *Number;
@@ -236,7 +236,7 @@ namespace CoreUObject {
 
         // 저장 경로는 원소를 읽기만 하므로 getter가 돌려준 주소를 그대로 순회합니다.
         void* Array{Loading ? Working.get() : const_cast<void*>(std::get<const void*>(ReadValue(Container)))};
-        Core::Uint32 Count{Loading ? 0 : Ops.mSize(Array)};
+        Uint32 Count{Loading ? 0 : Ops.mSize(Array)};
 
         if (!Archive.BeginArray(Name, Count)) {
             return;
@@ -249,7 +249,7 @@ namespace CoreUObject {
                 Ops.mResize(Array, Count);
             }
 
-            for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+            for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
                 Ops.mElement->SerializeNamed(std::to_string(Index), Ops.mAt(Array, Index), Archive);
             }
         }
@@ -276,7 +276,7 @@ namespace CoreUObject {
                 // 핸들은 영속 상태가 아닌 캐시이므로 setter를 거치지 않고 원소를 직접 갱신합니다.
                 void* Array{const_cast<void*>(std::get<const void*>(ReadValue(Container)))};
 
-                for (Core::Uint32 Index{}, Count{mArrayOps->mSize(Array)}; Index < Count; ++Index) {
+                for (Uint32 Index{}, Count{mArrayOps->mSize(Array)}; Index < Count; ++Index) {
                     mArrayOps->mElement->BindObjectReferences(mArrayOps->mAt(Array, Index), Objects);
                 }
             }

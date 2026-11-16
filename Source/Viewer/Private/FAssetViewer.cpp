@@ -102,7 +102,7 @@ IViewerContent* FAssetViewer::GetContent() const {
     return mContent.get();
 }
 
-bool FAssetViewer::Resize(Core::Uint32 Width, Core::Uint32 Height) {
+bool FAssetViewer::Resize(Uint32 Width, Uint32 Height) {
     if (Width == 0 || Height == 0 || Width > 16384 || Height > 16384) {
         return false;
     }
@@ -177,7 +177,7 @@ bool FAssetViewer::Render(const Engine::FPrimitiveDrawInterface* EditorElements,
         return true;
     }
 
-    if (!Resize(static_cast<Core::Uint32>(mSize.x), static_cast<Core::Uint32>(mSize.y)) || mContent->GetScene() == nullptr) {
+    if (!Resize(static_cast<Uint32>(mSize.x), static_cast<Uint32>(mSize.y)) || mContent->GetScene() == nullptr) {
         return false;
     }
 
@@ -201,7 +201,7 @@ std::unique_ptr<FViewerCapture> FAssetViewer::Capture(Core::FString& Error) {
     }
 
     Asset::UTexture2D* Source{mContent->GetTexture()};
-    auto Texture{Source != nullptr ? mRenderer->CaptureTexture(*Source, static_cast<Core::Uint32>(mSize.x), static_cast<Core::Uint32>(mSize.y), GetImageRect(), Error) : mRenderer->CaptureRenderTarget(*mTarget, Error)};
+    auto Texture{Source != nullptr ? mRenderer->CaptureTexture(*Source, static_cast<Uint32>(mSize.x), static_cast<Uint32>(mSize.y), GetImageRect(), Error) : mRenderer->CaptureRenderTarget(*mTarget, Error)};
 
     return Texture != nullptr ? std::make_unique<FViewerCapture>(std::move(Texture)) : nullptr;
 }

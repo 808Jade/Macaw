@@ -73,9 +73,23 @@ namespace Asset {
          */
         bool SetBaseColor(const FVector4& Color);
 
+        /**
+         * @brief 머티리얼의 표면 블렌드 방식을 반환합니다.
+         * @return 현재 블렌드 모드입니다.
+         */
         Asset::EBlendMode GetBlendMode() const;
+
+        /**
+         * @brief 블렌드 방식을 설정하고 변경 리비전을 갱신합니다. 기본 색상 알파가 1이 아니면 반투명으로 유지합니다.
+         * @param[in] BlendMode 적용할 표면 블렌드 방식입니다.
+         * @return 지원하는 블렌드 모드를 적용했으면 true입니다.
+         */
         bool SetBlendMode(Asset::EBlendMode BlendMode);
 
+        /**
+         * @brief 블렌드 방식 변경을 추적하는 리비전을 반환합니다.
+         * @return 현재 블렌드 모드 리비전입니다.
+         */
         Core::FRevision GetBlendModeRevision() const;
 
         /**
@@ -195,7 +209,7 @@ namespace Asset {
          * @param[in] Stages 연결할 셰이더 단계입니다.
          * @param[in] Slot 상수 버퍼 슬롯(b 레지스터)입니다.
          */
-        void BindConstants(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t Slot) const;
+        void BindConstants(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t Slot) const;
 
         /**
          * @brief 정반사 색상 값을 반환합니다.
@@ -332,9 +346,15 @@ namespace Asset {
         UPROPERTY(Edit, Serialize, Getter = GetBaseColor, Setter = SetBaseColor)
         FVector4 mBaseColor{1.0f, 1.0f, 1.0f, 1.0f};
 
+        /**
+         * @brief 머티리얼 표면의 불투명·반투명 블렌드 방식입니다.
+         */
         UPROPERTY(Edit, Serialize, Getter = GetBlendMode, Setter = SetBlendMode)
         Asset::EBlendMode mBlendMode{Asset::EBlendMode::Opaque};
 
+        /**
+         * @brief 블렌드 방식 변경을 추적하는 리비전입니다.
+         */
         Core::FRevision mBlendModeRevision{};
 
         /**

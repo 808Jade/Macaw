@@ -32,57 +32,57 @@ namespace Renderer {
         /**
          * @brief DDS 매직 값의 워드 위치입니다.
          */
-        constexpr Core::Index_t MagicWord{0};
+        constexpr Index_t MagicWord{0};
 
         /**
          * @brief DDS 텍스처 높이의 워드 위치입니다.
          */
-        constexpr Core::Index_t HeightWord{3};
+        constexpr Index_t HeightWord{3};
 
         /**
          * @brief DDS 텍스처 너비의 워드 위치입니다.
          */
-        constexpr Core::Index_t WidthWord{4};
+        constexpr Index_t WidthWord{4};
 
         /**
          * @brief DDS 밉 개수의 워드 위치입니다.
          */
-        constexpr Core::Index_t MipCountWord{7};
+        constexpr Index_t MipCountWord{7};
 
         /**
          * @brief DDS 기본 헤더 FourCC의 워드 위치입니다.
          */
-        constexpr Core::Index_t FourCCWord{21};
+        constexpr Index_t FourCCWord{21};
 
         /**
          * @brief DDS DX10 DXGI 포맷의 워드 위치입니다.
          */
-        constexpr Core::Index_t FormatWord{32};
+        constexpr Index_t FormatWord{32};
 
         /**
          * @brief DDS DX10 리소스 차원의 워드 위치입니다.
          */
-        constexpr Core::Index_t DimensionWord{33};
+        constexpr Index_t DimensionWord{33};
 
         /**
          * @brief DDS DX10 배열 크기의 워드 위치입니다.
          */
-        constexpr Core::Index_t ArraySizeWord{35};
+        constexpr Index_t ArraySizeWord{35};
 
         /**
          * @brief DDS 파일 식별 매직 값입니다.
          */
-        constexpr Core::Uint32 DDSMagic{0x20534444u};
+        constexpr Uint32 DDSMagic{0x20534444u};
 
         /**
          * @brief DX10 확장 DDS 헤더의 FourCC입니다.
          */
-        constexpr Core::Uint32 DX10FourCC{0x30315844u};
+        constexpr Uint32 DX10FourCC{0x30315844u};
 
         /**
          * @brief DDS DX10의 2차원 텍스처 차원 값입니다.
          */
-        constexpr Core::Uint32 Texture2DDimension{3u};
+        constexpr Uint32 Texture2DDimension{3u};
 
         /**
          * @brief BC7 블록 하나의 바이트 수입니다.
@@ -136,7 +136,7 @@ namespace Renderer {
     /**
      * @brief 정점·픽셀 바이트 코드로 하늘 셰이더를 생성하고 둘 다 성공한 경우에만 교체합니다.
      */
-    bool Renderer::FSkyResources::CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode) {
+    bool Renderer::FSkyResources::CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode) {
         Microsoft::WRL::ComPtr<ID3D11VertexShader> Vertex{};
         Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};
 
@@ -153,7 +153,7 @@ namespace Renderer {
     /**
      * @brief 불투명 패스의 깊이가 비어 있는 픽셀에만 하늘을 그립니다.
      */
-    Core::Uint32 Renderer::FSkyResources::Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View) {
+    Uint32 Renderer::FSkyResources::Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View) {
         if (mPanorama == nullptr || mVertexShader == nullptr || mPixelShader == nullptr) {
             return 0;
         }
@@ -204,7 +204,7 @@ namespace Renderer {
         std::error_code Code{};
         const auto Size{std::filesystem::file_size(Path, Code)};
         std::ifstream Input{Path, std::ios::binary};
-        std::array<Core::Uint32, HeaderWords> Header{};
+        std::array<Uint32, HeaderWords> Header{};
 
         if (Code || Size < sizeof(Header) || !Input || !Input.read(reinterpret_cast<char*>(Header.data()), sizeof(Header))) {
             return false;
@@ -216,13 +216,13 @@ namespace Renderer {
             return false;
         }
 
-        const Core::Uint32 MipCount{std::max(Header[MipCountWord], 1u)};
+        const Uint32 MipCount{std::max(Header[MipCountWord], 1u)};
 
         if (MipCount > D3D11_REQ_MIP_LEVELS) {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Pixels(static_cast<std::size_t>(Size) - sizeof(Header));
+        Core::TArray<Uint8> Pixels(static_cast<std::size_t>(Size) - sizeof(Header));
 
         if (!Input.read(reinterpret_cast<char*>(Pixels.data()), static_cast<std::streamsize>(Pixels.size()))) {
             return false;
@@ -233,7 +233,7 @@ namespace Renderer {
 
         std::size_t Offset{};
 
-        for (Core::Index_t Mip{}; Mip < MipCount; ++Mip) {
+        for (Index_t Mip{}; Mip < MipCount; ++Mip) {
             const std::size_t BlocksWide{(static_cast<std::size_t>(std::max(Header[WidthWord] >> Mip, 1u)) + 3) / 4};
             const std::size_t BlocksHigh{(static_cast<std::size_t>(std::max(Header[HeightWord] >> Mip, 1u)) + 3) / 4};
             const std::size_t RowPitch{BlocksWide * BC7BlockBytes};

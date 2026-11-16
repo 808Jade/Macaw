@@ -20,7 +20,7 @@ namespace Asset {
      * @ingroup Asset
      */
     UENUM()
-    enum class ESequenceTransformChannel : Core::Uint8 {
+    enum class ESequenceTransformChannel : Uint8 {
         /**
          * @brief 위치 X입니다.
          */
@@ -82,21 +82,21 @@ namespace Asset {
          * @brief 지정한 시간이 포함되도록 섹션 구간을 넓힙니다.
          * @param[in] Tick 포함할 시간이며 틱 단위입니다.
          */
-        void ExpandToInclude(Core::Int32 Tick);
+        void ExpandToInclude(Int32 Tick);
 
         /**
          * @brief 지정한 채널을 반환합니다.
          * @param[in] Channel 조회할 채널의 순서이며 ChannelCount보다 작아야 합니다.
          * @return 섹션이 소유한 채널의 참조입니다.
          */
-        Asset::FSequenceChannel& GetChannel(Core::Index_t Channel);
+        Asset::FSequenceChannel& GetChannel(Index_t Channel);
 
         /**
          * @brief 채널의 저장 이름을 반환합니다.
          * @param[in] Channel 조회할 채널의 순서이며 ChannelCount보다 작아야 합니다.
          * @return 정적 수명의 채널 이름입니다.
          */
-        static const char* GetChannelName(Core::Index_t Channel);
+        static const char* GetChannelName(Index_t Channel);
 
         /**
          * @brief 지정한 시간의 변환을 계산합니다.
@@ -116,12 +116,12 @@ namespace Asset {
         /**
          * @brief 틱 단위 시작 시간입니다.
          */
-        Core::Int32 mStartTick{};
+        Int32 mStartTick{};
 
         /**
          * @brief 틱 단위 끝 시간이며 이 시간까지 포함합니다.
          */
-        Core::Int32 mEndTick{};
+        Int32 mEndTick{};
 
         /**
          * @brief ESequenceTransformChannel 순서의 채널입니다.

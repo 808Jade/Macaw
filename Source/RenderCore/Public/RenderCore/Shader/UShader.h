@@ -45,7 +45,7 @@ namespace RenderCore {
             /**
              * @brief 생성과 성공한 컴파일 결과 교체마다 Core::FRevision에서 새로 받는 갱신 세대입니다.
              */
-            Core::Uint64 mRevision{};
+            Uint64 mRevision{};
 
             /**
              * @brief 현재 바이트코드를 디스크 캐시에서 불러왔는지 나타냅니다.
@@ -92,7 +92,7 @@ namespace RenderCore {
          * @param[in] VariantKey 조회할 컴파일 변형 키이며, 비우면 기본 변형을 조회합니다.
          * @return 컴파일 결과가 살아 있는 동안 유효한 읽기 전용 뷰이며, 결과가 없으면 빈 뷰입니다.
          */
-        std::span<const Core::Uint8> GetByteCode(const Core::FString& VariantKey = {}) const;
+        std::span<const Uint8> GetByteCode(const Core::FString& VariantKey = {}) const;
 
         /**
          * @brief 호출 후에도 현재 컴파일 결과의 수명을 유지할 공유 참조를 반환합니다.
@@ -106,7 +106,7 @@ namespace RenderCore {
          * @param[in] VariantKey 조회할 컴파일 변형 키이며, 비우면 기본 변형을 조회합니다.
          * @return 지정한 변형의 갱신 세대이며, 준비되지 않은 변형이면 0입니다.
          */
-        Core::Uint64 GetRevision(const Core::FString& VariantKey = {}) const;
+        Uint64 GetRevision(const Core::FString& VariantKey = {}) const;
 
         /**
          * @brief 현재 컴파일 결과를 디스크 캐시에서 읽었는지 반환합니다.
@@ -119,7 +119,7 @@ namespace RenderCore {
          * @brief 이 객체가 보관하는 컴파일 변형의 개수를 반환합니다.
          * @return 현재 준비된 컴파일 변형의 개수입니다.
          */
-        Core::Index_t GetCompilationCount() const;
+        Index_t GetCompilationCount() const;
 
         /**
          * @brief 셰이더에 설정한 HLSL 원본 경로를 반환합니다.

@@ -97,7 +97,7 @@ namespace Renderer {
             BottomOrigin = Origin == "bottom";
         }
 
-        Core::TMap<Core::Uint32, Renderer::FFontGlyph> Glyphs{};
+        Core::TMap<Uint32, Renderer::FFontGlyph> Glyphs{};
 
         for (const auto& Value : Document["glyphs"].GetArray()) {
             Renderer::FFontGlyph Glyph{};
@@ -134,14 +134,14 @@ namespace Renderer {
                 Glyph.mHasBounds = true;
             }
 
-            const Core::Uint32 CodePoint{Value["unicode"].GetUint()};
+            const Uint32 CodePoint{Value["unicode"].GetUint()};
 
             if (CodePoint > 0x10FFFF || (CodePoint >= 0xD800 && CodePoint <= 0xDFFF) || !Glyphs.emplace(CodePoint, Glyph).second) {
                 return false;
             }
         }
 
-        Core::TMap<Core::Uint64, float> Kerning{};
+        Core::TMap<Uint64, float> Kerning{};
 
         if (Document.HasMember("kerning")) {
             if (!Document["kerning"].IsArray()) {
@@ -155,7 +155,7 @@ namespace Renderer {
                     return false;
                 }
 
-                Kerning.emplace((static_cast<Core::Uint64>(Value["unicode1"].GetUint()) << 32) | Value["unicode2"].GetUint(), Advance);
+                Kerning.emplace((static_cast<Uint64>(Value["unicode1"].GetUint()) << 32) | Value["unicode2"].GetUint(), Advance);
             }
         }
 
@@ -165,8 +165,8 @@ namespace Renderer {
 
         mGlyphs = std::move(Glyphs);
         mKerning = std::move(Kerning);
-        mWidth = static_cast<Core::Uint32>(Width);
-        mHeight = static_cast<Core::Uint32>(Height);
+        mWidth = static_cast<Uint32>(Width);
+        mHeight = static_cast<Uint32>(Height);
         mDistanceRange = Range;
         mLineHeight = LineHeight;
 
@@ -176,11 +176,11 @@ namespace Renderer {
     /**
      * @brief UTF-8 문자열을 코드포인트 배열로 변환합니다.
      */
-    Core::TArray<Core::Uint32> Renderer::FFontAtlas::Decode(const Core::FString& Text) {
-        Core::TArray<Core::Uint32> Result{};
+    Core::TArray<Uint32> Renderer::FFontAtlas::Decode(const Core::FString& Text) {
+        Core::TArray<Uint32> Result{};
 
-        for (Core::Index_t Index{}; Index < Text.size();) {
-            const Core::Uint8 First{static_cast<Core::Uint8>(Text[Index])};
+        for (Index_t Index{}; Index < Text.size();) {
+            const Uint8 First{static_cast<Uint8>(Text[Index])};
             const std::size_t Length{First < 0x80 ? 1u : First >= 0xC2 && First <= 0xDF ? 2u : First >= 0xE0 && First <= 0xEF ? 3u : First >= 0xF0 && First <= 0xF4 ? 4u : 0u};
 
             if (Length == 0 || Index + Length > Text.size()) {
@@ -191,17 +191,17 @@ namespace Renderer {
                 continue;
             }
 
-            Core::Uint32 CodePoint{static_cast<Core::Uint32>(First & (Length == 1 ? 0x7F : (0x7F >> Length)))};
+            Uint32 CodePoint{static_cast<Uint32>(First & (Length == 1 ? 0x7F : (0x7F >> Length)))};
             bool Valid{true};
 
-            for (Core::Index_t Offset{1}; Offset < Length; ++Offset) {
-                const Core::Uint8 Byte{static_cast<Core::Uint8>(Text[Index + Offset])};
+            for (Index_t Offset{1}; Offset < Length; ++Offset) {
+                const Uint8 Byte{static_cast<Uint8>(Text[Index + Offset])};
 
                 Valid = Valid && (Byte & 0xC0) == 0x80;
                 CodePoint = (CodePoint << 6) | (Byte & 0x3F);
             }
 
-            const Core::Uint32 Minimum{Length == 1 ? 0u : Length == 2 ? 0x80u : Length == 3 ? 0x800u : 0x10000u};
+            const Uint32 Minimum{Length == 1 ? 0u : Length == 2 ? 0x80u : Length == 3 ? 0x800u : 0x10000u};
 
             Valid = Valid && CodePoint >= Minimum && CodePoint <= 0x10FFFF && (CodePoint < 0xD800 || CodePoint > 0xDFFF);
 
@@ -216,8 +216,8 @@ namespace Renderer {
     /**
      * @brief 코드포인트의 글리프를 찾고 없으면 대체 글리프를 반환합니다.
      */
-    const Renderer::FFontGlyph* Renderer::FFontAtlas::FindGlyph(Core::Uint32 CodePoint) const {
-        for (Core::Uint32 Candidate : {CodePoint, 0xFFFDu, static_cast<Core::Uint32>('?')}) {
+    const Renderer::FFontGlyph* Renderer::FFontAtlas::FindGlyph(Uint32 CodePoint) const {
+        for (Uint32 Candidate : {CodePoint, 0xFFFDu, static_cast<Uint32>('?')}) {
             const auto Position{mGlyphs.find(Candidate)};
 
             if (Position != mGlyphs.end()) {
@@ -231,8 +231,8 @@ namespace Renderer {
     /**
      * @brief 두 코드포인트 사이에 적용할 수평 간격 보정값을 반환합니다.
      */
-    float Renderer::FFontAtlas::GetKerning(Core::Uint32 First, Core::Uint32 Second) const {
-        const auto Position{mKerning.find((static_cast<Core::Uint64>(First) << 32) | Second)};
+    float Renderer::FFontAtlas::GetKerning(Uint32 First, Uint32 Second) const {
+        const auto Position{mKerning.find((static_cast<Uint64>(First) << 32) | Second)};
 
         return Position != mKerning.end() ? Position->second : 0.0f;
     }
@@ -241,14 +241,14 @@ namespace Renderer {
      * @brief UTF-8 문자열을 디코딩하여 글리프별 삼각형 정점을 생성합니다.
      */
     Core::TArray<Renderer::FTextVertex> Renderer::FFontAtlas::BuildVertices(const Core::FString& Text) const {
-        const Core::TArray<Core::Uint32> CodePoints{Decode(Text)};
+        const Core::TArray<Uint32> CodePoints{Decode(Text)};
         Core::TArray<Renderer::FTextVertex> Vertices{};
         Vertices.reserve(CodePoints.size() * 6);
 
         float Baseline{};
 
-        for (Core::Index_t Start{}; Start < CodePoints.size();) {
-            Core::Index_t End{Start};
+        for (Index_t Start{}; Start < CodePoints.size();) {
+            Index_t End{Start};
 
             while (End < CodePoints.size() && CodePoints[End] != '\n' && CodePoints[End] != '\r') {
                 ++End;
@@ -256,7 +256,7 @@ namespace Renderer {
 
             float Width{};
 
-            for (Core::Index_t Index{Start}; Index < End; ++Index) {
+            for (Index_t Index{Start}; Index < End; ++Index) {
                 const auto* Glyph{FindGlyph(CodePoints[Index] == '\t' ? ' ' : CodePoints[Index])};
 
                 Width += Glyph != nullptr ? Glyph->mAdvance * (CodePoints[Index] == '\t' ? 4.0f : 1.0f) : 0.0f;
@@ -265,7 +265,7 @@ namespace Renderer {
 
             float Pen{-Width * 0.5f};
 
-            for (Core::Index_t Index{Start}; Index < End; ++Index) {
+            for (Index_t Index{Start}; Index < End; ++Index) {
                 const auto* Glyph{FindGlyph(CodePoints[Index] == '\t' ? ' ' : CodePoints[Index])};
 
                 if (Glyph == nullptr) {
@@ -306,14 +306,14 @@ namespace Renderer {
     /**
      * @brief 텍스처 가로 픽셀 수를 반환합니다.
      */
-    Core::Uint32 Renderer::FFontAtlas::GetWidth() const {
+    Uint32 Renderer::FFontAtlas::GetWidth() const {
         return mWidth;
     }
 
     /**
      * @brief 텍스처 세로 픽셀 수를 반환합니다.
      */
-    Core::Uint32 Renderer::FFontAtlas::GetHeight() const {
+    Uint32 Renderer::FFontAtlas::GetHeight() const {
         return mHeight;
     }
 

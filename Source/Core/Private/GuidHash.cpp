@@ -14,7 +14,7 @@ namespace Core {
     std::size_t Core::FGuidHash::operator()(const Core::FGuid& Value) const noexcept {
         std::size_t Hash{1469598103934665603ull};
 
-        for (Core::Uint8 Byte : Value.mBytes) {
+        for (Uint8 Byte : Value.mBytes) {
             Hash = (Hash ^ Byte) * 1099511628211ull;
         }
 

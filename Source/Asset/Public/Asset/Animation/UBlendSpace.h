@@ -22,7 +22,7 @@ namespace Asset {
      * @brief 블렌드 공간 파라미터를 지정하는 축과 축 개수입니다.
      * @ingroup Asset
      */
-    enum class EBlendSpaceAxis : Core::Uint8 {
+    enum class EBlendSpaceAxis : Uint8 {
 
         /**
          * @brief 첫 번째 블렌드 파라미터 축입니다.
@@ -69,7 +69,7 @@ namespace Asset {
         /**
          * @brief 에디터 격자 칸 수입니다. 샘플을 옮길 때 (최댓값 - 최솟값) / 칸 수 간격에 맞춥니다. 1 이상 100 이하입니다.
          */
-        Core::Int32 mGridDivisions{4};
+        Int32 mGridDivisions{4};
     };
 
     /**
@@ -99,7 +99,7 @@ namespace Asset {
         /**
          * @brief UBlendSpace::GetSamples 안의 샘플 순서입니다.
          */
-        Core::Index_t mSampleIndex{Core::InvalidIndex};
+        Index_t mSampleIndex{InvalidIndex};
 
         /**
          * @brief 0보다 크고 1 이하인 가중치이며, 한 번의 계산 결과는 합이 1입니다.
@@ -120,7 +120,7 @@ namespace Asset {
         /**
          * @brief 한 블렌드 스페이스가 가질 수 있는 최대 샘플 수입니다.
          */
-        static constexpr Core::Index_t MaxSamples{64};
+        static constexpr Index_t MaxSamples{64};
 
     public:
 
@@ -147,7 +147,7 @@ namespace Asset {
          * @brief 블렌드 스페이스가 쓰는 축 수를 반환합니다.
          * @return 1D이면 1입니다.
          */
-        virtual Core::Uint32 GetNumAxes() const = 0;
+        virtual Uint32 GetNumAxes() const = 0;
 
         /**
          * @brief 축 설정을 반환합니다.
@@ -174,16 +174,16 @@ namespace Asset {
          * @brief 샘플을 추가합니다.
          * @param[in] Animation 샘플에 연결할 시퀀스입니다.
          * @param[in] SampleValue 샘플 위치입니다.
-         * @return 추가한 샘플의 순서이며, 샘플 수가 한도에 도달했거나 위치가 유한하지 않으면 Core::InvalidIndex입니다.
+         * @return 추가한 샘플의 순서이며, 샘플 수가 한도에 도달했거나 위치가 유한하지 않으면 InvalidIndex입니다.
          */
-        Core::Index_t AddSample(const Asset::UAnimSequence* Animation, const FVector& SampleValue);
+        Index_t AddSample(const Asset::UAnimSequence* Animation, const FVector& SampleValue);
 
         /**
          * @brief 샘플 하나를 제거합니다.
          * @param[in] Index 제거할 샘플 순서입니다.
          * @return 제거했으면 true입니다.
          */
-        bool RemoveSample(Core::Index_t Index);
+        bool RemoveSample(Index_t Index);
 
         /**
          * @brief 샘플의 시퀀스를 바꿉니다.
@@ -191,7 +191,7 @@ namespace Asset {
          * @param[in] Animation 샘플에 연결할 시퀀스입니다.
          * @return 적용했으면 true입니다.
          */
-        bool SetSampleAnimation(Core::Index_t Index, const Asset::UAnimSequence* Animation);
+        bool SetSampleAnimation(Index_t Index, const Asset::UAnimSequence* Animation);
 
         /**
          * @brief 샘플의 위치를 바꿉니다.
@@ -199,7 +199,7 @@ namespace Asset {
          * @param[in] SampleValue 새 위치입니다.
          * @return 위치가 유한해 적용했으면 true입니다.
          */
-        bool SetSampleValue(Core::Index_t Index, const FVector& SampleValue);
+        bool SetSampleValue(Index_t Index, const FVector& SampleValue);
 
         /**
          * @brief 가중치를 적용한 샘플 재생 길이의 합을 계산합니다.
@@ -255,7 +255,7 @@ namespace Asset {
         /**
          * @brief 축별 설정입니다. 파생 클래스는 GetNumAxes만큼만 씁니다.
          */
-        Asset::FBlendParameter mBlendParameters[static_cast<Core::Uint8>(Asset::EBlendSpaceAxis::Max)]{};
+        Asset::FBlendParameter mBlendParameters[static_cast<Uint8>(Asset::EBlendSpaceAxis::Max)]{};
 
         /**
          * @brief 추가한 순서의 샘플입니다.

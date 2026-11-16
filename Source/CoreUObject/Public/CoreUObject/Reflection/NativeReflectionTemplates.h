@@ -28,11 +28,11 @@ namespace CoreUObject {
     constexpr CoreUObject::EPropertyType GetNativePropertyType() {
         if constexpr (std::is_same_v<T, bool>) {
             return CoreUObject::EPropertyType::Boolean;
-        } else if constexpr (std::is_same_v<T, Core::Int32>) {
+        } else if constexpr (std::is_same_v<T, Int32>) {
             return CoreUObject::EPropertyType::Integer;
-        } else if constexpr ((std::is_same_v<T, Core::Uint32> || std::is_same_v<T, Core::Uint8>)) {
+        } else if constexpr ((std::is_same_v<T, Uint32> || std::is_same_v<T, Uint8>)) {
             return CoreUObject::EPropertyType::Unsigned;
-        } else if constexpr (std::is_same_v<T, Core::Uint64>) {
+        } else if constexpr (std::is_same_v<T, Uint64>) {
             return CoreUObject::EPropertyType::Unsigned64;
         } else if constexpr (std::is_same_v<T, float>) {
             return CoreUObject::EPropertyType::Float;
@@ -123,9 +123,9 @@ namespace CoreUObject {
     template <typename FValue>
     CoreUObject::FPropertyValue ToPropertyValue(const FValue& Value) {
         if constexpr (std::is_enum_v<FValue>) {
-            return static_cast<Core::Int32>(Value);
-        } else if constexpr (std::is_same_v<FValue, Core::Uint8>) {
-            return static_cast<Core::Uint32>(Value);
+            return static_cast<Int32>(Value);
+        } else if constexpr (std::is_same_v<FValue, Uint8>) {
+            return static_cast<Uint32>(Value);
         } else if constexpr (CoreUObject::TIsObjectRef<FValue>::value) {
             return CoreUObject::FObjectReference{Value};
         } else {
@@ -138,15 +138,15 @@ namespace CoreUObject {
      */
     template <typename FValue>
     std::optional<FValue> FromPropertyValue(const CoreUObject::FPropertyValue& Value) {
-        using FStoredValue = std::conditional_t<std::is_enum_v<FValue>, Core::Int32, std::conditional_t<std::is_same_v<FValue, Core::Uint8>, Core::Uint32, std::conditional_t<CoreUObject::TIsObjectRef<FValue>::value, CoreUObject::FObjectReference, FValue>>>;
+        using FStoredValue = std::conditional_t<std::is_enum_v<FValue>, Int32, std::conditional_t<std::is_same_v<FValue, Uint8>, Uint32, std::conditional_t<CoreUObject::TIsObjectRef<FValue>::value, CoreUObject::FObjectReference, FValue>>>;
         const FStoredValue* Typed{std::get_if<FStoredValue>(&Value)};
 
         if (Typed == nullptr) {
             return std::nullopt;
         }
 
-        if constexpr (std::is_same_v<FValue, Core::Uint8>) {
-            if (*Typed > std::numeric_limits<Core::Uint8>::max()) {
+        if constexpr (std::is_same_v<FValue, Uint8>) {
+            if (*Typed > std::numeric_limits<Uint8>::max()) {
                 return std::nullopt;
             }
         }
@@ -291,10 +291,10 @@ namespace CoreUObject {
         }, [](void* Array) {
             delete static_cast<FArray*>(Array);
         }, [](const void* Array) {
-            return static_cast<Core::Uint32>(static_cast<const FArray*>(Array)->size());
-        }, [](void* Array, Core::Uint32 Count) {
+            return static_cast<Uint32>(static_cast<const FArray*>(Array)->size());
+        }, [](void* Array, Uint32 Count) {
             static_cast<FArray*>(Array)->resize(Count);
-        }, [](void* Array, Core::Index_t Index) -> void* {
+        }, [](void* Array, Index_t Index) -> void* {
             return std::addressof((*static_cast<FArray*>(Array))[Index]);
         }, CoreUObject::GetArrayElementProperty<T>()};
 

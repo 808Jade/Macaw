@@ -205,7 +205,7 @@ namespace Engine {
             return nullptr;
         }
 
-        const Core::Index_t Index{static_cast<Core::Index_t>(static_cast<std::size_t>(Found - mValueNodes.begin()))};
+        const Index_t Index{static_cast<Index_t>(static_cast<std::size_t>(Found - mValueNodes.begin()))};
         if (Index >= mGetterSources.size()) {
             return nullptr;
         }
@@ -216,20 +216,20 @@ namespace Engine {
         return Graph != nullptr && Graph->GetRevision() == Source.mRevision ? Graph->FindVariableGetter(Source.mId) : nullptr;
     }
 
-    Core::Uint64 UAnimGraphInstance::GetNodeKey(const Engine::FAnimNode_Base* Node) const {
+    Uint64 UAnimGraphInstance::GetNodeKey(const Engine::FAnimNode_Base* Node) const {
         const auto Found{std::find_if(mNodes.begin(), mNodes.end(), [Node](const auto& Candidate) {
             return Candidate.get() == Node;
         })};
 
-        return Found != mNodes.end() ? static_cast<Core::Uint64>(Found - mNodes.begin()) + 1 : 0;
+        return Found != mNodes.end() ? static_cast<Uint64>(Found - mNodes.begin()) + 1 : 0;
     }
 
-    Core::Uint64 UAnimGraphInstance::GetValueNodeKey(const Engine::FAnimValueNode_Base* Node) const {
+    Uint64 UAnimGraphInstance::GetValueNodeKey(const Engine::FAnimValueNode_Base* Node) const {
         const auto Found{std::find_if(mValueNodes.begin(), mValueNodes.end(), [Node](const auto& Candidate) {
             return Candidate.get() == Node;
         })};
 
-        return Found != mValueNodes.end() ? static_cast<Core::Uint64>(Found - mValueNodes.begin()) + 1 : 0;
+        return Found != mValueNodes.end() ? static_cast<Uint64>(Found - mValueNodes.begin()) + 1 : 0;
     }
 
     void UAnimGraphInstance::NativeInitializeAnimation() {
@@ -278,7 +278,7 @@ namespace Engine {
         mRootNode = BuildGraph(*Graph, Context, 0);
     }
 
-    Engine::FAnimNode_Base* UAnimGraphInstance::BuildGraph(const Asset::UAnimGraph& Source, const Engine::FAnimGraphNodeBuildContext& BaseContext, Core::Uint32 Depth) {
+    Engine::FAnimNode_Base* UAnimGraphInstance::BuildGraph(const Asset::UAnimGraph& Source, const Engine::FAnimGraphNodeBuildContext& BaseContext, Uint32 Depth) {
         if (Depth >= 16) {
             return nullptr;
         }
@@ -297,13 +297,13 @@ namespace Engine {
         }
 
         // 에셋의 노드마다 실행 노드를 만듭니다. 알 수 없는 종류는 건너뛰고, 그 노드에 이어진 링크도 무시됩니다.
-        Core::TMap<Core::Int32, Engine::FAnimNode_Base*> NodesById{};
+        Core::TMap<Int32, Engine::FAnimNode_Base*> NodesById{};
 
         const auto& SourceNodes{Graph->GetNodes()};
         Core::TArray<Engine::FAnimNode_Base*> LocalNodes{};
         LocalNodes.resize(SourceNodes.size());
 
-        for (Core::Index_t Index{}; Index < SourceNodes.size(); ++Index) {
+        for (Index_t Index{}; Index < SourceNodes.size(); ++Index) {
             const Asset::FAnimGraphNode& Data{SourceNodes[Index]};
             const Engine::FAnimGraphNodeType* Type{Engine::FAnimGraphNodeRegistry::Find(Data.mType)};
 
@@ -344,7 +344,7 @@ namespace Engine {
         // 링크대로 포즈 입력을 연결합니다. 에셋은 순환 연결과 핀 중복을 허용하지 않습니다.
         Core::TMap<Core::FString, Engine::FAnimValueNode_Base*> ImplicitGetters{};
 
-        for (Core::Index_t Index{}; Index < LocalNodes.size(); ++Index) {
+        for (Index_t Index{}; Index < LocalNodes.size(); ++Index) {
             if (LocalNodes[Index] == nullptr) {
                 continue;
             }
@@ -364,7 +364,7 @@ namespace Engine {
                 const Asset::FAnimGraphVariableGetter* SourceGetter{Graph->FindBoundGetter(SourceNodes[Index], Input.mName)};
 
                 if (SourceGetter != nullptr) {
-                    const Core::Index_t GetterIndex{static_cast<Core::Index_t>(static_cast<std::size_t>(SourceGetter - Getters.data()))};
+                    const Index_t GetterIndex{static_cast<Index_t>(static_cast<std::size_t>(SourceGetter - Getters.data()))};
                     Input.mLink->SetLinkedNode(mValueNodes[GetterOffset + GetterIndex].get());
                     continue;
                 }
@@ -407,7 +407,7 @@ namespace Engine {
             To->second->GetPoseInputs(Inputs);
 
             if (Link.mToPin >= 0 && static_cast<std::size_t>(Link.mToPin) < Inputs.size()) {
-                Inputs[static_cast<Core::Index_t>(Link.mToPin)].mLink->mLinkedNode = From->second;
+                Inputs[static_cast<Index_t>(Link.mToPin)].mLink->mLinkedNode = From->second;
             }
         }
         return Root;

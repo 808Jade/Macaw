@@ -189,7 +189,7 @@ void FAnimationViewerContent::SetPlayRate(float PlayRate) {
     }
 }
 
-void FAnimationViewerContent::SetPreviewMode(Core::Int32 Mode) {
+void FAnimationViewerContent::SetPreviewMode(Int32 Mode) {
     mPreviewMode = std::clamp(Mode, 0, 2);
 
     if (Engine::USkeletalMeshComponent* Component{GetComponent()}) {
@@ -277,7 +277,7 @@ bool FAnimationViewerContent::IsLooping() const {
     return mLooping;
 }
 
-Core::Int32 FAnimationViewerContent::GetPreviewMode() const {
+Int32 FAnimationViewerContent::GetPreviewMode() const {
     return mPreviewMode;
 }
 

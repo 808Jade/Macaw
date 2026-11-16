@@ -17,7 +17,7 @@ namespace Asset {
      * @ingroup Asset
      */
     UENUM()
-    enum class ESequenceTrackType : Core::Uint8 {
+    enum class ESequenceTrackType : Uint8 {
         /**
          * @brief 바인딩 대상의 변환을 제어하는 트랙입니다.
          */

@@ -16,7 +16,7 @@ namespace Engine {
      * @brief 애니메이션 값 노드와 입력 핀의 자료형입니다.
      * @ingroup Engine
      */
-    enum class EAnimValueType : Core::Uint8 {
+    enum class EAnimValueType : Uint8 {
 
         /**
          * @brief Float 값을 연결합니다.

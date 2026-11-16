@@ -52,7 +52,7 @@ namespace Renderer {
     /**
      * @brief 컴파일한 바이트코드로 셰이더와 입력 레이아웃을 교체합니다.
      */
-    bool Renderer::FTextRenderer::CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode) {
+    bool Renderer::FTextRenderer::CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode) {
         Microsoft::WRL::ComPtr<ID3D11VertexShader> Vertex{};
         Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};
         Microsoft::WRL::ComPtr<ID3D11InputLayout> Layout{};
@@ -99,7 +99,7 @@ namespace Renderer {
         } else {
             FMatrix World{};
 
-            for (Core::Index_t Column{}; Column < 3; ++Column) {
+            for (Index_t Column{}; Column < 3; ++Column) {
                 World(0, Column) = View.mView(Column, 0) * Text.mSize * Text.mScale.x;
                 World(1, Column) = View.mView(Column, 1) * Text.mSize * Text.mScale.y;
             }
@@ -127,7 +127,7 @@ namespace Renderer {
             return false;
         }
 
-        const Core::Uint32 Count{static_cast<Core::Uint32>(Vertices.size())};
+        const Uint32 Count{static_cast<Uint32>(Vertices.size())};
         Core::FString Error{};
 
         if (!mVertices.Upload(Context, Vertices, Error)) {

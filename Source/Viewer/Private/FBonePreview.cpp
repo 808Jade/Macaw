@@ -11,7 +11,7 @@
 #include <cmath>
 
 namespace Viewer {
-    FBoneShape::FBoneShape(Engine::EEditorMesh Mesh, const FMatrix& World, Core::Index_t Bone)
+    FBoneShape::FBoneShape(Engine::EEditorMesh Mesh, const FMatrix& World, Index_t Bone)
 		: mMesh{Mesh},
 		  mWorld{World},
 		  mBone{Bone} {
@@ -25,7 +25,7 @@ namespace Viewer {
         return mWorld;
     }
 
-    Core::Index_t FBoneShape::GetBone() const {
+    Index_t FBoneShape::GetBone() const {
         return mBone;
     }
 
@@ -46,14 +46,14 @@ namespace Viewer {
         Core::TArray<Viewer::FBoneShape> Shapes{};
         Shapes.reserve(Bones.size() * 2);
 
-        for (Core::Index_t Bone{}; Bone < Bones.size(); ++Bone) {
-            const Core::Int32 ParentIndex{static_cast<Core::Int32>(Bones[Bone].GetParentIndex())};
+        for (Index_t Bone{}; Bone < Bones.size(); ++Bone) {
+            const Int32 ParentIndex{static_cast<Int32>(Bones[Bone].GetParentIndex())};
 
             if (ParentIndex < 0) {
                 continue;
             }
 
-            const Core::Index_t Parent{static_cast<Core::Index_t>(ParentIndex)};
+            const Index_t Parent{static_cast<Index_t>(ParentIndex)};
             const FVector Start{Transforms[Parent].TransformPosition({})};
             const FVector Offset{Transforms[Bone].TransformPosition({}) - Start};
             const float Length{Offset.Length()};
@@ -75,7 +75,7 @@ namespace Viewer {
             Shapes.push_back({Engine::EEditorMesh::BoneOctahedron, World, Parent});
         }
 
-        for (Core::Index_t Bone{}; Bone < Bones.size(); ++Bone) {
+        for (Index_t Bone{}; Bone < Bones.size(); ++Bone) {
             const FVector Joint{Transforms[Bone].TransformPosition({})};
             const float Diameter{JointRadii[Bone] * 2.0f};
             const FMatrix World{FMatrix::Scale({Diameter, Diameter, Diameter}) * FMatrix::Translation(Joint)};

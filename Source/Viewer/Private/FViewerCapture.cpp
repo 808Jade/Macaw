@@ -20,11 +20,11 @@ void* FViewerCapture::GetNativeTexture() const {
     return mTexture != nullptr ? mTexture->GetShaderResourceView() : nullptr;
 }
 
-Core::Uint32 FViewerCapture::GetWidth() const {
+Uint32 FViewerCapture::GetWidth() const {
     return mTexture != nullptr ? mTexture->GetSizeX() : 0;
 }
 
-Core::Uint32 FViewerCapture::GetHeight() const {
+Uint32 FViewerCapture::GetHeight() const {
     return mTexture != nullptr ? mTexture->GetSizeY() : 0;
 }
 

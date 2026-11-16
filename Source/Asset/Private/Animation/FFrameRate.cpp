@@ -21,17 +21,17 @@ namespace Asset {
         const double Rounded{std::round(FramesPerSecond)};
 
         if (std::abs(FramesPerSecond - Rounded) <= Tolerance) {
-            return {static_cast<Core::Uint32>(Rounded), 1};
+            return {static_cast<Uint32>(Rounded), 1};
         }
 
         // 23.976, 29.97, 59.94 같은 NTSC 계열은 N * 1000 / 1001입니다.
         const double Ntsc{FramesPerSecond * 1001.0};
 
         if (std::abs(Ntsc - std::round(Ntsc)) <= Tolerance * 1001.0) {
-            return {static_cast<Core::Uint32>(std::round(Ntsc)), 1001};
+            return {static_cast<Uint32>(std::round(Ntsc)), 1001};
         }
 
-        return {static_cast<Core::Uint32>(std::round(FramesPerSecond * 1000.0)), 1000};
+        return {static_cast<Uint32>(std::round(FramesPerSecond * 1000.0)), 1000};
     }
 
     double Asset::FFrameRate::AsDecimal() const {

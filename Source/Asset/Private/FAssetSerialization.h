@@ -31,7 +31,7 @@ namespace Asset {
      */
     template <typename T>
     void Asset::FAssetSerialization::SerializeValues(Serialization::FMemoryArchive& Archive, Core::TArray<T>& Values) {
-        Core::Uint32 Count{Archive.IsLoading() ? 0 : static_cast<Core::Uint32>(Values.size())};
+        Uint32 Count{Archive.IsLoading() ? 0 : static_cast<Uint32>(Values.size())};
 
         Archive.Serialize("Count", Count);
 

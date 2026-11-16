@@ -82,19 +82,19 @@ namespace Asset {
          * @brief 메시의 정점 개수를 반환합니다.
          * @return 메시의 정점 개수를 나타내는 정수 값입니다.
          */
-        Core::Uint32 GetVertexCount() const;
+        Uint32 GetVertexCount() const;
 
         /**
          * @brief 메시의 인덱스 개수를 반환합니다.
          * @return 메시의 인덱스 개수를 나타내는 정수 값입니다.
          */
-        Core::Uint32 GetIndexCount() const;
+        Uint32 GetIndexCount() const;
 
         /**
          * @brief 메시에 포함된 UV 채널 수를 반환합니다.
          * @return 메시에 포함된 UV 채널 수를 나타내는 정수 값입니다.
          */
-        Core::Uint32 GetUVChannelCount() const;
+        Uint32 GetUVChannelCount() const;
 
         /**
          * @brief CPU 메시의 정점·인덱스·속성 배열이 렌더링 조건을 만족하는지 검사합니다.
@@ -174,7 +174,7 @@ namespace Asset {
         /**
          * @brief 삼각형 인덱스를 보관하는 소유 GPU 버퍼입니다.
          */
-        RenderCore::TIndexBuffer<Core::Uint32> mIndexBuffer{};
+        RenderCore::TIndexBuffer<Uint32> mIndexBuffer{};
     };
 
 }

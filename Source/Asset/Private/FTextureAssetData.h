@@ -52,17 +52,17 @@ namespace Asset {
         /**
          * @brief 최상위 밉의 가로 픽셀 수입니다.
          */
-        Core::Uint32 mWidth{};
+        Uint32 mWidth{};
 
         /**
          * @brief 최상위 밉의 세로 픽셀 수입니다.
          */
-        Core::Uint32 mHeight{};
+        Uint32 mHeight{};
 
         /**
          * @brief 바이너리에 기록하는 텍스처 포맷 값입니다.
          */
-        Core::Uint32 mFormat{};
+        Uint32 mFormat{};
 
         /**
          * @brief 이미지를 sRGB 색 공간으로 해석하는지 나타냅니다.

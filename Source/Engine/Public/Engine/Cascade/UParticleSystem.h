@@ -80,13 +80,13 @@ namespace Engine {
          * @param[in] Index Emitter 목록의 0부터 시작하는 인덱스입니다.
          * @return 대상 Emitter의 주소이며 범위를 벗어나면 nullptr입니다.
          */
-        Engine::UParticleEmitter* GetEmitter(Core::Index_t Index);
+        Engine::UParticleEmitter* GetEmitter(Index_t Index);
         /**
          * @brief 인덱스에 해당하는 Emitter의 읽기 전용 비소유 주소를 반환합니다.
          * @param[in] Index Emitter 목록의 0부터 시작하는 인덱스입니다.
          * @return 대상 Emitter의 주소이며 범위를 벗어나면 nullptr입니다.
          */
-        const Engine::UParticleEmitter* GetEmitter(Core::Index_t Index) const;
+        const Engine::UParticleEmitter* GetEmitter(Index_t Index) const;
         /**
          * @brief 시스템이 보관하는 Emitter 정의의 개수를 반환합니다.
          * @return 현재 Emitter 목록의 원소 수입니다.

@@ -51,7 +51,7 @@ namespace Engine {
         /**
          * @brief 겹치는 데칼을 정렬할 순서 값입니다.
          */
-        Core::Int32 mSortOrder{};
+        Int32 mSortOrder{};
 
         /**
          * @brief 에셋 관리자가 소유하는 데칼 노멀 텍스처입니다.

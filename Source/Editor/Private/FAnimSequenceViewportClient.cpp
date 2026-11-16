@@ -45,7 +45,7 @@ void FAnimSequenceViewportClient::DrawUI(const FVector2& Size) {
         return;
     }
 
-    if (Size.x < 1.0f || Size.y < 1.0f || !mViewer.Resize(static_cast<Core::Uint32>(Size.x), static_cast<Core::Uint32>(Size.y))) {
+    if (Size.x < 1.0f || Size.y < 1.0f || !mViewer.Resize(static_cast<Uint32>(Size.x), static_cast<Uint32>(Size.y))) {
         return;
     }
 

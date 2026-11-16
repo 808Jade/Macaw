@@ -16,7 +16,7 @@ namespace RenderCore {
      * @details ShadowSampling.hlsli의 SHADOW_FILTER_* 값과 순서가 같아야 합니다.
      * @ingroup RenderCore
      */
-    enum class EShadowFilter : Core::Uint32 {
+    enum class EShadowFilter : Uint32 {
         /**
          * @brief 깊이를 한 번 비교하는 경계가 선명한 그림자 필터입니다.
          */
@@ -47,7 +47,7 @@ namespace RenderCore {
         /**
          * @brief PCF 격자 한 변의 탭 수이며 3, 5, 7 중 하나입니다.
          */
-        Core::Uint32 mPCFSize{3};
+        Uint32 mPCFSize{3};
 
         /**
          * @brief PCSS 필터 반경의 상한(텍셀)입니다.
@@ -57,7 +57,7 @@ namespace RenderCore {
         /**
          * @brief 방향광 캐스케이드 수를 강제하는 값이며 0이면 광원 속성을 따릅니다.
          */
-        Core::Uint32 mCascadeOverride{};
+        Uint32 mCascadeOverride{};
 
         /**
          * @brief 입력이 같은 그림자 타일의 깊이를 재사용할지 여부입니다.

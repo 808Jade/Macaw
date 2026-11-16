@@ -6,13 +6,159 @@
 
 #include "Core/Types.h"
 #include "EditorStyle.h"
+#include "FEditorAnimation.h"
 
 #include <imgui_internal.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <utility>
 
 namespace Editor {
+
+    float EditorStyle::GetMajorTabHeight() {
+        const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
+
+        return std::max(36.0f * Scale, ImGui::GetFontSize() + 16.0f * Scale);
+    }
+
+    ImVec4 EditorStyle::GetMajorTabColor() {
+        return ImLerp(ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg), ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.06f);
+    }
+
+    void EditorStyle::PushMajorTabStyle() {
+        const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
+        const ImVec4 Background{ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg)};
+        const ImVec4 Selected{GetMajorTabColor()};
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{12.0f * Scale, (GetMajorTabHeight() - ImGui::GetFontSize()) * 0.5f});
+        ImGui::PushStyleVar(ImGuiStyleVar_TabMinWidthBase, 220.0f * Scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_TabMinWidthShrink, 120.0f * Scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 4.0f * Scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_TabBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_TabBarBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_TabBarOverlineSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, Background);
+        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, Background);
+        ImGui::PushStyleColor(ImGuiCol_Tab, Background);
+        ImGui::PushStyleColor(ImGuiCol_TabDimmed, Background);
+        ImGui::PushStyleColor(ImGuiCol_TabSelected, Selected);
+        ImGui::PushStyleColor(ImGuiCol_TabDimmedSelected, Selected);
+        ImGui::PushStyleColor(ImGuiCol_TabHovered, ImLerp(Selected, ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.04f));
+    }
+
+    void EditorStyle::PopMajorTabStyle() {
+        ImGui::PopStyleColor(7);
+        ImGui::PopStyleVar(7);
+    }
+
+    bool EditorStyle::BeginEditorWindow(const char* Name, bool* Open, ImGuiWindowFlags Flags) {
+        const ImGuiNextWindowData& Next{ImGui::GetCurrentContext()->NextWindowData};
+        const bool Major{(Next.HasFlags & ImGuiNextWindowDataFlags_HasWindowClass) != 0 && Next.WindowClass.ClassId == MajorTabClassId};
+
+        if (Major) {
+            PushMajorTabStyle();
+        }
+
+        const bool Visible{ImGui::Begin(Name, Open, Flags)};
+
+        if (Major) {
+            PopMajorTabStyle();
+        }
+
+        return Visible;
+    }
+
+    bool EditorStyle::Button(const char* Label, const ImVec2& Size, bool Selected) {
+        if (ImGui::GetCurrentWindow()->SkipItems) {
+            return false;
+        }
+
+        const ImVec4 Normal{ImGui::GetStyleColorVec4(Selected ? ImGuiCol_HeaderActive : ImGuiCol_Button)};
+        const ImVec4 HoveredColor{ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered)};
+        const ImVec4 ActiveColor{ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)};
+        const ImVec4 TextColor{ImGui::GetStyleColorVec4(ImGuiCol_Text)};
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{});
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{});
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{});
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{});
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+        const bool Pressed{ImGui::ButtonEx(Label, Size, ImGui::GetStyle().FramePadding.y == 0.0f ? ImGuiButtonFlags_AlignTextBaseLine : ImGuiButtonFlags_None)};
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(4);
+
+        if (ImGui::IsItemVisible()) {
+            const ImGuiID Id{ImGui::GetItemID()};
+            const ImRect Bounds{ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
+            const bool Hovered{ImGui::IsItemHovered()};
+            const bool Active{ImGui::IsItemActive()};
+            const ImVec4 Target{Active ? ActiveColor : Hovered ? HoveredColor : Normal};
+            const ImVec4 Background{FEditorAnimation::Color(Id, "ButtonBackground", Target, Active ? 0.05f : 0.12f, Normal)};
+            const ImGuiStyle& Style{ImGui::GetStyle()};
+            ImGui::RenderFrame(Bounds.Min, Bounds.Max, ImGui::GetColorU32(Background), true, Style.FrameRounding);
+            ImGui::RenderNavCursor(Bounds, Id);
+            ImGui::PushStyleColor(ImGuiCol_Text, TextColor);
+            ImGui::RenderTextClipped({Bounds.Min.x + Style.FramePadding.x, Bounds.Min.y + Style.FramePadding.y}, {Bounds.Max.x - Style.FramePadding.x, Bounds.Max.y - Style.FramePadding.y}, Label, ImGui::FindRenderedTextEnd(Label), nullptr, Style.ButtonTextAlign, &Bounds);
+            ImGui::PopStyleColor();
+        }
+
+        return Pressed;
+    }
+
+    bool EditorStyle::SmallButton(const char* Label) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{ImGui::GetStyle().FramePadding.x, 0.0f});
+        const bool Pressed{Button(Label)};
+        ImGui::PopStyleVar();
+        return Pressed;
+    }
+
+    void EditorStyle::SelectionBackground(ImGuiID Id, const ImVec2& Minimum, const ImVec2& Maximum, bool Selected, bool Hovered) {
+        const ImVec4 Target{Selected ? ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive) : Hovered ? ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered) : ImVec4{}};
+        const ImVec4 Color{FEditorAnimation::Color(Id, "SelectionBackground", Target, 0.12f, {})};
+        ImGui::GetWindowDrawList()->AddRectFilled(Minimum, Maximum, ImGui::GetColorU32(Color), ImGui::GetStyle().FrameRounding);
+    }
+
+    bool EditorStyle::Selectable(const char* Label, bool Selected, ImGuiSelectableFlags Flags, const ImVec2& Size) {
+        if (ImGui::GetCurrentWindow()->SkipItems) {
+            return false;
+        }
+
+        const ImVec4 TextColor{ImGui::GetStyleColorVec4(ImGuiCol_Text)};
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4{});
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4{});
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4{});
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{});
+        const bool Pressed{ImGui::Selectable(Label, Selected, Flags, Size)};
+        ImGui::PopStyleColor(4);
+
+        if (ImGui::IsItemVisible()) {
+            const ImRect Bounds{ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
+            SelectionBackground(ImGui::GetItemID(), Bounds.Min, Bounds.Max, Selected || Pressed, ImGui::IsItemHovered());
+            ImGui::RenderNavCursor(Bounds, ImGui::GetItemID());
+            ImGui::PushStyleColor(ImGuiCol_Text, TextColor);
+            ImGui::RenderTextClipped(Bounds.Min, Bounds.Max, Label, ImGui::FindRenderedTextEnd(Label), nullptr, ImGui::GetStyle().SelectableTextAlign, &Bounds);
+            ImGui::PopStyleColor();
+        }
+
+        return Pressed;
+    }
+
+    bool EditorStyle::BeginPopup(const char* Id, ImGuiWindowFlags Flags) {
+        const float Opacity{ImGui::IsPopupOpen(Id) ? FEditorAnimation::Appear(ImGui::GetID(Id)) : 1.0f};
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * Opacity);
+
+        if (ImGui::BeginPopup(Id, Flags)) {
+            return true;
+        }
+
+        ImGui::PopStyleVar();
+        return false;
+    }
+
+    void EditorStyle::EndPopup() {
+        ImGui::EndPopup();
+        ImGui::PopStyleVar();
+    }
 
     /**
      * @fn void Editor::EditorStyle::DrawIcon(EIcon Icon, const ImVec2& Origin, float Size, ImU32 Color)
@@ -52,12 +198,14 @@ namespace Editor {
         const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
         ImVec4 Tint{Color != 0 ? ImGui::ColorConvertU32ToFloat4(Color) : ImGui::GetStyleColorVec4(ImGuiCol_Text)};
 
-        if (!Window->DockTabIsVisible) {
-            Tint.w *= 0.55f;
-        }
+        const float Emphasis{FEditorAnimation::Float(Window->ID, "TabEmphasis", Window->DockTabIsVisible ? 1.0f : 0.0f, 0.12f, Window->DockTabIsVisible ? 1.0f : 0.0f)};
+        Tint.w *= 0.55f + 0.45f * Emphasis;
 
         DrawList->PushClipRect(Tab.Min, Tab.Max, false);
         Editor::EditorStyle::DrawIcon(DrawList, Icon, ImVec2{Tab.Min.x + 9.0f * Scale, Tab.Min.y + (Tab.GetHeight() - Size) * 0.5f}, Size, ImGui::ColorConvertFloat4ToU32(Tint));
+        if (Window->WindowClass.ClassId != EditorStyle::MajorTabClassId) {
+            DrawList->AddRectFilled({Tab.Min.x + 4.0f * Scale, Tab.Max.y - 2.0f * Scale}, {Tab.Min.x + 4.0f * Scale + std::max(0.0f, Tab.GetWidth() - 8.0f * Scale) * Emphasis, Tab.Max.y}, ImGui::GetColorU32(ImGuiCol_HeaderActive, Emphasis), Scale);
+        }
         DrawList->PopClipRect();
     }
 
@@ -126,7 +274,7 @@ namespace Editor {
         }
 
         case EIcon::Grid:
-            for (Core::Index_t Index{}; Index < 4; ++Index) {
+            for (Index_t Index{}; Index < 4; ++Index) {
                 const float Offset{3.0f + static_cast<float>(Index) * 4.5f};
 
                 Line(Offset, 3.0f, Offset, 16.5f);
@@ -141,6 +289,29 @@ namespace Editor {
         case EIcon::Pause:
             DrawList->AddRectFilled(Point(4.0f, 4.0f), Point(8.0f, 16.0f), Color, Scale);
             DrawList->AddRectFilled(Point(12.0f, 4.0f), Point(16.0f, 16.0f), Color, Scale);
+
+            break;
+        case EIcon::Simulate:
+            DrawList->AddTriangleFilled(Point(6.0f, 2.0f), Point(17.0f, 8.5f), Point(6.0f, 15.0f), Color);
+            Line(3.0f, 18.0f, 18.0f, 18.0f);
+            Line(3.0f, 18.0f, 5.0f, 14.0f);
+            Line(18.0f, 18.0f, 16.0f, 14.0f);
+
+            break;
+        case EIcon::More:
+            DrawList->AddCircleFilled(Point(10.0f, 4.0f), 1.5f * Scale, Color);
+            DrawList->AddCircleFilled(Point(10.0f, 10.0f), 1.5f * Scale, Color);
+            DrawList->AddCircleFilled(Point(10.0f, 16.0f), 1.5f * Scale, Color);
+
+            break;
+        case EIcon::Cinematics:
+            DrawList->AddRect(Point(2.0f, 8.0f), Point(18.0f, 18.0f), Color, Scale, ImDrawFlags_None, Thickness);
+            Line(2.0f, 8.0f, 18.0f, 4.0f);
+            Line(2.0f, 4.0f, 17.0f, 1.0f);
+            Line(2.0f, 4.0f, 2.0f, 8.0f);
+            Line(17.0f, 1.0f, 18.0f, 4.0f);
+            Line(6.0f, 3.2f, 8.0f, 6.5f);
+            Line(11.0f, 2.2f, 13.0f, 5.2f);
 
             break;
         case EIcon::JumpStart:
@@ -276,7 +447,7 @@ namespace Editor {
             DrawList->AddCircle(Point(10.0f, 10.0f), 5.5f * Scale, Color, 20, Thickness * 1.4f);
             DrawList->AddCircleFilled(Point(10.0f, 10.0f), 1.8f * Scale, Color);
 
-            for (Core::Index_t Index{}; Index < 8; ++Index) {
+            for (Index_t Index{}; Index < 8; ++Index) {
                 const float Angle{static_cast<float>(Index) * 0.78539816f};
                 const float X{cosf(Angle)};
                 const float Y{sinf(Angle)};
@@ -301,7 +472,7 @@ namespace Editor {
 
             break;
         case EIcon::Outliner:
-            for (Core::Index_t Index{}; Index < 3; ++Index) {
+            for (Index_t Index{}; Index < 3; ++Index) {
                 const float Y{5.0f + static_cast<float>(Index) * 5.0f};
 
                 DrawList->AddCircleFilled(Point(4.0f, Y), 1.4f * Scale, Color);
@@ -342,7 +513,7 @@ namespace Editor {
     /**
      * @brief 선택 및 비활성 상태를 반영하는 아이콘 버튼과 툴팁을 표시합니다.
      */
-    bool Editor::EditorStyle::IconButton(const char* Label, EIcon Icon, bool Selected, bool Enabled, bool Dropdown, const char* Tooltip) {
+    bool Editor::EditorStyle::IconButton(const char* Label, EIcon Icon, bool Selected, bool Enabled, bool Dropdown, const char* Tooltip, float MinimumWidth) {
         const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
 
         ImGui::PushID(Label);
@@ -355,7 +526,8 @@ namespace Editor {
 
         const float Height{ImGui::GetFrameHeight()};
         const float IconSize{ImGui::GetFontSize() + 2.0f * Scale};
-        const bool Pressed{ImGui::Button("##Button", ImVec2{Height + (Dropdown ? 12.0f * Scale : 0.0f), Height})};
+        const float Width{std::max(MinimumWidth, Height + (Dropdown ? 12.0f * Scale : 0.0f))};
+        const bool Pressed{EditorStyle::Button("##Button", ImVec2{Width, Height}, Selected)};
         const ImVec2 Minimum{ImGui::GetItemRectMin()};
         const ImVec2 Origin{Minimum.x + (Height - IconSize) * 0.5f, Minimum.y + (Height - IconSize) * 0.5f};
         const ImVec4 Foreground{Icon == EIcon::Play ? ImVec4{0.30f, 0.85f, 0.40f, 1.0f} : Icon == EIcon::Stop ? ImVec4{0.95f, 0.30f, 0.28f, 1.0f} : ImGui::GetStyleColorVec4(ImGuiCol_Text)};
@@ -392,7 +564,7 @@ namespace Editor {
      */
 
     /**
-     * @brief 현재 ImGui 스타일 스택에 뷰포트 툴바의 간격, 모서리와 버튼 색상을 적용합니다.
+     * @brief 선택적 아이콘과 드롭다운 표시를 포함한 텍스트 버튼을 그립니다.
      */
     bool Editor::EditorStyle::LabelButton(const char* Label, const EIcon* Icon, bool Dropdown, bool Enabled, const char* Tooltip) {
         const ImGuiStyle& Style{ImGui::GetStyle()};
@@ -406,7 +578,7 @@ namespace Editor {
         ImGui::PushID(Label);
         ImGui::BeginDisabled(!Enabled);
 
-        const bool Pressed{ImGui::Button("##Button", ImVec2{Width, Height})};
+        const bool Pressed{EditorStyle::Button("##Button", ImVec2{Width, Height})};
         const ImVec2 Minimum{ImGui::GetItemRectMin()};
         const ImU32 Color{ImGui::GetColorU32(ImGuiCol_Text)};
         ImDrawList* DrawList{ImGui::GetWindowDrawList()};
@@ -438,7 +610,13 @@ namespace Editor {
         return Pressed;
     }
 
+    /**
+     * @brief EditorStyle 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
+     */
     namespace {
+        /**
+         * @brief 에셋 경로를 콘텐츠 브라우저에 표시하도록 요청하는 콜백입니다.
+         */
         std::function<void(const std::filesystem::path&)> AssetBrowseHandler{};
     }
 
@@ -446,29 +624,10 @@ namespace Editor {
         AssetBrowseHandler = std::move(Handler);
     }
 
-    bool Editor::EditorStyle::AssetToolbar(const std::filesystem::path& AssetPath, bool CanSave, bool ShowSave) {
-        bool Saved{};
-
-        ImGui::PushID("AssetToolbar");
-        Editor::EditorStyle::PushViewportToolbar();
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-
-        if (ShowSave) {
-            Saved = Editor::EditorStyle::IconButton("SaveAsset", EIcon::Save, false, CanSave, false, "에셋 저장 (Ctrl+S)");
-
-            ImGui::SameLine();
-        }
-
-        if (Editor::EditorStyle::IconButton("BrowseAsset", EIcon::Folder, false, static_cast<bool>(AssetBrowseHandler) && !AssetPath.empty(), false, "콘텐츠 브라우저에서 찾기")) {
+    void Editor::EditorStyle::BrowseAsset(const std::filesystem::path& AssetPath) {
+        if (AssetBrowseHandler && !AssetPath.empty()) {
             AssetBrowseHandler(AssetPath);
         }
-
-        ImGui::PopStyleVar();
-        Editor::EditorStyle::PopViewportToolbar();
-        ImGui::PopID();
-        ImGui::Separator();
-
-        return Saved;
     }
 
     void Editor::EditorStyle::PushViewportToolbar() {

@@ -30,10 +30,10 @@ namespace HeaderTool {
         const std::map<std::string, std::string> sScalarTypes{
             {"float", "float"},
             {"int", "int"},
-            {"Core::Int32", "int"},
-            {"Core::Index_t", "nuint"},
-            {"Core::Uint32", "uint"},
-            {"Core::Uint64", "ulong"},
+            {"Int32", "int"},
+            {"Index_t", "nuint"},
+            {"Uint32", "uint"},
+            {"Uint64", "ulong"},
         };
 
         /**
@@ -182,7 +182,7 @@ namespace HeaderTool {
         std::string Join(const std::vector<std::string>& Parts, const std::string& Separator) {
             std::string Result;
 
-            for (Core::Index_t Index{}; Index < Parts.size(); ++Index) {
+            for (Index_t Index{}; Index < Parts.size(); ++Index) {
                 Result += (Index == 0 ? "" : Separator) + Parts[Index];
             }
 
@@ -270,7 +270,7 @@ namespace HeaderTool {
                     return Left->Owner->ShortName + Left->Name + std::to_string(Left->Parameters.size()) < Right->Owner->ShortName + Right->Name + std::to_string(Right->Parameters.size());
                 });
 
-                for (Core::Index_t Index{}; Index < Functions.size(); ++Index) {
+                for (Index_t Index{}; Index < Functions.size(); ++Index) {
                     WriteFunction(*Functions[Index], Index + 1);
                 }
 
@@ -355,7 +355,7 @@ namespace HeaderTool {
                 const auto Enum{mEnumsByNative.find(Text)};
 
                 if (Text == "bool") {
-                    return {EBindingKind::Bool, "Core::Uint8", "bool", "byte"};
+                    return {EBindingKind::Bool, "Uint8", "bool", "byte"};
                 }
 
                 if (Scalar != sScalarTypes.end()) {
@@ -371,7 +371,7 @@ namespace HeaderTool {
                 }
 
                 if (Enum != mEnumsByNative.end()) {
-                    return {EBindingKind::Enum, "Core::Int32", StripPrefix(Enum->second->Name, "E"), "int", Text};
+                    return {EBindingKind::Enum, "Int32", StripPrefix(Enum->second->Name, "E"), "int", Text};
                 }
 
                 std::string Element;
@@ -406,7 +406,7 @@ namespace HeaderTool {
              * @param[in] Function 바인딩을 생성할 함수 메타데이터입니다.
              * @param[in] Index 처리할 원소 또는 토큰의 인덱스입니다.
              */
-            void WriteFunction(const FFunction& Function, Core::Index_t Index) {
+            void WriteFunction(const FFunction& Function, Index_t Index) {
                 const FType& Owner{*Function.Owner};
                 const std::string Native{Owner.Namespace + "::" + Owner.Name};
                 const FType* OwnerClass{FindClass(Owner.ShortName)};
@@ -440,7 +440,7 @@ namespace HeaderTool {
                     Setup.push_back("        if (Self == nullptr) { return 0; }");
                 }
 
-                for (Core::Index_t ParameterIndex{}; ParameterIndex < Function.Parameters.size(); ++ParameterIndex) {
+                for (Index_t ParameterIndex{}; ParameterIndex < Function.Parameters.size(); ++ParameterIndex) {
                     const FParameter& Parameter{Function.Parameters[ParameterIndex]};
                     const FBindingType Type{Resolve(Parameter.Type, Function)};
                     const std::string Argument{"Arg" + std::to_string(ParameterIndex + 1)};
@@ -505,7 +505,7 @@ namespace HeaderTool {
                     if (Type.Kind == EBindingKind::ObjectArray) {
                         AddInclude(Type.Class->File);
                         ThunkParameters.push_back("const CoreUObject::FObjectHandle** Result");
-                        ThunkParameters.push_back("Core::Int32* ResultCount");
+                        ThunkParameters.push_back("Int32* ResultCount");
                         Body.push_back("        *Result = Script::Abi::StoreObjects(" + Call + ", *ResultCount);");
                         ScriptAbiTypes.push_back("ObjectHandle**");
                         ScriptAbiTypes.push_back("int*");
@@ -521,7 +521,7 @@ namespace HeaderTool {
 
                         switch (Type.Kind) {
                         case EBindingKind::Bool:
-                            Assign = "static_cast<Core::Uint8>((" + Call + ") ? 1 : 0)";
+                            Assign = "static_cast<Uint8>((" + Call + ") ? 1 : 0)";
 
                             break;
                         case EBindingKind::String:
@@ -533,7 +533,7 @@ namespace HeaderTool {
 
                             break;
                         case EBindingKind::Enum:
-                            Assign = "static_cast<Core::Int32>(" + Call + ")";
+                            Assign = "static_cast<Int32>(" + Call + ")";
 
                             break;
                         case EBindingKind::Object:

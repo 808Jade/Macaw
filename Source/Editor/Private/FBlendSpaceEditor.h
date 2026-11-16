@@ -20,6 +20,8 @@ namespace Asset {
 
 namespace Editor {
 
+    class FEditorTab;
+
     class FAssetThumbnailCache;
     class FEditorAssetCatalog;
 
@@ -59,9 +61,23 @@ namespace Editor {
         bool Open(const std::filesystem::path& Path, Core::FString& Error);
 
         /**
-         * @brief 열려 있으면 창을 그립니다.
+         * @brief 호스트 주 탭에 편집기 위젯과 도킹 배치를 등록합니다.
+         * @param[in] Tab 편집기를 포함할 호스트 탭 또는 등록할 외부 소유 탭입니다.
          */
-        void Draw();
+        void InitializeToolkit(Editor::FEditorTab& Tab);
+
+        /**
+         * @brief 툴킷에 포함된 편집기 상태와 저장 가능 여부를 프레임별로 갱신합니다.
+         * @param[in] DeltaTime 이전 프레임 이후 경과한 시간이며 단위는 초입니다.
+         * @param[in] CanSave 현재 편집 내용을 저장할 수 있는지 지정합니다.
+         */
+        void UpdateToolkit(float DeltaTime, bool CanSave);
+
+        /**
+         * @brief 편집기 포커스와 저장 가능 상태에 따라 단축키 명령을 처리합니다.
+         * @param[in] CanSave 현재 편집 내용을 저장할 수 있는지 지정합니다.
+         */
+        void HandleCommands(bool CanSave);
 
         /**
          * @brief 열린 에셋이 지정한 경로나 그 아래에 있으면 닫습니다. 콘텐츠 브라우저에서 지우거나 이름을 바꿀 때 호출합니다.
@@ -83,12 +99,13 @@ namespace Editor {
 
         /**
          * @brief 이 에디터 창의 ImGui 식별자를 지정하여 같은 종류의 에디터를 여러 탭으로 열 수 있게 합니다.
-         * @param[in] Id ###로 시작하는 창 식별자입니다.
+         * @param[in] Id 세 개의 해시 기호로 시작하는 ImGui 창 식별자입니다.
          */
         void SetWindowId(Core::FString Id);
 
         /**
          * @brief 이 에디터 창의 ImGui 식별자를 반환합니다.
+         * @return 호스트 창을 구분하는 ImGui 창 식별자 문자열입니다.
          */
         const Core::FString& GetWindowId() const;
 
@@ -178,6 +195,11 @@ namespace Editor {
         Core::FString mWindowId{"###BlendSpaceEditor"};
 
         /**
+         * @brief 편집기를 포함하는 호스트 주 탭의 비소유 주소입니다.
+         */
+        Editor::FEditorTab* mHostTab{};
+
+        /**
          * @brief 저장하지 않은 변경이 있는지 여부입니다.
          */
         bool mDirty{};
@@ -193,14 +215,14 @@ namespace Editor {
         float mPreviewInput{};
 
         /**
-         * @brief 선택한 샘플 순서이며 없으면 Core::InvalidIndex입니다.
+         * @brief 선택한 샘플 순서이며 없으면 InvalidIndex입니다.
          */
-        Core::Index_t mSelectedSample{Core::InvalidIndex};
+        Index_t mSelectedSample{InvalidIndex};
 
         /**
-         * @brief 끌고 있는 샘플 순서이며 없으면 Core::InvalidIndex입니다.
+         * @brief 끌고 있는 샘플 순서이며 없으면 InvalidIndex입니다.
          */
-        Core::Index_t mDraggingSample{Core::InvalidIndex};
+        Index_t mDraggingSample{InvalidIndex};
 
         /**
          * @brief 미리보기 입력을 끌고 있는지 여부입니다.

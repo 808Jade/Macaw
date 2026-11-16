@@ -36,7 +36,7 @@ namespace Engine {
 
             float Wave[7]{};
 
-            for (Core::Index_t Axis{}; Axis < 7; ++Axis) {
+            for (Index_t Axis{}; Axis < 7; ++Axis) {
                 Wave[Axis] = std::sin(TwoPi * Shake.mFrequency * Shake.mRate[Axis] * Shake.mElapsed + Shake.mPhase[Axis]) * Weight;
             }
 
@@ -61,7 +61,7 @@ namespace Engine {
         return false;
     }
 
-    Core::Int32 Engine::UCameraShakeModifier::StartShake(float Duration, float Frequency, const FVector& LocationAmplitude, const FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime) {
+    Int32 Engine::UCameraShakeModifier::StartShake(float Duration, float Frequency, const FVector& LocationAmplitude, const FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime) {
         if (!std::isfinite(Duration) || !std::isfinite(Frequency) || Frequency <= 0.0f || !std::isfinite(FieldOfViewAmplitude) || !std::isfinite(BlendInTime) || !std::isfinite(BlendOutTime)) {
             return 0;
         }
@@ -79,7 +79,7 @@ namespace Engine {
         Shake.mBlendInTime = std::max(BlendInTime, 0.0f);
         Shake.mBlendOutTime = std::max(BlendOutTime, 0.0f);
 
-        for (Core::Index_t Axis{}; Axis < 7; ++Axis) {
+        for (Index_t Axis{}; Axis < 7; ++Axis) {
             Shake.mPhase[Axis] = Phase(mRandom);
             Shake.mRate[Axis] = Rate(mRandom);
         }
@@ -89,7 +89,7 @@ namespace Engine {
         return Shake.mId;
     }
 
-    bool Engine::UCameraShakeModifier::StopShake(Core::Int32 Id, bool Immediate) {
+    bool Engine::UCameraShakeModifier::StopShake(Int32 Id, bool Immediate) {
         const auto Found{std::find_if(mShakes.begin(), mShakes.end(), [Id](const FActiveShake& Shake) {
             return Shake.mId == Id;
         })};
@@ -125,8 +125,8 @@ namespace Engine {
         });
     }
 
-    Core::Int32 Engine::UCameraShakeModifier::GetActiveShakeCount() const {
-        return static_cast<Core::Int32>(mShakes.size());
+    Int32 Engine::UCameraShakeModifier::GetActiveShakeCount() const {
+        return static_cast<Int32>(mShakes.size());
     }
 
     float Engine::UCameraShakeModifier::EvaluateWeight(const FActiveShake& Shake) {

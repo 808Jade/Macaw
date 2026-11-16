@@ -39,7 +39,7 @@ bool FViewerCamera::Fit(const FBox& Bounds, const FVector2& Size, float Padding)
     const float MinimumDepth{std::max(Radius * 0.01f, 0.0001f)};
     float Distance{MinimumDepth};
 
-    for (Core::Index_t Corner{}; Corner < 8; ++Corner) {
+    for (Index_t Corner{}; Corner < 8; ++Corner) {
         const FVector Offset{(Corner & 1) != 0 ? Extent.x : -Extent.x, (Corner & 2) != 0 ? Extent.y : -Extent.y, (Corner & 4) != 0 ? Extent.z : -Extent.z};
         const float Depth{Offset.Dot(Forward)};
 

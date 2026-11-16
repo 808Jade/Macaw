@@ -136,7 +136,7 @@ namespace Renderer {
          * @param[in] Index GetMaps 기준 그림자 맵 인덱스입니다.
          * @return 아틀라스 깊이 뷰와 보호 여백을 제외한 타일 뷰포트·시저입니다.
          */
-        Renderer::FPassTarget GetTarget(Core::Index_t Index) const;
+        Renderer::FPassTarget GetTarget(Index_t Index) const;
 
         /**
          * @brief 그림자 맵 하나의 타일을 지울 아틀라스 영역을 반환합니다.
@@ -144,7 +144,7 @@ namespace Renderer {
          * @param[in] Index GetMaps 기준 그림자 맵 인덱스입니다.
          * @return 아틀라스 깊이 뷰와 보호 여백을 포함한 블록 전체의 뷰포트·시저입니다.
          */
-        Renderer::FPassTarget GetClearTarget(Core::Index_t Index) const;
+        Renderer::FPassTarget GetClearTarget(Index_t Index) const;
 
         /**
          * @brief 타일 캐시의 프레임을 진행하고 오래 쓰지 않은 항목을 제거합니다.
@@ -157,7 +157,7 @@ namespace Renderer {
          * @param[in] DepthShaderRevision 깊이를 그릴 깊이 전용 정점 셰이더의 리비전입니다.
          * @return 블록·광원 행렬·캐스터·아틀라스·셰이더 리비전과 바이어스 프리셋을 묶은 스탬프입니다.
          */
-        Renderer::FShadowTileStamp MakeTileStamp(Core::Index_t Index, Core::Uint64 DepthShaderRevision) const;
+        Renderer::FShadowTileStamp MakeTileStamp(Index_t Index, Uint64 DepthShaderRevision) const;
 
         /**
          * @brief 아틀라스 타일이 이미 같은 입력으로 그려져 있는지 검사합니다.
@@ -165,14 +165,14 @@ namespace Renderer {
          * @param[in] Stamp MakeTileStamp로 만든 현재 입력 스탬프입니다.
          * @return 캐시가 켜져 있고 다시 그릴 필요가 없으면 true입니다.
          */
-        bool IsTileCurrent(Core::Index_t Index, const Renderer::FShadowTileStamp& Stamp);
+        bool IsTileCurrent(Index_t Index, const Renderer::FShadowTileStamp& Stamp);
 
         /**
          * @brief 타일을 다시 그리는 데 성공했음을 기록하고, 같은 아틀라스 영역을 덮어쓰인 다른 항목을 무효화합니다.
          * @param[in] Index GetMaps 기준 그림자 맵 인덱스입니다.
          * @param[in] Stamp 타일을 그릴 때 사용한 입력 스탬프입니다.
          */
-        void CommitTile(Core::Index_t Index, const Renderer::FShadowTileStamp& Stamp);
+        void CommitTile(Index_t Index, const Renderer::FShadowTileStamp& Stamp);
 
         /**
          * @brief 그림자 아틀라스와 샘플링 정보의 셰이더 바인딩을 설정합니다.
@@ -190,7 +190,7 @@ namespace Renderer {
          * @brief 원본 광원별 그림자 맵 구간을 반환합니다.
          * @return 각 원소가 1 기반 시작 인덱스와 개수인 배열의 참조이며 시작값 0은 그림자 없음입니다.
          */
-        const Core::TArray<std::array<Core::Uint32, 2>>& GetLightRanges() const;
+        const Core::TArray<std::array<Uint32, 2>>& GetLightRanges() const;
 
         /**
          * @brief 현재 그림자 아틀라스의 미리보기와 타일 정보를 반환합니다.
@@ -214,7 +214,7 @@ namespace Renderer {
          * @param[in] CasterBounds 깊이 범위에 포함할 그림자 생성 물체의 월드 경계 상자 목록입니다.
          * @return 월드 공간을 해당 방향광 캐스케이드의 클립 공간으로 변환하는 행렬입니다.
          */
-        static FMatrix MakeDirectionalMatrix(const Engine::FSceneView& View, const FVector& Direction, float NearDistance, float FarDistance, Core::Uint32 Resolution, std::span<const FBox> CasterBounds);
+        static FMatrix MakeDirectionalMatrix(const Engine::FSceneView& View, const FVector& Direction, float NearDistance, float FarDistance, Uint32 Resolution, std::span<const FBox> CasterBounds);
 
     private:
 
@@ -255,7 +255,7 @@ namespace Renderer {
          * @param[in] Index GetMaps 기준 그림자 맵 인덱스입니다.
          * @return 장면 고유 번호·광원 GUID·면 번호를 묶은 키입니다.
          */
-        Renderer::FShadowTileKey MakeTileKey(Core::Index_t Index) const;
+        Renderer::FShadowTileKey MakeTileKey(Index_t Index) const;
 
         /**
          * @brief 깊이 아틀라스를 색상 미리보기 텍스처로 변환합니다.
@@ -318,7 +318,7 @@ namespace Renderer {
         /**
          * @brief 원본 광원마다 그림자 맵의 1 기반 시작 인덱스와 개수를 저장합니다.
          */
-        Core::TArray<std::array<Core::Uint32, 2>> mLightRanges{};
+        Core::TArray<std::array<Uint32, 2>> mLightRanges{};
 
         /**
          * @brief 미리보기 전체 화면 삼각형의 정점 셰이더입니다.

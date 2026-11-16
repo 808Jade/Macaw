@@ -92,7 +92,7 @@ namespace Core {
         /**
          * @brief GUID의 16바이트 값입니다.
          */
-        std::array<Core::Uint8, 16> mBytes{};
+        std::array<Uint8, 16> mBytes{};
     };
 
 }

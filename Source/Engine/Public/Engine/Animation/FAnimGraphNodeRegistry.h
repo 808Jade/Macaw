@@ -24,7 +24,7 @@ namespace Engine {
     /**
      * @brief 노드 파라미터 값의 종류입니다.
      */
-    enum class EAnimGraphParameterType : Core::Uint8 {
+    enum class EAnimGraphParameterType : Uint8 {
         /**
          * @brief 실수입니다.
          */

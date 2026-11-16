@@ -24,7 +24,7 @@ namespace Asset {
         /**
          * @brief 직렬화하는 애니메이션 그래프 파일 형식 버전입니다.
          */
-        constexpr Core::Uint32 AnimGraphFormatVersion{1};
+        constexpr Uint32 AnimGraphFormatVersion{1};
 
         /**
          * @brief 노드 파라미터와 변수 Getter 연결을 저장하는 키 접미사입니다.
@@ -40,7 +40,7 @@ namespace Asset {
         return Found != mParameters.end() ? &Found->mValue : nullptr;
     }
 
-    void FAnimGraphNode::SetParameter(const Core::FString& Name, const Core::FString& Value, Core::Int32 GetterId) {
+    void FAnimGraphNode::SetParameter(const Core::FString& Name, const Core::FString& Value, Int32 GetterId) {
         const auto Found{std::find_if(mParameters.begin(), mParameters.end(), [&Name](const Asset::FAnimGraphParameter& Parameter) {
             return Parameter.mName == Name;
         })};
@@ -73,7 +73,7 @@ namespace Asset {
         return mVariables;
     }
 
-    Asset::FAnimGraphNode* UAnimGraph::FindNode(Core::Int32 Id) {
+    Asset::FAnimGraphNode* UAnimGraph::FindNode(Int32 Id) {
         const auto Found{std::find_if(mNodes.begin(), mNodes.end(), [Id](const Asset::FAnimGraphNode& Node) {
             return Node.mId == Id;
         })};
@@ -81,12 +81,12 @@ namespace Asset {
         return Found != mNodes.end() ? &*Found : nullptr;
     }
 
-    const Asset::FAnimGraphNode* UAnimGraph::FindNode(Core::Int32 Id) const {
+    const Asset::FAnimGraphNode* UAnimGraph::FindNode(Int32 Id) const {
         return const_cast<UAnimGraph*>(this)->FindNode(Id);
     }
 
-    Core::Int32 UAnimGraph::AddNode(const Core::FString& Type, const Core::FString& Name, float X, float Y) {
-        if (mNodes.size() >= MaxNodes || mNextNodeId == std::numeric_limits<Core::Int32>::max() || !std::isfinite(X) || !std::isfinite(Y)) {
+    Int32 UAnimGraph::AddNode(const Core::FString& Type, const Core::FString& Name, float X, float Y) {
+        if (mNodes.size() >= MaxNodes || mNextNodeId == std::numeric_limits<Int32>::max() || !std::isfinite(X) || !std::isfinite(Y)) {
             return -2;
         }
 
@@ -107,7 +107,7 @@ namespace Asset {
         return mNodes.back().mId;
     }
 
-    bool UAnimGraph::RemoveNode(Core::Int32 Id) {
+    bool UAnimGraph::RemoveNode(Int32 Id) {
         const auto Found{std::find_if(mNodes.begin(), mNodes.end(), [Id](const Asset::FAnimGraphNode& Node) {
             return Node.mId == Id;
         })};
@@ -125,17 +125,17 @@ namespace Asset {
         return true;
     }
 
-    bool UAnimGraph::WouldCreateCycle(Core::Int32 FromNode, Core::Int32 ToNode) const {
+    bool UAnimGraph::WouldCreateCycle(Int32 FromNode, Int32 ToNode) const {
         if (FromNode == ToNode) {
             return true;
         }
 
         // 포즈는 From에서 To로 흐릅니다. To의 출력을 따라가다 From에 닿으면 새 링크가 순환을 만듭니다.
-        Core::TArray<Core::Int32> Pending{ToNode};
-        Core::TArray<Core::Int32> Visited{};
+        Core::TArray<Int32> Pending{ToNode};
+        Core::TArray<Int32> Visited{};
 
         while (!Pending.empty()) {
-            const Core::Int32 Current{Pending.back()};
+            const Int32 Current{Pending.back()};
 
             Pending.pop_back();
 
@@ -159,7 +159,7 @@ namespace Asset {
         return false;
     }
 
-    bool UAnimGraph::Connect(Core::Int32 FromNode, Core::Int32 ToNode, Core::Index_t ToPin) {
+    bool UAnimGraph::Connect(Int32 FromNode, Int32 ToNode, Index_t ToPin) {
         if (FindNode(FromNode) == nullptr || (ToNode != OutputNodeId && FindNode(ToNode) == nullptr) || ToPin < 0 || (ToNode == OutputNodeId && ToPin != 0) || WouldCreateCycle(FromNode, ToNode)) {
             return false;
         }
@@ -170,13 +170,13 @@ namespace Asset {
         return true;
     }
 
-    bool UAnimGraph::Disconnect(Core::Int32 ToNode, Core::Index_t ToPin) {
+    bool UAnimGraph::Disconnect(Int32 ToNode, Index_t ToPin) {
         return std::erase_if(mLinks, [ToNode, ToPin](const Asset::FAnimGraphLink& Link) {
             return Link.mToNode == ToNode && Link.mToPin == ToPin;
         }) > 0;
     }
 
-    Core::Int32 UAnimGraph::FindInput(Core::Int32 ToNode, Core::Index_t ToPin) const {
+    Int32 UAnimGraph::FindInput(Int32 ToNode, Index_t ToPin) const {
         for (const Asset::FAnimGraphLink& Link : mLinks) {
             if (Link.mToNode == ToNode && Link.mToPin == ToPin) {
                 return Link.mFromNode;
@@ -186,7 +186,7 @@ namespace Asset {
         return OutputNodeId;
     }
 
-    void UAnimGraph::SetNodePosition(Core::Int32 Id, float X, float Y) {
+    void UAnimGraph::SetNodePosition(Int32 Id, float X, float Y) {
         if (!std::isfinite(X) || !std::isfinite(Y)) {
             return;
         }
@@ -221,12 +221,12 @@ namespace Asset {
         return true;
     }
 
-    bool UAnimGraph::SetVariable(Core::Index_t Index, const Asset::FAnimGraphVariable& Variable) {
+    bool UAnimGraph::SetVariable(Index_t Index, const Asset::FAnimGraphVariable& Variable) {
         if (Index < 0 || Index >= mVariables.size() || Variable.mName.empty() || !std::isfinite(Variable.mDefault)) {
             return false;
         }
 
-        for (Core::Index_t Other{}; Other < mVariables.size(); ++Other) {
+        for (Index_t Other{}; Other < mVariables.size(); ++Other) {
             if (Other != Index && mVariables[Other].mName == Variable.mName) {
                 return false;
             }
@@ -257,7 +257,7 @@ namespace Asset {
         return true;
     }
 
-    bool UAnimGraph::RemoveVariable(Core::Index_t Index) {
+    bool UAnimGraph::RemoveVariable(Index_t Index) {
         if (Index < 0 || Index >= mVariables.size()) {
             return false;
         }
@@ -284,7 +284,7 @@ namespace Asset {
         return mVariableGetters;
     }
 
-    const Asset::FAnimGraphVariableGetter* UAnimGraph::FindVariableGetter(Core::Int32 Id) const {
+    const Asset::FAnimGraphVariableGetter* UAnimGraph::FindVariableGetter(Int32 Id) const {
         const auto Found{std::find_if(mVariableGetters.begin(), mVariableGetters.end(), [Id](const Asset::FAnimGraphVariableGetter& Getter) {
             return Getter.mId == Id;
         })};
@@ -301,21 +301,21 @@ namespace Asset {
         return Found == Node.mParameters.end() ? nullptr : ResolveGetter(*Found);
     }
 
-    Core::Int32 UAnimGraph::AddVariableGetter(const Core::FString& Variable, float X, float Y) {
-        if (mVariableGetters.size() >= MaxNodes || mNextGetterId == std::numeric_limits<Core::Int32>::max() || !std::isfinite(X) || !std::isfinite(Y) || std::none_of(mVariables.begin(), mVariables.end(), [&Variable](const Asset::FAnimGraphVariable& Entry) {
+    Int32 UAnimGraph::AddVariableGetter(const Core::FString& Variable, float X, float Y) {
+        if (mVariableGetters.size() >= MaxNodes || mNextGetterId == std::numeric_limits<Int32>::max() || !std::isfinite(X) || !std::isfinite(Y) || std::none_of(mVariables.begin(), mVariables.end(), [&Variable](const Asset::FAnimGraphVariable& Entry) {
             return Entry.mName == Variable && Entry.mType == Asset::EAnimGraphVariableType::Float;
         })) {
             return -1;
         }
 
-        const Core::Int32 Id{mNextGetterId++};
+        const Int32 Id{mNextGetterId++};
 
         mVariableGetters.push_back({Id, Variable, X, Y});
 
         return Id;
     }
 
-    bool UAnimGraph::SetVariableGetterPosition(Core::Int32 Id, float X, float Y) {
+    bool UAnimGraph::SetVariableGetterPosition(Int32 Id, float X, float Y) {
         auto* Getter{const_cast<Asset::FAnimGraphVariableGetter*>(FindVariableGetter(Id))};
 
         if (Getter == nullptr || !std::isfinite(X) || !std::isfinite(Y)) {
@@ -328,7 +328,7 @@ namespace Asset {
         return true;
     }
 
-    bool UAnimGraph::RemoveVariableGetter(Core::Int32 Id) {
+    bool UAnimGraph::RemoveVariableGetter(Int32 Id) {
         const Asset::FAnimGraphVariableGetter* Getter{FindVariableGetter(Id)};
 
         if (Getter == nullptr) {
@@ -380,11 +380,11 @@ namespace Asset {
         mRevision = Core::FRevision::Next();
     }
 
-    Asset::FAnimStateMachineData* UAnimGraph::FindStateMachine(Core::Int32 NodeId) {
+    Asset::FAnimStateMachineData* UAnimGraph::FindStateMachine(Int32 NodeId) {
         return const_cast<Asset::FAnimStateMachineData*>(std::as_const(*this).FindStateMachine(NodeId));
     }
 
-    const Asset::FAnimStateMachineData* UAnimGraph::FindStateMachine(Core::Int32 NodeId) const {
+    const Asset::FAnimStateMachineData* UAnimGraph::FindStateMachine(Int32 NodeId) const {
         const auto Found{mStateMachines.find(NodeId)};
 
         return Found != mStateMachines.end() ? &Found->second : nullptr;
@@ -425,7 +425,7 @@ namespace Asset {
                     })};
 
                     if (Found != Variables.end()) {
-                        const Core::Index_t Index{static_cast<Core::Index_t>(static_cast<Core::Int32>(Found - Variables.begin()))};
+                        const Index_t Index{static_cast<Index_t>(static_cast<Int32>(Found - Variables.begin()))};
 
                         if (NewName.empty()) {
                             State.mGraph->RemoveVariable(Index);
@@ -465,7 +465,7 @@ namespace Asset {
             }
         }
 
-        static thread_local Core::Uint32 Depth{};
+        static thread_local Uint32 Depth{};
 
         if (Depth >= 16) {
             Archive.SetError("Animation state machine nesting limit exceeded");
@@ -473,7 +473,7 @@ namespace Asset {
             return;
         }
 
-        Core::Uint32 Count{static_cast<Core::Uint32>(mStateMachines.size())};
+        Uint32 Count{static_cast<Uint32>(mStateMachines.size())};
 
         if (!Archive.BeginArray("StateMachines", Count)) {
             return;
@@ -483,7 +483,7 @@ namespace Asset {
             Archive.SetError("Too many animation state machines");
         }
 
-        Core::TArray<Core::Int32> Ids{};
+        Core::TArray<Int32> Ids{};
 
         if (!Archive.IsLoading()) {
             for (const auto& [Id, Machine] : mStateMachines) {
@@ -495,12 +495,12 @@ namespace Asset {
 
         ++Depth;
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
 
-            Core::Int32 Id{Archive.IsLoading() ? -1 : Ids[Index]};
+            Int32 Id{Archive.IsLoading() ? -1 : Ids[Index]};
             Archive.Serialize("Node", Id);
             const auto* Node{FindNode(Id)};
 
@@ -530,7 +530,7 @@ namespace Asset {
     }
 
     void UAnimGraph::SerializeVariableGetters(Core::FArchive& Archive) {
-        Core::Uint32 Count{static_cast<Core::Uint32>(mVariableGetters.size())};
+        Uint32 Count{static_cast<Uint32>(mVariableGetters.size())};
 
         if (!Archive.BeginArray("VariableGetters", Count)) {
             return;
@@ -540,7 +540,7 @@ namespace Asset {
             Archive.SetError("Too many anim graph variable getters");
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
@@ -554,7 +554,7 @@ namespace Asset {
             Archive.EndObject();
 
             if (Archive.IsLoading() && !Archive.HasError()) {
-                const bool Valid{Getter.mId >= 0 && Getter.mId < std::numeric_limits<Core::Int32>::max() && FindVariableGetter(Getter.mId) == nullptr && !Getter.mVariable.empty() && std::isfinite(Getter.mX) && std::isfinite(Getter.mY) && std::any_of(mVariables.begin(), mVariables.end(), [&Getter](const Asset::FAnimGraphVariable& Variable) {
+                const bool Valid{Getter.mId >= 0 && Getter.mId < std::numeric_limits<Int32>::max() && FindVariableGetter(Getter.mId) == nullptr && !Getter.mVariable.empty() && std::isfinite(Getter.mX) && std::isfinite(Getter.mY) && std::any_of(mVariables.begin(), mVariables.end(), [&Getter](const Asset::FAnimGraphVariable& Variable) {
                     return Variable.mName == Getter.mVariable;
                 })};
 
@@ -571,7 +571,7 @@ namespace Asset {
     }
 
     void UAnimGraph::Serialize(Core::FArchive& Archive) {
-        Core::Uint32 Version{AnimGraphFormatVersion};
+        Uint32 Version{AnimGraphFormatVersion};
 
         Archive.Serialize("FormatVersion", Version);
 
@@ -589,36 +589,36 @@ namespace Asset {
         Archive.Serialize("OutputY", mOutputY);
 
         const bool LoadLegacyGetters{Archive.IsLoading() && !Archive.HasField("VariableGetters")};
-        Core::Uint32 Count{static_cast<Core::Uint32>(mVariables.size())};
+        Uint32 Count{static_cast<Uint32>(mVariables.size())};
 
         if (!Archive.BeginArray("Variables", Count)) {
             return;
         }
 
         if (Archive.IsLoading()) {
-            mVariables.assign(std::min<Core::Uint32>(Count, MaxNodes), Asset::FAnimGraphVariable{});
+            mVariables.assign(std::min<Uint32>(Count, MaxNodes), Asset::FAnimGraphVariable{});
             mVariableGetters.clear();
             mNextGetterId = 0;
         }
 
-        for (Core::Index_t Index{}; Index < mVariables.size() && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < mVariables.size() && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
 
             Asset::FAnimGraphVariable& Variable{mVariables[Index]};
-            Core::Uint32 Source{static_cast<Core::Uint32>(Variable.mSource)};
+            Uint32 Source{static_cast<Uint32>(Variable.mSource)};
 
             Archive.Serialize("Name", Variable.mName);
             Archive.Serialize("Default", Variable.mDefault);
             Archive.Serialize("Source", Source);
 
             if (!Archive.IsLoading() || Archive.HasField("Type")) {
-                Core::Uint32 Type{static_cast<Core::Uint32>(Variable.mType)};
+                Uint32 Type{static_cast<Uint32>(Variable.mType)};
                 Archive.Serialize("Type", Type);
                 Archive.Serialize("BoolDefault", Variable.mBoolDefault);
 
-                if (Type > static_cast<Core::Uint32>(Asset::EAnimGraphVariableType::Bool)) {
+                if (Type > static_cast<Uint32>(Asset::EAnimGraphVariableType::Bool)) {
                     Archive.SetError("Invalid anim graph variable type");
                 } else {
                     Variable.mType = static_cast<Asset::EAnimGraphVariableType>(Type);
@@ -638,7 +638,7 @@ namespace Asset {
             }
 
             if (Archive.IsLoading()) {
-                Variable.mSource = Source == static_cast<Core::Uint32>(Asset::EAnimGraphVariableSource::OwnerSpeed) ? Asset::EAnimGraphVariableSource::OwnerSpeed : Asset::EAnimGraphVariableSource::Manual;
+                Variable.mSource = Source == static_cast<Uint32>(Asset::EAnimGraphVariableSource::OwnerSpeed) ? Asset::EAnimGraphVariableSource::OwnerSpeed : Asset::EAnimGraphVariableSource::Manual;
             }
 
             Archive.EndObject();
@@ -650,7 +650,7 @@ namespace Asset {
             SerializeVariableGetters(Archive);
         }
 
-        Count = static_cast<Core::Uint32>(mNodes.size());
+        Count = static_cast<Uint32>(mNodes.size());
 
         if (Archive.HasError() || !Archive.BeginArray("Nodes", Count)) {
             return;
@@ -667,7 +667,7 @@ namespace Asset {
             mNodes.assign(Count, Asset::FAnimGraphNode{});
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
@@ -680,14 +680,14 @@ namespace Asset {
             Archive.Serialize("X", Node.mX);
             Archive.Serialize("Y", Node.mY);
 
-            Core::Uint32 ParameterCount{static_cast<Core::Uint32>(Node.mParameters.size())};
+            Uint32 ParameterCount{static_cast<Uint32>(Node.mParameters.size())};
 
             if (Archive.BeginArray("Parameters", ParameterCount)) {
                 if (Archive.IsLoading()) {
-                    Node.mParameters.assign(std::min<Core::Uint32>(ParameterCount, 64), Asset::FAnimGraphParameter{});
+                    Node.mParameters.assign(std::min<Uint32>(ParameterCount, 64), Asset::FAnimGraphParameter{});
                 }
 
-                for (Core::Index_t Parameter{}; Parameter < Node.mParameters.size() && !Archive.HasError(); ++Parameter) {
+                for (Index_t Parameter{}; Parameter < Node.mParameters.size() && !Archive.HasError(); ++Parameter) {
                     if (!Archive.BeginObject(std::to_string(Parameter))) {
                         break;
                     }
@@ -712,17 +712,17 @@ namespace Asset {
 
         Archive.EndArray();
 
-        Count = static_cast<Core::Uint32>(mLinks.size());
+        Count = static_cast<Uint32>(mLinks.size());
 
         if (Archive.HasError() || !Archive.BeginArray("Links", Count)) {
             return;
         }
 
         if (Archive.IsLoading()) {
-            mLinks.assign(std::min<Core::Uint32>(Count, MaxNodes * 4), Asset::FAnimGraphLink{});
+            mLinks.assign(std::min<Uint32>(Count, MaxNodes * 4), Asset::FAnimGraphLink{});
         }
 
-        for (Core::Index_t Index{}; Index < mLinks.size() && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < mLinks.size() && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
@@ -747,10 +747,10 @@ namespace Asset {
         mLinks.clear();
         mNextNodeId = 0;
 
-        for (Core::Index_t Index{}; Index < mNodes.size(); ++Index) {
-            const Core::Int32 Id{mNodes[Index].mId};
+        for (Index_t Index{}; Index < mNodes.size(); ++Index) {
+            const Int32 Id{mNodes[Index].mId};
 
-            if (Id < 0 || Id == std::numeric_limits<Core::Int32>::max() || std::any_of(mNodes.begin(), mNodes.begin() + Index, [Id](const Asset::FAnimGraphNode& Node) {
+            if (Id < 0 || Id == std::numeric_limits<Int32>::max() || std::any_of(mNodes.begin(), mNodes.begin() + Index, [Id](const Asset::FAnimGraphNode& Node) {
                 return Node.mId == Id;
             })) {
                 Archive.SetError("Invalid or duplicate anim graph node id");

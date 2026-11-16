@@ -17,7 +17,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UENUM()
-    enum class EWorldType : Core::Uint8 {
+    enum class EWorldType : Uint8 {
         /**
          * @brief 원본 장면을 편집하는 월드이며 게임 실행을 시작하지 않습니다.
          */

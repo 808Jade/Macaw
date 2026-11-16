@@ -354,7 +354,7 @@ Uint32 FParticleEmitterInstance::GetParticleStride() const {
 /**
  * @brief 배치 스냅샷에서 모듈의 파티클 추가 데이터 오프셋을 조회합니다.
  */
-Core::Index_t FParticleEmitterInstance::GetModuleDataOffset(CoreUObject::TObjectRef<const UParticleModule> Module) const {
+Index_t FParticleEmitterInstance::GetModuleDataOffset(CoreUObject::TObjectRef<const UParticleModule> Module) const {
     const auto Found{mModuleDataOffsets.find(Module)};
 
     return Module.IsValid() && Found != mModuleDataOffsets.end() ? Found->second : 0;

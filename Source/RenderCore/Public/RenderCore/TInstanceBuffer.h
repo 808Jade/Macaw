@@ -25,7 +25,7 @@ namespace RenderCore {
          * @param[in] Count 필요한 원소 수입니다.
          * @return 기본 구현은 Count 이상의 가장 작은 2의 거듭제곱입니다.
          */
-        Core::Uint64 GetGrowthCapacity(Core::Uint64 Count) const override {
+        Uint64 GetGrowthCapacity(Uint64 Count) const override {
             return RenderCore::FGpuBuffer::GetGrowthCapacity(Count);
         }
     };

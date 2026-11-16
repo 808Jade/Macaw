@@ -18,7 +18,7 @@ namespace Core {
      * @brief Win32 가상 키 값과 일치하는 키보드·마우스 버튼 식별자입니다.
      */
     UENUM(ScriptOnly)
-    enum class EKey : Core::Int32 {
+    enum class EKey : Int32 {
         /**
          * @brief 유효한 키가 없는 상태입니다.
          */
@@ -357,8 +357,15 @@ namespace Core {
         /**
          * @brief 새 마우스 좌표를 저장하고 이전 좌표와의 차이를 프레임 이동량에 누적합니다.
          * @param[in] Position 새 마우스 좌표입니다.
+         * @param[in] AccumulateDelta 새 위치와 이전 위치의 차이를 이동량에 누적할지 지정합니다.
          */
-        void SetMousePosition(const FVector2& Position);
+        void SetMousePosition(const FVector2& Position, bool AccumulateDelta = true);
+
+        /**
+         * @brief 위치 좌표를 바꾸지 않고 상대 마우스 이동량을 현재 프레임에 누적합니다.
+         * @param[in] Delta 누적할 상대 마우스 이동량입니다.
+         */
+        void AddMouseDelta(const FVector2& Delta);
 
         /**
          * @brief 현재 프레임의 마우스 휠 이동량을 누적합니다.

@@ -72,7 +72,7 @@ namespace Asset {
             Filtered += '\n';
         }
 
-        auto Bytes{std::make_unique<Core::Uint8[]>(Filtered.size())};
+        auto Bytes{std::make_unique<Uint8[]>(Filtered.size())};
 
         if (!Filtered.empty()) {
             std::memcpy(Bytes.get(), Filtered.data(), Filtered.size());

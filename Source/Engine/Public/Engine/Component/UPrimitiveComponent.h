@@ -22,7 +22,7 @@ struct FBox;
 
 namespace Engine {
 
-    enum class EPrimitiveType : Core::Uint8;
+    enum class EPrimitiveType : Uint8;
     struct FPrimitiveSceneProxy;
 
     /**

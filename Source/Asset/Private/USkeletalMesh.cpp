@@ -24,20 +24,20 @@ namespace Asset {
             return false;
         }
 
-        Core::Uint32 SkinMatrixCount{};
+        Uint32 SkinMatrixCount{};
 
         for (const Asset::FMeshImportSkinWeight& SkinWeight : SkinWeights) {
             float Total{};
 
-            for (Core::Index_t Index{}; Index < Asset::FMeshImportSkinWeight::MaxInfluences; ++Index) {
-                const Core::Index_t BoneIndex{static_cast<Core::Index_t>(SkinWeight.GetBoneIndices()[Index])};
+            for (Index_t Index{}; Index < Asset::FMeshImportSkinWeight::MaxInfluences; ++Index) {
+                const Index_t BoneIndex{static_cast<Index_t>(SkinWeight.GetBoneIndices()[Index])};
                 const float Weight{SkinWeight.GetWeights()[Index]};
 
                 if (BoneIndex < 0 || BoneIndex >= Asset::MaxSkeletonBones || !std::isfinite(Weight) || Weight < 0.0f || Weight > 1.0f) {
                     return false;
                 }
 
-                SkinMatrixCount = std::max(SkinMatrixCount, static_cast<Core::Uint32>(BoneIndex + 1));
+                SkinMatrixCount = std::max(SkinMatrixCount, static_cast<Uint32>(BoneIndex + 1));
                 Total += Weight;
             }
 
@@ -72,7 +72,7 @@ namespace Asset {
         return mSkinWeights;
     }
 
-    Core::Uint32 Asset::USkeletalMesh::GetSkinMatrixCount() const {
+    Uint32 Asset::USkeletalMesh::GetSkinMatrixCount() const {
         return mSkinMatrixCount;
     }
 
@@ -97,13 +97,13 @@ namespace Asset {
         }
 
         // 임포트 클래스의 메모리 배치와 무관하게 uint4, float4 순으로 입력을 만듭니다.
-        static_assert(sizeof(FSkinWeightVertex) == sizeof(Core::Uint32) * 4 + sizeof(float) * 4);
+        static_assert(sizeof(FSkinWeightVertex) == sizeof(Uint32) * 4 + sizeof(float) * 4);
 
         Core::TArray<FSkinWeightVertex> Vertices{};
         Vertices.resize(mSkinWeights.size());
 
-        for (Core::Index_t Index{}; Index < mSkinWeights.size(); ++Index) {
-            std::memcpy(Vertices[Index].mBoneIndices.data(), mSkinWeights[Index].GetBoneIndices().data(), sizeof(Core::Uint32) * 4);
+        for (Index_t Index{}; Index < mSkinWeights.size(); ++Index) {
+            std::memcpy(Vertices[Index].mBoneIndices.data(), mSkinWeights[Index].GetBoneIndices().data(), sizeof(Uint32) * 4);
             std::memcpy(Vertices[Index].mWeights.data(), mSkinWeights[Index].GetWeights().data(), sizeof(float) * 4);
         }
 
@@ -131,14 +131,14 @@ namespace Asset {
     /**
      * @brief 본 인덱스와 가중치를 담은 정점 버퍼를 입력 슬롯에 연결합니다.
      */
-    void Asset::USkeletalMesh::BindSkinWeights(ID3D11DeviceContext* Context, Core::Index_t Slot) const {
+    void Asset::USkeletalMesh::BindSkinWeights(ID3D11DeviceContext* Context, Index_t Slot) const {
         mSkinWeightBuffer.Bind(Context, Slot);
     }
 
     /**
      * @brief 입력 슬롯의 스킨 가중치 버퍼 연결을 해제합니다.
      */
-    void Asset::USkeletalMesh::UnbindSkinWeights(ID3D11DeviceContext* Context, Core::Index_t Slot) {
+    void Asset::USkeletalMesh::UnbindSkinWeights(ID3D11DeviceContext* Context, Index_t Slot) {
         FSkinWeightBuffer::Unbind(Context, Slot);
     }
 
@@ -152,14 +152,14 @@ namespace Asset {
     /**
      * @brief 정점 수를 반환합니다.
      */
-    Core::Uint32 Asset::USkeletalMesh::GetVertexCount() const {
+    Uint32 Asset::USkeletalMesh::GetVertexCount() const {
         return mGeometry.GetVertexCount();
     }
 
     /**
      * @brief 인덱스 수를 반환합니다.
      */
-    Core::Uint32 Asset::USkeletalMesh::GetIndexCount() const {
+    Uint32 Asset::USkeletalMesh::GetIndexCount() const {
         return mGeometry.GetIndexCount();
     }
 

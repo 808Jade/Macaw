@@ -39,7 +39,7 @@ namespace Asset {
     public:
         void GetSamplesToBlend(const FVector& Input, Core::TArray<Asset::FBlendSampleWeight>& OutWeights) const override;
 
-        Core::Uint32 GetNumAxes() const override;
+        Uint32 GetNumAxes() const override;
 
     private:
 
@@ -53,7 +53,7 @@ namespace Asset {
         /**
          * @brief 파라미터 순으로 정렬한 샘플 인덱스 캐시입니다.
          */
-        std::array<Core::Index_t, MaxSamples> mSortedSampleIndices{};
+        std::array<Index_t, MaxSamples> mSortedSampleIndices{};
     };
 
 }

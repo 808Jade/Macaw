@@ -24,7 +24,7 @@ namespace Engine {
      * @param[in] C 삼각형의 셋째 정점입니다.
      */
     static void AddTriangle(Asset::FMeshData* Mesh, const FVector& A, const FVector& B, const FVector& C) {
-        const Core::Uint32 Base{static_cast<Core::Uint32>(Mesh->GetPositions().size())};
+        const Uint32 Base{static_cast<Uint32>(Mesh->GetPositions().size())};
         const FVector Normal{(B - A).Cross(C - A).Normalized()};
 
         Mesh->GetPositions().insert(Mesh->GetPositions().end(), {A, B, C});
@@ -43,7 +43,7 @@ namespace Engine {
         const FVector Size{Maximum - Minimum};
         const FVector Center{(Maximum + Minimum) * 0.5f};
 
-        for (Core::Index_t Index{}; Index < Cube->GetIndices().size(); Index += 3) {
+        for (Index_t Index{}; Index < Cube->GetIndices().size(); Index += 3) {
             AddTriangle(Mesh, Cube->GetPositions()[Cube->GetIndices()[Index]] * Size + Center, Cube->GetPositions()[Cube->GetIndices()[Index + 1]] * Size + Center, Cube->GetPositions()[Cube->GetIndices()[Index + 2]] * Size + Center);
         }
     }
@@ -57,7 +57,7 @@ namespace Engine {
         Asset::FMeshData Mesh{};
 
         if (Type == Engine::EEditorMesh::Arrow) {
-            for (Core::Index_t Index{}; Index < 16; ++Index) {
+            for (Index_t Index{}; Index < 16; ++Index) {
                 const Core::FAngle A{1_turn * Index / 16.0f};
                 const Core::FAngle B{1_turn * (Index + 1) / 16.0f};
                 const FVector BottomA{Core::Math::Cos(A) * 2.0f, Core::Math::Sin(A) * 2.0f, 11.0f};
@@ -79,15 +79,15 @@ namespace Engine {
             AddBox(&Mesh, {-2.0f, -2.0f, 11.0f}, {2.0f, 2.0f, 75.5f});
             AddBox(&Mesh, {-5.5f, -5.5f, 75.5f}, {5.5f, 5.5f, 84.5f});
         } else if (Type == Engine::EEditorMesh::Ring || Type == Engine::EEditorMesh::HalfRing) {
-            const Core::Uint32 Segments{Type == Engine::EEditorMesh::Ring ? 96u : 48u};
+            const Uint32 Segments{Type == Engine::EEditorMesh::Ring ? 96u : 48u};
 
-            for (Core::Index_t Segment{}; Segment < Segments; ++Segment) {
+            for (Index_t Segment{}; Segment < Segments; ++Segment) {
                 const Core::FAngle Arc{Type == Engine::EEditorMesh::Ring ? 1_turn : 0.5_turn};
                 const Core::FAngle First{Type == Engine::EEditorMesh::Ring ? 0_deg : -90_deg};
                 const Core::FAngle A{First + Arc * Segment / Segments};
                 const Core::FAngle B{First + Arc * (Segment + 1) / Segments};
 
-                for (Core::Index_t Side{}; Side < 8; ++Side) {
+                for (Index_t Side{}; Side < 8; ++Side) {
                     const Core::FAngle C{1_turn * Side / 8.0f};
                     const Core::FAngle D{1_turn * (Side + 1) / 8.0f};
                     const FVector P{(74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Cos(A), (74.0f + Core::Math::Cos(C) * 2.0f) * Core::Math::Sin(A), Core::Math::Sin(C) * 2.0f};
@@ -109,7 +109,7 @@ namespace Engine {
             const FVector Tail{0.0f, 0.0f, 1.0f};
             const std::array<FVector, 4> Corners{{{1.0f, 0.0f, Shoulder}, {0.0f, 1.0f, Shoulder}, {-1.0f, 0.0f, Shoulder}, {0.0f, -1.0f, Shoulder}}};
 
-            for (Core::Index_t Index{}; Index < Corners.size(); ++Index) {
+            for (Index_t Index{}; Index < Corners.size(); ++Index) {
                 const FVector& A{Corners[Index]};
                 const FVector& B{Corners[(Index + 1) % Corners.size()]};
 
@@ -152,7 +152,7 @@ namespace Engine {
 
         static const std::array<Asset::FMeshData, static_cast<std::size_t>(Engine::EEditorMesh::Count)> Meshes{BuildMesh(Engine::EEditorMesh::Arrow), BuildMesh(Engine::EEditorMesh::Hammer), BuildMesh(Engine::EEditorMesh::Ring), BuildMesh(Engine::EEditorMesh::HalfRing), BuildMesh(Engine::EEditorMesh::Quad), BuildMesh(Engine::EEditorMesh::Triangle), BuildMesh(Engine::EEditorMesh::Cube), BuildMesh(Engine::EEditorMesh::Sphere), BuildMesh(Engine::EEditorMesh::BoneOctahedron)};
 
-        return Meshes[static_cast<Core::Index_t>(Type)];
+        return Meshes[static_cast<Index_t>(Type)];
     }
 
 }

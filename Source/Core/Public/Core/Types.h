@@ -15,34 +15,37 @@
 #include <unordered_map>
 #include <vector>
 
+/**
+ * @brief 32비트 부호 있는 정수 타입입니다.
+ */
+using Int32 = std::int32_t;
+
+/**
+ * @brief 배열과 컨테이너 접근에 사용하는 std::size_t 인덱스 타입입니다.
+ */
+using Index_t = std::size_t;
+
+/**
+ * @brief 유효한 컨테이너 인덱스가 없음을 나타내는 값입니다.
+ */
+inline constexpr Index_t InvalidIndex{std::numeric_limits<Index_t>::max()};
+
+/**
+ * @brief 8비트 부호 없는 정수 타입입니다.
+ */
+using Uint8 = std::uint8_t;
+
+/**
+ * @brief 32비트 부호 없는 정수 타입입니다.
+ */
+using Uint32 = std::uint32_t;
+
+/**
+ * @brief 64비트 부호 없는 정수 타입입니다.
+ */
+using Uint64 = std::uint64_t;
+
 namespace Core {
-
-    /**
-     * @brief 32비트 부호 있는 정수 타입입니다.
-     */
-    using Int32 = std::int32_t;
-
-    /**
-     * @brief 배열과 컨테이너 접근에 사용하는 std::size_t 인덱스 타입입니다.
-     */
-    using Index_t = std::size_t;
-
-    inline constexpr Index_t InvalidIndex{std::numeric_limits<Index_t>::max()};
-
-    /**
-     * @brief 8비트 부호 없는 정수 타입입니다.
-     */
-    using Uint8 = std::uint8_t;
-
-    /**
-     * @brief 32비트 부호 없는 정수 타입입니다.
-     */
-    using Uint32 = std::uint32_t;
-
-    /**
-     * @brief 64비트 부호 없는 정수 타입입니다.
-     */
-    using Uint64 = std::uint64_t;
 
     /**
      * @brief UTF-8 텍스트에 사용하는 표준 문자열 타입입니다.

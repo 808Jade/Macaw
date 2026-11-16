@@ -185,7 +185,7 @@ namespace Engine {
         float Lo{0.0f};
         float Hi{1.0f};
 
-        for (Core::Int32 Iter{0}; Iter < 30; ++Iter) {
+        for (Int32 Iter{0}; Iter < 30; ++Iter) {
             const float M1{Lo + (Hi - Lo) / 3.0f};
             const float M2{Hi - (Hi - Lo) / 3.0f};
 
@@ -215,11 +215,11 @@ namespace Engine {
         }
 
         const FVector Local{P - Box.GetCenter()};
-        Core::Index_t MinAxis{0};
+        Index_t MinAxis{0};
         float MinGap{FLT_MAX};
         float MinCoord{0.0f};
 
-        for (Core::Index_t Index{0}; Index < 3; ++Index) {
+        for (Index_t Index{0}; Index < 3; ++Index) {
             const float S{Local.Dot(Box.GetAxis()[Index])};
             const float Gap{Box.GetExtent().ToArray()[Index] - std::abs(S)};
 
@@ -246,8 +246,8 @@ namespace Engine {
         float R[3][3]{};
         float AbsR[3][3]{};
 
-        for (Core::Index_t Index{0}; Index < 3; ++Index) {
-            for (Core::Index_t OtherIndex{0}; OtherIndex < 3; ++OtherIndex) {
+        for (Index_t Index{0}; Index < 3; ++Index) {
+            for (Index_t OtherIndex{0}; OtherIndex < 3; ++OtherIndex) {
                 R[Index][OtherIndex] = A.GetAxis()[Index].Dot(B.GetAxis()[OtherIndex]);
                 AbsR[Index][OtherIndex] = std::abs(R[Index][OtherIndex]) + Epsilon;
             }
@@ -269,7 +269,7 @@ namespace Engine {
             }
         }};
 
-        for (Core::Index_t Index{0}; Index < 3; ++Index) {
+        for (Index_t Index{0}; Index < 3; ++Index) {
             const float RA{EA.ToArray()[Index]};
             const float RB{EB.ToArray()[0] * AbsR[Index][0] + EB.ToArray()[1] * AbsR[Index][1] + EB.ToArray()[2] * AbsR[Index][2]};
 
@@ -278,7 +278,7 @@ namespace Engine {
             TrackMin(RA + RB - std::abs(T[Index]), A.GetAxis()[Index]);
         }
 
-        for (Core::Index_t OtherIndex{0}; OtherIndex < 3; ++OtherIndex) {
+        for (Index_t OtherIndex{0}; OtherIndex < 3; ++OtherIndex) {
             const float RA{EA.ToArray()[0] * AbsR[0][OtherIndex] + EA.ToArray()[1] * AbsR[1][OtherIndex] + EA.ToArray()[2] * AbsR[2][OtherIndex]};
             const float RB{EB.ToArray()[OtherIndex]};
             const float Dist{T[0] * R[0][OtherIndex] + T[1] * R[1][OtherIndex] + T[2] * R[2][OtherIndex]};
@@ -288,13 +288,13 @@ namespace Engine {
             TrackMin(RA + RB - std::abs(Dist), B.GetAxis()[OtherIndex]);
         }
 
-        for (Core::Index_t Index{0}; Index < 3; ++Index) {
-            const Core::Index_t I1{static_cast<Core::Index_t>((Index + 1) % 3)};
-            const Core::Index_t I2{static_cast<Core::Index_t>((Index + 2) % 3)};
+        for (Index_t Index{0}; Index < 3; ++Index) {
+            const Index_t I1{static_cast<Index_t>((Index + 1) % 3)};
+            const Index_t I2{static_cast<Index_t>((Index + 2) % 3)};
 
-            for (Core::Index_t OtherIndex{0}; OtherIndex < 3; ++OtherIndex) {
-                const Core::Index_t J1{static_cast<Core::Index_t>((OtherIndex + 1) % 3)};
-                const Core::Index_t J2{static_cast<Core::Index_t>((OtherIndex + 2) % 3)};
+            for (Index_t OtherIndex{0}; OtherIndex < 3; ++OtherIndex) {
+                const Index_t J1{static_cast<Index_t>((OtherIndex + 1) % 3)};
+                const Index_t J2{static_cast<Index_t>((OtherIndex + 2) % 3)};
 
                 const float RA{EA.ToArray()[I1] * AbsR[I2][OtherIndex] + EA.ToArray()[I2] * AbsR[I1][OtherIndex]};
                 const float RB{EB.ToArray()[J1] * AbsR[Index][J2] + EB.ToArray()[J2] * AbsR[Index][J1]};
@@ -412,7 +412,7 @@ namespace Engine {
 
         FVector Result{Box.GetCenter()};
 
-        for (Core::Index_t Index{0}; Index < 3; ++Index) {
+        for (Index_t Index{0}; Index < 3; ++Index) {
             const float S{std::clamp(D.Dot(Box.GetAxis()[Index]), -Box.GetExtent().ToArray()[Index], Box.GetExtent().ToArray()[Index])};
 
             Result += Box.GetAxis()[Index] * S;
@@ -433,13 +433,13 @@ namespace Engine {
         if (DeltaLen < 1e-8f || Targets.size() == 0)
             return Result;
 
-        Core::TArray<Core::Uint8> Ignored{};
+        Core::TArray<Uint8> Ignored{};
         Ignored.resize(Targets.size());
 
-        const auto FirstOverlapAt{[&](float T, Engine::FCollisionContact* OutContact) -> Core::Int32 {
+        const auto FirstOverlapAt{[&](float T, Engine::FCollisionContact* OutContact) -> Int32 {
             const FVector Pos{Start + Delta * T};
 
-            for (Core::Index_t Index{0}; Index < static_cast<Core::Int32>(Targets.size()); ++Index) {
+            for (Index_t Index{0}; Index < static_cast<Int32>(Targets.size()); ++Index) {
                 if (Ignored[Index])
                     continue;
                 const Engine::FSweepTarget& Target{Targets[Index]};
@@ -451,7 +451,7 @@ namespace Engine {
             return -1;
         }};
 
-        for (Core::Index_t Index{0}; Index < static_cast<Core::Int32>(Targets.size()); ++Index) {
+        for (Index_t Index{0}; Index < static_cast<Int32>(Targets.size()); ++Index) {
             Engine::FCollisionContact Contact{};
             const Engine::FSweepTarget& Target{Targets[Index]};
 
@@ -477,16 +477,16 @@ namespace Engine {
 
         if (Shape.IsBox())
             MinHalfSize = std::min({ Shape.GetBoxHalfExtent().x, Shape.GetBoxHalfExtent().y, Shape.GetBoxHalfExtent().z });
-        const Core::Int32 Steps{MinHalfSize > 1e-4f ? std::clamp(static_cast<Core::Int32>(std::ceil(DeltaLen / MinHalfSize)), 1, 64) : 1};
+        const Int32 Steps{MinHalfSize > 1e-4f ? std::clamp(static_cast<Int32>(std::ceil(DeltaLen / MinHalfSize)), 1, 64) : 1};
 
-        for (Core::Int32 Step{0}; Step < Steps; ++Step) {
+        for (Int32 Step{0}; Step < Steps; ++Step) {
             float Lo{static_cast<float>(Step) / Steps};
             float Hi{static_cast<float>(Step + 1) / Steps};
 
             if (FirstOverlapAt(Hi, nullptr) < 0)
                 continue;
 
-            for (Core::Int32 Iter{0}; Iter < 10; ++Iter) {
+            for (Int32 Iter{0}; Iter < 10; ++Iter) {
                 const float Mid{(Lo + Hi) * 0.5f};
 
                 if (FirstOverlapAt(Mid, nullptr) >= 0)
@@ -770,14 +770,14 @@ namespace Engine {
     /**
      * @brief 적중한 스윕 대상의 인덱스를 반환합니다.
      */
-    Core::Int32 Engine::FSweepResult::GetTargetIndex() const {
+    Int32 Engine::FSweepResult::GetTargetIndex() const {
         return mTargetIndex;
     }
 
     /**
      * @brief 적중한 스윕 대상의 인덱스를 설정합니다.
      */
-    void Engine::FSweepResult::SetTargetIndex(Core::Int32 Value) {
+    void Engine::FSweepResult::SetTargetIndex(Int32 Value) {
         mTargetIndex = Value;
     }
 

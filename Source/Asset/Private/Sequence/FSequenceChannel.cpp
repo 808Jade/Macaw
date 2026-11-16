@@ -21,7 +21,7 @@ namespace Asset {
         /**
          * @brief 파일에서 허용할 채널별 최대 키 수입니다.
          */
-        constexpr Core::Uint32 MaximumKeyCount{1000000};
+        constexpr Uint32 MaximumKeyCount{1000000};
 
         /**
          * @brief 보간 종류를 파일에 저장할 이름으로 변환합니다.
@@ -67,7 +67,7 @@ namespace Asset {
          * @param[in] Index 처리할 원소 또는 토큰의 인덱스입니다.
          * @return 인접 키의 값 변화량을 틱 간격으로 나눈 접선입니다.
          */
-        double GetAutoTangent(const Core::TArray<Asset::FSequenceKey>& Keys, Core::Index_t Index) {
+        double GetAutoTangent(const Core::TArray<Asset::FSequenceKey>& Keys, Index_t Index) {
             if (Index == 0 || Index + 1 >= Keys.size()) {
                 return 0.0;
             }
@@ -94,7 +94,7 @@ namespace Asset {
             return false;
         }
 
-        const auto Position{std::lower_bound(mKeys.begin(), mKeys.end(), Key.mTick, [](const Asset::FSequenceKey& Existing, Core::Int32 Tick) {
+        const auto Position{std::lower_bound(mKeys.begin(), mKeys.end(), Key.mTick, [](const Asset::FSequenceKey& Existing, Int32 Tick) {
             return Existing.mTick < Tick;
         })};
 
@@ -110,7 +110,7 @@ namespace Asset {
     /**
      * @brief 지정한 시간의 키를 제거합니다.
      */
-    bool Asset::FSequenceChannel::RemoveKey(Core::Int32 Tick) {
+    bool Asset::FSequenceChannel::RemoveKey(Int32 Tick) {
         return std::erase_if(mKeys, [Tick](const Asset::FSequenceKey& Key) {
             return Key.mTick == Tick;
         }) > 0;
@@ -119,8 +119,8 @@ namespace Asset {
     /**
      * @brief 키를 다른 시간으로 옮깁니다.
      */
-    bool Asset::FSequenceChannel::MoveKey(Core::Int32 FromTick, Core::Int32 ToTick) {
-        const auto HasTick{[](Core::Int32 Tick) {
+    bool Asset::FSequenceChannel::MoveKey(Int32 FromTick, Int32 ToTick) {
+        const auto HasTick{[](Int32 Tick) {
             return [Tick](const Asset::FSequenceKey& Key) {
                 return Key.mTick == Tick;
             };
@@ -164,7 +164,7 @@ namespace Asset {
             return Time < Key.mTick;
         })};
 
-        const Core::Index_t Index{static_cast<Core::Index_t>(Next - mKeys.begin()) - 1};
+        const Index_t Index{static_cast<Index_t>(Next - mKeys.begin()) - 1};
         const Asset::FSequenceKey& From{mKeys[Index]};
         const Asset::FSequenceKey& To{*Next};
         const double Span{static_cast<double>(To.mTick) - From.mTick};
@@ -196,7 +196,7 @@ namespace Asset {
      * @brief 아카이브 모드에 따라 키 목록을 읽거나 저장합니다.
      */
     void Asset::FSequenceChannel::Serialize(Core::FArchive& Archive) {
-        Core::Uint32 Count{static_cast<Core::Uint32>(mKeys.size())};
+        Uint32 Count{static_cast<Uint32>(mKeys.size())};
 
         if (!Archive.BeginArray("Keys", Count)) {
             return;
@@ -210,7 +210,7 @@ namespace Asset {
             mKeys.clear();
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }

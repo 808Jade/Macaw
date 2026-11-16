@@ -12,7 +12,7 @@ namespace CoreUObject {
      * @brief 두 플래그 집합의 비트 OR 결합을 반환합니다.
      */
     CoreUObject::EClassFlags operator|(CoreUObject::EClassFlags Left, CoreUObject::EClassFlags Right) {
-        return static_cast<CoreUObject::EClassFlags>(static_cast<Core::Uint32>(Left) | static_cast<Core::Uint32>(Right));
+        return static_cast<CoreUObject::EClassFlags>(static_cast<Uint32>(Left) | static_cast<Uint32>(Right));
     }
 
 }

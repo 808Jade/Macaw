@@ -13,7 +13,7 @@ namespace RenderCore {
     /**
      * @brief 자원을 바인딩할 셰이더 단계를 비트 플래그로 나타냅니다.
      */
-    enum class EShaderStage : Core::Uint8 {
+    enum class EShaderStage : Uint8 {
         /**
          * @brief 셰이더 단계를 지정하지 않은 상태입니다.
          */

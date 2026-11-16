@@ -152,7 +152,22 @@ namespace Editor {
         /**
          * @brief 머티리얼 구체 아이콘입니다.
          */
-        Material
+        Material,
+
+        /**
+         * @brief 시뮬레이션 실행 아이콘입니다.
+         */
+        Simulate,
+
+        /**
+         * @brief 시네마틱·시퀀스 작업 아이콘입니다.
+         */
+        Cinematics,
+
+        /**
+         * @brief 추가 작업 메뉴 아이콘입니다.
+         */
+        More
     };
 
 }

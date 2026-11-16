@@ -227,14 +227,14 @@ namespace Script::Abi {
      * @return C#이 곧바로 복사할 핸들 배열입니다.
      */
     template <typename T>
-    const CoreUObject::FObjectHandle* StoreObjects(const Core::TArray<T*>& Objects, Core::Int32& Count) {
+    const CoreUObject::FObjectHandle* StoreObjects(const Core::TArray<T*>& Objects, Int32& Count) {
         CoreUObject::FObjectHandle* Buffer{Script::Abi::ResizeObjectBuffer(Objects.size())};
 
-        for (Core::Index_t Index{}; Index < Objects.size(); ++Index) {
+        for (Index_t Index{}; Index < Objects.size(); ++Index) {
             Buffer[Index] = Script::Abi::ToHandle(Objects[Index]);
         }
 
-        Count = static_cast<Core::Int32>(Objects.size());
+        Count = static_cast<Int32>(Objects.size());
 
         return Buffer;
     }

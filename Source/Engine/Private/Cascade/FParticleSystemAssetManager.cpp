@@ -1,3 +1,9 @@
+/**
+ * @file FParticleSystemAssetManager.cpp
+ * @brief 파티클 시스템 에셋의 로드 캐시와 참조 머티리얼 해석을 관리합니다.
+ * @ingroup Engine
+ */
+
 #include "Engine/Cascade/FParticleSystemAssetManager.h"
 #include "Engine/Cascade/UParticleSystem.h"
 #include "Engine/Cascade/UParticleEmitter.h"
@@ -45,7 +51,7 @@ Engine::UParticleSystem* FParticleSystemAssetManager::LoadParticleSystem(const s
         return Existing->second.get();
     }
 
-    Core::TArray<Core::Uint8> Payload{};
+    Core::TArray<Uint8> Payload{};
 
     if (!Asset::FAssetFile::Load(Target, Asset::EAssetType::ParticleSystem, Payload, Error)) {
         return nullptr;
@@ -173,7 +179,7 @@ bool FParticleSystemAssetManager::SaveParticleSystem(const std::filesystem::path
         return false;
     }
 
-    if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::ParticleSystem, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error)) {
+    if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::ParticleSystem, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error)) {
         return false;
     }
 

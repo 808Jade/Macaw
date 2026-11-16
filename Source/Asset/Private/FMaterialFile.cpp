@@ -17,13 +17,13 @@ namespace Asset {
      * @brief 단일 머티리얼 설정과 텍스처 참조를 읽고 검증합니다.
      */
     bool Asset::FMaterialFile::Load(const std::filesystem::path& Path, Asset::FAssetManager& Assets, Asset::UMaterial& Material, Core::FString& Error) {
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(Path, Asset::EAssetType::Material, Payload, Error)) {
             return false;
         }
 
-        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Core::Uint8>&>(Payload)};
+        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Asset::FMaterialAssetData Data{};
         Data.Serialize(Archive);
 
@@ -55,7 +55,7 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
 
         Data.Serialize(Archive);

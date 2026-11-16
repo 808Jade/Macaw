@@ -19,7 +19,7 @@ namespace Core {
      * @brief 통계 값의 표시 단위를 구분합니다.
      * @ingroup Core
      */
-    enum class EStatUnit : Core::Uint8 {
+    enum class EStatUnit : Uint8 {
         /**
          * @brief 개수 단위입니다.
          */
@@ -46,7 +46,7 @@ namespace Core {
      * @brief 프레임마다 초기화할 누적값과 프레임 간 유지할 측정값을 구분합니다.
      * @ingroup Core
      */
-    enum class EStatMode : Core::Uint8 {
+    enum class EStatMode : Uint8 {
         /**
          * @brief 프레임 시작 시 값을 0으로 초기화하는 누적 통계입니다.
          */
@@ -115,7 +115,7 @@ namespace Core {
          * @brief 해당 프레임에 반영된 기록 횟수를 반환합니다.
          * @return 해당 프레임에 반영된 기록 횟수입니다.
          */
-        Core::Uint64 GetSamples() const;
+        Uint64 GetSamples() const;
 
         /**
          * @brief 집계에 포함된 완료 프레임 수를 반환합니다.
@@ -168,7 +168,7 @@ namespace Core {
         /**
          * @brief 완료 프레임에서 유한한 값으로 반영한 기록 횟수입니다.
          */
-        Core::Uint64 mSamples{};
+        Uint64 mSamples{};
 
         /**
          * @brief 집계에 포함된 완료 프레임 수입니다.
@@ -269,7 +269,7 @@ namespace Core {
         /**
          * @brief 해당 프레임에 반영된 기록 횟수입니다.
          */
-        Core::Uint64 mSamples{};
+        Uint64 mSamples{};
 
         /**
          * @brief 최근 최대 120프레임의 값을 저장하는 순환 이력입니다.
@@ -279,7 +279,7 @@ namespace Core {
         /**
          * @brief 다음 완료 프레임 값을 기록할 순환 이력 위치입니다.
          */
-        Core::Index_t mHistoryIndex{};
+        Index_t mHistoryIndex{};
 
         /**
          * @brief 순환 이력에 저장한 유효 프레임 수입니다.
@@ -338,7 +338,7 @@ namespace Core {
          * @brief 마지막 초기화 이후 완료한 통계 프레임 수를 반환합니다.
          * @return 마지막 초기화 이후 완료한 통계 프레임 수입니다.
          */
-        Core::Uint64 GetFrameNumber() const;
+        Uint64 GetFrameNumber() const;
 
         /**
          * @brief 등록된 통계의 그룹 이름을 중복 없이 정렬하여 반환합니다.
@@ -418,7 +418,7 @@ namespace Core {
         /**
          * @brief 마지막 초기화 이후 완료한 통계 프레임 수입니다.
          */
-        Core::Uint64 mFrameNumber{};
+        Uint64 mFrameNumber{};
 
         /**
          * @brief 통계 프레임을 시작한 뒤 아직 종료하지 않았는지 나타냅니다.

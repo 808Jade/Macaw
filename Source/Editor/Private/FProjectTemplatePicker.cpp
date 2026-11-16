@@ -65,7 +65,7 @@ namespace Editor {
             return A.mName < B.mName;
         });
 
-        for (Core::Index_t Index{}; Index < mTemplates.size(); ++Index) {
+        for (Index_t Index{}; Index < mTemplates.size(); ++Index) {
             if (mTemplates[Index].mDirectory.lexically_normal() == Preferred) {
                 mSelectedIndex = Index;
             }
@@ -143,7 +143,7 @@ namespace Editor {
             return false;
         }
 
-        mSelectedIndex = static_cast<Core::Index_t>(Found - mTemplates.begin());
+        mSelectedIndex = static_cast<Index_t>(Found - mTemplates.begin());
 
         return true;
     }
@@ -154,8 +154,8 @@ namespace Editor {
         return mSelectedIndex < mTemplates.size() ? mTemplates[mSelectedIndex].mDirectory : Empty;
     }
 
-    Core::Uint32 FProjectTemplatePicker::GetTemplateCount() const {
-        return static_cast<Core::Uint32>(mTemplates.size());
+    Uint32 FProjectTemplatePicker::GetTemplateCount() const {
+        return static_cast<Uint32>(mTemplates.size());
     }
 
     void FProjectTemplatePicker::LoadPreview(FTemplateInfo& Template, void* Device) {
@@ -171,8 +171,18 @@ namespace Editor {
         }
     }
 
+    /**
+     * @brief FProjectTemplatePicker 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
+     */
     namespace {
 
+        /**
+         * @brief 템플릿 미리 보기 이미지를 주어진 사각형에 맞춰 그립니다.
+         * @param[in] Draw 미리 보기 도형과 이미지를 기록할 ImGui 그리기 목록입니다.
+         * @param[in] Texture 미리 보기에 사용할 텍스처 또는 D3D11 텍스처 뷰입니다.
+         * @param[in] Min 그리기 영역의 왼쪽 위 화면 좌표입니다.
+         * @param[in] Max 그리기 영역의 오른쪽 아래 화면 좌표입니다.
+         */
         void DrawTemplateImage(ImDrawList* Draw, Asset::UTexture2D* Texture, ImVec2 Min, ImVec2 Max) {
             if (Texture != nullptr) {
                 const float Aspect{static_cast<float>(Texture->GetSizeX()) / static_cast<float>(std::max(Texture->GetSizeY(), 1u))};
@@ -213,7 +223,7 @@ namespace Editor {
         const ImVec2 Start{ImGui::GetCursorPos()};
         bool Changed{};
 
-        for (Core::Index_t Index{}; Index < mTemplates.size(); ++Index) {
+        for (Index_t Index{}; Index < mTemplates.size(); ++Index) {
             auto& Template{mTemplates[Index]};
             ImGui::PushID(Template.mId.c_str());
             ImGui::SetCursorPos({Start.x + static_cast<float>(Index % Columns) * (Width + Gap) + 2.0f, Start.y + static_cast<float>(Index / Columns) * (Height + Gap) + 2.0f});

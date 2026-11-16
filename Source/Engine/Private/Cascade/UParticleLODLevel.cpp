@@ -1,3 +1,9 @@
+/**
+ * @file UParticleLODLevel.cpp
+ * @brief 하나의 LOD에서 필수 모듈과 실행 단계별 파티클 모듈을 소유합니다.
+ * @ingroup Engine
+ */
+
 #include "Engine/Cascade/UParticleLODLevel.h"
 #include "Engine/Cascade/UParticleEmitter.h"
 #include "Engine/Cascade/UParticleModule.h"
@@ -13,8 +19,14 @@ using namespace Engine;
 using namespace Core;
 using namespace CoreUObject;
 
+/**
+ * @brief UParticleLODLevel 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
+ */
 namespace {
 
+    /**
+     * @brief 파티클 LOD를 읽을 때 허용하는 최대 일반 모듈 수입니다.
+     */
     constexpr Uint32 MaximumModules{256};
 
 }

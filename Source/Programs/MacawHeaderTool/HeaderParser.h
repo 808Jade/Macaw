@@ -121,17 +121,17 @@ namespace HeaderTool {
         /**
          * @brief 여는 중괄호 토큰 번호입니다.
          */
-        Core::Index_t Opening{};
+        Index_t Opening{};
 
         /**
          * @brief 닫는 중괄호 토큰 번호입니다.
          */
-        Core::Index_t Closing{};
+        Index_t Closing{};
 
         /**
          * @brief 바로 바깥 타입의 번호입니다. 없으면 -1입니다.
          */
-        Core::Int32 Outer{-1};
+        Int32 Outer{-1};
 
         /**
          * @brief 템플릿이거나 템플릿 안에 있으면 true입니다.

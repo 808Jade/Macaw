@@ -31,7 +31,7 @@ namespace Serialization {
          * @param[in] Depth 현재 JSON 중첩 깊이입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool ValidateJson(const rapidjson::Value& Value, Core::Uint32 Depth) {
+        bool ValidateJson(const rapidjson::Value& Value, Uint32 Depth) {
             if (Depth > 32) {
                 return false;
             }
@@ -185,7 +185,7 @@ namespace Serialization {
             return false;
         }
 
-        Core::Index_t Index{};
+        Index_t Index{};
         const auto Parsed{std::from_chars(Name.data(), Name.data() + Name.size(), Index)};
 
         return Parsed.ec == std::errc{} && Parsed.ptr == Name.data() + Name.size() && Index < Parent->Size();
@@ -228,7 +228,7 @@ namespace Serialization {
     /**
      * @brief 배열 컨테이너에 진입하고 로드 시 원소 개수를 읽습니다.
      */
-    bool Serialization::FJsonArchive::BeginArray(std::string_view Name, Core::Uint32& Count) {
+    bool Serialization::FJsonArchive::BeginArray(std::string_view Name, Uint32& Count) {
         if (HasError()) {
             return false;
         }
@@ -277,7 +277,7 @@ namespace Serialization {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Serialization::FJsonArchive::Serialize(std::string_view Name, Core::Int32& Value) {
+    void Serialization::FJsonArchive::Serialize(std::string_view Name, Int32& Value) {
         rapidjson::Value* Field{Find(Name, !IsLoading())};
 
         if (Field == nullptr || (IsLoading() && !Field->IsInt())) {
@@ -292,7 +292,7 @@ namespace Serialization {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Serialization::FJsonArchive::Serialize(std::string_view Name, Core::Uint32& Value) {
+    void Serialization::FJsonArchive::Serialize(std::string_view Name, Uint32& Value) {
         rapidjson::Value* Field{Find(Name, !IsLoading())};
 
         if (Field == nullptr || (IsLoading() && !Field->IsUint())) {
@@ -307,7 +307,7 @@ namespace Serialization {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Serialization::FJsonArchive::Serialize(std::string_view Name, Core::Uint64& Value) {
+    void Serialization::FJsonArchive::Serialize(std::string_view Name, Uint64& Value) {
         rapidjson::Value* Field{Find(Name, !IsLoading())};
 
         if (Field == nullptr || (IsLoading() && !Field->IsUint64())) {
@@ -373,7 +373,7 @@ namespace Serialization {
                 return &Parent->MemberEnd()[-1].value;
             }
         } else if (Parent->IsArray()) {
-            Core::Index_t Index{};
+            Index_t Index{};
             const auto Parsed{std::from_chars(Name.data(), Name.data() + Name.size(), Index)};
 
             if (Parsed.ec != std::errc{} || Parsed.ptr != Name.data() + Name.size()) {

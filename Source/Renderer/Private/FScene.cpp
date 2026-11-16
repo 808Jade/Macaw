@@ -84,7 +84,7 @@ namespace Renderer {
             mDecals.erase(Existing);
         }
 
-        const auto Position{std::upper_bound(mDecals.begin(), mDecals.end(), Proxy.mSortOrder, [](Core::Int32 SortOrder, const Engine::FDecalSceneProxy& Decal) {
+        const auto Position{std::upper_bound(mDecals.begin(), mDecals.end(), Proxy.mSortOrder, [](Int32 SortOrder, const Engine::FDecalSceneProxy& Decal) {
             return SortOrder < Decal.mSortOrder;
         })};
 
@@ -183,7 +183,7 @@ namespace Renderer {
             return;
         }
 
-        const Core::Index_t Index{static_cast<Core::Index_t>(Position->second)};
+        const Index_t Index{static_cast<Index_t>(Position->second)};
 
         if (IsShadowCaster(mPrimitives[Index].mProxy)) {
             mCasterRevision = Core::FRevision::Next();
@@ -210,7 +210,7 @@ namespace Renderer {
     /**
      * @brief 프리미티브 추가, 제거 또는 변환 갱신 시 증가하는 장면 개정 번호를 반환합니다.
      */
-    Core::Uint64 Renderer::FScene::GetRevision() const {
+    Uint64 Renderer::FScene::GetRevision() const {
         return mRevision;
     }
 
@@ -267,8 +267,8 @@ namespace Renderer {
     /**
      * @brief 누적 변환 업로드 횟수를 반환하고 카운터를 초기화합니다.
      */
-    Core::Uint32 Renderer::FScene::TakeTransformUpdates() const {
-        const Core::Uint32 Count{mTransformUpdates};
+    Uint32 Renderer::FScene::TakeTransformUpdates() const {
+        const Uint32 Count{mTransformUpdates};
 
         mTransformUpdates = 0;
 
@@ -382,7 +382,7 @@ namespace Renderer {
             return;
         }
 
-        const Core::Index_t Index{static_cast<Core::Index_t>(Position->second)};
+        const Index_t Index{static_cast<Index_t>(Position->second)};
 
         if (Index + 1 != mLights.size()) {
             mLights[Index] = mLights.back();

@@ -26,11 +26,11 @@ namespace Renderer {
         Description.ScissorEnable = true;
         Description.DepthBiasClamp = 0.005f;
 
-        for (Core::Index_t DepthLevel{}; DepthLevel < Rasterizers.size(); ++DepthLevel) {
+        for (Index_t DepthLevel{}; DepthLevel < Rasterizers.size(); ++DepthLevel) {
             Description.DepthBias = static_cast<INT>(DepthLevel) * Engine::ShadowDepthBiasStep;
             auto& SlopeRasterizers{Rasterizers[DepthLevel]};
 
-            for (Core::Index_t SlopeLevel{}; SlopeLevel < SlopeRasterizers.size(); ++SlopeLevel) {
+            for (Index_t SlopeLevel{}; SlopeLevel < SlopeRasterizers.size(); ++SlopeLevel) {
                 Description.SlopeScaledDepthBias = static_cast<float>(SlopeLevel) * Engine::ShadowSlopeBiasStep;
 
                 if (FAILED(mDevice->CreateRasterizerState(&Description, SlopeRasterizers[SlopeLevel].GetAddressOf()))) {
@@ -45,7 +45,7 @@ namespace Renderer {
     }
 
     ID3D11RasterizerState* Renderer::FShadowDepthPass::GetRasterizer(Engine::EShadowBiasPreset DepthPreset, Engine::EShadowBiasPreset SlopePreset) const {
-        return mRasterizers[static_cast<Core::Uint32>(DepthPreset)][static_cast<Core::Uint32>(SlopePreset)].Get();
+        return mRasterizers[static_cast<Uint32>(DepthPreset)][static_cast<Uint32>(SlopePreset)].Get();
     }
 
     /**

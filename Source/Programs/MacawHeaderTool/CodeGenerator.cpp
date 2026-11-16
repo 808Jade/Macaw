@@ -29,7 +29,7 @@ namespace HeaderTool {
         std::string Join(const std::vector<std::string>& Parts, const std::string& Separator) {
             std::string Result;
 
-            for (Core::Index_t Index{}; Index < Parts.size(); ++Index) {
+            for (Index_t Index{}; Index < Parts.size(); ++Index) {
                 Result += (Index == 0 ? "" : Separator) + Parts[Index];
             }
 
@@ -53,6 +53,7 @@ namespace HeaderTool {
          * @brief 접근자·배열 여부·플래그에 맞는 프로퍼티 등록 호출문을 만듭니다.
          * @param[in] Property 등록문을 생성할 프로퍼티 정보입니다.
          * @return 해석·변환한 문자열입니다.
+         * @param[in] Indent 생성 코드 앞에 붙일 들여쓰기 문자열입니다.
          */
         std::string PropertyStatement(const FProperty& Property, const std::string& Indent) {
             std::vector<std::string> Pointers{"&ReflectionOwner::" + Property.Member};
@@ -152,7 +153,7 @@ namespace HeaderTool {
             Lines.push_back("");
             Lines.push_back("#define " + Header.FileId + "_" + std::to_string(Type.GeneratedBodyLine) + "_GENERATED_BODY \\");
 
-            for (Core::Index_t Index{}; Index < Body.size(); ++Index) {
+            for (Index_t Index{}; Index < Body.size(); ++Index) {
                 Lines.push_back(Body[Index] + (Index + 1 < Body.size() ? " \\" : ""));
             }
         }
@@ -336,7 +337,7 @@ namespace HeaderTool {
             Source.push_back(Indent + "void " + Type.Name + "::RegisterReflectionMembers(CoreUObject::FReflectionBuilder&" + (Type.Properties.empty() ? "" : " Information") + ") {");
 
             const std::vector<FType>& Types{Entry.Header->Types};
-            const Core::Index_t TypeIndex{static_cast<Core::Index_t>(static_cast<int>(&Type - Types.data()))};
+            const Index_t TypeIndex{static_cast<Index_t>(static_cast<int>(&Type - Types.data()))};
 
             for (const FEntry& Child : Entries) {
                 if (Child.Type != nullptr && Child.Header == Entry.Header && Child.Type->Outer == TypeIndex) {
@@ -392,7 +393,7 @@ namespace HeaderTool {
 
             const int Outer{Entry.Type->Outer};
 
-            if (Outer < 0 || Entry.Header->Types[static_cast<Core::Index_t>(Outer)].Kind == ETypeKind::None) {
+            if (Outer < 0 || Entry.Header->Types[static_cast<Index_t>(Outer)].Kind == ETypeKind::None) {
                 Source.push_back("    " + (Entry.Type->Namespace.empty() ? "" : Entry.Type->Namespace + "::") + Entry.Type->Name + (Entry.Type->Kind == ETypeKind::Struct ? "::StaticStruct();" : "::StaticClass();"));
             }
         }

@@ -46,7 +46,7 @@ namespace Asset {
      * @brief 재질 설정을 바이너리 아카이브에 기록하거나 읽고 지원하지 않는 버전을 거부합니다.
      */
     void Asset::FMaterialAssetData::Serialize(Serialization::FMemoryArchive& Archive) {
-        Core::Uint32 Version{4};
+        Uint32 Version{4};
 
         Archive.Serialize("Version", Version);
 
@@ -90,11 +90,11 @@ namespace Asset {
         }
 
         if (Version >= 3) {
-            Core::Uint32 BlendMode{static_cast<Core::Uint32>(mBlendMode)};
+            Uint32 BlendMode{static_cast<Uint32>(mBlendMode)};
             Archive.Serialize("BlendMode", BlendMode);
 
             if (Archive.IsLoading()) {
-                if (BlendMode > static_cast<Core::Uint32>(Asset::EBlendMode::Translucent)) {
+                if (BlendMode > static_cast<Uint32>(Asset::EBlendMode::Translucent)) {
                     Archive.SetError("Invalid material blend mode");
 
                     return;

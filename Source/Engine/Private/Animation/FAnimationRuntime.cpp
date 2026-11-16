@@ -36,12 +36,12 @@ namespace Engine {
         if (&OutPose != &PoseA) {
             OutPose.resize(PoseA.size());
 
-            for (Core::Index_t Bone{static_cast<Core::Index_t>(Count)}; Bone < PoseA.size(); ++Bone) {
+            for (Index_t Bone{static_cast<Index_t>(Count)}; Bone < PoseA.size(); ++Bone) {
                 OutPose[Bone] = PoseA[Bone];
             }
         }
 
-        for (Core::Index_t Bone{}; Bone < Count; ++Bone) {
+        for (Index_t Bone{}; Bone < Count; ++Bone) {
             OutPose[Bone] = BlendTransforms(PoseA[Bone], PoseB[Bone], Weight);
         }
     }

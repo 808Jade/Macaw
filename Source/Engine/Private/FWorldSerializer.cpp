@@ -49,7 +49,7 @@ namespace Engine {
         void SerializeWorldReferences(Core::FArchive& Archive, Engine::UWorld* World, Core::TMap<Core::FGuid, CoreUObject::UObject*, Core::FGuidHash>* Objects) {
             constexpr const char* Names[]{"ActiveCamera", "InputTarget"};
 
-            for (Core::Index_t Index{}; Index < 2 && !Archive.HasError(); ++Index) {
+            for (Index_t Index{}; Index < 2 && !Archive.HasError(); ++Index) {
                 const char* Name{Names[Index]};
 
                 if (Archive.IsLoading() && !Archive.HasField(Name)) {
@@ -159,13 +159,13 @@ namespace Engine {
          * @param[in,out] Objects 이 장면에서 읽거나 저장한 객체의 비소유 대응표입니다.
          */
         void SerializeComponents(Core::FArchive& Archive, Engine::AActor* Actor, Core::TMap<Core::FGuid, CoreUObject::UObject*, Core::FGuidHash>* Objects) {
-            Core::Uint32 Count{static_cast<Core::Uint32>(Actor->GetComponents().size())};
+            Uint32 Count{static_cast<Uint32>(Actor->GetComponents().size())};
 
             if (!Archive.BeginArray("Components", Count)) {
                 return;
             }
 
-            for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+            for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
                 if (!Archive.BeginObject(std::to_string(Index))) {
                     break;
                 }
@@ -225,13 +225,13 @@ namespace Engine {
          * @param[in,out] Objects 저장하거나 불러온 객체를 GUID별로 기록할 대응표입니다.
          */
         void SerializeActors(Core::FArchive& Archive, const Core::TArray<Engine::AActor*>& Sources, Core::TArray<std::unique_ptr<Engine::AActor>>& Actors, Core::TMap<Core::FGuid, CoreUObject::UObject*, Core::FGuidHash>* Objects) {
-            Core::Uint32 Count{static_cast<Core::Uint32>(Sources.size())};
+            Uint32 Count{static_cast<Uint32>(Sources.size())};
 
             if (!Archive.BeginArray("Actors", Count)) {
                 return;
             }
 
-            for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+            for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
                 if (!Archive.BeginObject(std::to_string(Index))) {
                     break;
                 }
@@ -273,7 +273,7 @@ namespace Engine {
 
         Engine::UWorld::FDispatchScope Scope{World};
         Core::TMap<Core::FGuid, CoreUObject::UObject*, Core::FGuidHash> Objects{};
-        Core::Uint32 Version{1};
+        Uint32 Version{1};
 
         Archive.Serialize("Version", Version);
 

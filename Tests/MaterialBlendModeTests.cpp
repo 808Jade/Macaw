@@ -72,12 +72,12 @@ namespace {
         for (const float Alpha : {0.0f, 0.5f, 1.0f}) {
             Material->SetBaseColor({0.2f, 0.4f, 0.6f, Alpha});
             Material->SetBlendMode(Asset::EBlendMode::Translucent);
-            Core::TArray<Core::Uint8> Bytes{};
+            Core::TArray<Uint8> Bytes{};
             Serialization::FMemoryArchive Writer{Bytes};
             Asset::FMaterialAssetData Saved{*Material};
             Saved.Serialize(Writer);
 
-            Serialization::FMemoryArchive Reader{static_cast<const Core::TArray<Core::Uint8>&>(Bytes)};
+            Serialization::FMemoryArchive Reader{static_cast<const Core::TArray<Uint8>&>(Bytes)};
             Asset::FMaterialAssetData Loaded{};
             Loaded.Serialize(Reader);
             auto Copy{CoreUObject::NewObject<Asset::UMaterial>()};
@@ -85,17 +85,17 @@ namespace {
             Require(!Writer.HasError() && !Reader.HasError() && Reader.GetRemainingBytes() == 0 && Loaded.ApplyTo(*Copy, Error) && Copy->GetBlendMode() == Asset::EBlendMode::Translucent && Copy->GetBaseColor() == Material->GetBaseColor(), "Material asset round trip preserves blend mode and alpha");
         }
 
-        Core::TArray<Core::Uint8> ReflectedBytes{};
+        Core::TArray<Uint8> ReflectedBytes{};
         Serialization::FMemoryArchive ReflectedWriter{ReflectedBytes};
         Material->Serialize(ReflectedWriter);
         auto ReflectedCopy{CoreUObject::NewObject<Asset::UMaterial>()};
-        Serialization::FMemoryArchive ReflectedReader{static_cast<const Core::TArray<Core::Uint8>&>(ReflectedBytes)};
+        Serialization::FMemoryArchive ReflectedReader{static_cast<const Core::TArray<Uint8>&>(ReflectedBytes)};
         ReflectedCopy->Serialize(ReflectedReader);
         Require(!ReflectedReader.HasError() && ReflectedCopy->GetBlendMode() == Asset::EBlendMode::Translucent, "Reflection serialization preserves explicit blend mode");
 
-        Core::TArray<Core::Uint8> LegacyBytes{};
+        Core::TArray<Uint8> LegacyBytes{};
         Serialization::FMemoryArchive LegacyWriter{LegacyBytes};
-        Core::Uint32 Version{1};
+        Uint32 Version{1};
         Core::FString Name{"Legacy"};
         Core::FString Shader{"Shaders/Lit.hlsl"};
         Core::FString Empty{};
@@ -114,7 +114,7 @@ namespace {
         LegacyWriter.Serialize("Shininess", Shininess);
         LegacyWriter.Serialize("NormalStrength", NormalStrength);
         LegacyWriter.Serialize("TwoSided", TwoSided);
-        Serialization::FMemoryArchive LegacyReader{static_cast<const Core::TArray<Core::Uint8>&>(LegacyBytes)};
+        Serialization::FMemoryArchive LegacyReader{static_cast<const Core::TArray<Uint8>&>(LegacyBytes)};
         Asset::FMaterialAssetData Legacy{};
         Legacy.Serialize(LegacyReader);
         auto LegacyMaterial{CoreUObject::NewObject<Asset::UMaterial>()};
@@ -164,7 +164,7 @@ namespace {
         Context->CopyResource(Staging.Get(), Texture);
         D3D11_MAPPED_SUBRESOURCE Mapped{};
         Require(SUCCEEDED(Context->Map(Staging.Get(), 0, D3D11_MAP_READ, 0, &Mapped)), "Read rendered pixels");
-        const auto* Pixel{static_cast<const Core::Uint8*>(Mapped.pData) + 32 * Mapped.RowPitch + 32 * 4};
+        const auto* Pixel{static_cast<const Uint8*>(Mapped.pData) + 32 * Mapped.RowPitch + 32 * 4};
         const FVector4 Color{Pixel[0] / 255.0f, Pixel[1] / 255.0f, Pixel[2] / 255.0f, Pixel[3] / 255.0f};
         Context->Unmap(Staging.Get(), 0);
 

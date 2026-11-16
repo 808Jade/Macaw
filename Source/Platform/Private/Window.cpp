@@ -6,6 +6,7 @@
 
 #include "Platform/Window.h"
 #include "Platform/WindowResources.h"
+#include "FMouseCapture.h"
 #include "Core/Base/ErrorHandler.h"
 
 #include <windowsx.h>
@@ -16,6 +17,7 @@
 #include <utility>
 
 #undef IsMinimized
+#undef IsMaximized
 
 namespace Platform {
 
@@ -45,24 +47,24 @@ namespace Platform {
             using Core::EKey;
 
             switch (Message) {
-                case WM_LBUTTONDOWN:
-                case WM_LBUTTONUP:
-                case WM_LBUTTONDBLCLK:
-                    return EKey::MouseLeft;
-                case WM_RBUTTONDOWN:
-                case WM_RBUTTONUP:
-                case WM_RBUTTONDBLCLK:
-                    return EKey::MouseRight;
-                case WM_MBUTTONDOWN:
-                case WM_MBUTTONUP:
-                case WM_MBUTTONDBLCLK:
-                    return EKey::MouseMiddle;
-                case WM_XBUTTONDOWN:
-                case WM_XBUTTONUP:
-                case WM_XBUTTONDBLCLK:
-                    return GET_XBUTTON_WPARAM(WParam) == XBUTTON1 ? EKey::MouseX1 : EKey::MouseX2;
-                default:
-                    return EKey::None;
+            case WM_LBUTTONDOWN:
+            case WM_LBUTTONUP:
+            case WM_LBUTTONDBLCLK:
+                return EKey::MouseLeft;
+            case WM_RBUTTONDOWN:
+            case WM_RBUTTONUP:
+            case WM_RBUTTONDBLCLK:
+                return EKey::MouseRight;
+            case WM_MBUTTONDOWN:
+            case WM_MBUTTONUP:
+            case WM_MBUTTONDBLCLK:
+                return EKey::MouseMiddle;
+            case WM_XBUTTONDOWN:
+            case WM_XBUTTONUP:
+            case WM_XBUTTONDBLCLK:
+                return GET_XBUTTON_WPARAM(WParam) == XBUTTON1 ? EKey::MouseX1 : EKey::MouseX2;
+            default:
+                return EKey::None;
             }
         }
 
@@ -83,25 +85,25 @@ namespace Platform {
             const bool Extended{(LParam & (1LL << 24)) != 0};
 
             switch (WParam) {
-                case VK_SHIFT:
-                    Input.SetKey(static_cast<EKey>(MapVirtualKeyW((static_cast<UINT>(LParam) >> 16) & 0xFF, MAPVK_VSC_TO_VK_EX)), Down);
-                    Input.SetKey(EKey::Shift, Input.IsDown(EKey::LeftShift) || Input.IsDown(EKey::RightShift));
+            case VK_SHIFT:
+                Input.SetKey(static_cast<EKey>(MapVirtualKeyW((static_cast<UINT>(LParam) >> 16) & 0xFF, MAPVK_VSC_TO_VK_EX)), Down);
+                Input.SetKey(EKey::Shift, Input.IsDown(EKey::LeftShift) || Input.IsDown(EKey::RightShift));
 
-                    break;
-                case VK_CONTROL:
-                    Input.SetKey(Extended ? EKey::RightControl : EKey::LeftControl, Down);
-                    Input.SetKey(EKey::Control, Input.IsDown(EKey::LeftControl) || Input.IsDown(EKey::RightControl));
+                break;
+            case VK_CONTROL:
+                Input.SetKey(Extended ? EKey::RightControl : EKey::LeftControl, Down);
+                Input.SetKey(EKey::Control, Input.IsDown(EKey::LeftControl) || Input.IsDown(EKey::RightControl));
 
-                    break;
-                case VK_MENU:
-                    Input.SetKey(Extended ? EKey::RightAlt : EKey::LeftAlt, Down);
-                    Input.SetKey(EKey::Alt, Input.IsDown(EKey::LeftAlt) || Input.IsDown(EKey::RightAlt));
+                break;
+            case VK_MENU:
+                Input.SetKey(Extended ? EKey::RightAlt : EKey::LeftAlt, Down);
+                Input.SetKey(EKey::Alt, Input.IsDown(EKey::LeftAlt) || Input.IsDown(EKey::RightAlt));
 
-                    break;
-                default:
-                    Input.SetKey(static_cast<EKey>(WParam), Down);
+                break;
+            default:
+                Input.SetKey(static_cast<EKey>(WParam), Down);
 
-                    break;
+                break;
             }
         }
 
@@ -122,7 +124,7 @@ namespace Platform {
     /**
      * @brief 지정한 제목과 클라이언트 크기로 Win32 창을 생성합니다.
      */
-    bool Platform::FWindowsApplication::Create(const wchar_t* Title, Core::Uint32 Width, Core::Uint32 Height, bool Visible) {
+    bool Platform::FWindowsApplication::Create(const wchar_t* Title, Uint32 Width, Uint32 Height, bool Visible) {
         if (mWindow != nullptr) {
             Core::ErrorHandler::Fatal("Window", "The application window already exists");
         }
@@ -163,8 +165,8 @@ namespace Platform {
 
         GetClientRect(mWindow, &Client);
 
-        mWidth = static_cast<Core::Uint32>(Client.right);
-        mHeight = static_cast<Core::Uint32>(Client.bottom);
+        mWidth = static_cast<Uint32>(Client.right);
+        mHeight = static_cast<Uint32>(Client.bottom);
 
         mRunning = true;
 
@@ -174,6 +176,10 @@ namespace Platform {
         }
 
         return true;
+    }
+
+    void Platform::FWindowsApplication::SetQuitOnClose(bool QuitOnClose) {
+        mQuitOnClose = QuitOnClose;
     }
 
     /**
@@ -202,6 +208,8 @@ namespace Platform {
      * @brief 종속 객체를 역순으로 정리하고 여러 번 호출해도 안전한 종료 상태로 만듭니다.
      */
     void Platform::FWindowsApplication::Shutdown() {
+        ReleaseMouseCapture();
+        mMouseCapture.reset();
         mMessageHandler = {};
 
         if (mWindow != nullptr && IsWindow(mWindow)) {
@@ -211,9 +219,32 @@ namespace Platform {
         mWindow = nullptr;
         mRunning = false;
         mPresentationPending = false;
+        mCustomTitleBar = false;
+        mTitleBarDragBounds = {};
         mMinimumWidth = 0;
         mMinimumHeight = 0;
         mInput = {};
+    }
+
+    bool FWindowsApplication::CaptureMouse(const RECT& Bounds) {
+        if (!mInput.IsFocused()) {
+            ReleaseMouseCapture();
+            return false;
+        }
+        if (mMouseCapture == nullptr) {
+            mMouseCapture = std::make_unique<FMouseCapture>();
+        }
+        return mMouseCapture->Capture(mWindow, Bounds);
+    }
+
+    void FWindowsApplication::ReleaseMouseCapture() {
+        if (mMouseCapture != nullptr) {
+            mMouseCapture->Release();
+        }
+    }
+
+    bool FWindowsApplication::IsMouseCaptured() const {
+        return mMouseCapture != nullptr && mMouseCapture->IsCaptured();
     }
 
     void FWindowsApplication::Show() {
@@ -269,7 +300,24 @@ namespace Platform {
         }
     }
 
-    void FWindowsApplication::SetCenteredClientSize(Core::Uint32 Width, Core::Uint32 Height) {
+    void FWindowsApplication::SetCustomTitleBar(bool Enabled) {
+        if (mCustomTitleBar == Enabled) {
+            return;
+        }
+
+        mCustomTitleBar = Enabled;
+        mTitleBarDragBounds = {};
+
+        if (IsRunning()) {
+            SetWindowPos(mWindow, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
+    }
+
+    void FWindowsApplication::SetTitleBarDragBounds(const RECT& Bounds) {
+        mTitleBarDragBounds = Bounds;
+    }
+
+    void FWindowsApplication::SetCenteredClientSize(Uint32 Width, Uint32 Height) {
         if (!IsRunning() || Width == 0 || Height == 0) {
             return;
         }
@@ -285,13 +333,15 @@ namespace Platform {
         }
 
         RECT Bounds{0, 0, static_cast<LONG>(std::lround(Width * Scale)), static_cast<LONG>(std::lround(Height * Scale))};
-        AdjustWindowRectExForDpi(&Bounds, static_cast<DWORD>(GetWindowLongPtrW(mWindow, GWL_STYLE)), false, static_cast<DWORD>(GetWindowLongPtrW(mWindow, GWL_EXSTYLE)), Dpi);
+        if (!mCustomTitleBar) {
+            AdjustWindowRectExForDpi(&Bounds, static_cast<DWORD>(GetWindowLongPtrW(mWindow, GWL_STYLE)), false, static_cast<DWORD>(GetWindowLongPtrW(mWindow, GWL_EXSTYLE)), Dpi);
+        }
         const LONG WindowWidth{std::min(Bounds.right - Bounds.left, Info.rcWork.right - Info.rcWork.left)};
         const LONG WindowHeight{std::min(Bounds.bottom - Bounds.top, Info.rcWork.bottom - Info.rcWork.top)};
         SetWindowPos(mWindow, nullptr, Info.rcWork.left + (Info.rcWork.right - Info.rcWork.left - WindowWidth) / 2, Info.rcWork.top + (Info.rcWork.bottom - Info.rcWork.top - WindowHeight) / 2, WindowWidth, WindowHeight, SWP_NOZORDER | SWP_NOACTIVATE);
     }
 
-    void FWindowsApplication::SetMinimumClientSize(Core::Uint32 Width, Core::Uint32 Height) {
+    void FWindowsApplication::SetMinimumClientSize(Uint32 Width, Uint32 Height) {
         mMinimumWidth = Width;
         mMinimumHeight = Height;
     }
@@ -360,7 +410,7 @@ namespace Platform {
         return mRunning && mWindow != nullptr;
     }
 
-    void FWindowsApplication::WaitForMessages(Core::Uint32 TimeoutMilliseconds) const {
+    void FWindowsApplication::WaitForMessages(Uint32 TimeoutMilliseconds) const {
         MsgWaitForMultipleObjects(0, nullptr, false, TimeoutMilliseconds, QS_ALLINPUT);
     }
 
@@ -395,14 +445,14 @@ namespace Platform {
     /**
      * @brief 가로 픽셀 수를 반환합니다.
      */
-    Core::Uint32 Platform::FWindowsApplication::GetWidth() const {
+    Uint32 Platform::FWindowsApplication::GetWidth() const {
         return mWidth;
     }
 
     /**
      * @brief 세로 픽셀 수를 반환합니다.
      */
-    Core::Uint32 Platform::FWindowsApplication::GetHeight() const {
+    Uint32 Platform::FWindowsApplication::GetHeight() const {
         return mHeight;
     }
 
@@ -411,6 +461,43 @@ namespace Platform {
      */
     bool Platform::FWindowsApplication::IsMinimized() const {
         return mWidth == 0 || mHeight == 0;
+    }
+
+    bool FWindowsApplication::IsMaximized() const {
+        return mWindow != nullptr && IsZoomed(mWindow);
+    }
+
+    LRESULT FWindowsApplication::HitTestCustomFrame(LPARAM Position) const {
+        POINT Cursor{GET_X_LPARAM(Position), GET_Y_LPARAM(Position)};
+        RECT Bounds{};
+
+        if (!ScreenToClient(mWindow, &Cursor) || !GetClientRect(mWindow, &Bounds) || !PtInRect(&Bounds, Cursor)) {
+            return HTNOWHERE;
+        }
+
+        if (!IsMaximized()) {
+            const UINT Dpi{GetDpiForWindow(mWindow)};
+            const int BorderX{GetSystemMetricsForDpi(SM_CXSIZEFRAME, Dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, Dpi)};
+            const int BorderY{GetSystemMetricsForDpi(SM_CYSIZEFRAME, Dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, Dpi)};
+            const bool Left{Cursor.x < BorderX};
+            const bool Right{Cursor.x >= Bounds.right - BorderX};
+            const bool Top{Cursor.y < BorderY};
+            const bool Bottom{Cursor.y >= Bounds.bottom - BorderY};
+
+            if (Top) {
+                return Left ? HTTOPLEFT : (Right ? HTTOPRIGHT : HTTOP);
+            }
+
+            if (Bottom) {
+                return Left ? HTBOTTOMLEFT : (Right ? HTBOTTOMRIGHT : HTBOTTOM);
+            }
+
+            if (Left || Right) {
+                return Left ? HTLEFT : HTRIGHT;
+            }
+        }
+
+        return PtInRect(&mTitleBarDragBounds, Cursor) ? HTCAPTION : HTCLIENT;
     }
 
     /**
@@ -426,12 +513,12 @@ namespace Platform {
                 SetFocus(Window);
             }
 
-            mInput.SetMousePosition({static_cast<float>(GET_X_LPARAM(LParam)), static_cast<float>(GET_Y_LPARAM(LParam))});
+            mInput.SetMousePosition({static_cast<float>(GET_X_LPARAM(LParam)), static_cast<float>(GET_Y_LPARAM(LParam))}, !IsMouseCaptured());
             mInput.SetKey(MouseKey, Down);
 
             if (Down && GetCapture() == nullptr && mInput.IsFocused()) {
                 SetCapture(Window);
-            } else if (!Down && GetCapture() == Window && !IsMouseDown(mInput)) {
+            } else if (!Down && GetCapture() == Window && !IsMouseDown(mInput) && !IsMouseCaptured()) {
                 ReleaseCapture();
             }
 
@@ -439,55 +526,68 @@ namespace Platform {
         }
 
         switch (Message) {
-            case WM_SETFOCUS:
-                mInput.SetFocused(true);
+        case WM_SETFOCUS:
+            mInput.SetFocused(true);
 
-                break;
-            case WM_KILLFOCUS:
-                mInput.SetFocused(false);
+            break;
+        case WM_KILLFOCUS:
+            ReleaseMouseCapture();
+            mInput.SetFocused(false);
 
-                if (GetCapture() == Window) {
-                    ReleaseCapture();
-                }
-
-                break;
-            case WM_CANCELMODE:
-                mInput.ReleaseMouse();
-
-                break;
-            case WM_CAPTURECHANGED:
-                if (IsMouseDown(mInput)) {
-                    mInput.ReleaseMouse();
-                }
-
-                break;
-            case WM_KEYDOWN:
-            case WM_SYSKEYDOWN:
-            case WM_KEYUP:
-            case WM_SYSKEYUP:
-                SetKeyboardKey(mInput, WParam, LParam, Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN);
-
-                break;
-            case WM_MOUSEMOVE:
-                mInput.SetMousePosition({static_cast<float>(GET_X_LPARAM(LParam)), static_cast<float>(GET_Y_LPARAM(LParam))});
-
-                break;
-            case WM_MOUSEWHEEL: {
-                POINT Position{GET_X_LPARAM(LParam), GET_Y_LPARAM(LParam)};
-
-                if (ScreenToClient(Window, &Position)) {
-                    mInput.SetMousePosition({static_cast<float>(Position.x), static_cast<float>(Position.y)});
-                }
-
-                if (mInput.IsFocused()) {
-                    mInput.AddMouseWheel(static_cast<float>(GET_WHEEL_DELTA_WPARAM(WParam)) / WHEEL_DELTA);
-                }
-
-                break;
+            if (GetCapture() == Window) {
+                ReleaseCapture();
             }
 
-            default:
-                break;
+            break;
+        case WM_CANCELMODE:
+            ReleaseMouseCapture();
+            mInput.ReleaseMouse();
+
+            break;
+        case WM_CAPTURECHANGED:
+            if (GetCapture() != Window) {
+                ReleaseMouseCapture();
+            }
+
+            if (IsMouseDown(mInput)) {
+                mInput.ReleaseMouse();
+            }
+
+            break;
+        case WM_KEYDOWN:
+        case WM_SYSKEYDOWN:
+        case WM_KEYUP:
+        case WM_SYSKEYUP:
+            SetKeyboardKey(mInput, WParam, LParam, Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN);
+
+            break;
+        case WM_MOUSEMOVE:
+            mInput.SetMousePosition({static_cast<float>(GET_X_LPARAM(LParam)), static_cast<float>(GET_Y_LPARAM(LParam))}, !IsMouseCaptured());
+
+            break;
+        case WM_MOUSEWHEEL: {
+            POINT Position{GET_X_LPARAM(LParam), GET_Y_LPARAM(LParam)};
+
+            if (ScreenToClient(Window, &Position)) {
+                mInput.SetMousePosition({static_cast<float>(Position.x), static_cast<float>(Position.y)}, !IsMouseCaptured());
+            }
+
+            if (mInput.IsFocused()) {
+                mInput.AddMouseWheel(static_cast<float>(GET_WHEEL_DELTA_WPARAM(WParam)) / WHEEL_DELTA);
+            }
+
+            break;
+        }
+
+        case WM_INPUT:
+            if (mMouseCapture != nullptr) {
+                mMouseCapture->ReadInput(LParam, mInput);
+            }
+
+            break;
+
+        default:
+            break;
         }
     }
 
@@ -508,12 +608,49 @@ namespace Platform {
         if (Application != nullptr) {
             Application->ProcessInputMessage(Window, Message, WParam, LParam);
 
+            if (Application->mCustomTitleBar) {
+                if (Message == WM_NCCALCSIZE) {
+                    auto* Bounds{WParam != 0 ? &reinterpret_cast<NCCALCSIZE_PARAMS*>(LParam)->rgrc[0] : reinterpret_cast<RECT*>(LParam)};
+
+                    if (IsZoomed(Window)) {
+                        MONITORINFO Info{};
+                        Info.cbSize = sizeof(Info);
+
+                        if (GetMonitorInfoW(MonitorFromWindow(Window, MONITOR_DEFAULTTONEAREST), &Info)) {
+                            Bounds->left = std::max(Bounds->left, Info.rcWork.left);
+                            Bounds->top = std::max(Bounds->top, Info.rcWork.top);
+                            Bounds->right = std::min(Bounds->right, Info.rcWork.right);
+                            Bounds->bottom = std::min(Bounds->bottom, Info.rcWork.bottom);
+                        }
+                    }
+
+                    return 0;
+                }
+
+                if (Message == WM_NCHITTEST) {
+                    return Application->HitTestCustomFrame(LParam);
+                }
+
+                if (Message == WM_DPICHANGED) {
+                    const auto* Bounds{reinterpret_cast<const RECT*>(LParam)};
+                    SetWindowPos(Window, nullptr, Bounds->left, Bounds->top, Bounds->right - Bounds->left, Bounds->bottom - Bounds->top, SWP_NOZORDER | SWP_NOACTIVATE);
+
+                    return 0;
+                }
+            }
+
+            if (Message == WM_INPUT) {
+                return DefWindowProcW(Window, Message, WParam, LParam);
+            }
+
             if (Message == WM_GETMINMAXINFO && (Application->mMinimumWidth != 0 || Application->mMinimumHeight != 0)) {
                 auto* Info{reinterpret_cast<MINMAXINFO*>(LParam)};
                 const UINT Dpi{GetDpiForWindow(Window)};
                 const float Scale{static_cast<float>(Dpi) / 96.0f};
                 RECT Bounds{0, 0, static_cast<LONG>(std::lround(Application->mMinimumWidth * Scale)), static_cast<LONG>(std::lround(Application->mMinimumHeight * Scale))};
-                AdjustWindowRectExForDpi(&Bounds, static_cast<DWORD>(GetWindowLongPtrW(Window, GWL_STYLE)), false, static_cast<DWORD>(GetWindowLongPtrW(Window, GWL_EXSTYLE)), Dpi);
+                if (!Application->mCustomTitleBar) {
+                    AdjustWindowRectExForDpi(&Bounds, static_cast<DWORD>(GetWindowLongPtrW(Window, GWL_STYLE)), false, static_cast<DWORD>(GetWindowLongPtrW(Window, GWL_EXSTYLE)), Dpi);
+                }
 
                 if (Application->mMinimumWidth != 0) {
                     Info->ptMinTrackSize.x = Bounds.right - Bounds.left;
@@ -527,8 +664,12 @@ namespace Platform {
             }
 
             if (Message == WM_SIZE) {
-                Application->mWidth = LOWORD(LParam);
-                Application->mHeight = HIWORD(LParam);
+                Application->mWidth = WParam == SIZE_MINIMIZED ? 0 : LOWORD(LParam);
+                Application->mHeight = WParam == SIZE_MINIMIZED ? 0 : HIWORD(LParam);
+
+                if (Application->mWidth == 0 || Application->mHeight == 0) {
+                    Application->ReleaseMouseCapture();
+                }
             }
 
             if (Message == WM_WINDOWPOSCHANGED) {
@@ -538,12 +679,13 @@ namespace Platform {
                     Application->mWidth = 0;
                     Application->mHeight = 0;
                 } else if (GetClientRect(Window, &Client)) {
-                    Application->mWidth = static_cast<Core::Uint32>(Client.right);
-                    Application->mHeight = static_cast<Core::Uint32>(Client.bottom);
+                    Application->mWidth = static_cast<Uint32>(Client.right);
+                    Application->mHeight = static_cast<Uint32>(Client.bottom);
                 }
             }
 
             if (Message == WM_DESTROY) {
+                Application->ReleaseMouseCapture();
                 Application->mRunning = false;
                 Application->mWindow = nullptr;
                 Application->mPresentationPending = false;
@@ -554,7 +696,9 @@ namespace Platform {
                     Handler(Window, Message, WParam, LParam);
                 }
 
-                PostQuitMessage(0);
+                if (Application->mQuitOnClose) {
+                    PostQuitMessage(0);
+                }
 
                 return 0;
             }

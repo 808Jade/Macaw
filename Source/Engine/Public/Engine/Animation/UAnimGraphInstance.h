@@ -68,10 +68,24 @@ namespace Engine {
         GENERATED_BODY()
 
     private:
+        /**
+         * @brief 애니메이션 그래프 원본의 참조와 식별자·리비전을 보관합니다.
+         */
         struct FGraphSource {
         public:
+            /**
+             * @brief 애니메이션 그래프 원본의 비소유 참조입니다.
+             */
             CoreUObject::TObjectRef<const Asset::UAnimGraph> mGraph{};
-            Core::Int32 mId{-1};
+
+            /**
+             * @brief 등록 항목 또는 원본 에셋의 식별자입니다.
+             */
+            Int32 mId{-1};
+
+            /**
+             * @brief 그래프 원본 변경을 판별하는 리비전입니다.
+             */
             Core::FRevision mRevision{};
         };
 
@@ -177,14 +191,14 @@ namespace Engine {
          * @param Node 조회·연결·갱신할 노드입니다.
          * @return 디버그·편집기 연결에 사용할 키이며 노드가 없으면 0입니다.
          */
-        Core::Uint64 GetNodeKey(const Engine::FAnimNode_Base* Node) const;
+        Uint64 GetNodeKey(const Engine::FAnimNode_Base* Node) const;
 
         /**
          * @brief 실행 값 노드의 디버그 표시 키를 얻습니다.
          * @param Node 조회·연결·갱신할 노드입니다.
          * @return 값 노드를 식별할 키이며 대응 항목이 없으면 0입니다.
          */
-        Core::Uint64 GetValueNodeKey(const Engine::FAnimValueNode_Base* Node) const;
+        Uint64 GetValueNodeKey(const Engine::FAnimValueNode_Base* Node) const;
 
     private:
 
@@ -195,7 +209,7 @@ namespace Engine {
          * @param Depth 탐색할 상위 보기의 깊이 또는 노드 배치 깊이입니다.
          * @return 인스턴스가 소유하는 루트 포즈 노드이며 실패하면 nullptr입니다.
          */
-        Engine::FAnimNode_Base* BuildGraph(const Asset::UAnimGraph& Source, const Engine::FAnimGraphNodeBuildContext& BaseContext, Core::Uint32 Depth);
+        Engine::FAnimNode_Base* BuildGraph(const Asset::UAnimGraph& Source, const Engine::FAnimGraphNodeBuildContext& BaseContext, Uint32 Depth);
 
         void NativeInitializeAnimation() override;
 

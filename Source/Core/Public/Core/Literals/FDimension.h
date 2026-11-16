@@ -64,23 +64,23 @@ namespace Core {
         /**
          * @brief 길이(m) 지수입니다.
          */
-        Core::Int32 mLength = 0;
+        Int32 mLength = 0;
 
         /**
          * @brief 질량(kg) 지수입니다.
          */
-        Core::Int32 mMass = 0;
+        Int32 mMass = 0;
 
         /**
          * @brief 시간(s) 지수입니다.
          */
-        Core::Int32 mTime = 0;
+        Int32 mTime = 0;
 
         /**
          * @brief 각도(rad) 지수입니다.
          * @details SI에서는 무차원이지만 도와 라디안을 섞는 실수를 막기 위해 별도 차원으로 둡니다.
          */
-        Core::Int32 mAngle = 0;
+        Int32 mAngle = 0;
     };
 
     /**

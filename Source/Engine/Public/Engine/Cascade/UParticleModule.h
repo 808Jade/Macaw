@@ -39,6 +39,9 @@ namespace Engine {
         GENERATED_BODY()
 
     private:
+        /**
+         * @brief UParticleLODLevel에서 내부 연결 또는 저장 상태에 접근하도록 허용합니다.
+         */
         friend class Engine::UParticleLODLevel;
 
     public:
@@ -95,14 +98,14 @@ namespace Engine {
              * @param[in] SpawnTime 생성 시점에 전달할 시간 값입니다.
              * @param[in] ParticleBase 초기화할 기본 파티클 데이터의 비소유 주소입니다.
              */
-            FSpawnContext(Engine::FParticleEmitterInstance& Owner, Core::Index_t Offset, float SpawnTime, Engine::FBaseParticle* ParticleBase);
+            FSpawnContext(Engine::FParticleEmitterInstance& Owner, Index_t Offset, float SpawnTime, Engine::FBaseParticle* ParticleBase);
 
         public:
             /**
              * @brief 파티클 레코드 내 모듈 추가 데이터의 위치를 반환합니다.
              * @return 레코드 시작을 기준으로 한 바이트 오프셋입니다.
              */
-            Core::Index_t GetOffset() const;
+            Index_t GetOffset() const;
             /**
              * @brief 이번 생성 호출에 전달된 시간 값을 반환합니다.
              * @return 컨텍스트 생성 시 지정한 SpawnTime입니다.
@@ -118,7 +121,7 @@ namespace Engine {
             /**
              * @brief 파티클 레코드 시작에서 이 모듈의 추가 데이터까지의 바이트 오프셋입니다.
              */
-            Core::Index_t mOffset{};
+            Index_t mOffset{};
             /**
              * @brief 새 파티클의 초기화 호출에 전달할 생성 시간 값입니다.
              */
@@ -140,14 +143,14 @@ namespace Engine {
              * @param[in] Offset 파티클 레코드 내 모듈 추가 데이터의 바이트 오프셋입니다.
              * @param[in] DeltaTime 이번 갱신에 사용할 경과 시간입니다.
              */
-            FUpdateContext(Engine::FParticleEmitterInstance& Owner, Core::Index_t Offset, float DeltaTime);
+            FUpdateContext(Engine::FParticleEmitterInstance& Owner, Index_t Offset, float DeltaTime);
 
         public:
             /**
              * @brief 파티클 레코드 내 모듈 추가 데이터의 위치를 반환합니다.
              * @return 레코드 시작을 기준으로 한 바이트 오프셋입니다.
              */
-            Core::Index_t GetOffset() const;
+            Index_t GetOffset() const;
             /**
              * @brief 이번 모듈 갱신에 전달된 시간 간격을 반환합니다.
              * @return 컨텍스트 생성 시 지정한 DeltaTime입니다.
@@ -158,7 +161,7 @@ namespace Engine {
             /**
              * @brief 파티클 레코드 시작에서 이 모듈의 추가 데이터까지의 바이트 오프셋입니다.
              */
-            Core::Index_t mOffset{};
+            Index_t mOffset{};
             /**
              * @brief 이번 모듈 갱신에 전달할 경과 시간입니다.
              */
@@ -188,12 +191,12 @@ namespace Engine {
          * @param[in] TypeData Emitter 유형별 데이터 정의의 비소유 주소이며 현재 호출 경로에서는 nullptr입니다.
          * @return FBaseParticle을 제외한 추가 바이트 수이며 기본 구현은 0입니다.
          */
-        virtual Core::Uint32 RequiredBytes(Engine::UParticleModuleTypeDataBase* TypeData);
+        virtual Uint32 RequiredBytes(Engine::UParticleModuleTypeDataBase* TypeData);
         /**
          * @brief 이 모듈이 EmitterInstance 하나마다 요구하는 추가 데이터 크기를 반환합니다.
          * @return 파티클 개수와 무관하게 인스턴스당 한 번 할당할 바이트 수이며 기본 구현은 0입니다.
          */
-        virtual Core::Uint32 RequiredBytesPerInstance();
+        virtual Uint32 RequiredBytesPerInstance();
         /**
          * @brief 모듈에 할당된 인스턴스 페이로드를 초기화하는 확장 지점입니다.
          * @param[in] Owner 페이로드를 소유하는 실행 인스턴스의 비소유 주소입니다.
@@ -201,7 +204,7 @@ namespace Engine {
          * @return 기본 구현은 추가 작업 없이 0을 반환합니다.
          * @note 실행 중 변하는 필드는 모듈 멤버가 아닌 이 영역에서 관리합니다.
          */
-        virtual Core::Uint32 PrepPerInstanceBlock(Engine::FParticleEmitterInstance* Owner, void* InstanceData);
+        virtual Uint32 PrepPerInstanceBlock(Engine::FParticleEmitterInstance* Owner, void* InstanceData);
 
         /**
          * @brief 생성된 파티클 하나의 초기 속성을 설정하는 확장 지점입니다.
@@ -223,6 +226,10 @@ namespace Engine {
         virtual void FinalUpdate(const Engine::UParticleModule::FUpdateContext& Context);
 
     private:
+        /**
+         * @brief 파티클 모듈의 공통 속성과 파생 모듈 데이터를 직렬화합니다.
+         * @param[in,out] Archive 읽기·쓰기 모드를 제공하는 아카이브입니다.
+         */
         void SerializeModule(Core::FArchive& Archive);
 
     public:

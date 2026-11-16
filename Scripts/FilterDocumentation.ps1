@@ -54,6 +54,14 @@ for ($Index = 0; $Index -lt $Tokens.Count; $Index++) {
 
 $FilteredSource = [string]::new($Output)
 
+if ([regex]::IsMatch($Mask, '\busing\s+namespace\s+Editor\s*;')) {
+    $WidgetPointers = [regex]::Matches($Mask, '\bstd\s*::\s*unique_ptr\s*<\s*(?<Type>FEditorWidget)\b')
+
+    for ($Index = $WidgetPointers.Count - 1; $Index -ge 0; $Index--) {
+        $FilteredSource = $FilteredSource.Insert($WidgetPointers[$Index].Groups['Type'].Index, 'Editor::')
+    }
+}
+
 if ($OutputPath.Length -gt 0) {
     [IO.File]::WriteAllText($OutputPath, $FilteredSource, [Text.UTF8Encoding]::new($false))
 } else {

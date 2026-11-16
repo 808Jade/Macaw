@@ -160,7 +160,7 @@ namespace Editor {
                     throw std::runtime_error{"ImThemes color is out of range"};
                 }
 
-                for (Core::Index_t Index{}; Index < ImGuiCol_COUNT; ++Index) {
+                for (Index_t Index{}; Index < ImGuiCol_COUNT; ++Index) {
                     if (Name == ImGui::GetStyleColorName(static_cast<ImGuiCol>(Index))) {
                         Style.Colors[Index] = ImVec4{Channels[0] / 255.0f, Channels[1] / 255.0f, Channels[2] / 255.0f, Channels[3]};
 
@@ -178,11 +178,22 @@ namespace Editor {
     }
 
     namespace {
+        /**
+         * @brief 8비트 명도와 알파로 ImGui 회색 색상을 만듭니다.
+         * @param[in] Value 0~255 범위의 회색 명도입니다.
+         * @param[in] Alpha 출력 색상의 알파 값입니다.
+         * @return 정규화한 회색 RGBA 값입니다.
+         */
         ImVec4 Gray(int Value, float Alpha = 1.0f) {
             return ImVec4{static_cast<float>(Value) / 255.0f, static_cast<float>(Value) / 255.0f, static_cast<float>(Value) / 255.0f, Alpha};
         }
 
         // 언리얼 에디터 5의 기본 색 구성(패널 #242424, 배경 #151515, 입력 #0F0F0F, 강조 #0070E0)을 ImGui 스타일에 대응시킵니다.
+
+        /**
+         * @brief 에디터 기본 테마의 간격·모서리·색상을 ImGui 스타일에 적용합니다.
+         * @param[in,out] Style 변경할 ImGui 스타일입니다.
+         */
         void ApplyUnrealStyle(ImGuiStyle& Style) {
             const ImVec4 Primary{0.0f, 112.0f / 255.0f, 224.0f / 255.0f, 1.0f};
             const ImVec4 Clear{0.0f, 0.0f, 0.0f, 0.0f};
@@ -346,7 +357,7 @@ namespace Editor {
                 ReadStyle(*StyleTable, Style);
 
                 const auto Found{std::find(Candidate.mNames.begin(), Candidate.mNames.end(), Name)};
-                const Core::Index_t Index{static_cast<Core::Index_t>(static_cast<size_t>(Found - Candidate.mNames.begin()))};
+                const Index_t Index{static_cast<Index_t>(static_cast<size_t>(Found - Candidate.mNames.begin()))};
 
                 if (Found == Candidate.mNames.end()) {
                     Candidate.mNames.push_back(Name);
@@ -373,44 +384,44 @@ namespace Editor {
     /**
      * @brief 기본 테마를 포함한 테마 개수를 반환합니다.
      */
-    Core::Uint32 Editor::FImGuiThemeCatalog::GetCount() const {
-        return static_cast<Core::Uint32>(mNames.size());
+    Uint32 Editor::FImGuiThemeCatalog::GetCount() const {
+        return static_cast<Uint32>(mNames.size());
     }
 
     /**
      * @brief 이름이 정확히 일치하는 테마 인덱스를 찾습니다.
      */
-    Core::Index_t Editor::FImGuiThemeCatalog::Find(const Core::FString& Name) const {
+    Index_t Editor::FImGuiThemeCatalog::Find(const Core::FString& Name) const {
         const auto Found{std::find(mNames.begin(), mNames.end(), Name)};
 
-        return Found == mNames.end() ? 0 : static_cast<Core::Index_t>(Found - mNames.begin());
+        return Found == mNames.end() ? 0 : static_cast<Index_t>(Found - mNames.begin());
     }
 
     /**
      * @brief 인덱스에 해당하는 테마 이름을 반환합니다.
      */
-    const Core::FString& Editor::FImGuiThemeCatalog::GetName(Core::Index_t Index) const {
+    const Core::FString& Editor::FImGuiThemeCatalog::GetName(Index_t Index) const {
         return mNames.at(Index);
     }
 
     /**
      * @brief 인덱스에 해당하는 테마 작성자를 반환합니다.
      */
-    const Core::FString& Editor::FImGuiThemeCatalog::GetAuthor(Core::Index_t Index) const {
+    const Core::FString& Editor::FImGuiThemeCatalog::GetAuthor(Index_t Index) const {
         return mAuthors.at(Index);
     }
 
     /**
      * @brief 인덱스에 해당하는 테마 설명을 반환합니다.
      */
-    const Core::FString& Editor::FImGuiThemeCatalog::GetDescription(Core::Index_t Index) const {
+    const Core::FString& Editor::FImGuiThemeCatalog::GetDescription(Index_t Index) const {
         return mDescriptions.at(Index);
     }
 
     /**
      * @brief 인덱스에 해당하는 배율 적용 전 테마 스타일을 반환합니다.
      */
-    const ImGuiStyle& Editor::FImGuiThemeCatalog::GetStyle(Core::Index_t Index) const {
+    const ImGuiStyle& Editor::FImGuiThemeCatalog::GetStyle(Index_t Index) const {
         return mStyles.at(Index);
     }
 

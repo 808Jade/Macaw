@@ -25,7 +25,7 @@ namespace CoreUObject {
         /**
          * @brief 열거값의 정수 값입니다.
          */
-        Core::Int32 mValue{};
+        Int32 mValue{};
     };
 
 }

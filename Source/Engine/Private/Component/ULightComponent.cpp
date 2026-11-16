@@ -42,14 +42,14 @@ namespace Engine {
     /**
      * @brief 기본 그림자 맵의 한 변 해상도를 반환합니다.
      */
-    Core::Uint32 Engine::ULightComponent::GetShadowResolution() const {
+    Uint32 Engine::ULightComponent::GetShadowResolution() const {
         return mShadowResolution;
     }
 
     /**
      * @brief 기본 그림자 맵의 한 변 해상도를 검증하고 변경합니다.
      */
-    bool Engine::ULightComponent::SetShadowResolution(Core::Uint32 Resolution) {
+    bool Engine::ULightComponent::SetShadowResolution(Uint32 Resolution) {
         if (Resolution < 64 || Resolution > 8192 || (Resolution & (Resolution - 1)) != 0) {
             return false;
         }
@@ -88,7 +88,7 @@ namespace Engine {
     }
 
     bool Engine::ULightComponent::SetShadowBiasPreset(Engine::EShadowBiasPreset Preset) {
-        if (static_cast<Core::Uint32>(Preset) >= Engine::ShadowBiasPresetCount) {
+        if (static_cast<Uint32>(Preset) >= Engine::ShadowBiasPresetCount) {
             return false;
         }
 
@@ -104,7 +104,7 @@ namespace Engine {
     }
 
     bool Engine::ULightComponent::SetShadowSlopeBiasPreset(Engine::EShadowBiasPreset Preset) {
-        if (static_cast<Core::Uint32>(Preset) >= Engine::ShadowBiasPresetCount) {
+        if (static_cast<Uint32>(Preset) >= Engine::ShadowBiasPresetCount) {
             return false;
         }
 

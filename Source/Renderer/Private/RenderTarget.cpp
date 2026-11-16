@@ -24,7 +24,7 @@ namespace Renderer {
     /**
      * @brief 새 크기에 맞추어 렌더 타깃 리소스를 생성하거나 교체합니다.
      */
-    bool Renderer::FDXRenderTarget::Resize(ID3D11Device* Device, Core::Uint32 Width, Core::Uint32 Height) {
+    bool Renderer::FDXRenderTarget::Resize(ID3D11Device* Device, Uint32 Width, Uint32 Height) {
         if (Device == nullptr || Width == 0 || Height == 0 || Width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || Height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION) {
             return false;
         }
@@ -93,14 +93,14 @@ namespace Renderer {
     /**
      * @brief 가로 픽셀 수를 반환합니다.
      */
-    Core::Uint32 Renderer::FDXRenderTarget::GetWidth() const {
+    Uint32 Renderer::FDXRenderTarget::GetWidth() const {
         return mWidth;
     }
 
     /**
      * @brief 세로 픽셀 수를 반환합니다.
      */
-    Core::Uint32 Renderer::FDXRenderTarget::GetHeight() const {
+    Uint32 Renderer::FDXRenderTarget::GetHeight() const {
         return mHeight;
     }
 

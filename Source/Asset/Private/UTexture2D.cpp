@@ -35,14 +35,14 @@ namespace Asset {
     /**
      * @brief DDS 데이터를 읽어 이미지 형식과 크기 및 CPU 이미지 데이터를 설정합니다.
      */
-    bool Asset::UTexture2D::SetDDSData(std::span<const Core::Uint8> Data, bool SRGB) {
+    bool Asset::UTexture2D::SetDDSData(std::span<const Uint8> Data, bool SRGB) {
         return LoadFromMemory(Data, L"Image.dds", SRGB);
     }
 
     /**
      * @brief 보존 중인 DDS 형식의 이미지 바이트 배열을 반환합니다.
      */
-    const Core::TArray<Core::Uint8>& Asset::UTexture2D::GetDDSData() const {
+    const Core::TArray<Uint8>& Asset::UTexture2D::GetDDSData() const {
         return mDDSData;
     }
 
@@ -60,7 +60,7 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Data(static_cast<std::size_t>(Size));
+        Core::TArray<Uint8> Data(static_cast<std::size_t>(Size));
 
         return Input.read(reinterpret_cast<char*>(Data.data()), static_cast<std::streamsize>(Data.size())) && LoadFromMemory(Data, ImagePath, SRGB);
     }
@@ -68,7 +68,7 @@ namespace Asset {
     /**
      * @brief 메모리의 이미지 바이트를 디코딩하여 텍스처 크기·형식·픽셀 데이터를 설정합니다.
      */
-    bool Asset::UTexture2D::LoadFromMemory(std::span<const Core::Uint8> Data, const std::filesystem::path& ImagePath, bool SRGB) {
+    bool Asset::UTexture2D::LoadFromMemory(std::span<const Uint8> Data, const std::filesystem::path& ImagePath, bool SRGB) {
         if (Data.empty()) {
             return false;
         }
@@ -103,7 +103,7 @@ namespace Asset {
     /**
      * @brief 크기·형식·용도·색 공간을 검증하여 텍스처 생성 구성을 설정합니다.
      */
-    bool Asset::UTexture2D::Configure(Core::Uint32 SizeX, Core::Uint32 SizeY, Asset::ETextureFormat Format, Asset::ETextureUsage Usage, bool SRGB) {
+    bool Asset::UTexture2D::Configure(Uint32 SizeX, Uint32 SizeY, Asset::ETextureFormat Format, Asset::ETextureUsage Usage, bool SRGB) {
         if (!IsValidSize(SizeX, SizeY) || !ValidateUsage(Format, Usage, SRGB)) {
             return false;
         }
@@ -120,8 +120,8 @@ namespace Asset {
         mFormat = Format;
         mUsage = Usage;
         mSRGB = SRGB;
-        mPixels = Core::TArray<Core::Uint8>{};
-        mDDSData = Core::TArray<Core::Uint8>{};
+        mPixels = Core::TArray<Uint8>{};
+        mDDSData = Core::TArray<Uint8>{};
         mExternalResource = false;
 
         return true;
@@ -130,7 +130,7 @@ namespace Asset {
     /**
      * @brief 크기와 형식에 맞는 CPU 픽셀 데이터를 검증하여 교체합니다.
      */
-    bool Asset::UTexture2D::SetPixels(Core::Uint32 SizeX, Core::Uint32 SizeY, Asset::ETextureFormat Format, Core::TArray<Core::Uint8> Pixels) {
+    bool Asset::UTexture2D::SetPixels(Uint32 SizeX, Uint32 SizeY, Asset::ETextureFormat Format, Core::TArray<Uint8> Pixels) {
         const bool SRGB{mSRGB && (Format == Asset::ETextureFormat::RGBA8 || Format == Asset::ETextureFormat::BGRA8)};
 
         if (!IsValidSize(SizeX, SizeY) || IsDepthFormat(Format) || !ValidateUsage(Format, mUsage, SRGB)) {
@@ -138,7 +138,7 @@ namespace Asset {
         }
 
         const std::size_t BytesPerPixel{GetBytesPerPixel(Format)};
-        const Core::Uint64 PixelCount{static_cast<Core::Uint64>(SizeX) * SizeY};
+        const Uint64 PixelCount{static_cast<Uint64>(SizeX) * SizeY};
 
         if (PixelCount > std::numeric_limits<std::size_t>::max() / BytesPerPixel || Pixels.size() != static_cast<std::size_t>(PixelCount) * BytesPerPixel) {
             return false;
@@ -149,7 +149,7 @@ namespace Asset {
         mMipLevels = 1;
         mFormat = Format;
         mPixels = std::move(Pixels);
-        mDDSData = Core::TArray<Core::Uint8>{};
+        mDDSData = Core::TArray<Uint8>{};
         mSRGB = SRGB;
         mExternalResource = false;
 
@@ -161,21 +161,21 @@ namespace Asset {
     /**
      * @brief 텍스처의 가로 픽셀 수를 반환합니다.
      */
-    Core::Uint32 Asset::UTexture2D::GetSizeX() const {
+    Uint32 Asset::UTexture2D::GetSizeX() const {
         return mSizeX;
     }
 
     /**
      * @brief 텍스처의 세로 픽셀 수를 반환합니다.
      */
-    Core::Uint32 Asset::UTexture2D::GetSizeY() const {
+    Uint32 Asset::UTexture2D::GetSizeY() const {
         return mSizeY;
     }
 
     /**
      * @brief 텍스처의 밉 레벨 수를 반환합니다.
      */
-    Core::Uint32 Asset::UTexture2D::GetMipLevels() const {
+    Uint32 Asset::UTexture2D::GetMipLevels() const {
         return mMipLevels;
     }
 
@@ -189,7 +189,7 @@ namespace Asset {
     /**
      * @brief CPU 메모리에 보관한 픽셀 바이트 배열을 반환합니다.
      */
-    const Core::TArray<Core::Uint8>& Asset::UTexture2D::GetPixels() const {
+    const Core::TArray<Uint8>& Asset::UTexture2D::GetPixels() const {
         return mPixels;
     }
 
@@ -297,14 +297,14 @@ namespace Asset {
 
             InitialData.reserve(mMipLevels);
 
-            for (Core::Uint32 MipLevel{}; MipLevel < mMipLevels; ++MipLevel) {
+            for (Uint32 MipLevel{}; MipLevel < mMipLevels; ++MipLevel) {
                 const DirectX::Image* MipImage{SourceImage.GetImage(MipLevel, 0, 0)};
 
-                if (MipImage == nullptr || MipImage->rowPitch > std::numeric_limits<Core::Uint32>::max() || MipImage->slicePitch > std::numeric_limits<Core::Uint32>::max()) {
+                if (MipImage == nullptr || MipImage->rowPitch > std::numeric_limits<Uint32>::max() || MipImage->slicePitch > std::numeric_limits<Uint32>::max()) {
                     return false;
                 }
 
-                InitialData.push_back({MipImage->pixels, static_cast<Core::Uint32>(MipImage->rowPitch), static_cast<Core::Uint32>(MipImage->slicePitch)});
+                InitialData.push_back({MipImage->pixels, static_cast<Uint32>(MipImage->rowPitch), static_cast<Uint32>(MipImage->slicePitch)});
             }
 
             ResourceBytes = SourceImage.GetPixelsSize();
@@ -397,7 +397,7 @@ namespace Asset {
             return false;
         }
 
-        const Core::Uint32 RequiredFlags{GetBindFlags(Usage)};
+        const Uint32 RequiredFlags{GetBindFlags(Usage)};
 
         if (!IsValidSize(Description.Width, Description.Height) || !ValidateUsage(Format, Usage, SRGB) || Description.MipLevels != 1 || Description.ArraySize != 1 || Description.SampleDesc.Count != 1 || (Description.BindFlags & RequiredFlags) != RequiredFlags) {
             return false;
@@ -426,8 +426,8 @@ namespace Asset {
         mFormat = Format;
         mUsage = Usage;
         mSRGB = SRGB;
-        mPixels = Core::TArray<Core::Uint8>{};
-        mDDSData = Core::TArray<Core::Uint8>{};
+        mPixels = Core::TArray<Uint8>{};
+        mDDSData = Core::TArray<Uint8>{};
         mExternalResource = true;
         mResourceBytes = static_cast<std::size_t>(mSizeX) * mSizeY * GetBytesPerPixel(mFormat);
 
@@ -493,7 +493,7 @@ namespace Asset {
     bool Asset::UTexture2D::SetImageData(DirectX::ScratchImage& SourceImage, bool SRGB) {
         const DirectX::TexMetadata& Metadata{SourceImage.GetMetadata()};
 
-        if (Metadata.dimension != DirectX::TEX_DIMENSION_TEXTURE2D || Metadata.arraySize != 1 || Metadata.depth != 1 || Metadata.IsCubemap() || Metadata.width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || Metadata.height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || !IsValidSize(static_cast<Core::Uint32>(Metadata.width), static_cast<Core::Uint32>(Metadata.height))) {
+        if (Metadata.dimension != DirectX::TEX_DIMENSION_TEXTURE2D || Metadata.arraySize != 1 || Metadata.depth != 1 || Metadata.IsCubemap() || Metadata.width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || Metadata.height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || !IsValidSize(static_cast<Uint32>(Metadata.width), static_cast<Uint32>(Metadata.height))) {
             return false;
         }
 
@@ -589,15 +589,15 @@ namespace Asset {
         }
 
         const DirectX::Image* TopMip{MipChain.GetImage(0, 0, 0)};
-        const Core::Uint8* DDSBytes{static_cast<const Core::Uint8*>(DDSBlob.GetBufferPointer())};
-        Core::TArray<Core::Uint8> Pixels{TopMip->pixels, TopMip->pixels + TopMip->slicePitch};
-        Core::TArray<Core::Uint8> DDSData{DDSBytes, DDSBytes + DDSBlob.GetBufferSize()};
+        const Uint8* DDSBytes{static_cast<const Uint8*>(DDSBlob.GetBufferPointer())};
+        Core::TArray<Uint8> Pixels{TopMip->pixels, TopMip->pixels + TopMip->slicePitch};
+        Core::TArray<Uint8> DDSData{DDSBytes, DDSBytes + DDSBlob.GetBufferSize()};
 
         ReleaseResources();
 
-        mSizeX = static_cast<Core::Uint32>(MipChain.GetMetadata().width);
-        mSizeY = static_cast<Core::Uint32>(MipChain.GetMetadata().height);
-        mMipLevels = static_cast<Core::Uint32>(MipChain.GetMetadata().mipLevels);
+        mSizeX = static_cast<Uint32>(MipChain.GetMetadata().width);
+        mSizeY = static_cast<Uint32>(MipChain.GetMetadata().height);
+        mMipLevels = static_cast<Uint32>(MipChain.GetMetadata().mipLevels);
         mFormat = Format;
         mPixels = std::move(Pixels);
         mDDSData = std::move(DDSData);
@@ -610,7 +610,7 @@ namespace Asset {
     /**
      * @brief 가로·세로 크기가 Direct3D 텍스처의 허용 범위에 있는지 검사합니다.
      */
-    bool Asset::UTexture2D::IsValidSize(Core::Uint32 SizeX, Core::Uint32 SizeY) {
+    bool Asset::UTexture2D::IsValidSize(Uint32 SizeX, Uint32 SizeY) {
         return SizeX > 0 && SizeY > 0 && SizeX <= D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION && SizeY <= D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION;
     }
 
@@ -625,9 +625,9 @@ namespace Asset {
      * @brief 픽셀 형식·용도 플래그·sRGB 설정의 조합이 지원되는지 검사합니다.
      */
     bool Asset::UTexture2D::ValidateUsage(Asset::ETextureFormat Format, Asset::ETextureUsage Usage, bool SRGB) {
-        const Core::Uint8 Flags{static_cast<Core::Uint8>(Usage)};
+        const Uint8 Flags{static_cast<Uint8>(Usage)};
 
-        if (GetBytesPerPixel(Format) == 0 || (Flags & ~static_cast<Core::Uint8>(Asset::ETextureUsage::ShaderResource | Asset::ETextureUsage::RenderTarget | Asset::ETextureUsage::DepthStencil)) != 0 || (SRGB && Format != Asset::ETextureFormat::RGBA8 && Format != Asset::ETextureFormat::BGRA8)) {
+        if (GetBytesPerPixel(Format) == 0 || (Flags & ~static_cast<Uint8>(Asset::ETextureUsage::ShaderResource | Asset::ETextureUsage::RenderTarget | Asset::ETextureUsage::DepthStencil)) != 0 || (SRGB && Format != Asset::ETextureFormat::RGBA8 && Format != Asset::ETextureFormat::BGRA8)) {
             return false;
         }
 
@@ -637,7 +637,7 @@ namespace Asset {
     /**
      * @brief 텍스처 형식의 픽셀 하나가 차지하는 바이트 수를 반환합니다.
      */
-    Core::Uint32 Asset::UTexture2D::GetBytesPerPixel(Asset::ETextureFormat Format) {
+    Uint32 Asset::UTexture2D::GetBytesPerPixel(Asset::ETextureFormat Format) {
         switch (Format) {
         case Asset::ETextureFormat::RGBA8:
         case Asset::ETextureFormat::BGRA8:
@@ -660,8 +660,8 @@ namespace Asset {
     /**
      * @brief 텍스처 용도 플래그를 Direct3D 바인딩 플래그로 변환합니다.
      */
-    Core::Uint32 Asset::UTexture2D::GetBindFlags(Asset::ETextureUsage Usage) {
-        Core::Uint32 Flags{};
+    Uint32 Asset::UTexture2D::GetBindFlags(Asset::ETextureUsage Usage) {
+        Uint32 Flags{};
 
         Flags |= (Usage & Asset::ETextureUsage::ShaderResource) != Asset::ETextureUsage::None ? D3D11_BIND_SHADER_RESOURCE : 0;
         Flags |= (Usage & Asset::ETextureUsage::RenderTarget) != Asset::ETextureUsage::None ? D3D11_BIND_RENDER_TARGET : 0;

@@ -47,7 +47,7 @@ CoreUObject::UClass* Type::GetClass() const { \
  * @param Type 열거값이 속한 열거형 타입입니다.
  * @param Value 등록할 열거값 이름입니다.
  */
-#define ReflectEnumValue(Type, Value) CoreUObject::FEnumValue{#Value, static_cast<Core::Int32>(Type::Value)}
+#define ReflectEnumValue(Type, Value) CoreUObject::FEnumValue{#Value, static_cast<Int32>(Type::Value)}
 
 /**
  * @brief 열거형 등록 빌더와 ADL 메타데이터 조회 함수를 정의합니다.

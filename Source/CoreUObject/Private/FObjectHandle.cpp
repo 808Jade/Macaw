@@ -24,9 +24,9 @@ namespace CoreUObject {
     }
 
     std::size_t CoreUObject::FObjectHandleHash::operator()(const CoreUObject::FObjectHandle& Handle) const {
-        const Core::Uint64 Value{(static_cast<Core::Uint64>(Handle.mGeneration) << 32) | static_cast<Core::Uint32>(Handle.mIndex)};
+        const Uint64 Value{(static_cast<Uint64>(Handle.mGeneration) << 32) | static_cast<Uint32>(Handle.mIndex)};
 
-        return std::hash<Core::Uint64>{}(Value);
+        return std::hash<Uint64>{}(Value);
     }
 
 }

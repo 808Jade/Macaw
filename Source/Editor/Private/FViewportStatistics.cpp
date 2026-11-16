@@ -250,7 +250,7 @@ namespace Editor {
                         Clipper.Begin(static_cast<int>(Visible.size()));
 
                         while (Clipper.Step()) {
-                            for (Core::Index_t Index{static_cast<Core::Index_t>(Clipper.DisplayStart)}; Index < Clipper.DisplayEnd; ++Index) {
+                            for (Index_t Index{static_cast<Index_t>(Clipper.DisplayStart)}; Index < Clipper.DisplayEnd; ++Index) {
                                 DrawHistory(*Visible[Index]);
                             }
                         }
@@ -348,15 +348,15 @@ namespace Editor {
      * @brief 지정한 통계 그룹이 표시되도록 설정됐는지 검사합니다.
      */
     bool Editor::FViewportStatistics::IsEnabled(EGroup Group) const {
-        const Core::Uint32 Mask{static_cast<Core::Uint32>(Group)};
+        const Uint32 Mask{static_cast<Uint32>(Group)};
 
-        if (Mask == 0 || (Mask & static_cast<Core::Uint32>(EGroup::All)) != Mask) {
+        if (Mask == 0 || (Mask & static_cast<Uint32>(EGroup::All)) != Mask) {
             return false;
         }
 
         const std::array<Core::FString, 10> Names{"fps", "scene", "memory", "render", "shadow", "unit", "game", "world", "script", "assets"};
 
-        for (Core::Index_t Index{}; Index < Names.size(); ++Index) {
+        for (Index_t Index{}; Index < Names.size(); ++Index) {
             if ((Mask & (1u << Index)) != 0 && !IsEnabled(Names[Index])) {
                 return false;
             }
@@ -430,7 +430,7 @@ namespace Editor {
                     ImGui::TableNextColumn();
                     ImGui::TextUnformatted(Stat.GetName().c_str());
 
-                    Core::Index_t ValueIndex{};
+                    Index_t ValueIndex{};
 
                     for (const double Value : {Stat.GetValue(), Stat.GetAverage(), Stat.GetMinimum(), Stat.GetMaximum()}) {
                         ImGui::TableNextColumn();

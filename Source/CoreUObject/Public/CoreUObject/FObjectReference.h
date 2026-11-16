@@ -45,6 +45,11 @@ namespace CoreUObject {
          */
         explicit FObjectReference(const CoreUObject::UObject* Object);
 
+        /**
+         * @brief 형식 지정 객체 참조의 핸들과 GUID를 저장 가능한 객체 참조로 복사합니다.
+         * @tparam T 참조 대상의 형식입니다.
+         * @param[in] Reference 변환하거나 해시할 객체 참조입니다.
+         */
         template <typename T>
         explicit FObjectReference(const CoreUObject::TObjectRef<T>& Reference);
 
@@ -69,6 +74,11 @@ namespace CoreUObject {
          */
         void Bind(const CoreUObject::FObjectGuidMap& Objects);
 
+        /**
+         * @brief 저장된 참조를 요청한 객체 형식의 런타임 참조로 변환합니다.
+         * @tparam T 참조 대상의 형식입니다.
+         * @return 호환되는 객체 참조이며 변환할 수 없으면 std::nullopt입니다.
+         */
         template <typename T>
         std::optional<CoreUObject::TObjectRef<T>> ToObjectRef() const;
 

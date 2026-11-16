@@ -244,7 +244,7 @@ public:
      * @return 행렬에서 지정한 행의 XYZ 축 성분입니다.
      * @note Index는 0부터 3까지여야 합니다.
      */
-    FVector GetAxis(Core::Index_t Index) const;
+    FVector GetAxis(Index_t Index) const;
 
     /**
      * @brief 회전 값을 반환합니다.
@@ -319,7 +319,7 @@ public:
      * @return 소유 객체가 유지하는 값의 참조입니다.
      * @note Row와 Column은 각각 0부터 3까지여야 합니다.
      */
-    float& operator()(Core::Index_t Row, Core::Index_t Column);
+    float& operator()(Index_t Row, Index_t Column);
 
     /**
      * @brief 지정한 행과 열의 행렬 성분을 참조합니다.
@@ -328,7 +328,7 @@ public:
      * @return 소유 객체가 유지하는 값의 참조입니다.
      * @note Row와 Column은 각각 0부터 3까지여야 합니다.
      */
-    const float& operator()(Core::Index_t Row, Core::Index_t Column) const;
+    const float& operator()(Index_t Row, Index_t Column) const;
 
 private:
     /**

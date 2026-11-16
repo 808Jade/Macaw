@@ -75,6 +75,7 @@ namespace Editor {
      * @brief 자체 드래그를 취소하고 장면 뷰포트를 해제합니다.
      */
     void Editor::FEditorViewport::Shutdown() {
+        SetPlayInputCaptured(false);
         mClient.GetGizmo().Cancel();
         mPlayInputCaptured = false;
         mImageSize = {};
@@ -135,10 +136,12 @@ namespace Editor {
      * @brief PIE에 사용할 클라이언트를 연결하거나 해제하고 입력 캡처를 초기화합니다.
      */
     void Editor::FEditorViewport::SetPlayClient(Engine::FViewportClient* Client) {
+        SetPlayInputCaptured(false);
         mClient.GetGizmo().Cancel();
         mMouseCaptured = false;
         mPlayClient = Client;
         mPlayInputCaptured = false;
+        mPlayInputPending = false;
 
         if (mViewport != nullptr) {
             mViewport->SetClient(GetActiveClient());
@@ -150,6 +153,29 @@ namespace Editor {
      */
     bool Editor::FEditorViewport::IsPlayInputCaptured() const {
         return mPlayInputCaptured;
+    }
+
+    void FEditorViewport::CapturePlayInput() {
+        mPlayInputPending = true;
+    }
+
+    void FEditorViewport::ReleasePlayInput() {
+        mPlayInputPending = false;
+        SetPlayInputCaptured(false);
+    }
+
+    void FEditorViewport::SetPlayInputCaptureHandlers(std::function<bool(const FVector2&, const FVector2&)> Capture, std::function<void()> Release) {
+        SetPlayInputCaptured(false);
+        mCapturePlayInput = std::move(Capture);
+        mReleasePlayInput = std::move(Release);
+    }
+
+    void FEditorViewport::SetPlayInputCaptured(bool Captured) {
+        mPlayInputCaptured = Captured && mImageSize.x > 0.0f && mImageSize.y > 0.0f && mCapturePlayInput && mCapturePlayInput(mImageOrigin, mImageSize);
+
+        if (!mPlayInputCaptured && mReleasePlayInput) {
+            mReleasePlayInput();
+        }
     }
 
     /**
@@ -191,6 +217,7 @@ namespace Editor {
      * @brief 기즈모 조작과 마우스·PIE 입력 캡처를 해제합니다.
      */
     void Editor::FEditorViewport::ReleaseInput() {
+        SetPlayInputCaptured(false);
         mClient.GetGizmo().Cancel();
         mMouseCaptured = false;
         mPlayInputCaptured = false;
@@ -201,7 +228,7 @@ namespace Editor {
     /**
      * @brief 뷰포트 타깃 이미지·툴바를 표시하고 입력과 리사이즈를 전달합니다.
      */
-    void Editor::FEditorViewport::DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput, const std::function<void(Core::Index_t)>& ToolbarExtras) {
+    void Editor::FEditorViewport::DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput, const std::function<void(Index_t)>& ToolbarExtras) {
         using Core::EKey;
 
         mImageSize = {};
@@ -216,7 +243,7 @@ namespace Editor {
         {
             const ImVec2 Available{ImGui::GetContentRegionAvail()};
 
-            if (Available.x >= 1.0f && Available.y >= 1.0f && mViewport->Resize(static_cast<Core::Uint32>(Available.x), static_cast<Core::Uint32>(Available.y))) {
+            if (Available.x >= 1.0f && Available.y >= 1.0f && mViewport->Resize(static_cast<Uint32>(Available.x), static_cast<Uint32>(Available.y))) {
                 Engine::FRenderTarget* Target{mViewport->GetRenderTarget()};
                 const ImVec2 Start{ImGui::GetCursorScreenPos()};
                 const float Padding{6.0f * ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
@@ -233,6 +260,29 @@ namespace Editor {
 
                 if (mPlayClient != nullptr) {
                     ImGui::TextUnformatted(mPlayInputCaptured ? "Playing | Shift+F1: Release input | Esc: Stop" : "Playing | Click viewport to control | Esc: Stop");
+                } else if (ToolbarExtras && Available.x < 650.0f * ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi) {
+                    ImGui::BeginDisabled(!AllowInput);
+                    Editor::EditorStyle::PushViewportToolbar();
+                    LeftMinimum = Start;
+                    LeftMaximum = Start;
+
+                    if (Available.x >= 200.0f * ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi) {
+                        ImGui::BeginGroup();
+                        ToolbarExtras(0);
+                        ImGui::EndGroup();
+                        LeftMinimum = ImGui::GetItemRectMin();
+                        LeftMaximum = ImGui::GetItemRectMax();
+                    }
+
+                    const float Width{ImGui::GetFrameHeight() + 12.0f * ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
+                    ImGui::SetCursorScreenPos({Start.x + std::max(Padding, Available.x - Padding - Width), Start.y + Padding});
+                    ImGui::BeginGroup();
+                    ToolbarExtras(1);
+                    ImGui::EndGroup();
+                    RightMinimum = ImGui::GetItemRectMin();
+                    RightMaximum = ImGui::GetItemRectMax();
+                    Editor::EditorStyle::PopViewportToolbar();
+                    ImGui::EndDisabled();
                 } else {
                     ImGui::BeginDisabled(!AllowInput);
                     Editor::ViewportToolbar::Draw(&mClient);
@@ -284,14 +334,23 @@ namespace Editor {
                 const bool Blocked{!AllowInput || !Input.IsFocused() || ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup)};
 
                 if (mPlayClient != nullptr) {
+                    const bool Pending{mPlayInputPending && !Blocked};
+
+                    if (Pending) {
+                        ImGui::SetWindowFocus();
+                        mPlayInputPending = false;
+                    }
+
                     if (Blocked || (Input.IsDown(EKey::Shift) && Input.WasPressed(EKey::F1))) {
-                        mPlayInputCaptured = false;
-                    } else if (Hovered && LeftPressed) {
+                        SetPlayInputCaptured(false);
+                    } else if (Pending || (Hovered && LeftPressed)) {
                         ImGui::SetWindowFocus();
 
-                        mPlayInputCaptured = true;
+                        SetPlayInputCaptured(true);
                     } else if (Input.LostFocusThisFrame() || ImGui::GetIO().WantTextInput || !ImGui::IsWindowFocused()) {
-                        mPlayInputCaptured = false;
+                        SetPlayInputCaptured(false);
+                    } else {
+                        SetPlayInputCaptured(mPlayInputCaptured);
                     }
 
                     return;
@@ -401,7 +460,7 @@ namespace Editor {
         }
 
         if (!Submitted) {
-            mPlayInputCaptured = false;
+            SetPlayInputCaptured(false);
         }
 
         if (!Submitted && mClient.GetGizmo().IsDragging() && (mClient.GetGizmo().IsPivotDrag() ? !Input.IsDown(EKey::MouseMiddle) : !Input.IsDown(EKey::MouseLeft))) {

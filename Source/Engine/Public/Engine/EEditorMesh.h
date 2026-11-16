@@ -17,7 +17,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UENUM()
-    enum class EEditorMesh : Core::Uint8 {
+    enum class EEditorMesh : Uint8 {
 
         /**
          * @brief 이동용 원통 축과 원뿔 화살촉 메시입니다.

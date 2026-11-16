@@ -43,20 +43,20 @@ namespace Renderer {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Pixels{};
+        Core::TArray<Uint8> Pixels{};
         Pixels.resize(128 * 128 * 4);
 
-        for (Core::Index_t Y{}; Y < 128; ++Y) {
-            for (Core::Index_t X{}; X < 128; ++X) {
-                const Core::Index_t Frame{(Y / 32) * 4 + X / 32};
+        for (Index_t Y{}; Y < 128; ++Y) {
+            for (Index_t X{}; X < 128; ++X) {
+                const Index_t Frame{(Y / 32) * 4 + X / 32};
                 const float Horizontal{(static_cast<float>(X % 32) + 0.5f) / 16.0f - 1.0f};
                 const float Vertical{(static_cast<float>(Y % 32) + 0.5f) / 16.0f - 1.0f};
                 const float Radius{0.25f + 0.6f * (static_cast<float>(Frame) / 15.0f)};
                 const bool Visible{Horizontal * Horizontal + Vertical * Vertical <= Radius * Radius};
                 const std::size_t Offset{(static_cast<std::size_t>(Y) * 128 + X) * 4};
 
-                Pixels[Offset] = static_cast<Core::Uint8>(64 + Frame * 12);
-                Pixels[Offset + 1] = static_cast<Core::Uint8>(220 - Frame * 8);
+                Pixels[Offset] = static_cast<Uint8>(64 + Frame * 12);
+                Pixels[Offset + 1] = static_cast<Uint8>(220 - Frame * 8);
                 Pixels[Offset + 2] = 240;
                 Pixels[Offset + 3] = Visible ? 255 : 0;
             }
@@ -70,7 +70,7 @@ namespace Renderer {
     /**
      * @brief 컴파일된 바이트코드로 정점·픽셀 셰이더를 생성하고 성공 시 교체합니다.
      */
-    bool Renderer::FSpriteRenderer::CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode) {
+    bool Renderer::FSpriteRenderer::CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode) {
         Microsoft::WRL::ComPtr<ID3D11VertexShader> Vertex{};
         Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};
 

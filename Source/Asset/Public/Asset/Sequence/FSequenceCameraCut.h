@@ -20,7 +20,7 @@ namespace Asset {
         /**
          * @brief 컷이 시작하는 시간이며 틱 단위입니다.
          */
-        Core::Int32 mTick{};
+        Int32 mTick{};
 
         /**
          * @brief 카메라를 가리키는 시퀀스 바인딩 ID입니다.

@@ -31,7 +31,7 @@ namespace Script {
          * @return 추가한 모디파이어이며, 클래스를 찾지 못하거나 추가하지 못하면 nullptr입니다.
          */
         UFUNCTION()
-        static Engine::UCameraModifier* AddModifier(Engine::APlayerCameraManager* CameraManager, const Core::FString& ClassName, Core::Int32 Priority);
+        static Engine::UCameraModifier* AddModifier(Engine::APlayerCameraManager* CameraManager, const Core::FString& ClassName, Int32 Priority);
     };
 
 }

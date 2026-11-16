@@ -74,7 +74,7 @@ namespace Renderer {
          * @param[in] PixelCode 컴파일된 픽셀 셰이더 바이트코드입니다.
          * @return 성공하면 true, 실패하면 false입니다.
          */
-        bool CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode);
+        bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode);
 
         /**
          * @brief 쿼드 정렬과 UV 변환을 반영하여 텍스처 스프라이트를 그립니다.

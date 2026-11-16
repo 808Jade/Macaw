@@ -18,7 +18,7 @@ namespace Asset {
     Asset::FTextureAssetData::FTextureAssetData(const Asset::UTexture2D& Texture)
 		: mWidth{Texture.GetSizeX()},
 		  mHeight{Texture.GetSizeY()},
-		  mFormat{static_cast<Core::Uint32>(Texture.GetFormat())},
+		  mFormat{static_cast<Uint32>(Texture.GetFormat())},
 		  mSRGB{Texture.IsSRGB()},
 		  mDDS{!Texture.GetDDSData().empty()} {
         const auto& Data{mDDS ? Texture.GetDDSData() : Texture.GetPixels()};
@@ -46,13 +46,13 @@ namespace Asset {
     bool Asset::FTextureAssetData::ApplyTo(Asset::UTexture2D& Texture, Core::FString& Error) const {
         Error.clear();
 
-        if (mFormat >= static_cast<Core::Uint32>(Asset::ETextureFormat::D24S8)) {
+        if (mFormat >= static_cast<Uint32>(Asset::ETextureFormat::D24S8)) {
             Error = "Invalid texture asset data";
 
             return false;
         }
 
-        Core::TArray<Core::Uint8> Bytes{mImageData.begin(), mImageData.end()};
+        Core::TArray<Uint8> Bytes{mImageData.begin(), mImageData.end()};
         const bool Loaded{mDDS ? Texture.SetDDSData(Bytes, mSRGB) : Texture.SetPixels(mWidth, mHeight, static_cast<Asset::ETextureFormat>(mFormat), std::move(Bytes)) && Texture.SetSRGB(mSRGB)};
 
         if (!Loaded || Texture.GetSizeX() != mWidth || Texture.GetSizeY() != mHeight || Texture.GetFormat() != static_cast<Asset::ETextureFormat>(mFormat)) {

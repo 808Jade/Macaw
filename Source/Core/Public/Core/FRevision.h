@@ -40,7 +40,7 @@ namespace Core {
          * @brief 번호의 정수 값을 반환합니다.
          * @return 무효 번호이면 0, 그 외에는 발급 순서대로 증가하는 값입니다.
          */
-        Core::Uint64 GetValue() const;
+        Uint64 GetValue() const;
 
         /**
          * @brief 두 번호가 같은 변경을 가리키는지 비교합니다.
@@ -54,13 +54,13 @@ namespace Core {
          * @brief 지정한 정수 값으로 번호를 만듭니다.
          * @param[in] Value 발급된 번호의 정수 값입니다.
          */
-        explicit FRevision(Core::Uint64 Value);
+        explicit FRevision(Uint64 Value);
 
     private:
         /**
          * @brief 발급 순서대로 증가하는 번호이며 0은 무효 번호입니다.
          */
-        Core::Uint64 mValue{};
+        Uint64 mValue{};
     };
 
 }

@@ -55,7 +55,7 @@ namespace Renderer {
             /**
              * @brief 색상 텍스처 존재·색상 출력 활성화 플래그와 예약 값입니다.
              */
-            std::array<Core::Uint32, 4> mTextureFlags{};
+            std::array<Uint32, 4> mTextureFlags{};
         };
 
         static_assert(sizeof(FConstants) == 160);
@@ -77,7 +77,7 @@ namespace Renderer {
          * @param PixelCode 컴파일된 픽셀 셰이더 바이트코드입니다.
          * @return 두 셰이더를 생성했으면 true입니다.
          */
-        bool CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode);
+        bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode);
 
         /**
          * @brief 데칼 수신 표면에 정렬된 데칼을 투영하여 GBuffer를 갱신합니다.
@@ -88,7 +88,7 @@ namespace Renderer {
          * @param Decals 장면에 등록된 데칼 프록시 목록입니다.
          * @return 실제로 제출한 드로 호출 수입니다.
          */
-        Core::Uint32 Render(ID3D11Device* Device, ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FDecalSceneProxy> Decals);
+        Uint32 Render(ID3D11Device* Device, ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FDecalSceneProxy> Decals);
 
     private:
 
@@ -99,7 +99,7 @@ namespace Renderer {
          * @param Height 출력 또는 UI 영역의 높이(픽셀)입니다.
          * @return 출력 크기로 제한한 시저 사각형입니다.
          */
-        static D3D11_RECT GetScissor(const FMatrix& DecalToClip, Core::Uint32 Width, Core::Uint32 Height);
+        static D3D11_RECT GetScissor(const FMatrix& DecalToClip, Uint32 Width, Uint32 Height);
 
     private:
 

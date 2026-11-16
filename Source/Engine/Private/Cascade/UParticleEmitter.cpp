@@ -1,3 +1,9 @@
+/**
+ * @file UParticleEmitter.cpp
+ * @brief LOD별 모듈 정의와 파티클·인스턴스 페이로드 배치를 소유하는 이미터입니다.
+ * @ingroup Engine
+ */
+
 #include "Engine/Cascade/UParticleEmitter.h"
 #include "Engine/Cascade/FBaseParticle.h"
 #include "Engine/Cascade/FParticleEmitterInstance.h"
@@ -15,10 +21,22 @@ using namespace Engine;
 using namespace Core;
 using namespace CoreUObject;
 
+/**
+ * @brief UParticleEmitter 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
+ */
 namespace {
 
+    /**
+     * @brief 파티클 이미터를 읽을 때 허용하는 최대 LOD 수입니다.
+     */
     constexpr Uint32 MaximumLODLevels{64};
 
+    /**
+     * @brief 페이로드 크기를 다음 16바이트 정렬 경계로 올립니다.
+     * @param[in] Size 정렬할 현재 페이로드 바이트 수입니다.
+     * @return 16바이트 단위로 정렬된 크기입니다.
+     * @throws std::length_error 정렬한 크기가 지원하는 오프셋 범위를 넘는 경우입니다.
+     */
     Uint32 AlignPayload(Uint32 Size) {
         constexpr Uint32 MaximumSize{static_cast<Uint32>(std::numeric_limits<Int32>::max())};
 
@@ -29,6 +47,13 @@ namespace {
         return (Size + 15) & ~Uint32{15};
     }
 
+    /**
+     * @brief 정렬된 페이로드 영역을 배정하고 누적 크기를 늘립니다.
+     * @param[in,out] Size 새 영역을 배정한 뒤 갱신할 누적 페이로드 바이트 수입니다.
+     * @param[in] RequiredSize 추가로 배정할 페이로드 바이트 수입니다.
+     * @return 16바이트 정렬된 추가 영역의 바이트 오프셋입니다.
+     * @throws std::length_error 새 영역을 포함한 크기가 지원하는 오프셋 범위를 넘는 경우입니다.
+     */
     Index_t AllocatePayload(Uint32& Size, Uint32 RequiredSize) {
         const Index_t Offset{static_cast<Index_t>(AlignPayload(Size))};
 

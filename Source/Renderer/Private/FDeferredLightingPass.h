@@ -48,12 +48,12 @@ namespace Renderer {
             /**
              * @brief 이 뷰어의 셰이딩·버퍼 시각화 모드입니다.
              */
-            Core::Uint32 mViewMode{};
+            Uint32 mViewMode{};
 
             /**
              * @brief CPU와 셰이더 상수 배치의 정렬을 맞추는 패딩입니다.
              */
-            Core::Uint32 mPadding{};
+            Uint32 mPadding{};
         };
 
         static_assert(sizeof(FConstants) == 80);
@@ -74,7 +74,7 @@ namespace Renderer {
          * @param PixelCode 컴파일된 픽셀 셰이더 바이트코드입니다.
          * @return 두 셰이더를 생성했으면 true입니다.
          */
-        bool CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode);
+        bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode);
 
         /**
          * @brief GBuffer를 샘플링하여 조명 결과 또는 선택 버퍼를 출력 타깃에 그립니다.
@@ -85,7 +85,7 @@ namespace Renderer {
          * @param Rasterizer 호출자가 소유하는 래스터라이저 상태입니다.
          * @return 제출한 드로 호출 수입니다.
          */
-        Core::Uint32 Render(ID3D11DeviceContext* Context, const Renderer::FDXRenderTarget& Target, const Renderer::FPassTarget& Output, const Engine::FSceneViewFamily& Family, ID3D11RasterizerState* Rasterizer);
+        Uint32 Render(ID3D11DeviceContext* Context, const Renderer::FDXRenderTarget& Target, const Renderer::FPassTarget& Output, const Engine::FSceneViewFamily& Family, ID3D11RasterizerState* Rasterizer);
 
     private:
 

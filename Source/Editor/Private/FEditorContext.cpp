@@ -159,7 +159,7 @@ namespace Editor {
         return CanEditWorld() && !IsChangingState() && !mEngine->IsDispatching();
     }
 
-    Core::Uint64 Editor::FEditorContext::BeginSceneEdit() {
+    Uint64 Editor::FEditorContext::BeginSceneEdit() {
         if (IsSceneEditActive() || !CanModifyScene()) {
             return {};
         }
@@ -179,7 +179,7 @@ namespace Editor {
         return mSceneEditToken;
     }
 
-    void Editor::FEditorContext::EndSceneEdit(Core::Uint64 Token) {
+    void Editor::FEditorContext::EndSceneEdit(Uint64 Token) {
         if (Token == 0 || Token != mSceneEditToken) {
             return;
         }
@@ -356,7 +356,7 @@ namespace Editor {
     void Editor::FEditorContext::TrimSceneHistory() {
         constexpr std::size_t MaxEntries{128};
         constexpr std::size_t MaxBytes{64 * 1024 * 1024};
-        Core::Index_t First{static_cast<Core::Index_t>(mSceneHistory.size() - 1)};
+        Index_t First{static_cast<Index_t>(mSceneHistory.size() - 1)};
         std::size_t Bytes{mSceneHistory[First].mBefore.mBytes.size() + mSceneHistory[First].mAfter.mBytes.size()};
 
         while (First != 0 && mSceneHistory.size() - First < MaxEntries && Bytes < MaxBytes) {
@@ -730,7 +730,7 @@ namespace Editor {
         }
 
         Core::FString Name{BaseName};
-        Core::Uint32 Suffix{2};
+        Uint32 Suffix{2};
 
         while (CoreUObject::FObjectRegistry::Get()->FindObject(Core::FName{Name}, Actor) != nullptr) {
             Name = BaseName + "_" + std::to_string(Suffix++);
@@ -1073,7 +1073,7 @@ namespace Editor {
     /**
      * @brief 슬롯 재질을 변경하고 장면을 수정 상태로 표시합니다.
      */
-    bool Editor::FEditorContext::SetMaterialOverride(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, Core::Index_t Slot, const Core::FString& Path) {
+    bool Editor::FEditorContext::SetMaterialOverride(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, Index_t Slot, const Core::FString& Path) {
         if (!CanModifyScene()) {
             return false;
         }
@@ -1327,7 +1327,7 @@ namespace Editor {
     /**
      * @brief 로그의 변경 세대를 반환합니다.
      */
-    Core::Uint64 Editor::FEditorContext::GetLogRevision() const {
+    Uint64 Editor::FEditorContext::GetLogRevision() const {
         return mLogRevision;
     }
 
@@ -1414,7 +1414,7 @@ namespace Editor {
     /**
      * @brief 선택 대상 변경을 추적할 개정 번호를 반환합니다.
      */
-    Core::Uint64 Editor::FEditorContext::GetSelectionRevision() const {
+    Uint64 Editor::FEditorContext::GetSelectionRevision() const {
         return mSelectionRevision;
     }
 

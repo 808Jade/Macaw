@@ -31,7 +31,7 @@ namespace Renderer {
         /**
          * @brief 타일 열·행 개수, 타일 한 변의 픽셀 수와 광원 개수·전체 순회 플래그를 저장합니다.
          */
-        std::array<Core::Uint32, 4> mTileDimensions{};
+        std::array<Uint32, 4> mTileDimensions{};
     };
 
     /**
@@ -46,7 +46,7 @@ namespace Renderer {
          * @param[in] ComputeCode 컴파일된 컴퓨트 셰이더 바이트코드입니다.
          * @return 컴퓨트 셰이더 생성에 성공하면 true입니다.
          */
-        bool CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> ComputeCode);
+        bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> ComputeCode);
 
         /**
          * @brief 현재 뷰의 타일 광원 목록과 카메라 상수를 GPU에 업로드합니다.
@@ -57,7 +57,7 @@ namespace Renderer {
          * @param[in] ShadowRanges 원본 광원 순서의 그림자 맵 시작 인덱스·개수이며 빈 범위면 그림자를 연결하지 않습니다.
          * @return 필요한 버퍼 생성과 업로드에 성공하면 true입니다.
          */
-        bool Upload(ID3D11Device* Device, ID3D11DeviceContext* Context, std::span<const Engine::FLightSceneProxy> Lights, const Engine::FSceneView& View, std::span<const std::array<Core::Uint32, 2>> ShadowRanges = {});
+        bool Upload(ID3D11Device* Device, ID3D11DeviceContext* Context, std::span<const Engine::FLightSceneProxy> Lights, const Engine::FSceneView& View, std::span<const std::array<Uint32, 2>> ShadowRanges = {});
 
         /**
          * @brief 타일 조명 버퍼와 상수의 셰이더 바인딩을 설정합니다.

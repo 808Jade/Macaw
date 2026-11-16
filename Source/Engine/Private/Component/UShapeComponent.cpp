@@ -36,7 +36,7 @@ namespace Engine {
         /**
          * @brief 충돌 도형 원호를 분할할 선분 개수입니다.
          */
-        constexpr Core::Int32 CircleSegment{32};
+        constexpr Int32 CircleSegment{32};
 
         /**
          * @brief 두 기저 방향의 평면에서 원호를 선분으로 수집합니다.
@@ -50,12 +50,12 @@ namespace Engine {
          * @param[in] Color 적용할 색상입니다.
          */
         void AddArc(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& C, const FVector& U, const FVector& V, float R, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color) {
-            const Core::Int32 Segments{std::max(1, static_cast<Core::Int32>(CircleSegment * ((EndAngle - StartAngle) / 1_turn)))};
+            const Int32 Segments{std::max(1, static_cast<Int32>(CircleSegment * ((EndAngle - StartAngle) / 1_turn)))};
             const Core::FAngle Step{(EndAngle - StartAngle) / Segments};
 
             FVector Prev{C + U * (Core::Math::Cos(StartAngle) * R) + V * (Core::Math::Sin(StartAngle) * R)};
 
-            for (Core::Index_t Index{1}; Index <= Segments; ++Index) {
+            for (Index_t Index{1}; Index <= Segments; ++Index) {
                 const Core::FAngle Angle{StartAngle + Step * Index};
                 const FVector Point{C + U * (Core::Math::Cos(Angle) * R) + V * (Core::Math::Sin(Angle) * R)};
 

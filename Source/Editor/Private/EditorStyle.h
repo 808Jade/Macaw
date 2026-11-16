@@ -21,9 +21,104 @@ namespace Editor {
      */
     namespace EditorStyle {
         /**
+         * @brief 주 탭 표시줄에서 브랜드 영역에 확보할 기준 너비입니다.
+         */
+        inline constexpr float BrandAreaWidth{72.0f};
+
+        /**
+         * @brief 에디터 주 메뉴 표시줄의 기준 높이입니다.
+         */
+        inline constexpr float MenuBarHeight{30.0f};
+
+        /**
+         * @brief 에디터 주 탭끼리 도킹하도록 제한하는 창 클래스 식별자입니다.
+         */
+        inline constexpr ImGuiID MajorTabClassId{0x4D414A52};
+
+        /**
+         * @brief 현재 글꼴과 배율에 맞는 주 탭 높이를 반환합니다.
+         * @return 주 탭의 표시 높이입니다.
+         */
+        float GetMajorTabHeight();
+
+        /**
+         * @brief 현재 테마의 주 탭 배경색을 반환합니다.
+         * @return 주 탭에 사용할 색상입니다.
+         */
+        ImVec4 GetMajorTabColor();
+
+        /**
+         * @brief 주 탭 표시줄에 필요한 ImGui 스타일을 스택에 넣습니다.
+         */
+        void PushMajorTabStyle();
+
+        /**
+         * @brief PushMajorTabStyle()이 넣은 ImGui 스타일을 복원합니다.
+         */
+        void PopMajorTabStyle();
+
+        /**
+         * @brief 주 탭 여부에 맞는 스타일을 적용해 에디터 창을 시작합니다.
+         * @param[in] Name 표시 제목과 고유 ImGui 식별자를 담는 이름입니다.
+         * @param[in] Open 창 표시 상태이며 nullptr이면 닫기 버튼을 제공하지 않습니다.
+         * @param[in] Flags 적용할 ImGui 창 또는 선택 항목 플래그입니다.
+         * @return 창 콘텐츠를 그릴 수 있으면 true이며 항상 ImGui::End()로 마쳐야 합니다.
+         */
+        bool BeginEditorWindow(const char* Name, bool* Open = nullptr, ImGuiWindowFlags Flags = 0);
+
+        /**
          * @brief 명령 정의와 UI가 공유하는 아이콘 식별자의 스타일 네임스페이스 별칭입니다.
          */
         using EIcon = Editor::EEditorIcon;
+
+        /**
+         * @brief 선택 상태와 등장 효과를 적용한 에디터 버튼을 그립니다.
+         * @param[in] Label 메뉴 또는 컨트롤에 표시할 레이블입니다.
+         * @param[in] Size 항목의 표시 크기이며 0인 축은 ImGui 기본 크기를 사용합니다.
+         * @param[in] Selected 항목이 선택된 상태인지 지정합니다.
+         * @return 버튼을 누르면 true입니다.
+         */
+        bool Button(const char* Label, const ImVec2& Size = {}, bool Selected = false);
+
+        /**
+         * @brief 에디터 스타일의 작은 버튼을 그립니다.
+         * @param[in] Label 메뉴 또는 컨트롤에 표시할 레이블입니다.
+         * @return 버튼을 누르면 true입니다.
+         */
+        bool SmallButton(const char* Label);
+
+        /**
+         * @brief 선택·호버 배경 효과를 적용한 항목을 그립니다.
+         * @param[in] Label 메뉴 또는 컨트롤에 표시할 레이블입니다.
+         * @param[in] Selected 항목이 선택된 상태인지 지정합니다.
+         * @param[in] Flags 적용할 ImGui 창 또는 선택 항목 플래그입니다.
+         * @param[in] Size 항목의 표시 크기이며 0인 축은 ImGui 기본 크기를 사용합니다.
+         * @return 항목을 누르면 true입니다.
+         */
+        bool Selectable(const char* Label, bool Selected = false, ImGuiSelectableFlags Flags = 0, const ImVec2& Size = {});
+
+        /**
+         * @brief 선택과 호버 상태에 맞는 애니메이션 배경을 지정한 사각형에 그립니다.
+         * @param[in] Id 등록 또는 그리기 항목을 구분할 식별자입니다.
+         * @param[in] Minimum 대상 사각형의 왼쪽 위 화면 좌표입니다.
+         * @param[in] Maximum 대상 사각형의 오른쪽 아래 화면 좌표입니다.
+         * @param[in] Selected 항목이 선택된 상태인지 지정합니다.
+         * @param[in] Hovered 항목 위에 마우스가 있는지 지정합니다.
+         */
+        void SelectionBackground(ImGuiID Id, const ImVec2& Minimum, const ImVec2& Maximum, bool Selected, bool Hovered);
+
+        /**
+         * @brief 등장 효과를 적용한 에디터 팝업을 시작합니다.
+         * @param[in] Id 등록 또는 그리기 항목을 구분할 식별자입니다.
+         * @param[in] Flags 적용할 ImGui 창 또는 선택 항목 플래그입니다.
+         * @return 팝업이 열렸으면 true이며 이때 EndPopup()을 호출해야 합니다.
+         */
+        bool BeginPopup(const char* Id, ImGuiWindowFlags Flags = 0);
+
+        /**
+         * @brief BeginPopup()에서 시작한 팝업과 스타일 범위를 종료합니다.
+         */
+        void EndPopup();
 
         /**
          * @brief 현재 ImGui 스타일 스택에 뷰포트 툴바의 간격, 모서리와 버튼 색상을 적용합니다.
@@ -80,18 +175,10 @@ namespace Editor {
          * @param[in] Tooltip 대체 툴팁이며 nullptr이면 Label을 사용합니다.
          * @return 활성 버튼을 눌렀으면 true이며 비활성 상태에서는 false입니다.
          * @note 팝업 열기와 명령 실행은 호출자가 처리합니다. 문자열은 호출 중 유효해야 합니다.
+         * @param[in] MinimumWidth 버튼에 확보할 최소 너비입니다.
          */
-        bool IconButton(const char* Label, EIcon Icon, bool Selected = false, bool Enabled = true, bool Dropdown = false, const char* Tooltip = nullptr);
+        bool IconButton(const char* Label, EIcon Icon, bool Selected = false, bool Enabled = true, bool Dropdown = false, const char* Tooltip = nullptr, float MinimumWidth = 0.0f);
 
-        /**
-         * @brief 메뉴의 아이콘 열을 확보하고 선택 및 비활성 상태를 반영한 항목을 표시합니다.
-         * @param[in] Label 표시할 메뉴 항목 이름이며 호출 중 유효해야 합니다.
-         * @param[in] Icon 항목 왼쪽에 표시할 아이콘입니다.
-         * @param[in] Selected 현재 선택을 나타내는 체크 표시 여부입니다.
-         * @param[in] Enabled false이면 항목 선택을 차단합니다.
-         * @return 활성 항목을 선택했으면 true이며 비활성 상태에서는 false입니다.
-         * @pre 현재 ImGui 메뉴 또는 팝업 안에서 호출해야 합니다.
-         */
         /**
          * @brief 선택적인 아이콘과 드롭다운 표시를 붙인 텍스트 버튼을 표시합니다.
          * @param[in] Label 버튼에 표시할 문자열이며 ## 뒤는 식별자로만 사용합니다.
@@ -110,14 +197,20 @@ namespace Editor {
         void SetAssetBrowseHandler(std::function<void(const std::filesystem::path&)> Handler);
 
         /**
-         * @brief 에셋 에디터 탭 위쪽에 저장·콘텐츠 브라우저에서 찾기 버튼 줄을 표시합니다.
-         * @param[in] AssetPath 찾아보기 버튼이 선택할 에셋 경로입니다.
-         * @param[in] CanSave 저장 버튼을 활성화할지 지정합니다.
-         * @param[in] ShowSave false이면 저장 버튼을 표시하지 않습니다.
-         * @return 저장 버튼을 눌렀으면 true입니다.
+         * @brief 등록한 찾아보기 처리기에 에셋 경로를 전달해 콘텐츠 브라우저에서 선택합니다.
+         * @param[in] AssetPath 콘텐츠 브라우저에서 선택할 에셋 경로입니다.
          */
-        bool AssetToolbar(const std::filesystem::path& AssetPath, bool CanSave, bool ShowSave = true);
+        void BrowseAsset(const std::filesystem::path& AssetPath);
 
+        /**
+         * @brief 메뉴의 아이콘 열을 확보하고 선택 및 비활성 상태를 반영한 항목을 표시합니다.
+         * @param[in] Label 표시할 메뉴 항목 이름이며 호출 중 유효해야 합니다.
+         * @param[in] Icon 항목 왼쪽에 표시할 아이콘입니다.
+         * @param[in] Selected 현재 선택을 나타내는 체크 표시 여부입니다.
+         * @param[in] Enabled false이면 항목 선택을 차단합니다.
+         * @return 활성 항목을 선택했으면 true이며 비활성 상태에서는 false입니다.
+         * @pre 현재 ImGui 메뉴 또는 팝업 안에서 호출해야 합니다.
+         */
         bool IconMenuItem(const char* Label, EIcon Icon, bool Selected, bool Enabled = true);
     }
 

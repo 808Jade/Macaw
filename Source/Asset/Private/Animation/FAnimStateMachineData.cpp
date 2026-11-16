@@ -20,11 +20,11 @@ namespace Asset {
         return mNodes;
     }
 
-    Asset::FAnimRuleNode* FAnimTransitionGraph::FindNode(Core::Int32 Id) {
+    Asset::FAnimRuleNode* FAnimTransitionGraph::FindNode(Int32 Id) {
         return const_cast<Asset::FAnimRuleNode*>(std::as_const(*this).FindNode(Id));
     }
 
-    const Asset::FAnimRuleNode* FAnimTransitionGraph::FindNode(Core::Int32 Id) const {
+    const Asset::FAnimRuleNode* FAnimTransitionGraph::FindNode(Int32 Id) const {
         const auto Found{std::find_if(mNodes.begin(), mNodes.end(), [Id](const auto& Node) {
             return Node.mId == Id;
         })};
@@ -32,8 +32,8 @@ namespace Asset {
         return Found != mNodes.end() ? &*Found : nullptr;
     }
 
-    Core::Int32 FAnimTransitionGraph::AddNode(Asset::EAnimRuleNodeType Type, float X, float Y) {
-        if (Type >= Asset::EAnimRuleNodeType::Count || mNodes.size() >= Asset::UAnimGraph::MaxNodes || mNextId == std::numeric_limits<Core::Int32>::max() || !std::isfinite(X) || !std::isfinite(Y)) {
+    Int32 FAnimTransitionGraph::AddNode(Asset::EAnimRuleNodeType Type, float X, float Y) {
+        if (Type >= Asset::EAnimRuleNodeType::Count || mNodes.size() >= Asset::UAnimGraph::MaxNodes || mNextId == std::numeric_limits<Int32>::max() || !std::isfinite(X) || !std::isfinite(Y)) {
             return -1;
         }
 
@@ -47,7 +47,7 @@ namespace Asset {
         return Node.mId;
     }
 
-    bool FAnimTransitionGraph::RemoveNode(Core::Int32 Id) {
+    bool FAnimTransitionGraph::RemoveNode(Int32 Id) {
         if (std::erase_if(mNodes, [Id](const auto& Node) {
             return Node.mId == Id;
         }) == 0) {
@@ -71,12 +71,12 @@ namespace Asset {
         return true;
     }
 
-    bool FAnimTransitionGraph::Reaches(Core::Int32 From, Core::Int32 To) const {
-        Core::TArray<Core::Int32> Pending{From};
-        Core::TArray<Core::Int32> Visited{};
+    bool FAnimTransitionGraph::Reaches(Int32 From, Int32 To) const {
+        Core::TArray<Int32> Pending{From};
+        Core::TArray<Int32> Visited{};
 
         while (!Pending.empty()) {
-            const Core::Int32 Id{Pending.back()};
+            const Int32 Id{Pending.back()};
             Pending.pop_back();
 
             if (Id == To) {
@@ -97,7 +97,7 @@ namespace Asset {
         return false;
     }
 
-    bool FAnimTransitionGraph::Connect(Core::Int32 From, Core::Int32 To, Core::Index_t Pin) {
+    bool FAnimTransitionGraph::Connect(Int32 From, Int32 To, Index_t Pin) {
         const auto* Source{FindNode(From)};
         auto* Target{FindNode(To)};
 
@@ -110,21 +110,21 @@ namespace Asset {
         return true;
     }
 
-    bool FAnimTransitionGraph::Disconnect(Core::Int32 To, Core::Index_t Pin) {
+    bool FAnimTransitionGraph::Disconnect(Int32 To, Index_t Pin) {
         auto* Node{FindNode(To)};
 
         if (Node == nullptr || Pin < 0 || Pin >= GetInputCount(Node->mType)) {
             return false;
         }
 
-        Core::Int32& Input{Pin == 0 ? Node->mInputA : Node->mInputB};
+        Int32& Input{Pin == 0 ? Node->mInputA : Node->mInputB};
         const bool Changed{Input >= 0};
         Input = -1;
 
         return Changed;
     }
 
-    bool FAnimTransitionGraph::SetResult(Core::Int32 Id) {
+    bool FAnimTransitionGraph::SetResult(Int32 Id) {
         const auto* Node{FindNode(Id)};
 
         if (Id != -1 && (Node == nullptr || !IsBool(Node->mType))) {
@@ -136,7 +136,7 @@ namespace Asset {
         return true;
     }
 
-    Core::Int32 FAnimTransitionGraph::GetResult() const {
+    Int32 FAnimTransitionGraph::GetResult() const {
         return mResult;
     }
 
@@ -144,7 +144,7 @@ namespace Asset {
         return Type == Asset::EAnimRuleNodeType::Bool || Type == Asset::EAnimRuleNodeType::GetBool || (Type >= Asset::EAnimRuleNodeType::Greater && Type <= Asset::EAnimRuleNodeType::Not) || Type == Asset::EAnimRuleNodeType::Finished;
     }
 
-    Core::Int32 FAnimTransitionGraph::GetInputCount(Asset::EAnimRuleNodeType Type) {
+    Int32 FAnimTransitionGraph::GetInputCount(Asset::EAnimRuleNodeType Type) {
         return Type == Asset::EAnimRuleNodeType::Not ? 1 : (Type >= Asset::EAnimRuleNodeType::Greater && Type <= Asset::EAnimRuleNodeType::Or ? 2 : 0);
     }
 
@@ -155,7 +155,7 @@ namespace Asset {
     const char* FAnimTransitionGraph::GetTitle(Asset::EAnimRuleNodeType Type) {
         static constexpr const char* Titles[]{"Float", "Bool", "Get Float", "Get Bool", ">", ">=", "<", "<=", "==", "!=", "And", "Or", "Not", "State Time", "Time Remaining", "Finished"};
 
-        return Type < Asset::EAnimRuleNodeType::Count ? Titles[static_cast<Core::Index_t>(Type)] : "Unknown";
+        return Type < Asset::EAnimRuleNodeType::Count ? Titles[static_cast<Index_t>(Type)] : "Unknown";
     }
 
     bool FAnimTransitionGraph::Validate() const {
@@ -163,17 +163,17 @@ namespace Asset {
             return false;
         }
 
-        for (Core::Index_t Index{}; Index < mNodes.size(); ++Index) {
+        for (Index_t Index{}; Index < mNodes.size(); ++Index) {
             const auto& Node{mNodes[Index]};
 
-            if (Node.mId < 0 || Node.mId == std::numeric_limits<Core::Int32>::max() || Node.mType >= Asset::EAnimRuleNodeType::Count || !std::isfinite(Node.mValue) || !std::isfinite(Node.mX) || !std::isfinite(Node.mY) || std::any_of(mNodes.begin(), mNodes.begin() + Index, [&Node](const auto& Other) {
+            if (Node.mId < 0 || Node.mId == std::numeric_limits<Int32>::max() || Node.mType >= Asset::EAnimRuleNodeType::Count || !std::isfinite(Node.mValue) || !std::isfinite(Node.mX) || !std::isfinite(Node.mY) || std::any_of(mNodes.begin(), mNodes.begin() + Index, [&Node](const auto& Other) {
                 return Other.mId == Node.mId;
             })) {
                 return false;
             }
 
-            for (Core::Index_t Pin{}; Pin < 2; ++Pin) {
-                const Core::Int32 Input{Pin == 0 ? Node.mInputA : Node.mInputB};
+            for (Index_t Pin{}; Pin < 2; ++Pin) {
+                const Int32 Input{Pin == 0 ? Node.mInputA : Node.mInputB};
 
                 if (Input == -1) {
                     continue;
@@ -200,7 +200,7 @@ namespace Asset {
 
     void FAnimTransitionGraph::Serialize(Core::FArchive& Archive) {
         Archive.Serialize("Result", mResult);
-        Core::Uint32 Count{static_cast<Core::Uint32>(mNodes.size())};
+        Uint32 Count{static_cast<Uint32>(mNodes.size())};
 
         if (!Archive.BeginArray("Nodes", Count)) {
             return;
@@ -213,13 +213,13 @@ namespace Asset {
             mNextId = 0;
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
 
             auto& Node{mNodes[Index]};
-            Core::Uint32 Type{static_cast<Core::Uint32>(Node.mType)};
+            Uint32 Type{static_cast<Uint32>(Node.mType)};
             Archive.Serialize("Id", Node.mId);
             Archive.Serialize("Type", Type);
             Archive.Serialize("A", Node.mInputA);
@@ -231,13 +231,13 @@ namespace Asset {
             Archive.Serialize("Y", Node.mY);
             Archive.EndObject();
 
-            if (Type >= static_cast<Core::Uint32>(Asset::EAnimRuleNodeType::Count)) {
+            if (Type >= static_cast<Uint32>(Asset::EAnimRuleNodeType::Count)) {
                 Archive.SetError("Invalid transition rule node type");
             } else {
                 Node.mType = static_cast<Asset::EAnimRuleNodeType>(Type);
             }
 
-            if (Archive.IsLoading() && Node.mId >= 0 && Node.mId < std::numeric_limits<Core::Int32>::max()) {
+            if (Archive.IsLoading() && Node.mId >= 0 && Node.mId < std::numeric_limits<Int32>::max()) {
                 mNextId = std::max(mNextId, Node.mId + 1);
             }
         }
@@ -257,11 +257,11 @@ namespace Asset {
         return mTransitions;
     }
 
-    Asset::FAnimStateData* FAnimStateMachineData::FindState(Core::Int32 Id) {
+    Asset::FAnimStateData* FAnimStateMachineData::FindState(Int32 Id) {
         return const_cast<Asset::FAnimStateData*>(std::as_const(*this).FindState(Id));
     }
 
-    const Asset::FAnimStateData* FAnimStateMachineData::FindState(Core::Int32 Id) const {
+    const Asset::FAnimStateData* FAnimStateMachineData::FindState(Int32 Id) const {
         const auto Found{std::find_if(mStates.begin(), mStates.end(), [Id](const auto& State) {
             return State.mId == Id;
         })};
@@ -269,11 +269,11 @@ namespace Asset {
         return Found != mStates.end() ? &*Found : nullptr;
     }
 
-    Asset::FAnimTransitionData* FAnimStateMachineData::FindTransition(Core::Int32 Id) {
+    Asset::FAnimTransitionData* FAnimStateMachineData::FindTransition(Int32 Id) {
         return const_cast<Asset::FAnimTransitionData*>(std::as_const(*this).FindTransition(Id));
     }
 
-    const Asset::FAnimTransitionData* FAnimStateMachineData::FindTransition(Core::Int32 Id) const {
+    const Asset::FAnimTransitionData* FAnimStateMachineData::FindTransition(Int32 Id) const {
         const auto Found{std::find_if(mTransitions.begin(), mTransitions.end(), [Id](const auto& Transition) {
             return Transition.mId == Id;
         })};
@@ -281,8 +281,8 @@ namespace Asset {
         return Found != mTransitions.end() ? &*Found : nullptr;
     }
 
-    Core::Int32 FAnimStateMachineData::AddState(const Core::FString& Name, float X, float Y, const Asset::UAnimGraph& Owner) {
-        if (Name.empty() || mStates.size() >= MaxStates || mNextStateId == std::numeric_limits<Core::Int32>::max() || !std::isfinite(X) || !std::isfinite(Y) || std::any_of(mStates.begin(), mStates.end(), [&Name](const auto& State) {
+    Int32 FAnimStateMachineData::AddState(const Core::FString& Name, float X, float Y, const Asset::UAnimGraph& Owner) {
+        if (Name.empty() || mStates.size() >= MaxStates || mNextStateId == std::numeric_limits<Int32>::max() || !std::isfinite(X) || !std::isfinite(Y) || std::any_of(mStates.begin(), mStates.end(), [&Name](const auto& State) {
             return State.mName == Name;
         })) {
             return -1;
@@ -308,7 +308,7 @@ namespace Asset {
         return State.mId;
     }
 
-    bool FAnimStateMachineData::RemoveState(Core::Int32 Id) {
+    bool FAnimStateMachineData::RemoveState(Int32 Id) {
         if (std::erase_if(mStates, [Id](const auto& State) {
             return State.mId == Id;
         }) == 0) {
@@ -326,8 +326,8 @@ namespace Asset {
         return true;
     }
 
-    Core::Int32 FAnimStateMachineData::AddTransition(Core::Int32 From, Core::Int32 To) {
-        if (FindState(From) == nullptr || FindState(To) == nullptr || mTransitions.size() >= Asset::UAnimGraph::MaxNodes || mNextTransitionId == std::numeric_limits<Core::Int32>::max()) {
+    Int32 FAnimStateMachineData::AddTransition(Int32 From, Int32 To) {
+        if (FindState(From) == nullptr || FindState(To) == nullptr || mTransitions.size() >= Asset::UAnimGraph::MaxNodes || mNextTransitionId == std::numeric_limits<Int32>::max()) {
             return -1;
         }
 
@@ -340,13 +340,13 @@ namespace Asset {
         return Transition.mId;
     }
 
-    bool FAnimStateMachineData::RemoveTransition(Core::Int32 Id) {
+    bool FAnimStateMachineData::RemoveTransition(Int32 Id) {
         return std::erase_if(mTransitions, [Id](const auto& Transition) {
             return Transition.mId == Id;
         }) != 0;
     }
 
-    bool FAnimStateMachineData::SetEntryState(Core::Int32 Id) {
+    bool FAnimStateMachineData::SetEntryState(Int32 Id) {
         if (FindState(Id) == nullptr) {
             return false;
         }
@@ -356,7 +356,7 @@ namespace Asset {
         return true;
     }
 
-    Core::Int32 FAnimStateMachineData::GetEntryState() const {
+    Int32 FAnimStateMachineData::GetEntryState() const {
         return mEntryState;
     }
 
@@ -384,7 +384,7 @@ namespace Asset {
 
     void FAnimStateMachineData::Serialize(Core::FArchive& Archive) {
         Archive.Serialize("Entry", mEntryState);
-        Core::Uint32 Count{static_cast<Core::Uint32>(mStates.size())};
+        Uint32 Count{static_cast<Uint32>(mStates.size())};
 
         if (!Archive.BeginArray("States", Count)) {
             return;
@@ -397,7 +397,7 @@ namespace Asset {
             mNextStateId = 0;
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
@@ -422,7 +422,7 @@ namespace Asset {
 
             Archive.EndObject();
 
-            if (State.mId < 0 || State.mId == std::numeric_limits<Core::Int32>::max() || State.mName.empty() || !std::isfinite(State.mX) || !std::isfinite(State.mY) || std::any_of(mStates.begin(), mStates.begin() + Index, [&State](const auto& Other) {
+            if (State.mId < 0 || State.mId == std::numeric_limits<Int32>::max() || State.mName.empty() || !std::isfinite(State.mX) || !std::isfinite(State.mY) || std::any_of(mStates.begin(), mStates.begin() + Index, [&State](const auto& Other) {
                 return Other.mId == State.mId || Other.mName == State.mName;
             })) {
                 Archive.SetError("Invalid or duplicate animation state");
@@ -432,7 +432,7 @@ namespace Asset {
         }
 
         Archive.EndArray();
-        Count = static_cast<Core::Uint32>(mTransitions.size());
+        Count = static_cast<Uint32>(mTransitions.size());
 
         if (Archive.HasError() || !Archive.BeginArray("Transitions", Count)) {
             return;
@@ -445,7 +445,7 @@ namespace Asset {
             mNextTransitionId = 0;
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
@@ -464,7 +464,7 @@ namespace Asset {
 
             Archive.EndObject();
 
-            if (Transition.mId < 0 || Transition.mId == std::numeric_limits<Core::Int32>::max() || FindState(Transition.mFromState) == nullptr || FindState(Transition.mToState) == nullptr || !std::isfinite(Transition.mDuration) || Transition.mDuration < 0.0f || std::any_of(mTransitions.begin(), mTransitions.begin() + Index, [&Transition](const auto& Other) {
+            if (Transition.mId < 0 || Transition.mId == std::numeric_limits<Int32>::max() || FindState(Transition.mFromState) == nullptr || FindState(Transition.mToState) == nullptr || !std::isfinite(Transition.mDuration) || Transition.mDuration < 0.0f || std::any_of(mTransitions.begin(), mTransitions.begin() + Index, [&Transition](const auto& Other) {
                 return Other.mId == Transition.mId;
             })) {
                 Archive.SetError("Invalid animation transition");

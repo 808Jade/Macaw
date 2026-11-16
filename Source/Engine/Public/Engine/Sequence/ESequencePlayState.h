@@ -17,7 +17,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UENUM()
-    enum class ESequencePlayState : Core::Uint8 {
+    enum class ESequencePlayState : Uint8 {
         /**
          * @brief 재생하지 않으며 다음 재생을 시작 시간부터 진행합니다.
          */

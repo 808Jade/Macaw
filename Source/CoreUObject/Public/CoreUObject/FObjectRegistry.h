@@ -37,7 +37,7 @@ namespace CoreUObject {
             /**
              * @brief 슬롯 재사용을 구분하는 세대입니다.
              */
-            Core::Uint32 mGeneration{1};
+            Uint32 mGeneration{1};
         };
 
     private:
@@ -128,7 +128,7 @@ namespace CoreUObject {
         /**
          * @brief 재사용 가능한 슬롯 인덱스 목록입니다.
          */
-        Core::TArray<Core::Int32> mFreeSlots{};
+        Core::TArray<Int32> mFreeSlots{};
 
         /**
          * @brief 현재 전역 레지스트리에 등록된 객체의 개수입니다.

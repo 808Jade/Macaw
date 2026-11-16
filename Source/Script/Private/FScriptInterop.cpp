@@ -42,7 +42,7 @@ namespace Script {
          */
         template <std::size_t Count>
         void StoreFloats(Script::FScriptValue& Output, Script::EScriptValueTag Tag, const float (&Values)[Count]) {
-            Output.mTag = static_cast<Core::Int32>(Tag);
+            Output.mTag = static_cast<Int32>(Tag);
 
             std::copy_n(Values, Count, Output.mFloats);
         }
@@ -53,8 +53,8 @@ namespace Script {
          * @param[in] Tag ABI 값의 타입 태그입니다.
          * @param[in] Value 검사·변환·저장할 값입니다.
          */
-        void StoreInteger(Script::FScriptValue& Output, Script::EScriptValueTag Tag, Core::Uint64 Value) {
-            Output.mTag = static_cast<Core::Int32>(Tag);
+        void StoreInteger(Script::FScriptValue& Output, Script::EScriptValueTag Tag, Uint64 Value) {
+            Output.mTag = static_cast<Int32>(Tag);
             Output.mInteger = Value;
         }
 
@@ -71,17 +71,17 @@ namespace Script {
 
                 if constexpr (std::is_same_v<FTyped, bool>) {
                     StoreInteger(Output, Script::EScriptValueTag::Bool, Typed ? 1 : 0);
-                } else if constexpr (std::is_same_v<FTyped, Core::Int32>) {
-                    StoreInteger(Output, Script::EScriptValueTag::Int, static_cast<Core::Uint32>(Typed));
-                } else if constexpr (std::is_same_v<FTyped, Core::Uint32>) {
+                } else if constexpr (std::is_same_v<FTyped, Int32>) {
+                    StoreInteger(Output, Script::EScriptValueTag::Int, static_cast<Uint32>(Typed));
+                } else if constexpr (std::is_same_v<FTyped, Uint32>) {
                     StoreInteger(Output, Script::EScriptValueTag::Uint, Typed);
-                } else if constexpr (std::is_same_v<FTyped, Core::Uint64>) {
+                } else if constexpr (std::is_same_v<FTyped, Uint64>) {
                     StoreInteger(Output, Script::EScriptValueTag::Uint64, Typed);
                 } else if constexpr (std::is_same_v<FTyped, float>) {
                     const float Values[]{Typed};
                     StoreFloats(Output, Script::EScriptValueTag::Float, Values);
                 } else if constexpr (std::is_same_v<FTyped, Core::FString>) {
-                    Output.mTag = static_cast<Core::Int32>(Script::EScriptValueTag::String);
+                    Output.mTag = static_cast<Int32>(Script::EScriptValueTag::String);
                     Output.mText = Script::Abi::StoreString(Typed);
                 } else if constexpr (std::is_same_v<FTyped, FVector2>) {
                     const float Values[]{Typed.x, Typed.y};
@@ -102,7 +102,7 @@ namespace Script {
                     const float Values[]{L.x, L.y, L.z, R.x, R.y, R.z, R.w, S.x, S.y, S.z};
                     StoreFloats(Output, Script::EScriptValueTag::Transform, Values);
                 } else if constexpr (std::is_same_v<FTyped, CoreUObject::FObjectReference>) {
-                    Output.mTag = static_cast<Core::Int32>(Script::EScriptValueTag::Object);
+                    Output.mTag = static_cast<Int32>(Script::EScriptValueTag::Object);
                     Output.mObject = Script::Abi::ToHandle(Typed.Resolve());
                 }
             }, Value);
@@ -134,15 +134,15 @@ namespace Script {
                     if (Match(Script::EScriptValueTag::Bool)) {
                         Typed = Input.mInteger != 0;
                     }
-                } else if constexpr (std::is_same_v<FTyped, Core::Int32>) {
+                } else if constexpr (std::is_same_v<FTyped, Int32>) {
                     if (Match(Script::EScriptValueTag::Int)) {
-                        Typed = static_cast<Core::Int32>(static_cast<Core::Uint32>(Input.mInteger));
+                        Typed = static_cast<Int32>(static_cast<Uint32>(Input.mInteger));
                     }
-                } else if constexpr (std::is_same_v<FTyped, Core::Uint32>) {
+                } else if constexpr (std::is_same_v<FTyped, Uint32>) {
                     if (Match(Script::EScriptValueTag::Uint)) {
-                        Typed = static_cast<Core::Uint32>(Input.mInteger);
+                        Typed = static_cast<Uint32>(Input.mInteger);
                     }
-                } else if constexpr (std::is_same_v<FTyped, Core::Uint64>) {
+                } else if constexpr (std::is_same_v<FTyped, Uint64>) {
                     if (Match(Script::EScriptValueTag::Uint64)) {
                         Typed = Input.mInteger;
                     }

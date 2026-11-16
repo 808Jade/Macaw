@@ -147,6 +147,9 @@ namespace Asset {
          */
         bool mTwoSided{};
 
+        /**
+         * @brief 머티리얼 표면의 불투명·반투명 블렌드 방식입니다.
+         */
         Asset::EBlendMode mBlendMode{Asset::EBlendMode::Opaque};
     };
 

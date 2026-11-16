@@ -1,10 +1,9 @@
 /**
  * @file FEditorViewportLayout.cpp
- * @brief 활성 뷰와 입력 캡처를 유지하며 단일·4분할 뷰를 배치합니다.
+ * @brief 뷰포트 분할 프리셋·최대화·활성 입력과 ImGui 설정 저장을 관리합니다.
  * @ingroup Editor
  */
 
-#include "Core/Types.h"
 #include "FEditorViewportLayout.h"
 #include "EditorStyle.h"
 #include "Editor/FEditorContext.h"
@@ -12,426 +11,479 @@
 #include "Editor/FPlayInEditorSession.h"
 #include "RenderCore/IRendererModule.h"
 
-#include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 
-namespace Editor {
+using namespace Editor;
 
-    /**
-     * @brief 전달된 설정과 기본값으로 FEditorViewportLayout 객체를 생성합니다.
-     */
-    Editor::FEditorViewportLayout::FEditorViewportLayout(Editor::FEditorContext* Context, Editor::FEditorViewport* Viewport, Editor::FPlayInEditorSession* PlaySession)
-		: mContext{Context},
-		  mViewport{Viewport},
-		  mPlaySession{PlaySession} {
+FEditorViewportLayout::FEditorViewportLayout(FEditorContext* Context, FEditorViewport* Viewport, FPlayInEditorSession* PlaySession)
+	: mContext{Context},
+	  mViewport{Viewport},
+	  mPlaySession{PlaySession} {
+}
+
+FEditorViewportLayout::~FEditorViewportLayout() {
+    Shutdown();
+}
+
+const FEditorViewportLayout::FPresetDefinition& FEditorViewportLayout::GetDefinition(EEditorViewportLayoutPreset Preset) {
+    const auto Leaf{[](Index_t Slot) {
+        return FLayoutNode{-1, -1, Slot, 0, false};
+    }};
+    const auto Split{[](bool Columns, Index_t Ratio, Int32 First, Int32 Second) {
+        return FLayoutNode{First, Second, 0, Ratio, Columns};
+    }};
+    static const std::array<FPresetDefinition, 12> Definitions{{{"단일 뷰포트", 1, {Leaf(0)}, {0.5f, 0.5f, 0.5f}},
+        {"좌우 2분할", 2, {Split(true, 0, 1, 2), Leaf(0), Leaf(1)}, {0.5f, 0.5f, 0.5f}},
+        {"상하 2분할", 2, {Split(false, 1, 1, 2), Leaf(0), Leaf(1)}, {0.5f, 0.5f, 0.5f}},
+        {"왼쪽 큰 3분할", 3, {Split(true, 0, 1, 2), Leaf(0), Split(false, 1, 3, 4), Leaf(1), Leaf(2)}, {0.66f, 0.5f, 0.5f}},
+        {"오른쪽 큰 3분할", 3, {Split(true, 0, 1, 2), Split(false, 1, 3, 4), Leaf(0), Leaf(1), Leaf(2)}, {0.34f, 0.5f, 0.5f}},
+        {"위쪽 큰 3분할", 3, {Split(false, 1, 1, 2), Leaf(0), Split(true, 0, 3, 4), Leaf(1), Leaf(2)}, {0.5f, 0.66f, 0.5f}},
+        {"아래쪽 큰 3분할", 3, {Split(false, 1, 1, 2), Split(true, 0, 3, 4), Leaf(0), Leaf(1), Leaf(2)}, {0.5f, 0.34f, 0.5f}},
+        {"균등 4분할", 4, {Split(true, 0, 1, 2), Split(false, 1, 3, 4), Split(false, 1, 5, 6), Leaf(0), Leaf(2), Leaf(1), Leaf(3)}, {0.5f, 0.5f, 0.5f}},
+        {"왼쪽 큰 4분할", 4, {Split(true, 0, 1, 2), Leaf(0), Split(false, 1, 3, 4), Leaf(1), Split(false, 2, 5, 6), Leaf(2), Leaf(3)}, {0.66f, 0.333333f, 0.5f}},
+        {"오른쪽 큰 4분할", 4, {Split(true, 0, 1, 2), Split(false, 1, 3, 4), Leaf(0), Leaf(1), Split(false, 2, 5, 6), Leaf(2), Leaf(3)}, {0.34f, 0.333333f, 0.5f}},
+        {"위쪽 큰 4분할", 4, {Split(false, 1, 1, 2), Leaf(0), Split(true, 0, 3, 4), Leaf(1), Split(true, 2, 5, 6), Leaf(2), Leaf(3)}, {0.333333f, 0.66f, 0.5f}},
+        {"아래쪽 큰 4분할", 4, {Split(false, 1, 1, 2), Split(true, 0, 3, 4), Leaf(0), Leaf(1), Split(true, 2, 5, 6), Leaf(2), Leaf(3)}, {0.333333f, 0.34f, 0.5f}}}};
+    const Index_t Index{static_cast<Index_t>(Preset)};
+    return Definitions[Index < Definitions.size() ? Index : 0];
+}
+
+const char* FEditorViewportLayout::GetPresetName(EEditorViewportLayoutPreset Preset) {
+    return GetDefinition(Preset).mName;
+}
+
+bool FEditorViewportLayout::Initialize(RenderCore::IRendererModule* Renderer) {
+    if (Renderer == nullptr || mContext == nullptr || mViewport == nullptr || mPlaySession == nullptr || mOrthographicViewports[0] != nullptr) {
+        return false;
     }
 
-    /**
-     * @brief ImGui 설정 핸들러 등록을 해제하고 정사영 뷰포트를 정리합니다.
-     */
-    Editor::FEditorViewportLayout::~FEditorViewportLayout() {
-        Shutdown();
-    }
-
-    /**
-     * @brief Top·Front·Right 정사영 뷰포트를 생성하고 ImGui 설정 핸들러를 등록합니다.
-     */
-    bool Editor::FEditorViewportLayout::Initialize(RenderCore::IRendererModule* Renderer) {
-        if (Renderer == nullptr || mContext == nullptr || mViewport == nullptr || mPlaySession == nullptr || mOrthographicViewports[0] != nullptr) {
+    const std::array<EEditorViewportType, 3> Types{EEditorViewportType::Top, EEditorViewportType::Front, EEditorViewportType::Right};
+    for (Index_t Index{}; Index < mOrthographicViewports.size(); ++Index) {
+        mOrthographicViewports[Index] = std::make_unique<FEditorViewport>(mContext, "Orthographic" + std::to_string(Index));
+        mOrthographicViewports[Index]->GetClient()->SetViewType(Types[Index]);
+        if (!mOrthographicViewports[Index]->Initialize(Renderer)) {
+            Shutdown();
             return false;
         }
-
-        const std::array<Editor::EEditorViewportType, 3> Types{Editor::EEditorViewportType::Top, Editor::EEditorViewportType::Front, Editor::EEditorViewportType::Right};
-
-        for (Core::Index_t Index{}; Index < mOrthographicViewports.size(); ++Index) {
-            mOrthographicViewports[Index] = std::make_unique<Editor::FEditorViewport>(mContext, "Orthographic" + std::to_string(Index));
-            mOrthographicViewports[Index]->GetClient()->SetViewType(Types[Index]);
-
-            if (!mOrthographicViewports[Index]->Initialize(Renderer)) {
-                Shutdown();
-
-                return false;
-            }
-        }
-
-        if (ImGui::GetCurrentContext() != nullptr) {
-            ImGuiSettingsHandler Handler{};
-            Handler.TypeName = "MacawViewport";
-            Handler.TypeHash = ImHashStr(Handler.TypeName);
-            Handler.UserData = this;
-            Handler.ReadOpenFn = ReadSettingsOpen;
-            Handler.ReadLineFn = ReadSettingsLine;
-            Handler.WriteAllFn = WriteSettings;
-
-            ImGui::AddSettingsHandler(&Handler);
-        }
-
-        return true;
     }
 
-    /**
-     * @brief 입력 캡처를 해제하고 소유 뷰포트 자원을 정리합니다.
-     */
-    void Editor::FEditorViewportLayout::Shutdown() {
-        if (ImGui::GetCurrentContext() != nullptr) {
-            ImGuiSettingsHandler* Handler{ImGui::FindSettingsHandler("MacawViewport")};
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGuiSettingsHandler Handler{};
+        Handler.TypeName = "MacawViewport";
+        Handler.TypeHash = ImHashStr(Handler.TypeName);
+        Handler.UserData = this;
+        Handler.ReadOpenFn = ReadSettingsOpen;
+        Handler.ReadLineFn = ReadSettingsLine;
+        Handler.WriteAllFn = WriteSettings;
+        ImGui::AddSettingsHandler(&Handler);
+    }
 
-            if (Handler != nullptr && Handler->UserData == this) {
-                ImGui::RemoveSettingsHandler("MacawViewport");
-            }
+    return true;
+}
+
+void FEditorViewportLayout::Shutdown() {
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGuiSettingsHandler* Handler{ImGui::FindSettingsHandler("MacawViewport")};
+        if (Handler != nullptr && Handler->UserData == this) {
+            ImGui::RemoveSettingsHandler("MacawViewport");
         }
+    }
 
-        for (auto& Viewport : mOrthographicViewports) {
-            Viewport.reset();
+    for (auto& Viewport : mOrthographicViewports) {
+        Viewport.reset();
+    }
+
+    mVisible.fill(false);
+    mActiveViewport = 0;
+    mSingleViewport = 0;
+    mPreset = EEditorViewportLayoutPreset::FourGrid;
+    mMaximized = true;
+    mRatios = {0.5f, 0.5f, 0.5f};
+}
+
+FEditorViewport* FEditorViewportLayout::GetViewport(Index_t Index) const {
+    return Index == 0 ? mViewport : Index <= mOrthographicViewports.size() ? mOrthographicViewports[Index - 1].get()
+                                                                           : nullptr;
+}
+
+FEditorViewport* FEditorViewportLayout::GetActiveViewport() const {
+    return mPlaySession->IsActive() ? mViewport : GetViewport(mActiveViewport);
+}
+
+void FEditorViewportLayout::UpdateViewportContexts() {
+    FEditorContext* Context{mPlaySession->IsActive() ? mPlaySession->GetInspectionContext() : mContext};
+    for (const auto& Viewport : mOrthographicViewports) {
+        if (Viewport != nullptr) {
+            Viewport->GetClient()->SetEditorContext(Context);
         }
+    }
+}
 
-        mVisible.fill(false);
+bool FEditorViewportLayout::CanChangeLayout() const {
+    if (mPlaySession->IsActive()) {
+        return false;
+    }
+
+    for (Index_t Index{}; Index < mVisible.size(); ++Index) {
+        FEditorViewport* Viewport{GetViewport(Index)};
+        if (Viewport != nullptr && (Viewport->IsMouseCaptured() || Viewport->GetClient()->GetGizmo().IsDragging())) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void FEditorViewportLayout::SetPreset(EEditorViewportLayoutPreset Preset) {
+    if (!CanChangeLayout() || static_cast<Index_t>(Preset) >= static_cast<Index_t>(EEditorViewportLayoutPreset::Count)) {
+        return;
+    }
+
+    if (Preset == EEditorViewportLayoutPreset::Single) {
         mActiveViewport = 0;
         mSingleViewport = 0;
-        mQuadView = false;
-        mHorizontalRatio = 0.5f;
-        mVerticalRatio = 0.5f;
-    }
+        mViewport->GetClient()->SetViewType(EEditorViewportType::Perspective);
+        mMaximized = true;
+    } else {
+        if (mPreset != Preset) {
+            mRatios = GetDefinition(Preset).mRatios;
+        }
 
-    /**
-     * @brief 0 기반 슬롯에 해당하는 뷰포트를 조회합니다.
-     */
-    Editor::FEditorViewport* Editor::FEditorViewportLayout::GetViewport(Core::Index_t Index) const {
-        return Index == 0 ? mViewport : Index > 0 && Index <= mOrthographicViewports.size() ? mOrthographicViewports[Index - 1].get() : nullptr;
-    }
-
-    /**
-     * @brief 가장 최근 입력을 받은 유효한 뷰포트를 반환합니다.
-     */
-    Editor::FEditorViewport* Editor::FEditorViewportLayout::GetActiveViewport() const {
-        return mPlaySession->IsActive() ? mViewport : GetViewport(mActiveViewport);
-    }
-
-    /**
-     * @brief 현재 편집 또는 PIE 컨텍스트를 각 뷰포트에 연결합니다.
-     */
-    void Editor::FEditorViewportLayout::UpdateViewportContexts() {
-        Editor::FEditorContext* Context{mPlaySession->IsActive() ? mPlaySession->GetInspectionContext() : mContext};
-
-        for (const auto& Viewport : mOrthographicViewports) {
-            if (Viewport != nullptr) {
-                Viewport->GetClient()->SetEditorContext(Context);
-            }
+        mPreset = Preset;
+        mMaximized = false;
+        if (mActiveViewport >= GetDefinition(Preset).mCount) {
+            mActiveViewport = 0;
         }
     }
 
-    /**
-     * @brief 입력 캡처나 PIE 상태가 레이아웃 변경을 허용하는지 검사합니다.
-     */
-    bool Editor::FEditorViewportLayout::CanChangeLayout() const {
-        if (mPlaySession->IsActive()) {
-            return false;
-        }
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGui::MarkIniSettingsDirty();
+    }
+}
 
-        for (Core::Index_t Index{}; Index < mVisible.size(); ++Index) {
-            Editor::FEditorViewport* Viewport{GetViewport(Index)};
+EEditorViewportLayoutPreset FEditorViewportLayout::GetPreset() const {
+    return mMaximized ? EEditorViewportLayoutPreset::Single : mPreset;
+}
 
-            if (Viewport != nullptr && (Viewport->IsMouseCaptured() || Viewport->GetClient()->GetGizmo().IsDragging())) {
-                return false;
-            }
-        }
+bool FEditorViewportLayout::IsMaximized() const {
+    return mMaximized;
+}
 
-        return true;
+void FEditorViewportLayout::ToggleMaximize(Index_t Index) {
+    if (!CanChangeLayout() || GetViewport(Index) == nullptr) {
+        return;
     }
 
-    /**
-     * @brief 활성 뷰를 보존하며 단일·4분할 레이아웃을 전환합니다.
-     */
-    void Editor::FEditorViewportLayout::SetQuadView(bool QuadView) {
-        if (!CanChangeLayout() || mQuadView == QuadView) {
-            return;
+    mActiveViewport = Index;
+    mSingleViewport = Index;
+    if (mMaximized) {
+        RestoreViewports();
+    } else {
+        mMaximized = true;
+        if (ImGui::GetCurrentContext() != nullptr) {
+            ImGui::MarkIniSettingsDirty();
         }
+    }
+}
 
-        mSingleViewport = mActiveViewport;
-        mQuadView = QuadView;
+void FEditorViewportLayout::RestoreViewports() {
+    if (CanChangeLayout()) {
+        mMaximized = false;
+        if (mActiveViewport >= GetDefinition(mPreset).mCount) {
+            mActiveViewport = 0;
+        }
 
         if (ImGui::GetCurrentContext() != nullptr) {
             ImGui::MarkIniSettingsDirty();
         }
     }
+}
 
-    /**
-     * @brief 4분할 레이아웃 여부인지 검사합니다.
-     */
-    bool Editor::FEditorViewportLayout::IsQuadView() const {
-        return mQuadView;
+void FEditorViewportLayout::DrawPreviewNode(const FPresetDefinition& Definition, Index_t NodeIndex, const FVector4& Bounds, Uint32 Color) const {
+    const FLayoutNode& Node{Definition.mNodes[NodeIndex]};
+    if (Node.mFirst < 0) {
+        ImGui::GetWindowDrawList()->AddRect({Bounds.x, Bounds.y}, {Bounds.x + Bounds.z, Bounds.y + Bounds.w}, Color, 1.0f, 0, 1.5f);
+        return;
     }
 
-    /**
-     * @brief 한 뷰포트의 UI를 표시하고 입력을 캡처한 뷰를 갱신합니다.
-     */
-    void Editor::FEditorViewportLayout::DrawViewport(Core::Index_t Index, const Core::FInput& Input, float DeltaTime, Editor::FEditorViewport*& CapturedViewport) {
-        Editor::FEditorViewport* Viewport{GetViewport(Index)};
+    const float Ratio{Definition.mRatios[Node.mRatio]};
+    if (Node.mColumns) {
+        const float First{(Bounds.z - 2.0f) * Ratio};
+        DrawPreviewNode(Definition, Node.mFirst, {Bounds.x, Bounds.y, First, Bounds.w}, Color);
+        DrawPreviewNode(Definition, Node.mSecond, {Bounds.x + First + 2.0f, Bounds.y, Bounds.z - First - 2.0f, Bounds.w}, Color);
+    } else {
+        const float First{(Bounds.w - 2.0f) * Ratio};
+        DrawPreviewNode(Definition, Node.mFirst, {Bounds.x, Bounds.y, Bounds.z, First}, Color);
+        DrawPreviewNode(Definition, Node.mSecond, {Bounds.x, Bounds.y + First + 2.0f, Bounds.z, Bounds.w - First - 2.0f}, Color);
+    }
+}
 
-        if (Viewport == nullptr) {
-            return;
-        }
-
-        Editor::FEditorViewportClient* Client{Viewport->GetClient()};
-        const bool AllowInput{CapturedViewport == nullptr || CapturedViewport == Viewport};
-
-        const auto ToolbarExtras{[this, Index, Client](Core::Index_t Part) {
-            ImGui::BeginDisabled(!CanChangeLayout());
-
-            if (Part == 0) {
-                if (Editor::EditorStyle::LabelButton((Core::FString{Client->GetViewTypeName()} + "##ViewType").c_str(), nullptr, true, true, "뷰포트 종류")) {
-                    ImGui::OpenPopup("ViewTypeMenu");
-                }
-
-                ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f}, ImGuiCond_Appearing);
-
-                if (ImGui::BeginPopup("ViewTypeMenu")) {
-                    const std::array<const char*, 7> Names{"Perspective", "Top", "Bottom", "Front", "Back", "Left", "Right"};
-
-                    for (Core::Index_t Type{}; Type < Names.size(); ++Type) {
-                        const Editor::EEditorViewportType ViewType{static_cast<Editor::EEditorViewportType>(Type)};
-
-                        if (Type == 1) {
-                            ImGui::SeparatorText("Orthographic");
-                        }
-
-                        if (ImGui::MenuItem(Names[Type], nullptr, Client->GetViewType() == ViewType)) {
-                            Client->SetViewType(ViewType);
-
-                            mActiveViewport = Index;
-                        }
-                    }
-
-                    ImGui::EndPopup();
-                }
-            } else if (Editor::EditorStyle::IconButton("ViewportLayout", mQuadView ? Editor::EditorStyle::EIcon::Maximize : Editor::EditorStyle::EIcon::QuadView, false, true, false, mQuadView ? "뷰포트 최대화" : "4분할 뷰포트로 전환")) {
-                mActiveViewport = Index;
-
-                SetQuadView(!mQuadView);
-            }
-
-            ImGui::EndDisabled();
-        }};
-
-        Viewport->DrawContents(Input, DeltaTime, AllowInput, ToolbarExtras);
-
-        mVisible[Index] = true;
-
-        if (Viewport->IsMouseCaptured()) {
-            CapturedViewport = Viewport;
-            mActiveViewport = Index;
-        } else if (AllowInput && ImGui::IsWindowFocused()) {
-            mActiveViewport = Index;
-        }
+void FEditorViewportLayout::DrawPresetButton(EEditorViewportLayoutPreset Preset) {
+    const float Scale{ImGui::GetFontSize() / 16.0f};
+    const bool Selected{GetPreset() == Preset};
+    ImGui::PushID(static_cast<int>(Preset));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(Selected ? ImGuiCol_HeaderActive : ImGuiCol_PopupBg));
+    const bool Clicked{EditorStyle::Button("##Preset", {46.0f * Scale, 42.0f * Scale})};
+    ImGui::PopStyleColor();
+    const ImVec2 Minimum{ImGui::GetItemRectMin()};
+    DrawPreviewNode(GetDefinition(Preset), 0, {Minimum.x + 9.0f * Scale, Minimum.y + 8.0f * Scale, 28.0f * Scale, 26.0f * Scale}, ImGui::GetColorU32(Selected ? ImGuiCol_Text : ImGuiCol_TextDisabled));
+    ImGui::SetItemTooltip("%s", GetPresetName(Preset));
+    if (Clicked) {
+        SetPreset(Preset);
+        ImGui::CloseCurrentPopup();
     }
 
-    /**
-     * @brief 단일 또는 4분할 뷰포트 UI를 표시합니다.
-     */
-    void Editor::FEditorViewportLayout::DrawUI(const Core::FInput& Input, float DeltaTime) {
-        UpdateViewportContexts();
-        mVisible.fill(false);
+    ImGui::PopID();
+}
 
-        Editor::FEditorViewport* CapturedViewport{};
+void FEditorViewportLayout::DrawPresetMenu(Index_t Index) {
+    const float Scale{ImGui::GetFontSize() / 16.0f};
+    if (EditorStyle::IconButton("ViewportLayout", EditorStyle::EIcon::QuadView, false, true, true, "뷰포트 레이아웃 프리셋")) {
+        mActiveViewport = Index;
+        ImGui::OpenPopup("ViewportLayoutPresets");
+    }
 
-        for (Core::Index_t Index{}; Index < mVisible.size(); ++Index) {
-            Editor::FEditorViewport* Viewport{GetViewport(Index)};
-
-            if (Viewport != nullptr && Viewport->IsMouseCaptured()) {
-                CapturedViewport = Viewport;
-
-                break;
+    const ImVec2 Minimum{ImGui::GetItemRectMin()};
+    const ImVec2 Maximum{ImGui::GetItemRectMax()};
+    ImGui::SetNextWindowPos({Minimum.x, Maximum.y + 4.0f * Scale}, ImGuiCond_Appearing);
+    if (EditorStyle::BeginPopup("ViewportLayoutPresets")) {
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{6.0f * Scale, 8.0f * Scale});
+        Index_t PreviousCount{};
+        for (Index_t Value{}; Value < static_cast<Index_t>(EEditorViewportLayoutPreset::Count); ++Value) {
+            const auto Preset{static_cast<EEditorViewportLayoutPreset>(Value)};
+            const Index_t Count{GetDefinition(Preset).mCount};
+            if (Count != PreviousCount) {
+                if (PreviousCount != 0) {
+                    ImGui::Spacing();
+                }
+                const Core::FString Label{Count == 1 ? "단일 패널" : std::to_string(Count) + " 패널"};
+                ImGui::SeparatorText(Label.c_str());
+                PreviousCount = Count;
+            } else {
+                ImGui::SameLine();
             }
+            DrawPresetButton(Preset);
         }
 
-        const ImGuiWindowFlags Flags{ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs};
+        ImGui::Separator();
+        if (ImGui::MenuItem("현재 뷰포트 최대화", nullptr, mMaximized, !mMaximized)) {
+            ToggleMaximize(Index);
+        }
 
-        // 언리얼처럼 뷰포트가 영역에 혼자 있으면 탭 표시줄을 숨깁니다.
-        ImGuiWindowClass ViewportClass{};
-
-        ViewportClass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_AutoHideTabBar;
-
-        ImGui::SetNextWindowClass(&ViewportClass);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
-
-        const bool Visible{ImGui::Begin(mViewport->GetName().c_str(), nullptr, Flags)};
+        if (ImGui::MenuItem("모든 뷰포트 복구", nullptr, !mMaximized, mMaximized)) {
+            RestoreViewports();
+        }
 
         ImGui::PopStyleVar();
+        EditorStyle::EndPopup();
+    }
+}
 
-        if (Visible) {
-            const ImVec2 Origin{ImGui::GetCursorScreenPos()};
-            const ImVec2 Available{ImGui::GetContentRegionAvail()};
-            const bool QuadView{mQuadView};
+void FEditorViewportLayout::DrawViewport(Index_t Index, const Core::FInput& Input, float DeltaTime, FEditorViewport*& CapturedViewport) {
+    FEditorViewport* Viewport{GetViewport(Index)};
+    if (Viewport == nullptr) {
+        return;
+    }
 
-            if (!QuadView) {
-                const Core::Index_t Index{static_cast<Core::Index_t>(mPlaySession->IsActive() ? 0 : mSingleViewport)};
-
-                if (ImGui::BeginChild("ViewportSingle", Available, ImGuiChildFlags_None, Flags)) {
-                    ImGui::PushID(static_cast<int>(Index));
-                    DrawViewport(Index, Input, DeltaTime, CapturedViewport);
-                    ImGui::PopID();
-                }
-
-                ImGui::EndChild();
-            } else if (Available.x >= 8.0f && Available.y >= 8.0f) {
-                constexpr float SplitterSize{6.0f};
-                const ImVec2 Size{Available.x - SplitterSize, Available.y - SplitterSize};
-                const float MinimumWidth{std::min(160.0f, Size.x * 0.5f)};
-                const float MinimumHeight{std::min(120.0f, Size.y * 0.5f)};
-                float Left{std::clamp(Size.x * mHorizontalRatio, MinimumWidth, Size.x - MinimumWidth)};
-                float Top{std::clamp(Size.y * mVerticalRatio, MinimumHeight, Size.y - MinimumHeight)};
-                float Right{Size.x - Left};
-                const bool CanResize{CapturedViewport == nullptr};
-
-                ImGui::BeginDisabled(!CanResize);
-                ImGui::SetCursorScreenPos({Origin.x + Left, Origin.y});
-
-                const bool HorizontalChanged{ImGui::SplitterBehavior(ImRect{{Origin.x + Left, Origin.y}, {Origin.x + Left + SplitterSize, Origin.y + Available.y}}, ImGui::GetID("ViewportVerticalSplitter"), ImGuiAxis_X, &Left, &Right, MinimumWidth, MinimumWidth)};
-
-                ImGui::EndDisabled();
-                ImGui::BeginDisabled(!CanResize);
-                ImGui::SetCursorScreenPos({Origin.x, Origin.y + Top});
-
-                float Bottom{Size.y - Top};
-                const bool VerticalChanged{ImGui::SplitterBehavior(ImRect{{Origin.x, Origin.y + Top}, {Origin.x + Available.x, Origin.y + Top + SplitterSize}}, ImGui::GetID("ViewportHorizontalSplitter"), ImGuiAxis_Y, &Top, &Bottom, MinimumHeight, MinimumHeight)};
-
-                ImGui::EndDisabled();
-
-                if (HorizontalChanged || VerticalChanged) {
-                    SetSplitRatios(HorizontalChanged ? Left / Size.x : mHorizontalRatio, VerticalChanged ? Top / Size.y : mVerticalRatio);
-                }
-
-                const std::array<ImVec2, 4> Positions{{Origin, {Origin.x + Left + SplitterSize, Origin.y}, {Origin.x, Origin.y + Top + SplitterSize}, {Origin.x + Left + SplitterSize, Origin.y + Top + SplitterSize}}};
-                const std::array<ImVec2, 4> Sizes{{{Left, Top}, {Size.x - Left, Top}, {Left, Size.y - Top}, {Size.x - Left, Size.y - Top}}};
-
-                for (Core::Index_t Index{}; Index < mVisible.size(); ++Index) {
-                    ImGui::SetCursorScreenPos(Positions[Index]);
-                    ImGui::PushID(static_cast<int>(Index));
-
-                    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
-
-                    const bool PaneVisible{ImGui::BeginChild("ViewportPane", Sizes[Index], ImGuiChildFlags_Borders, Flags)};
-
-                    ImGui::PopStyleVar();
-
-                    if (PaneVisible) {
-                        DrawViewport(Index, Input, DeltaTime, CapturedViewport);
+    FEditorViewportClient* Client{Viewport->GetClient()};
+    const bool AllowInput{CapturedViewport == nullptr || CapturedViewport == Viewport};
+    const auto ToolbarExtras{[this, Index, Client](Index_t Part) {
+        ImGui::BeginDisabled(!CanChangeLayout());
+        if (Part == 0) {
+            if (EditorStyle::LabelButton((Core::FString{Client->GetViewTypeName()} + "##ViewType").c_str(), nullptr, true, true, "뷰포트 종류")) {
+                ImGui::OpenPopup("ViewTypeMenu");
+            }
+            if (EditorStyle::BeginPopup("ViewTypeMenu")) {
+                const std::array<const char*, 7> Names{"Perspective", "Top", "Bottom", "Front", "Back", "Left", "Right"};
+                for (Index_t Type{}; Type < Names.size(); ++Type) {
+                    const EEditorViewportType ViewType{static_cast<EEditorViewportType>(Type)};
+                    if (Type == 1) {
+                        ImGui::SeparatorText("Orthographic");
                     }
-
-                    ImGui::EndChild();
-                    ImGui::PopID();
+                    if (ImGui::MenuItem(Names[Type], nullptr, Client->GetViewType() == ViewType)) {
+                        Client->SetViewType(ViewType);
+                        mActiveViewport = Index;
+                        ImGui::MarkIniSettingsDirty();
+                    }
                 }
-
-                ImGui::SetCursorScreenPos(Origin);
-                ImGui::Dummy(Available);
+                EditorStyle::EndPopup();
             }
+        } else {
+            DrawPresetMenu(Index);
         }
 
-        ImGui::End();
-
-        for (Core::Index_t Index{}; Index < mVisible.size(); ++Index) {
-            if (!mVisible[Index]) {
-                if (Editor::FEditorViewport* Viewport{GetViewport(Index)}) {
-                    Viewport->ReleaseInput();
-                }
-            }
-        }
+        ImGui::EndDisabled();
+    }};
+    Viewport->DrawContents(Input, DeltaTime, AllowInput, ToolbarExtras);
+    mVisible[Index] = true;
+    if (Viewport->IsMouseCaptured()) {
+        CapturedViewport = Viewport;
+        mActiveViewport = Index;
+    } else if (AllowInput && ImGui::IsWindowFocused()) {
+        mActiveViewport = Index;
     }
+}
 
-    /**
-     * @brief 표시 중인 뷰포트의 렌더 요청을 제출합니다.
-     */
-    void Editor::FEditorViewportLayout::Draw(float DeltaTime) {
-        UpdateViewportContexts();
-
-        for (Core::Index_t Index{}; Index < mVisible.size(); ++Index) {
-            if (mVisible[Index]) {
-                GetViewport(Index)->Draw();
-            }
-        }
-
-        const Editor::FEditorContext* Inspection{mPlaySession->IsActive() ? mPlaySession->GetInspectionContext() : mContext};
-
-        for (Core::Index_t Index{}; Index < mVisible.size(); ++Index) {
-            if (mVisible[Index]) {
-                GetViewport(Index)->DrawStatistics(DeltaTime, Inspection->GetWorld(), mContext->GetRenderer()->GetStats());
-            }
-        }
-    }
-
-    /**
-     * @brief 분할 비율을 반환합니다.
-     */
-    float Editor::FEditorViewportLayout::GetHorizontalRatio() const {
-        return mHorizontalRatio;
-    }
-
-    /**
-     * @brief 분할 비율을 반환합니다.
-     */
-    float Editor::FEditorViewportLayout::GetVerticalRatio() const {
-        return mVerticalRatio;
-    }
-
-    /**
-     * @brief 유효한 분할 비율을 적용합니다.
-     */
-    bool Editor::FEditorViewportLayout::SetSplitRatios(float Horizontal, float Vertical) {
-        if (!std::isfinite(Horizontal) || !std::isfinite(Vertical) || Horizontal < 0.01f || Horizontal > 0.99f || Vertical < 0.01f || Vertical > 0.99f) {
-            return false;
+void FEditorViewportLayout::DrawLayoutNode(const FPresetDefinition& Definition, Index_t NodeIndex, const FVector4& Bounds, const Core::FInput& Input, float DeltaTime, FEditorViewport*& CapturedViewport) {
+    const FLayoutNode& Node{Definition.mNodes[NodeIndex]};
+    if (Node.mFirst < 0) {
+        const Index_t Slot{Definition.mCount == 1 ? (mPlaySession->IsActive() ? 0 : mSingleViewport) : Node.mSlot};
+        ImGui::SetCursorScreenPos({Bounds.x, Bounds.y});
+        ImGui::PushID(static_cast<int>(Slot));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
+        const bool Visible{ImGui::BeginChild("ViewportPane", {std::max(1.0f, Bounds.z), std::max(1.0f, Bounds.w)}, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs)};
+        ImGui::PopStyleVar();
+        if (Visible) {
+            DrawViewport(Slot, Input, DeltaTime, CapturedViewport);
         }
 
-        if (mHorizontalRatio != Horizontal || mVerticalRatio != Vertical) {
-            mHorizontalRatio = Horizontal;
-            mVerticalRatio = Vertical;
-
-            if (ImGui::GetCurrentContext() != nullptr) {
-                ImGui::MarkIniSettingsDirty();
-            }
-        }
-
-        return true;
+        ImGui::EndChild();
+        ImGui::PopID();
+        return;
     }
 
-    /**
-     * @brief INI 레이아웃 섹션을 엽니다.
-     */
-    void* Editor::FEditorViewportLayout::ReadSettingsOpen(ImGuiContext*, ImGuiSettingsHandler* Handler, const char* Name) {
-        return std::strcmp(Name, "Layout") == 0 ? Handler->UserData : nullptr;
+    const float Scale{ImGui::GetFontSize() / 16.0f};
+    const float Splitter{6.0f * Scale};
+    const float Total{std::max(2.0f, (Node.mColumns ? Bounds.z : Bounds.w) - Splitter)};
+    const float Minimum{std::min((Node.mColumns ? 100.0f : 75.0f) * Scale, Total * 0.5f)};
+    float First{std::clamp(Total * mRatios[Node.mRatio], Minimum, Total - Minimum)};
+    float Second{Total - First};
+    const ImVec2 Position{Node.mColumns ? Bounds.x + First : Bounds.x, Node.mColumns ? Bounds.y : Bounds.y + First};
+    const ImVec2 End{Node.mColumns ? Position.x + Splitter : Bounds.x + Bounds.z, Node.mColumns ? Bounds.y + Bounds.w : Position.y + Splitter};
+    ImGui::SetCursorScreenPos(Position);
+    ImGui::PushID(static_cast<int>(NodeIndex));
+    ImGui::BeginDisabled(CapturedViewport != nullptr || !CanChangeLayout());
+    if (ImGui::SplitterBehavior(ImRect{Position, End}, ImGui::GetID("ViewportSplitter"), Node.mColumns ? ImGuiAxis_X : ImGuiAxis_Y, &First, &Second, Minimum, Minimum)) {
+        mRatios[Node.mRatio] = First / Total;
+        ImGui::MarkIniSettingsDirty();
     }
 
-    /**
-     * @brief 검증한 INI 레이아웃 값을 읽습니다.
-     */
-    void Editor::FEditorViewportLayout::ReadSettingsLine(ImGuiContext*, ImGuiSettingsHandler*, void* Entry, const char* Line) {
-        auto* Layout{static_cast<Editor::FEditorViewportLayout*>(Entry)};
-        float Ratio{};
-        int Value{};
+    ImGui::EndDisabled();
+    ImGui::PopID();
+    if (Node.mColumns) {
+        DrawLayoutNode(Definition, Node.mFirst, {Bounds.x, Bounds.y, First, Bounds.w}, Input, DeltaTime, CapturedViewport);
+        DrawLayoutNode(Definition, Node.mSecond, {Bounds.x + First + Splitter, Bounds.y, Second, Bounds.w}, Input, DeltaTime, CapturedViewport);
+    } else {
+        DrawLayoutNode(Definition, Node.mFirst, {Bounds.x, Bounds.y, Bounds.z, First}, Input, DeltaTime, CapturedViewport);
+        DrawLayoutNode(Definition, Node.mSecond, {Bounds.x, Bounds.y + First + Splitter, Bounds.z, Second}, Input, DeltaTime, CapturedViewport);
+    }
+}
 
-        if (sscanf_s(Line, "HorizontalRatio=%f", &Ratio) == 1) {
-            Layout->SetSplitRatios(Ratio, Layout->mVerticalRatio);
-        } else if (sscanf_s(Line, "VerticalRatio=%f", &Ratio) == 1) {
-            Layout->SetSplitRatios(Layout->mHorizontalRatio, Ratio);
-        } else if (sscanf_s(Line, "QuadView=%d", &Value) == 1 && (Value == 0 || Value == 1)) {
-            Layout->mQuadView = Value != 0;
-        } else if (sscanf_s(Line, "SingleViewport=%d", &Value) == 1 && Value >= 0 && Value < 4) {
-            Layout->mSingleViewport = static_cast<Core::Index_t>(Value);
-            Layout->mActiveViewport = Layout->mSingleViewport;
+void FEditorViewportLayout::BeginFrame() {
+    mVisible.fill(false);
+}
+
+void FEditorViewportLayout::DrawContents(const Core::FInput& Input, float DeltaTime) {
+    UpdateViewportContexts();
+    FEditorViewport* CapturedViewport{};
+
+    for (Index_t Index{}; Index < mVisible.size(); ++Index) {
+        if (FEditorViewport* Viewport{GetViewport(Index)}; Viewport != nullptr && Viewport->IsMouseCaptured()) {
+            CapturedViewport = Viewport;
+            break;
         }
     }
 
-    /**
-     * @brief 분할 비율과 뷰 모드를 INI에 씁니다.
-     */
-    void Editor::FEditorViewportLayout::WriteSettings(ImGuiContext*, ImGuiSettingsHandler* Handler, ImGuiTextBuffer* Buffer) {
-        const auto* Layout{static_cast<const Editor::FEditorViewportLayout*>(Handler->UserData)};
+    const ImVec2 Origin{ImGui::GetCursorScreenPos()};
+    const ImVec2 Available{ImGui::GetContentRegionAvail()};
+    const FPresetDefinition& Definition{GetDefinition(GetPreset())};
 
-        Buffer->appendf("[MacawViewport][Layout]\nHorizontalRatio=%.9g\nVerticalRatio=%.9g\nQuadView=%d\nSingleViewport=%u\n\n", Layout->mHorizontalRatio, Layout->mVerticalRatio, Layout->mQuadView ? 1 : 0, Layout->mSingleViewport);
+    if (Available.x > 1.0f && Available.y > 1.0f) {
+        DrawLayoutNode(Definition, 0, {Origin.x, Origin.y, Available.x, Available.y}, Input, DeltaTime, CapturedViewport);
     }
 
+    ImGui::SetCursorScreenPos(Origin);
+    ImGui::Dummy(Available);
+}
+
+void FEditorViewportLayout::Draw(float DeltaTime) {
+    UpdateViewportContexts();
+    for (Index_t Index{}; Index < mVisible.size(); ++Index) {
+        if (mVisible[Index]) {
+            GetViewport(Index)->Draw();
+        } else {
+            GetViewport(Index)->ReleaseInput();
+        }
+    }
+
+    const FEditorContext* Inspection{mPlaySession->IsActive() ? mPlaySession->GetInspectionContext() : mContext};
+    for (Index_t Index{}; Index < mVisible.size(); ++Index) {
+        if (mVisible[Index]) {
+            GetViewport(Index)->DrawStatistics(DeltaTime, Inspection->GetWorld(), mContext->GetRenderer()->GetStats());
+        }
+    }
+}
+
+float FEditorViewportLayout::GetHorizontalRatio() const {
+    return mRatios[0];
+}
+
+float FEditorViewportLayout::GetVerticalRatio() const {
+    return mRatios[1];
+}
+
+bool FEditorViewportLayout::SetSplitRatios(float Horizontal, float Vertical) {
+    if (!std::isfinite(Horizontal) || !std::isfinite(Vertical) || Horizontal < 0.01f || Horizontal > 0.99f || Vertical < 0.01f || Vertical > 0.99f) {
+        return false;
+    }
+
+    if (mRatios[0] != Horizontal || mRatios[1] != Vertical) {
+        mRatios[0] = Horizontal;
+        mRatios[1] = Vertical;
+        if (ImGui::GetCurrentContext() != nullptr) {
+            ImGui::MarkIniSettingsDirty();
+        }
+    }
+
+    return true;
+}
+
+void* FEditorViewportLayout::ReadSettingsOpen(ImGuiContext*, ImGuiSettingsHandler* Handler, const char* Name) {
+    return std::strcmp(Name, "Layout") == 0 ? Handler->UserData : nullptr;
+}
+
+void FEditorViewportLayout::ReadSettingsLine(ImGuiContext*, ImGuiSettingsHandler*, void* Entry, const char* Line) {
+    auto* Layout{static_cast<FEditorViewportLayout*>(Entry)};
+    float Ratio{};
+    int Value{};
+    unsigned int Index{};
+
+    if (sscanf_s(Line, "HorizontalRatio=%f", &Ratio) == 1 && std::isfinite(Ratio) && Ratio >= 0.01f && Ratio <= 0.99f) {
+        Layout->mRatios[0] = Ratio;
+    } else if (sscanf_s(Line, "VerticalRatio=%f", &Ratio) == 1 && std::isfinite(Ratio) && Ratio >= 0.01f && Ratio <= 0.99f) {
+        Layout->mRatios[1] = Ratio;
+    } else if (sscanf_s(Line, "ThirdRatio=%f", &Ratio) == 1 && std::isfinite(Ratio) && Ratio >= 0.01f && Ratio <= 0.99f) {
+        Layout->mRatios[2] = Ratio;
+    } else if (sscanf_s(Line, "Preset=%d", &Value) == 1 && Value > 0 && Value < static_cast<int>(EEditorViewportLayoutPreset::Count)) {
+        Layout->mPreset = static_cast<EEditorViewportLayoutPreset>(Value);
+    } else if (sscanf_s(Line, "Maximized=%d", &Value) == 1 && (Value == 0 || Value == 1)) {
+        Layout->mMaximized = Value != 0;
+    } else if (sscanf_s(Line, "QuadView=%d", &Value) == 1 && (Value == 0 || Value == 1)) {
+        Layout->mPreset = EEditorViewportLayoutPreset::FourGrid;
+        Layout->mMaximized = Value == 0;
+    } else if (sscanf_s(Line, "SingleViewport=%d", &Value) == 1 && Value >= 0 && Value < 4) {
+        Layout->mSingleViewport = static_cast<Index_t>(Value);
+        Layout->mActiveViewport = Layout->mMaximized ? Layout->mSingleViewport : 0;
+    } else if (sscanf_s(Line, "Viewport%uType=%d", &Index, &Value) == 2 && Index < 4 && Value >= static_cast<int>(EEditorViewportType::Perspective) && Value <= static_cast<int>(EEditorViewportType::Right)) {
+        if (FEditorViewport* Viewport{Layout->GetViewport(Index)}; Viewport != nullptr) {
+            Viewport->GetClient()->SetViewType(static_cast<EEditorViewportType>(Value));
+        }
+    }
+}
+
+void FEditorViewportLayout::WriteSettings(ImGuiContext*, ImGuiSettingsHandler* Handler, ImGuiTextBuffer* Buffer) {
+    const auto* Layout{static_cast<const FEditorViewportLayout*>(Handler->UserData)};
+    Buffer->appendf("[MacawViewport][Layout]\nPreset=%d\nMaximized=%d\nHorizontalRatio=%.9g\nVerticalRatio=%.9g\nThirdRatio=%.9g\nSingleViewport=%zu\n", static_cast<int>(Layout->mPreset), Layout->mMaximized ? 1 : 0, Layout->mRatios[0], Layout->mRatios[1], Layout->mRatios[2], Layout->mSingleViewport);
+
+    for (Index_t Index{}; Index < 4; ++Index) {
+        if (FEditorViewport* Viewport{Layout->GetViewport(Index)}; Viewport != nullptr) {
+            Buffer->appendf("Viewport%zuType=%d\n", Index, static_cast<int>(Viewport->GetClient()->GetViewType()));
+        }
+    }
+
+    Buffer->append("\n");
 }

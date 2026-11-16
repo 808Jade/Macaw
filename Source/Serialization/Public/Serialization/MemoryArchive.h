@@ -27,13 +27,13 @@ namespace Serialization {
          * @brief 바이트를 추가할 배열로 저장 아카이브를 구성합니다.
          * @param[in,out] Bytes 바이너리 데이터를 읽거나 기록할 바이트 배열입니다.
          */
-        explicit FMemoryArchive(Core::TArray<Core::Uint8>& Bytes);
+        explicit FMemoryArchive(Core::TArray<Uint8>& Bytes);
 
         /**
          * @brief 읽기 전용 바이트 배열로 로드 아카이브를 구성합니다.
          * @param[in] Bytes 바이너리 데이터를 읽거나 기록할 바이트 배열입니다.
          */
-        explicit FMemoryArchive(const Core::TArray<Core::Uint8>& Bytes);
+        explicit FMemoryArchive(const Core::TArray<Uint8>& Bytes);
 
     public:
         /**
@@ -67,7 +67,7 @@ namespace Serialization {
          * @param[in] Count 저장할 배열 길이이며 로드 시 읽어 온 배열 길이를 받습니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool BeginArray(std::string_view Name, Core::Uint32& Count) override;
+        bool BeginArray(std::string_view Name, Uint32& Count) override;
 
         /**
          * @brief 현재 배열 컨테이너를 끝내고 상위 컨테이너로 돌아갑니다.
@@ -86,21 +86,21 @@ namespace Serialization {
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::Int32& Value) override;
+        void Serialize(std::string_view Name, Int32& Value) override;
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::Uint32& Value) override;
+        void Serialize(std::string_view Name, Uint32& Value) override;
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        void Serialize(std::string_view Name, Core::Uint64& Value) override;
+        void Serialize(std::string_view Name, Uint64& Value) override;
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
@@ -128,12 +128,12 @@ namespace Serialization {
         /**
          * @brief 저장 바이트를 추가할 배열의 비소유 주소입니다.
          */
-        Core::TArray<Core::Uint8>* mWriteBytes{};
+        Core::TArray<Uint8>* mWriteBytes{};
 
         /**
          * @brief 로드할 바이트 배열의 비소유 주소입니다.
          */
-        const Core::TArray<Core::Uint8>* mReadBytes{};
+        const Core::TArray<Uint8>* mReadBytes{};
 
         /**
          * @brief 로드 바이트 배열에서 다음에 읽을 위치입니다.

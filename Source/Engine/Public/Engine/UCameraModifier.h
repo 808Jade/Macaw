@@ -75,14 +75,14 @@ namespace Engine {
          * @return 작을수록 먼저 적용되는 값입니다.
          */
         UFUNCTION()
-        Core::Int32 GetPriority() const;
+        Int32 GetPriority() const;
 
         /**
          * @brief 적용 순서를 지정합니다.
          * @param[in] Priority 작을수록 먼저 적용되며 0부터 255까지로 고정합니다.
          */
         UFUNCTION()
-        void SetPriority(Core::Int32 Priority);
+        void SetPriority(Int32 Priority);
 
         /**
          * @brief 켜질 때 Alpha가 1이 되기까지의 시간을 반환합니다.
@@ -148,7 +148,7 @@ namespace Engine {
         /**
          * @brief 적용 순서이며 작을수록 먼저 적용합니다.
          */
-        Core::Int32 mPriority{127};
+        Int32 mPriority{127};
 
         /**
          * @brief 켜질 때 Alpha가 1이 되기까지의 초 단위 시간입니다.

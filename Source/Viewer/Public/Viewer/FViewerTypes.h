@@ -14,7 +14,7 @@ namespace Viewer {
      * @brief 촬영 상태 준비의 완료·대기·실패 결과입니다.
      * @ingroup Viewer
      */
-    enum class EViewerPrepareResult : Core::Uint8 {
+    enum class EViewerPrepareResult : Uint8 {
 
         /**
          * @brief 요청한 상태가 준비되어 바로 촬영할 수 있습니다.
@@ -45,7 +45,7 @@ namespace Viewer {
          * @param Seed 촬영 상태를 재현할 난수 시드입니다.
          * @param FixedStep 촬영 준비에서 사용할 양의 고정 간격(초)입니다.
          */
-        explicit FViewerCaptureState(double Time = 0.0, Core::Uint32 Seed = 0, float FixedStep = 1.0f / 60.0f);
+        explicit FViewerCaptureState(double Time = 0.0, Uint32 Seed = 0, float FixedStep = 1.0f / 60.0f);
 
     public:
 
@@ -59,7 +59,7 @@ namespace Viewer {
          * @brief 촬영 상태를 재현하기 위한 난수 시드를 반환합니다.
          * @return 콘텐츠에 전달할 시드 값입니다.
          */
-        Core::Uint32 GetSeed() const;
+        Uint32 GetSeed() const;
 
         /**
          * @brief 촬영 준비에 사용할 고정 시뮬레이션 간격을 반환합니다.
@@ -77,7 +77,7 @@ namespace Viewer {
         /**
          * @brief 재현 가능한 촬영 상태를 위한 난수 시드입니다.
          */
-        Core::Uint32 mSeed{};
+        Uint32 mSeed{};
 
         /**
          * @brief 촬영 준비 시 사용할 고정 시뮬레이션 간격(초)입니다.

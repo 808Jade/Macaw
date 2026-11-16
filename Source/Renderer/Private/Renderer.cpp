@@ -120,7 +120,7 @@ namespace Renderer {
     /**
      * @brief Direct3D 11 장치, 스왑 체인과 렌더 파이프라인을 준비합니다.
      */
-    bool Renderer::FRenderer::Initialize(void* WindowHandle, Core::Uint32 Width, Core::Uint32 Height) {
+    bool Renderer::FRenderer::Initialize(void* WindowHandle, Uint32 Width, Uint32 Height) {
         Core::LoadingStatus::BeginStage("Initializing graphics device...", 0.08f);
 
         if (!InitializeUi(WindowHandle, Width, Height)) {
@@ -145,7 +145,7 @@ namespace Renderer {
     /**
      * @brief 장면 파이프라인 없이 창과 스왑체인·장치를 초기화합니다.
      */
-    bool Renderer::FRenderer::InitializeUi(void* WindowHandle, Core::Uint32 Width, Core::Uint32 Height) {
+    bool Renderer::FRenderer::InitializeUi(void* WindowHandle, Uint32 Width, Uint32 Height) {
         if (mDevice != nullptr || WindowHandle == nullptr || Width == 0 || Height == 0) {
             Core::ErrorHandler::Fatal("Renderer", "Invalid renderer initialization state");
         }
@@ -179,7 +179,7 @@ namespace Renderer {
         const D3D_FEATURE_LEVEL Level{D3D_FEATURE_LEVEL_11_0};
         HRESULT Result{E_FAIL};
 
-        for (Core::Int32 Attempt{}; Attempt < 4 && FAILED(Result); ++Attempt) {
+        for (Int32 Attempt{}; Attempt < 4 && FAILED(Result); ++Attempt) {
             const D3D_DRIVER_TYPE Driver{Attempt >= 2 ? D3D_DRIVER_TYPE_WARP : D3D_DRIVER_TYPE_HARDWARE};
             const UINT AttemptFlags{(Attempt & 1) != 0 ? Flags & ~D3D11_CREATE_DEVICE_DEBUG : Flags};
 
@@ -297,7 +297,7 @@ namespace Renderer {
             return false;
         }
 
-        mMeshes[static_cast<Core::Index_t>(Type)] = std::move(Resource);
+        mMeshes[static_cast<Index_t>(Type)] = std::move(Resource);
 
         return true;
     }
@@ -305,7 +305,7 @@ namespace Renderer {
     /**
      * @brief 지정한 픽셀 크기의 오프스크린 렌더 타깃을 생성합니다.
      */
-    std::unique_ptr<Engine::FRenderTarget> Renderer::FRenderer::CreateRenderTarget(Core::Uint32 Width, Core::Uint32 Height) {
+    std::unique_ptr<Engine::FRenderTarget> Renderer::FRenderer::CreateRenderTarget(Uint32 Width, Uint32 Height) {
         auto Target{std::make_unique<Renderer::FDXRenderTarget>()};
 
         return mDevice != nullptr && Target->Resize(mDevice.Get(), Width, Height) ? std::move(Target) : nullptr;
@@ -337,7 +337,7 @@ namespace Renderer {
         return Texture;
     }
 
-    std::unique_ptr<Asset::UTexture2D> FRenderer::CaptureTexture(const Asset::UTexture2D& Source, Core::Uint32 Width, Core::Uint32 Height, const FVector4& Region, Core::FString& Error) {
+    std::unique_ptr<Asset::UTexture2D> FRenderer::CaptureTexture(const Asset::UTexture2D& Source, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error) {
         if (mContext == nullptr || mPostProcessResources == nullptr || !Source.HasResources() || !std::isfinite(Region.x) || !std::isfinite(Region.y) || !std::isfinite(Region.z) || !std::isfinite(Region.w) || Region.x < 0.0f || Region.y < 0.0f || Region.z <= 0.0f || Region.w <= 0.0f || Region.x + Region.z > static_cast<float>(Width) + 0.01f || Region.y + Region.w > static_cast<float>(Height) + 0.01f) {
             Error = "Invalid texture capture";
 
@@ -365,7 +365,7 @@ namespace Renderer {
         return Texture;
     }
 
-    bool Renderer::FRenderer::ResizeRenderTarget(Engine::FRenderTarget* Target, Core::Uint32 Width, Core::Uint32 Height) {
+    bool Renderer::FRenderer::ResizeRenderTarget(Engine::FRenderTarget* Target, Uint32 Width, Uint32 Height) {
         auto* Native{dynamic_cast<Renderer::FDXRenderTarget*>(Target)};
 
         if (Native == nullptr || mDevice == nullptr) {
@@ -384,7 +384,7 @@ namespace Renderer {
     /**
      * @brief 백 버퍼 크기를 동기화하고 프레임 렌더링 통계를 초기화합니다.
      */
-    void Renderer::FRenderer::BeginFrame(Core::Uint32 Width, Core::Uint32 Height) {
+    void Renderer::FRenderer::BeginFrame(Uint32 Width, Uint32 Height) {
         mStats = {};
 
         if (mShadowResources != nullptr) {
@@ -441,7 +441,7 @@ namespace Renderer {
         OpaqueParameters.mViewProjection = Family.mView.mViewProjection;
         std::array<ID3D11RenderTargetView*, Renderer::GBuffer::AttachmentCount> Attachments{};
 
-        for (Core::Index_t Index{}; Index < Attachments.size(); ++Index) {
+        for (Index_t Index{}; Index < Attachments.size(); ++Index) {
             Attachments[Index] = Target->GetGBuffer()[Index]->GetRenderTargetView();
         }
 
@@ -486,7 +486,7 @@ namespace Renderer {
         const Renderer::FTranslucencyMeshPass::FRenderParameters TranslucencyParameters{mSpriteRenderer.get(), mTextRenderer.get(), mOverlayBlend.Get(), mDepthReadOnly.Get(), mDepthDisabled.Get(), mRasterizer.Get(), mWireframeRasterizer.Get()};
 
         if (!Visualization) {
-            const Core::Uint32 TranslucencyDrawCalls{mTranslucencyMeshPass->Render(Family, false, TranslucencyParameters)};
+            const Uint32 TranslucencyDrawCalls{mTranslucencyMeshPass->Render(Family, false, TranslucencyParameters)};
             mStats.mDrawCalls += TranslucencyDrawCalls;
             mStats.mVisiblePrimitives += TranslucencyDrawCalls;
         }
@@ -503,7 +503,7 @@ namespace Renderer {
 
         mContext->OMSetRenderTargets(1, &RenderTarget, Target->GetDepthView());
 
-        const Core::Uint32 EditorDrawCalls{mTranslucencyMeshPass->Render(Family, true, TranslucencyParameters)};
+        const Uint32 EditorDrawCalls{mTranslucencyMeshPass->Render(Family, true, TranslucencyParameters)};
         mStats.mDrawCalls += EditorDrawCalls;
         mStats.mVisiblePrimitives += EditorDrawCalls;
 
@@ -872,7 +872,7 @@ namespace Renderer {
     /**
      * @brief 스왑 체인을 조정하고 백 버퍼 렌더 타깃 뷰를 생성합니다.
      */
-    bool Renderer::FRenderer::CreateBackBuffer(Core::Uint32 Width, Core::Uint32 Height) {
+    bool Renderer::FRenderer::CreateBackBuffer(Uint32 Width, Uint32 Height) {
         mContext->OMSetRenderTargets(0, nullptr, nullptr);
         mBackBuffer.reset();
 
@@ -956,7 +956,7 @@ namespace Renderer {
         mDefaultMaterial->SetShader(RenderCore::UShader::GetDefault());
         mDefaultMaterialTexture = CoreUObject::NewObject<Asset::UTexture2D>();
 
-        if (!mDefaultMaterialTexture->SetPixels(1, 1, Asset::ETextureFormat::RGBA8, Core::TArray<Core::Uint8>{255, 255, 255, 255}) || !mDefaultMaterialTexture->CreateResources(mDevice.Get()) || GetMaterialPipeline(*mDefaultMaterial) == nullptr) {
+        if (!mDefaultMaterialTexture->SetPixels(1, 1, Asset::ETextureFormat::RGBA8, Core::TArray<Uint8>{255, 255, 255, 255}) || !mDefaultMaterialTexture->CreateResources(mDevice.Get()) || GetMaterialPipeline(*mDefaultMaterial) == nullptr) {
             return false;
         }
 
@@ -1067,7 +1067,7 @@ namespace Renderer {
             return;
         }
 
-        const Core::Uint32 Count{static_cast<Core::Uint32>(mLineVertices.size())};
+        const Uint32 Count{static_cast<Uint32>(mLineVertices.size())};
 
         Core::FString Error{};
 
@@ -1100,7 +1100,7 @@ namespace Renderer {
      * @brief 고정 에디터 메시의 로컬 정점과 인덱스를 종류별 불변 GPU 버퍼에 업로드합니다.
      */
     bool Renderer::FRenderer::CreateEditorMeshes() {
-        for (Core::Index_t Index{}; Index < mEditorMeshes.size(); ++Index) {
+        for (Index_t Index{}; Index < mEditorMeshes.size(); ++Index) {
             auto Resource{CoreUObject::NewObject<Asset::UStaticMesh>()};
 
             if (!Resource->SetMeshData(Engine::GetEditorMesh(static_cast<Engine::EEditorMesh>(Index))) || !Resource->CreateResources(mDevice.Get())) {
@@ -1133,7 +1133,7 @@ namespace Renderer {
                 continue;
             }
 
-            const Asset::UStaticMesh* Mesh{mEditorMeshes[static_cast<Core::Index_t>(Draw.mMesh)].get()};
+            const Asset::UStaticMesh* Mesh{mEditorMeshes[static_cast<Index_t>(Draw.mMesh)].get()};
 
             if (Mesh == nullptr || !Mesh->HasResources()) {
                 continue;
@@ -1183,7 +1183,7 @@ namespace Renderer {
         }
 
         const auto Handle{Code.GetHandle()};
-        const Core::FString Key{std::to_string(Handle.mIndex) + ":" + std::to_string(Handle.mGeneration) + "|" + VariantKey + "|" + std::to_string(static_cast<Core::Uint32>(Pass)) + (Instanced ? "|Instanced" : "|Single") + (Skinned ? "|Skinned" : "|Static")};
+        const Core::FString Key{std::to_string(Handle.mIndex) + ":" + std::to_string(Handle.mGeneration) + "|" + VariantKey + "|" + std::to_string(static_cast<Uint32>(Pass)) + (Instanced ? "|Instanced" : "|Single") + (Skinned ? "|Skinned" : "|Static")};
         const auto Existing{mShaderInstances.find(Key)};
         std::shared_ptr<Renderer::FShaderInstance> Shader{Existing != mShaderInstances.end() ? Existing->second : std::make_shared<Renderer::FShaderInstance>(Code, VariantKey, Pass, Instanced, Skinned)};
 
@@ -1228,7 +1228,7 @@ namespace Renderer {
         const Renderer::EMeshPass Pass{Translucent ? Renderer::EMeshPass::TranslucencyMeshPass : Renderer::EMeshPass::OpaqueMeshPass};
         const bool Instanced{!Skinned};
         const auto ShaderHandle{Shader->GetHandle()};
-        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Core::Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : "|Static") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
+        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : "|Static") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
         const auto Existing{mMaterialPipelines.find(Key)};
 
         if (Existing != mMaterialPipelines.end()) {
@@ -1378,7 +1378,7 @@ namespace Renderer {
     bool Renderer::FRenderer::PrepareLighting(const Engine::FSceneViewFamily& Family) {
         const auto* Scene{static_cast<const Renderer::FScene*>(Family.mScene)};
 
-        return mLightingResources != nullptr && mLightingResources->Upload(mDevice.Get(), mContext.Get(), Scene->GetLights(), Family.mView, mShadowResources != nullptr ? std::span<const std::array<Core::Uint32, 2>>{mShadowResources->GetLightRanges()} : std::span<const std::array<Core::Uint32, 2>>{});
+        return mLightingResources != nullptr && mLightingResources->Upload(mDevice.Get(), mContext.Get(), Scene->GetLights(), Family.mView, mShadowResources != nullptr ? std::span<const std::array<Uint32, 2>>{mShadowResources->GetLightRanges()} : std::span<const std::array<Uint32, 2>>{});
     }
 
     /**
@@ -1446,9 +1446,9 @@ namespace Renderer {
         const Renderer::FMaterialPipeline* SkinDepthPipeline{!Maps.empty() && HasSkinned ? GetDepthPipeline(true) : nullptr};
 
         // 두 깊이 셰이더 중 하나만 바뀌어도 이전 실루엣을 캐시에서 재사용하지 않습니다.
-        const Core::Uint64 DepthShaderRevision{std::max(DepthPipeline != nullptr ? DepthPipeline->GetVertexRevision() : 0, SkinDepthPipeline != nullptr ? SkinDepthPipeline->GetVertexRevision() : 0)};
+        const Uint64 DepthShaderRevision{std::max(DepthPipeline != nullptr ? DepthPipeline->GetVertexRevision() : 0, SkinDepthPipeline != nullptr ? SkinDepthPipeline->GetVertexRevision() : 0)};
 
-        for (Core::Index_t Index{}; Index < Maps.size(); ++Index) {
+        for (Index_t Index{}; Index < Maps.size(); ++Index) {
             const Renderer::FShadowTileStamp Stamp{mShadowResources->MakeTileStamp(Index, DepthShaderRevision)};
 
             if (mShadowResources->IsTileCurrent(Index, Stamp)) {
@@ -1496,12 +1496,12 @@ namespace Renderer {
         mViewBuffer.Bind(mContext.Get(), RenderCore::EShaderStage::Vertex | RenderCore::EShaderStage::Pixel, 1);
 
         Core::TArray<Renderer::FMeshDrawCommand> Commands{};
-        Core::Uint32 Primitives{};
+        Uint32 Primitives{};
         const bool Built{Pass.BuildCommands(Scene, Family, Parameters.mViewProjection, Commands, Primitives)};
 
         if (Built) {
             ID3D11RasterizerState* Rasterizer{OpaquePass && Family.mViewMode == Engine::EViewMode::Wireframe ? mWireframeRasterizer.Get() : Parameters.mRasterizer};
-            const Core::Uint32 DrawCalls{SubmitMeshCommands(Rasterizer, Pass.GetType(), Commands, MarkDecalReceivers)};
+            const Uint32 DrawCalls{SubmitMeshCommands(Rasterizer, Pass.GetType(), Commands, MarkDecalReceivers)};
 
             (OpaquePass ? mStats.mDrawCalls : mStats.mShadowDrawCalls) += DrawCalls;
             mStats.mVisiblePrimitives += OpaquePass ? Primitives : 0u;
@@ -1517,7 +1517,7 @@ namespace Renderer {
     /**
      * @brief 정렬된 드로 목록을 상태 변경을 줄여 제출하고 인스턴스를 묶어 그립니다.
      */
-    Core::Uint32 Renderer::FRenderer::SubmitMeshCommands(ID3D11RasterizerState* Rasterizer, Renderer::EMeshPass Pass, std::span<const Renderer::FMeshDrawCommand> Commands, bool MarkDecalReceivers) {
+    Uint32 Renderer::FRenderer::SubmitMeshCommands(ID3D11RasterizerState* Rasterizer, Renderer::EMeshPass Pass, std::span<const Renderer::FMeshDrawCommand> Commands, bool MarkDecalReceivers) {
         const bool OpaquePass{Pass == Renderer::EMeshPass::OpaqueMeshPass};
         const bool SurfacePass{Pass != Renderer::EMeshPass::ShadowDepth};
 
@@ -1543,13 +1543,13 @@ namespace Renderer {
         Renderer::FMaterialPipeline* LastPipeline{};
         Asset::UMaterial* LastMaterial{};
         Asset::UStaticMesh* LastMesh{};
-        Core::Uint32 LastStencil{};
-        Core::Uint32 DrawCalls{};
+        Uint32 LastStencil{};
+        Uint32 DrawCalls{};
 
-        for (Core::Index_t First{}; First < Commands.size();) {
+        for (Index_t First{}; First < Commands.size();) {
             const Renderer::FMeshDrawCommand& Command{Commands[First]};
             const bool ReceivesDecals{Command.mPrimitive->mProxy.mReceivesDecals};
-            Core::Index_t End{static_cast<Core::Index_t>(First + 1)};
+            Index_t End{static_cast<Index_t>(First + 1)};
 
             if (Command.mPipeline->IsInstanced() && Pass != Renderer::EMeshPass::TranslucencyMeshPass) {
                 while (End < Commands.size() && Commands[End].mPipeline == Command.mPipeline && Commands[End].mMaterial == Command.mMaterial && Commands[End].mMesh == Command.mMesh && Commands[End].mFirstIndex == Command.mFirstIndex && Commands[End].mIndexCount == Command.mIndexCount) {
@@ -1561,11 +1561,11 @@ namespace Renderer {
                 }
             }
 
-            const Core::Uint32 InstanceCount{static_cast<Core::Uint32>(End - First)};
+            const Uint32 InstanceCount{static_cast<Uint32>(End - First)};
 
             if (OpaquePass) {
-                const Core::Uint32 SurfaceStencil{Command.mPipeline->WritesGBuffer() ? Renderer::GBuffer::Surface : Renderer::GBuffer::Prelit};
-                const Core::Uint32 Stencil{SurfaceStencil | (MarkDecalReceivers && ReceivesDecals ? Renderer::GBuffer::ReceivesDecals : 0u)};
+                const Uint32 SurfaceStencil{Command.mPipeline->WritesGBuffer() ? Renderer::GBuffer::Surface : Renderer::GBuffer::Prelit};
+                const Uint32 Stencil{SurfaceStencil | (MarkDecalReceivers && ReceivesDecals ? Renderer::GBuffer::ReceivesDecals : 0u)};
 
                 if (LastStencil != Stencil) {
                     mContext->OMSetDepthStencilState(mGBufferDepth.Get(), Stencil);

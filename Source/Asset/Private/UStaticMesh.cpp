@@ -101,22 +101,22 @@ namespace Asset {
     /**
      * @brief 메시의 정점 개수를 반환합니다.
      */
-    Core::Uint32 Asset::UStaticMesh::GetVertexCount() const {
-        return static_cast<Core::Uint32>(mMeshData.GetPositions().size());
+    Uint32 Asset::UStaticMesh::GetVertexCount() const {
+        return static_cast<Uint32>(mMeshData.GetPositions().size());
     }
 
     /**
      * @brief 메시의 인덱스 개수를 반환합니다.
      */
-    Core::Uint32 Asset::UStaticMesh::GetIndexCount() const {
-        return static_cast<Core::Uint32>(mMeshData.GetIndices().size());
+    Uint32 Asset::UStaticMesh::GetIndexCount() const {
+        return static_cast<Uint32>(mMeshData.GetIndices().size());
     }
 
     /**
      * @brief 메시에 포함된 UV 채널 수를 반환합니다.
      */
-    Core::Uint32 Asset::UStaticMesh::GetUVChannelCount() const {
-        return static_cast<Core::Uint32>(mMeshData.GetUVChannels().size());
+    Uint32 Asset::UStaticMesh::GetUVChannelCount() const {
+        return static_cast<Uint32>(mMeshData.GetUVChannels().size());
     }
 
     /**
@@ -150,7 +150,7 @@ namespace Asset {
         UVs.reserve(VertexCount * ChannelCount);
         Colors.reserve(VertexCount);
 
-        for (Core::Index_t Index{}; Index < VertexCount; ++Index) {
+        for (Index_t Index{}; Index < VertexCount; ++Index) {
             Positions.push_back(mMeshData.GetPositions()[Index].ToArray());
 
             const FVector Normal{mMeshData.GetNormals().empty() ? FVector{0.0f, 0.0f, 1.0f} : mMeshData.GetNormals()[Index]};
@@ -164,7 +164,7 @@ namespace Asset {
 
             Colors.push_back({Color.x, Color.y, Color.z, Color.w});
 
-            for (Core::Index_t Channel{}; Channel < ChannelCount; ++Channel) {
+            for (Index_t Channel{}; Channel < ChannelCount; ++Channel) {
                 const FVector2 UV{GetUVChannelCount() == 0 ? FVector2{} : mMeshData.GetUVChannels()[Channel][Index]};
 
                 UVs.push_back({UV.x, UV.y});
@@ -176,7 +176,7 @@ namespace Asset {
         TMeshVertexBuffer<std::array<float, 7>> TangentBuffer{};
         TMeshVertexBuffer<std::array<float, 2>> UVBuffer{};
         TMeshVertexBuffer<std::array<float, 4>> ColorBuffer{};
-        RenderCore::TIndexBuffer<Core::Uint32> IndexBuffer{};
+        RenderCore::TIndexBuffer<Uint32> IndexBuffer{};
         Core::FString Error{};
 
         if (!PositionBuffer.Create(Device, Positions, Error) || !TangentBuffer.Create(Device, Tangents, Error) || !UVBuffer.Create(Device, UVs, Error) || !ColorBuffer.Create(Device, Colors, Error) || !IndexBuffer.Create(Device, mMeshData.GetIndices(), Error)) {
@@ -216,7 +216,7 @@ namespace Asset {
     void Asset::UStaticMesh::Bind(ID3D11DeviceContext* Context) const {
         mPositionBuffer.Bind(Context, 0);
         mTangentBuffer.Bind(Context, 1);
-        mUVBuffer.Bind(Context, 2, std::max<Core::Uint32>(1, GetUVChannelCount()));
+        mUVBuffer.Bind(Context, 2, std::max<Uint32>(1, GetUVChannelCount()));
         mColorBuffer.Bind(Context, 3);
         mIndexBuffer.Bind(Context);
     }

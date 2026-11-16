@@ -130,7 +130,7 @@ namespace Engine {
          * @param Transform 부모 기준 아핀 행렬입니다.
          * @return 유효한 포즈를 적용하면 true입니다.
          */
-        bool SetBoneLocalTransform(Core::Index_t Bone, const FMatrix& Transform);
+        bool SetBoneLocalTransform(Index_t Bone, const FMatrix& Transform);
 
         /**
          * @brief 전체 로컬 포즈를 변경합니다.
@@ -327,7 +327,7 @@ namespace Engine {
          * @return 현재 ERootMotionMode의 정수 값입니다.
          */
         UFUNCTION()
-        Core::Int32 GetRootMotionModeValue() const;
+        Int32 GetRootMotionModeValue() const;
 
         /**
          * @brief 정수 모드 값을 검증하여 루트 모션 설정에 반영합니다.
@@ -335,7 +335,7 @@ namespace Engine {
          * @return 유효한 ERootMotionMode 값이면 true입니다.
          */
         UFUNCTION()
-        bool SetRootMotionModeValue(Core::Int32 Mode);
+        bool SetRootMotionModeValue(Int32 Mode);
 
         /**
          * @brief 추출한 루트 모션을 액터에 자동 적용하는지 확인합니다.

@@ -63,9 +63,9 @@ namespace {
     }
 
     void WriteLegacyMaterial(const std::filesystem::path& Path, const Core::FString& Shader) {
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
-        Core::Uint32 Version{1};
+        Uint32 Version{1};
         Core::FString Name{"Legacy"};
         Core::FString ShaderPath{Shader};
         Core::FString Empty{};
@@ -122,11 +122,11 @@ namespace {
             Require(LoadedMaterial != nullptr && LoadedMaterial->GetShader() == Loaded, "Material loader binds shader GUID to cached UObject");
             Require(Assets.LoadAsset(MaterialGuid, Error) == LoadedMaterial, "Load material directly by GUID");
 
-            Core::TArray<Core::Uint8> Bytes{};
+            Core::TArray<Uint8> Bytes{};
             Serialization::FMemoryArchive Writer{Bytes};
             LoadedMaterial->Serialize(Writer);
             auto Copy{CoreUObject::NewObject<Asset::UMaterial>()};
-            Serialization::FMemoryArchive Reader{static_cast<const Core::TArray<Core::Uint8>&>(Bytes)};
+            Serialization::FMemoryArchive Reader{static_cast<const Core::TArray<Uint8>&>(Bytes)};
             Copy->Serialize(Reader);
             Require(!Reader.HasError() && Copy->GetShader() == nullptr && Copy->GetShader().GetGuid() == ShaderGuid, "Reflection restores shader GUID before binding");
             Require(Copy->ResolveShader(Assets, Error) && Copy->GetShader() == Loaded, "Resolve reflected TObjectRef through asset loader");
@@ -164,7 +164,7 @@ namespace {
             Asset::FAssetManager ColdAssets{Fixture.GetRoot()};
             Require(ColdAssets.LoadMaterial("Materials/Cyclic.masset", Error) == nullptr && Error.find("type") != Core::FString::npos, "Reject self-referencing material without recursive loading");
 
-            Core::TArray<Core::Uint8> Payload{};
+            Core::TArray<Uint8> Payload{};
             Require(Asset::FAssetFile::Load(Fixture.GetRoot() / "Moved/Renamed.masset", Asset::EAssetType::Shader, Payload, Error), "Read shader payload for corruption test");
             Require(Asset::FAssetFile::Save(Fixture.GetRoot() / "Moved/Mismatch.masset", Asset::EAssetType::Shader, Payload, Error, Core::FGuid{}), "Write mismatched shader identity fixture");
             Require(Assets.LoadShader("Moved/Mismatch.masset", Error) == nullptr, "Reject disagreement between shader header and UObject GUID");

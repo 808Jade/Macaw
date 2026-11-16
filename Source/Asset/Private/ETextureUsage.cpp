@@ -15,7 +15,7 @@ namespace Asset {
      * @return 비트 연산을 적용한 텍스처 사용 용도 플래그입니다.
      */
     Asset::ETextureUsage operator|(Asset::ETextureUsage Left, Asset::ETextureUsage Right) {
-        return static_cast<Asset::ETextureUsage>(static_cast<Core::Uint8>(Left) | static_cast<Core::Uint8>(Right));
+        return static_cast<Asset::ETextureUsage>(static_cast<Uint8>(Left) | static_cast<Uint8>(Right));
     }
 
     /**
@@ -25,7 +25,7 @@ namespace Asset {
      * @return 비트 연산을 적용한 텍스처 사용 용도 플래그입니다.
      */
     Asset::ETextureUsage operator&(Asset::ETextureUsage Left, Asset::ETextureUsage Right) {
-        return static_cast<Asset::ETextureUsage>(static_cast<Core::Uint8>(Left) & static_cast<Core::Uint8>(Right));
+        return static_cast<Asset::ETextureUsage>(static_cast<Uint8>(Left) & static_cast<Uint8>(Right));
     }
 
 }

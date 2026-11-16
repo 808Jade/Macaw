@@ -1,0 +1,14 @@
+{
+  "name": "imanim",
+  "version-semver": "1.0.0",
+  "description": "Immediate-mode UI animation helpers for Dear ImGui",
+  "homepage": "https://github.com/soufianekhiat/ImAnim",
+  "license": "MIT",
+  "dependencies": [
+    "imgui",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    }
+  ]
+}

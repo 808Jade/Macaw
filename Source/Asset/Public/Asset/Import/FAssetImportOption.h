@@ -20,7 +20,7 @@ namespace Asset {
      * @brief 원본 노멀과 탄젠트를 그대로 쓸지 다시 계산할지 정합니다.
      */
     UENUM()
-    enum class ENormalImportMethod : Core::Uint8 {
+    enum class ENormalImportMethod : Uint8 {
         /**
          * @brief 원본 노멀과 탄젠트를 버리고 모두 다시 계산합니다.
          */
@@ -39,7 +39,7 @@ namespace Asset {
      * @brief 애니메이션 스택에서 재샘플링할 시간 구간을 정하는 방법입니다. 언리얼 EFBXAnimationLengthImportType과 같습니다.
      */
     UENUM()
-    enum class EAnimationLengthImportType : Core::Uint8 {
+    enum class EAnimationLengthImportType : Uint8 {
         /**
          * @brief 스택에 기록된 로컬 시간 구간을 사용합니다. 구간이 비어 있으면 키가 있는 구간을 사용합니다.
          */
@@ -160,19 +160,19 @@ namespace Asset {
          * @brief SetRange일 때 가져올 첫 프레임입니다. 샘플레이트 기준 프레임 번호입니다.
          */
         UPROPERTY(Edit)
-        Core::Int32 mFrameImportRangeStart{};
+        Int32 mFrameImportRangeStart{};
 
         /**
          * @brief SetRange일 때 가져올 마지막 프레임입니다. 샘플레이트 기준 프레임 번호입니다.
          */
         UPROPERTY(Edit)
-        Core::Int32 mFrameImportRangeEnd{};
+        Int32 mFrameImportRangeEnd{};
 
         /**
          * @brief 재샘플링 레이트입니다. 0이면 원본 장면의 프레임 레이트를 사용하고, 그것도 없으면 30입니다.
          */
         UPROPERTY(Edit)
-        Core::Int32 mCustomSampleRate{};
+        Int32 mCustomSampleRate{};
 
         /**
          * @brief 시작·끝 시간을 가장 가까운 프레임 경계로 맞춥니다.

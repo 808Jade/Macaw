@@ -167,7 +167,7 @@ FMatrix FMatrix::Orthographic(float Width, float Height, float NearPlane, float 
 FMatrix FMatrix::operator+(const FMatrix& Other) const {
     FMatrix Result{};
 
-    for (Core::Index_t Row{}; Row < 4; ++Row) {
+    for (Index_t Row{}; Row < 4; ++Row) {
         Result.mRows[Row] = _mm_add_ps(mRows[Row], Other.mRows[Row]);
     }
 
@@ -180,7 +180,7 @@ FMatrix FMatrix::operator+(const FMatrix& Other) const {
 FMatrix FMatrix::operator-(const FMatrix& Other) const {
     FMatrix Result{};
 
-    for (Core::Index_t Row{}; Row < 4; ++Row) {
+    for (Index_t Row{}; Row < 4; ++Row) {
         Result.mRows[Row] = _mm_sub_ps(mRows[Row], Other.mRows[Row]);
     }
 
@@ -197,7 +197,7 @@ FMatrix FMatrix::operator*(const FMatrix& Other) const {
     const __m128 OtherW{Other.mRows[3]};
     FMatrix Result{};
 
-    for (Core::Index_t Row{}; Row < 4; ++Row) {
+    for (Index_t Row{}; Row < 4; ++Row) {
         const __m128 Value{mRows[Row]};
         const __m128 X{_mm_mul_ps(Core::Math::Simd::Splat<0>(Value), OtherX)};
         const __m128 Y{_mm_mul_ps(Core::Math::Simd::Splat<1>(Value), OtherY)};
@@ -217,7 +217,7 @@ FMatrix FMatrix::operator*(float Value) const {
     const __m128 Scale{_mm_set1_ps(Value)};
     FMatrix Result{};
 
-    for (Core::Index_t Row{}; Row < 4; ++Row) {
+    for (Index_t Row{}; Row < 4; ++Row) {
         Result.mRows[Row] = _mm_mul_ps(mRows[Row], Scale);
     }
 
@@ -280,7 +280,7 @@ FMatrix& FMatrix::operator/=(float Value) {
  * @brief 모든 성분이 허용 오차 없이 정확히 같은지 검사합니다.
  */
 bool FMatrix::operator==(const FMatrix& Other) const {
-    for (Core::Index_t Row{}; Row < 4; ++Row) {
+    for (Index_t Row{}; Row < 4; ++Row) {
         if (!Core::Math::Simd::Equal<4>(mRows[Row], Other.mRows[Row])) {
             return false;
         }
@@ -309,7 +309,7 @@ FVector FMatrix::TransformVector(const FVector& Vector) const {
 /**
  * @brief 행렬에서 지정한 행의 XYZ 축 성분을 반환합니다.
  */
-FVector FMatrix::GetAxis(Core::Index_t Index) const {
+FVector FMatrix::GetAxis(Index_t Index) const {
     return FVector{mRows[Index]};
 }
 
@@ -327,7 +327,7 @@ FQuat FMatrix::GetQuaternion() const {
     FMatrix Rotation{*this};
     std::array<float, 3> Scales{};
 
-    for (Core::Index_t Row{}; Row < 3; ++Row) {
+    for (Index_t Row{}; Row < 3; ++Row) {
         const __m128 Axis{mRows[Row]};
         const __m128 SizeSquared{Core::Math::Simd::Dot<3>(Axis, Axis)};
 
@@ -349,7 +349,7 @@ FQuat FMatrix::GetQuaternion() const {
 
     if (Determinant < 0.0f) {
         const auto Largest{std::max_element(Scales.begin(), Scales.end())};
-        const Core::Index_t Row{static_cast<Core::Index_t>(Largest - Scales.begin())};
+        const Index_t Row{static_cast<Index_t>(Largest - Scales.begin())};
 
         Rotation.mRows[Row] = _mm_xor_ps(Rotation.mRows[Row], _mm_set1_ps(-0.0f));
     }
@@ -386,7 +386,7 @@ bool FMatrix::TryGetTransform(FTransform& Result) const {
     std::array<float, 3> Scales{};
     std::array<__m128, 3> Axes{};
 
-    for (Core::Index_t Row{}; Row < 3; ++Row) {
+    for (Index_t Row{}; Row < 3; ++Row) {
         const float Size{std::sqrt(_mm_cvtss_f32(Core::Math::Simd::Dot<3>(mRows[Row], mRows[Row])))};
 
         if (!std::isfinite(Size) || Size <= std::numeric_limits<float>::min()) {
@@ -427,10 +427,10 @@ bool FMatrix::TryInverse(FMatrix& Result) const {
         return false;
     }
 
-    for (Core::Index_t Column{}; Column < 4; ++Column) {
-        Core::Index_t Pivot{Column};
+    for (Index_t Column{}; Column < 4; ++Column) {
+        Index_t Pivot{Column};
 
-        for (Core::Index_t Row{static_cast<Core::Index_t>(Column + 1)}; Row < 4; ++Row) {
+        for (Index_t Row{static_cast<Index_t>(Column + 1)}; Row < 4; ++Row) {
             if (std::abs(Working.mRows[Row].m128_f32[Column]) > std::abs(Working.mRows[Pivot].m128_f32[Column])) {
                 Pivot = Row;
             }
@@ -459,7 +459,7 @@ bool FMatrix::TryInverse(FMatrix& Result) const {
         Working.mRows[Column] = WorkingPivot;
         Inverse.mRows[Column] = InversePivot;
 
-        for (Core::Index_t Row{}; Row < 4; ++Row) {
+        for (Index_t Row{}; Row < 4; ++Row) {
             if (Row != Column) {
                 const __m128 Factor{_mm_set1_ps(Working.mRows[Row].m128_f32[Column])};
 
@@ -493,13 +493,13 @@ FMatrix FMatrix::Transposed() const {
  * @brief 4×4 행렬의 행렬식을 구합니다.
  */
 float FMatrix::Determinant() const {
-    constexpr std::array<std::array<Core::Int32, 2>, 6> Columns{{{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
+    constexpr std::array<std::array<Int32, 2>, 6> Columns{{{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
     std::array<double, 6> Upper{};
     std::array<double, 6> Lower{};
 
-    for (Core::Index_t Index{}; Index < Columns.size(); ++Index) {
-        const Core::Index_t A{static_cast<Core::Index_t>(Columns[Index][0])};
-        const Core::Index_t B{static_cast<Core::Index_t>(Columns[Index][1])};
+    for (Index_t Index{}; Index < Columns.size(); ++Index) {
+        const Index_t A{static_cast<Index_t>(Columns[Index][0])};
+        const Index_t B{static_cast<Index_t>(Columns[Index][1])};
 
         Upper[Index] = static_cast<double>(mRows[0].m128_f32[A]) * mRows[1].m128_f32[B] - static_cast<double>(mRows[0].m128_f32[B]) * mRows[1].m128_f32[A];
         Lower[Index] = static_cast<double>(mRows[2].m128_f32[A]) * mRows[3].m128_f32[B] - static_cast<double>(mRows[2].m128_f32[B]) * mRows[3].m128_f32[A];
@@ -519,7 +519,7 @@ FVector FMatrix::Origin() const {
  * @brief 모든 유효 성분에 NaN이나 무한대가 없는지 검사합니다.
  */
 bool FMatrix::IsFinite() const {
-    for (Core::Index_t Row{}; Row < 4; ++Row) {
+    for (Index_t Row{}; Row < 4; ++Row) {
         if (!Core::Math::Simd::IsFinite<4>(mRows[Row])) {
             return false;
         }
@@ -539,7 +539,7 @@ bool FMatrix::IsIdentity(float Tolerance) const {
  * @brief 각 성분의 차이가 지정한 허용 오차 이내인지 검사합니다.
  */
 bool FMatrix::Equals(const FMatrix& Other, float Tolerance) const {
-    for (Core::Index_t Row{}; Row < 4; ++Row) {
+    for (Index_t Row{}; Row < 4; ++Row) {
         if (!Core::Math::Simd::NearEqual<4>(mRows[Row], Other.mRows[Row], Tolerance)) {
             return false;
         }
@@ -558,13 +558,13 @@ FMatrix operator*(float Value, const FMatrix& Matrix) {
 /**
  * @brief 지정한 행과 열의 행렬 성분을 참조합니다.
  */
-float& FMatrix::operator()(Core::Index_t Row, Core::Index_t Column) {
+float& FMatrix::operator()(Index_t Row, Index_t Column) {
     return mRows[Row].m128_f32[Column];
 }
 
 /**
  * @brief 지정한 행과 열의 행렬 성분을 참조합니다.
  */
-const float& FMatrix::operator()(Core::Index_t Row, Core::Index_t Column) const {
+const float& FMatrix::operator()(Index_t Row, Index_t Column) const {
     return mRows[Row].m128_f32[Column];
 }

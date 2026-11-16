@@ -43,19 +43,19 @@ namespace Renderer {
          * @param[in] Height 렌더 타깃의 세로 픽셀 수입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool Resize(ID3D11Device* Device, Core::Uint32 Width, Core::Uint32 Height);
+        bool Resize(ID3D11Device* Device, Uint32 Width, Uint32 Height);
 
         /**
          * @brief 가로 픽셀 수를 반환합니다.
          * @return 가로 픽셀 수입니다.
          */
-        Core::Uint32 GetWidth() const override;
+        Uint32 GetWidth() const override;
 
         /**
          * @brief 세로 픽셀 수를 반환합니다.
          * @return 세로 픽셀 수입니다.
          */
-        Core::Uint32 GetHeight() const override;
+        Uint32 GetHeight() const override;
 
         /**
          * @brief UI에서 샘플링할 셰이더 리소스 뷰의 비소유 주소를 반환합니다.
@@ -193,12 +193,12 @@ namespace Renderer {
         /**
          * @brief 가로 픽셀 수입니다.
          */
-        Core::Uint32 mWidth{};
+        Uint32 mWidth{};
 
         /**
          * @brief 세로 픽셀 수입니다.
          */
-        Core::Uint32 mHeight{};
+        Uint32 mHeight{};
     };
 
 }

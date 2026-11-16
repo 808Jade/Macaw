@@ -19,11 +19,48 @@ namespace Engine {
 namespace Editor {
 
     class FEditorViewport;
+    class FPlayInEditorWindow;
 
     /**
      * @brief 편집 월드 복제와 PIE 실행 세션의 수명 관리를 담당합니다.
      */
     class FPlayInEditorSession {
+    public:
+        /**
+         * @brief PIE 실행 위치·일시 정지·입력 캡처와 별도 창 크기 설정입니다.
+         */
+        struct FOptions {
+            /**
+             * @brief PIE를 별도 창에서 시작할지 나타냅니다.
+             */
+            bool mNewWindow{};
+
+            /**
+             * @brief 에디터 카메라 위치에서 PIE를 시작할지 나타냅니다.
+             */
+            bool mStartAtEditorCamera{};
+
+            /**
+             * @brief 별도 PIE 창의 클라이언트 너비이며 단위는 픽셀입니다.
+             */
+            Uint32 mWindowWidth{1280};
+
+            /**
+             * @brief 별도 PIE 창의 클라이언트 높이이며 단위는 픽셀입니다.
+             */
+            Uint32 mWindowHeight{720};
+
+            /**
+             * @brief PIE 시작 시 게임 입력을 캡처할지 지정합니다.
+             */
+            bool mCaptureInput{true};
+
+            /**
+             * @brief PIE를 일시 정지 상태로 시작할지 나타냅니다.
+             */
+            bool mStartPaused{};
+        };
+
     public:
         /**
          * @brief 전달받은 설정과 의존성으로 FPlayInEditorSession의 초기 상태를 구성합니다.
@@ -49,6 +86,30 @@ namespace Editor {
         Editor::FPlayInEditorSession& operator=(const Editor::FPlayInEditorSession&) = delete;
 
     public:
+        /**
+         * @brief 현재 PIE 실행 옵션을 반환합니다.
+         * @return 세션이 보관하는 실행 옵션입니다.
+         */
+        const FOptions& GetOptions() const;
+
+        /**
+         * @brief PIE가 비활성이고 창 크기가 허용 범위일 때 다음 실행 옵션을 갱신합니다.
+         * @param[in] Options 다음 PIE 실행에 적용할 옵션입니다.
+         * @return 옵션을 적용했으면 true입니다.
+         */
+        bool SetOptions(const FOptions& Options);
+
+        /**
+         * @brief PIE가 별도 창에서 실행 중인지 검사합니다.
+         * @return 실행 중인 별도 PIE 창이 있으면 true입니다.
+         */
+        bool IsPlayingInNewWindow() const;
+
+        /**
+         * @brief 별도 PIE 창의 메시지·입력과 렌더링을 처리합니다.
+         */
+        void DrawPlayWindow();
+
         /**
          * @brief 편집 월드와 뷰포트 상태가 PIE 시작 조건을 만족하는지 검사합니다.
          * @return 검사 조건을 만족하면 true, 그렇지 않으면 false입니다.
@@ -139,6 +200,16 @@ namespace Editor {
         CoreUObject::TObjectRef<CoreUObject::UObject> FindEditorObject(CoreUObject::TObjectRef<CoreUObject::UObject> Duplicate) const;
 
     private:
+        /**
+         * @brief 다음 PIE 실행에 사용할 세션 옵션입니다.
+         */
+        FOptions mOptions{};
+
+        /**
+         * @brief 별도 PIE 실행 창의 소유 객체입니다.
+         */
+        std::unique_ptr<Editor::FPlayInEditorWindow> mPlayWindow{};
+
         /**
          * @brief 월드 조회와 실행을 제공하는 엔진의 비소유 주소입니다.
          */

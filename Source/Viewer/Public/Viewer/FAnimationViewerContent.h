@@ -112,7 +112,7 @@ namespace Viewer {
          * @brief 원본·제자리·루트 모션 적용 중 미리보기 방식을 변경합니다.
          * @param Mode 설정할 동작 또는 표시 모드입니다.
          */
-        void SetPreviewMode(Core::Int32 Mode);
+        void SetPreviewMode(Int32 Mode);
 
         /**
          * @brief 콘텐츠가 렌더링 또는 촬영 준비에 사용할 수 있는 상태인지 확인합니다.
@@ -148,7 +148,7 @@ namespace Viewer {
          * @brief 루트 모션 미리보기 방식을 반환합니다.
          * @return 0은 원본, 1은 제자리, 2는 루트 모션의 액터 적용입니다.
          */
-        Core::Int32 GetPreviewMode() const;
+        Int32 GetPreviewMode() const;
 
         /**
          * @brief 현재 콘텐츠의 월드 공간 경계를 제공합니다.
@@ -240,7 +240,7 @@ namespace Viewer {
         /**
          * @brief 루트 모션 미리보기 방식이며 0은 원본, 1은 제자리, 2는 액터 이동입니다.
          */
-        Core::Int32 mPreviewMode{};
+        Int32 mPreviewMode{};
 
         /**
          * @brief Fit과 컬링에 사용하는 미리보기 대상의 월드 공간 AABB입니다.

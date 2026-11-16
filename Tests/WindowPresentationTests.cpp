@@ -155,7 +155,7 @@ namespace {
         Application.SetCenteredClientSize(480, 280);
         RECT Bounds{};
         GetClientRect(Application.GetWindowHandle(), &Bounds);
-        Expect(Application.GetWidth() == static_cast<Core::Uint32>(Bounds.right) && Application.GetHeight() == static_cast<Core::Uint32>(Bounds.bottom), "external message handling cannot swallow size state updates");
+        Expect(Application.GetWidth() == static_cast<Uint32>(Bounds.right) && Application.GetHeight() == static_cast<Uint32>(Bounds.bottom), "external message handling cannot swallow size state updates");
         Application.SetMinimumClientSize(400, 240);
         MINMAXINFO Limits{};
         SendMessageW(Application.GetWindowHandle(), WM_GETMINMAXINFO, 0, reinterpret_cast<LPARAM>(&Limits));

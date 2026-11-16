@@ -192,7 +192,7 @@ namespace Engine {
          * @brief 월드 교체 시 증가하는 컨텍스트 세대를 반환합니다.
          * @return 월드 교체 시 증가하는 컨텍스트 세대입니다.
          */
-        Core::Uint64 GetWorldGeneration() const;
+        Uint64 GetWorldGeneration() const;
 
         /**
          * @brief 월드의 프레임 말 렌더 갱신을 모두 반영합니다.
@@ -254,7 +254,7 @@ namespace Engine {
         /**
          * @brief 월드 교체 시 증가하는 컨텍스트 세대입니다.
          */
-        Core::Uint64 mWorldGeneration{};
+        Uint64 mWorldGeneration{};
 
         /**
          * @brief 초기화가 완료되어 월드를 생성할 수 있는지 나타냅니다.

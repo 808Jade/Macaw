@@ -30,7 +30,7 @@ namespace RenderCore {
          * @brief T 크기로 설정한 빈 버퍼를 생성합니다.
          */
         TStructuredBuffer()
-            : RenderCore::FGpuBuffer{static_cast<Core::Uint32>(sizeof(T)), Update} {
+            : RenderCore::FGpuBuffer{static_cast<Uint32>(sizeof(T)), Update} {
         }
 
         /**
@@ -50,7 +50,7 @@ namespace RenderCore {
          * @param[in] Stages 연결할 셰이더 단계입니다.
          * @param[in] Slot 셰이더 리소스 슬롯(t 레지스터)입니다.
          */
-        void Bind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t Slot) const {
+        void Bind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t Slot) const {
             SetView(Context, Stages, Slot, mShaderResourceView.Get());
         }
 
@@ -60,7 +60,7 @@ namespace RenderCore {
          * @param[in] Stages 해제할 셰이더 단계입니다.
          * @param[in] Slot 셰이더 리소스 슬롯(t 레지스터)입니다.
          */
-        static void Unbind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t Slot) {
+        static void Unbind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t Slot) {
             SetView(Context, Stages, Slot, nullptr);
         }
 
@@ -79,8 +79,8 @@ namespace RenderCore {
          * @brief 이 버퍼가 담을 수 있는 최대 원소 수를 반환합니다.
          * @return 기본 구현은 바이트 크기가 32비트에 들어가는 원소 수입니다.
          */
-        Core::Uint64 GetMaximumCount() const override {
-            return std::min<Core::Uint64>(RenderCore::FGpuBuffer::GetMaximumCount(), Core::Uint64{1} << D3D11_REQ_BUFFER_RESOURCE_TEXEL_COUNT_2_TO_EXP);
+        Uint64 GetMaximumCount() const override {
+            return std::min<Uint64>(RenderCore::FGpuBuffer::GetMaximumCount(), Uint64{1} << D3D11_REQ_BUFFER_RESOURCE_TEXEL_COUNT_2_TO_EXP);
         }
 
         /**
@@ -119,7 +119,7 @@ namespace RenderCore {
          * @param[in] Slot 조회하거나 바꿀 머티리얼 슬롯입니다.
          * @param[in] View 화면 크기와 뷰 투영 행렬입니다.
          */
-        static void SetView(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t Slot, ID3D11ShaderResourceView* View) {
+        static void SetView(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t Slot, ID3D11ShaderResourceView* View) {
             if (RenderCore::HasStage(Stages, RenderCore::EShaderStage::Vertex)) {
                 Context->VSSetShaderResources(static_cast<UINT>(Slot), 1, &View);
             }

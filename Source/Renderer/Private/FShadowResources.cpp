@@ -28,12 +28,12 @@ namespace Renderer {
         /**
          * @brief Direct3D 11에서 지원하는 그림자 아틀라스 한 변의 최대 픽셀 수입니다.
          */
-        constexpr Core::Uint32 AtlasSize{D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION};
+        constexpr Uint32 AtlasSize{D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION};
 
         /**
          * @brief 그림자 타일의 각 가장자리에 확보하는 보호 픽셀 수입니다.
          */
-        constexpr Core::Uint32 Guard{4};
+        constexpr Uint32 Guard{4};
 
         /**
          * @brief 그림자 아틀라스 미리보기 패스의 내장 HLSL 소스입니다.
@@ -75,7 +75,7 @@ namespace Renderer {
          * @return 유효한 프리셋 단계입니다.
          */
         Engine::EShadowBiasPreset ValidBiasPreset(Engine::EShadowBiasPreset Preset) {
-            return static_cast<Core::Uint32>(Preset) < Engine::ShadowBiasPresetCount ? Preset : Engine::DefaultShadowBiasPreset;
+            return static_cast<Uint32>(Preset) < Engine::ShadowBiasPresetCount ? Preset : Engine::DefaultShadowBiasPreset;
         }
     }
 
@@ -84,7 +84,7 @@ namespace Renderer {
     /**
      * @brief 캐스케이드 구간과 그림자 생성 물체의 깊이를 포함하는 텍셀 정렬 방향광 행렬을 만듭니다.
      */
-    FMatrix Renderer::FShadowResources::MakeDirectionalMatrix(const Engine::FSceneView& View, const FVector& Direction, float NearDistance, float FarDistance, Core::Uint32 Resolution, std::span<const FBox> CasterBounds) {
+    FMatrix Renderer::FShadowResources::MakeDirectionalMatrix(const Engine::FSceneView& View, const FVector& Direction, float NearDistance, float FarDistance, Uint32 Resolution, std::span<const FBox> CasterBounds) {
         const FVector Forward{View.mForward.Normalized()};
         const FVector Center{View.mLocation + Forward * ((NearDistance + FarDistance) * 0.5f)};
         const float FarX{(View.mOrthographic ? 1.0f : FarDistance) / View.mProjection(0, 0)};
@@ -100,7 +100,7 @@ namespace Renderer {
         float MaximumZ{LightCenter.z + Radius};
 
         for (const FBox& Bounds : CasterBounds) {
-            for (Core::Index_t Corner{}; Corner < 8; ++Corner) {
+            for (Index_t Corner{}; Corner < 8; ++Corner) {
                 const FVector Point{(Corner & 1) ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Corner & 2) ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Corner & 4) ? Bounds.mMaximum.z : Bounds.mMinimum.z};
                 const FVector4 LightPoint{FVector4{Point, 1.0f} * Rotation};
 
@@ -225,10 +225,10 @@ namespace Renderer {
             }
         }
 
-        Core::TArray<Core::Index_t> Order{};
+        Core::TArray<Index_t> Order{};
         Order.resize(Scene.GetLights().size());
         std::iota(Order.begin(), Order.end(), 0u);
-        std::stable_sort(Order.begin(), Order.end(), [&Scene](Core::Index_t First, Core::Index_t Second) {
+        std::stable_sort(Order.begin(), Order.end(), [&Scene](Index_t First, Index_t Second) {
             const Engine::FLightSceneProxy& A{Scene.GetLights()[First]};
             const Engine::FLightSceneProxy& B{Scene.GetLights()[Second]};
             return A.mShadowResolution * A.mShadowResolutionScale > B.mShadowResolution * B.mShadowResolutionScale;
@@ -236,7 +236,7 @@ namespace Renderer {
 
         bool HasDirectional{};
 
-        for (Core::Index_t LightIndex : Order) {
+        for (Index_t LightIndex : Order) {
             const Engine::FLightSceneProxy& Light{Scene.GetLights()[LightIndex]};
 
             if (!Light.mVisible || Light.mIntensity <= 0.0f || !Light.mCastShadows || Light.mType == Engine::ELightType::Ambient) {
@@ -255,10 +255,10 @@ namespace Renderer {
                 continue;
             }
 
-            const Core::Uint32 CascadeCount{mSettings.mCascadeOverride != 0 ? mSettings.mCascadeOverride : Light.mCascadeCount};
-            const Core::Uint32 Count{Light.mType == Engine::ELightType::Point ? 6u : Light.mType == Engine::ELightType::Directional ? std::clamp(CascadeCount, 1u, 4u) : 1u};
-            const Core::Uint32 Requested{std::bit_ceil(static_cast<Core::Uint32>(std::clamp(Light.mShadowResolution * Light.mShadowResolutionScale, 64.0f, 8192.0f)))};
-            Core::Uint32 Size{Requested};
+            const Uint32 CascadeCount{mSettings.mCascadeOverride != 0 ? mSettings.mCascadeOverride : Light.mCascadeCount};
+            const Uint32 Count{Light.mType == Engine::ELightType::Point ? 6u : Light.mType == Engine::ELightType::Directional ? std::clamp(CascadeCount, 1u, 4u) : 1u};
+            const Uint32 Requested{std::bit_ceil(static_cast<Uint32>(std::clamp(Light.mShadowResolution * Light.mShadowResolutionScale, 64.0f, 8192.0f)))};
+            Uint32 Size{Requested};
             Core::TArray<Renderer::FShadowAtlasBlock> Blocks{};
             const Renderer::FShadowAtlasAllocator Saved{mAllocator};
 
@@ -267,7 +267,7 @@ namespace Renderer {
 
                 Blocks.clear();
 
-                for (Core::Index_t Face{}; Face < Count; ++Face) {
+                for (Index_t Face{}; Face < Count; ++Face) {
                     const auto Block{mAllocator.Allocate(Size)};
 
                     if (!Block.has_value()) {
@@ -293,7 +293,7 @@ namespace Renderer {
 
             Stats.mShadowReducedLights += Size < Requested;
             HasDirectional = HasDirectional || Light.mType == Engine::ELightType::Directional;
-            mLightRanges[LightIndex] = {static_cast<Core::Uint32>(mMaps.size()) + 1, Count};
+            mLightRanges[LightIndex] = {static_cast<Uint32>(mMaps.size()) + 1, Count};
 
             const Engine::FSceneView& View{Family.mView};
             const float ProjectionDepth{View.mProjection(2, 2)};
@@ -305,9 +305,9 @@ namespace Renderer {
             const Engine::EShadowBiasPreset BiasPreset{ValidBiasPreset(Light.mShadowBiasPreset)};
             const Engine::EShadowBiasPreset SlopeBiasPreset{ValidBiasPreset(Light.mShadowSlopeBiasPreset)};
 
-            for (Core::Index_t Face{}; Face < Count; ++Face) {
+            for (Index_t Face{}; Face < Count; ++Face) {
                 const Renderer::FShadowAtlasBlock& Block{Blocks[Face]};
-                const Core::Uint32 Resolution{Block.mSize - Guard * 2};
+                const Uint32 Resolution{Block.mSize - Guard * 2};
                 Renderer::FGpuShadow Map{};
                 Map.mAtlasRectangle = {static_cast<float>(Block.mX + Guard) / AtlasSize, static_cast<float>(Block.mY + Guard) / AtlasSize, static_cast<float>(Resolution) / AtlasSize, static_cast<float>(Resolution) / AtlasSize};
                 Map.mSharpen = Light.mShadowSharpen;
@@ -349,7 +349,7 @@ namespace Renderer {
             }
         }
 
-        Stats.mShadowMaps = static_cast<Core::Uint32>(mMaps.size());
+        Stats.mShadowMaps = static_cast<Uint32>(mMaps.size());
     }
 
     /**
@@ -359,7 +359,7 @@ namespace Renderer {
         Core::FString Error{};
 
         // 그림자 맵이 없어도 셰이더가 읽을 뷰가 있어야 하므로 최소 한 칸을 확보합니다.
-        if (!mShadowBuffer.Reserve(Device, std::max<Core::Uint64>(mMaps.size(), 1), Error)) {
+        if (!mShadowBuffer.Reserve(Device, std::max<Uint64>(mMaps.size(), 1), Error)) {
             return false;
         }
 
@@ -451,7 +451,7 @@ namespace Renderer {
     /**
      * @brief 그림자 맵 하나의 깊이 내용을 결정하는 현재 입력 스탬프를 만듭니다.
      */
-    Renderer::FShadowTileStamp Renderer::FShadowResources::MakeTileStamp(Core::Index_t Index, Core::Uint64 DepthShaderRevision) const {
+    Renderer::FShadowTileStamp Renderer::FShadowResources::MakeTileStamp(Index_t Index, Uint64 DepthShaderRevision) const {
         const FTileDepth& Tile{mTileDepths[Index]};
 
         return {Tile.mBlock, mMaps[Index].mViewProjection, mCasterRevision, mAtlasRevision, DepthShaderRevision, Tile.mBiasPreset, Tile.mSlopeBiasPreset};
@@ -460,14 +460,14 @@ namespace Renderer {
     /**
      * @brief 아틀라스 타일이 이미 같은 입력으로 그려져 있는지 검사합니다.
      */
-    bool Renderer::FShadowResources::IsTileCurrent(Core::Index_t Index, const Renderer::FShadowTileStamp& Stamp) {
+    bool Renderer::FShadowResources::IsTileCurrent(Index_t Index, const Renderer::FShadowTileStamp& Stamp) {
         return mSettings.mCacheWholeSceneShadows && mTileCache.Find(MakeTileKey(Index), Stamp) != nullptr;
     }
 
     /**
      * @brief 타일을 다시 그리는 데 성공했음을 기록하고, 같은 아틀라스 영역을 덮어쓰인 다른 항목을 무효화합니다.
      */
-    void Renderer::FShadowResources::CommitTile(Core::Index_t Index, const Renderer::FShadowTileStamp& Stamp) {
+    void Renderer::FShadowResources::CommitTile(Index_t Index, const Renderer::FShadowTileStamp& Stamp) {
         const Renderer::FShadowAtlasBlock& Block{Stamp.mBlock};
         mTileCache.InvalidateIf([&Block](const Renderer::FShadowTileKey&, const Renderer::FShadowTileStamp& Cached) {
             return Cached.mBlock.Overlaps(Block);
@@ -479,7 +479,7 @@ namespace Renderer {
     /**
      * @brief 그림자 맵 하나의 타일을 지울 아틀라스 영역을 반환합니다.
      */
-    Renderer::FPassTarget Renderer::FShadowResources::GetClearTarget(Core::Index_t Index) const {
+    Renderer::FPassTarget Renderer::FShadowResources::GetClearTarget(Index_t Index) const {
         const Renderer::FShadowAtlasBlock& Block{mTileDepths[Index].mBlock};
         Renderer::FPassTarget Target{};
         Target.mDepth = mAtlas->GetDepthStencilView();
@@ -492,7 +492,7 @@ namespace Renderer {
     /**
      * @brief 그림자 맵 하나를 타일 캐시에서 구분하는 키를 만듭니다.
      */
-    Renderer::FShadowTileKey Renderer::FShadowResources::MakeTileKey(Core::Index_t Index) const {
+    Renderer::FShadowTileKey Renderer::FShadowResources::MakeTileKey(Index_t Index) const {
         return {mSceneIdentity, mTiles[Index].mLightId, mTiles[Index].mFace};
     }
 
@@ -522,7 +522,7 @@ namespace Renderer {
     /**
      * @brief 그림자 맵 하나의 깊이를 기록할 아틀라스 타일 타깃을 반환합니다.
      */
-    Renderer::FPassTarget Renderer::FShadowResources::GetTarget(Core::Index_t Index) const {
+    Renderer::FPassTarget Renderer::FShadowResources::GetTarget(Index_t Index) const {
         const FVector4& Rectangle{mMaps[Index].mAtlasRectangle};
         Renderer::FPassTarget Target{};
         Target.mDepth = mAtlas->GetDepthStencilView();
@@ -595,7 +595,7 @@ namespace Renderer {
     /**
      * @brief 원본 광원별 그림자 맵 구간을 반환합니다.
      */
-    const Core::TArray<std::array<Core::Uint32, 2>>& Renderer::FShadowResources::GetLightRanges() const {
+    const Core::TArray<std::array<Uint32, 2>>& Renderer::FShadowResources::GetLightRanges() const {
         return mLightRanges;
     }
 

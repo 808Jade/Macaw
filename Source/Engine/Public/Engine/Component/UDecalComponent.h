@@ -114,13 +114,13 @@ namespace Engine {
          * @brief 데칼 겹침 정렬에 사용하는 순서를 반환합니다.
          * @return 현재 정렬 순서 값입니다.
          */
-        Core::Int32 GetSortOrder() const;
+        Int32 GetSortOrder() const;
 
         /**
          * @brief 겹치는 데칼의 정렬 순서를 설정하고 장면을 동기화합니다.
          * @param SortOrder 겹친 데칼의 정렬 순서입니다.
          */
-        void SetSortOrder(Core::Int32 SortOrder);
+        void SetSortOrder(Int32 SortOrder);
 
         bool SetTransform(const FTransform& Transform) override;
         void OnOwnerVisibilityChanged() override;
@@ -186,7 +186,7 @@ namespace Engine {
          * @brief 겹치는 데칼을 정렬할 순서 값입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetSortOrder, Setter = SetSortOrder)
-        Core::Int32 mSortOrder{};
+        Int32 mSortOrder{};
 
         /**
          * @brief 에셋 관리자가 소유하는 데칼 색상 텍스처입니다.

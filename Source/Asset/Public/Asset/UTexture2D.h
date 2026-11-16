@@ -66,7 +66,7 @@ namespace Asset {
          * @param[in] SRGB 이미지를 sRGB 색 공간으로 해석할지 나타냅니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool LoadFromMemory(std::span<const Core::Uint8> Data, const std::filesystem::path& ImagePath, bool SRGB = true);
+        bool LoadFromMemory(std::span<const Uint8> Data, const std::filesystem::path& ImagePath, bool SRGB = true);
 
         /**
          * @brief DDS 데이터를 읽어 이미지 형식과 크기 및 CPU 이미지 데이터를 설정합니다.
@@ -74,13 +74,13 @@ namespace Asset {
          * @param[in] SRGB 이미지를 sRGB 색 공간으로 해석할지 나타냅니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool SetDDSData(std::span<const Core::Uint8> Data, bool SRGB);
+        bool SetDDSData(std::span<const Uint8> Data, bool SRGB);
 
         /**
          * @brief 보존 중인 DDS 형식의 이미지 바이트 배열을 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::TArray<Core::Uint8>& GetDDSData() const;
+        const Core::TArray<Uint8>& GetDDSData() const;
 
         /**
          * @brief 크기·형식·용도·색 공간을 검증하여 텍스처 생성 구성을 설정합니다.
@@ -91,7 +91,7 @@ namespace Asset {
          * @param[in] SRGB 이미지를 sRGB 색 공간으로 해석할지 나타냅니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool Configure(Core::Uint32 SizeX, Core::Uint32 SizeY, Asset::ETextureFormat Format, Asset::ETextureUsage Usage, bool SRGB = false);
+        bool Configure(Uint32 SizeX, Uint32 SizeY, Asset::ETextureFormat Format, Asset::ETextureUsage Usage, bool SRGB = false);
 
         /**
          * @brief 크기와 형식에 맞는 CPU 픽셀 데이터를 검증하여 교체합니다.
@@ -101,25 +101,25 @@ namespace Asset {
          * @param[in] Pixels 크기와 픽셀 형식에 맞는 새 CPU 이미지 데이터입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool SetPixels(Core::Uint32 SizeX, Core::Uint32 SizeY, Asset::ETextureFormat Format, Core::TArray<Core::Uint8> Pixels);
+        bool SetPixels(Uint32 SizeX, Uint32 SizeY, Asset::ETextureFormat Format, Core::TArray<Uint8> Pixels);
 
         /**
          * @brief 텍스처의 가로 픽셀 수를 반환합니다.
          * @return 텍스처의 가로 픽셀 수를 나타내는 정수 값입니다.
          */
-        Core::Uint32 GetSizeX() const override;
+        Uint32 GetSizeX() const override;
 
         /**
          * @brief 텍스처의 세로 픽셀 수를 반환합니다.
          * @return 텍스처의 세로 픽셀 수를 나타내는 정수 값입니다.
          */
-        Core::Uint32 GetSizeY() const override;
+        Uint32 GetSizeY() const override;
 
         /**
          * @brief 텍스처의 밉 레벨 수를 반환합니다.
          * @return 텍스처의 밉 레벨 수를 나타내는 정수 값입니다.
          */
-        Core::Uint32 GetMipLevels() const;
+        Uint32 GetMipLevels() const;
 
         /**
          * @brief 텍스처의 픽셀 또는 깊이 형식을 반환합니다.
@@ -131,7 +131,7 @@ namespace Asset {
          * @brief CPU 메모리에 보관한 픽셀 바이트 배열을 반환합니다.
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
-        const Core::TArray<Core::Uint8>& GetPixels() const;
+        const Core::TArray<Uint8>& GetPixels() const;
 
         /**
          * @brief 텍스처를 sRGB 색 공간으로 해석하는지 반환합니다.
@@ -236,7 +236,7 @@ namespace Asset {
          * @param[in] SizeY 텍스처의 세로 픽셀 수입니다.
          * @return 검사 조건을 만족하면 true, 그렇지 않으면 false입니다.
          */
-        static bool IsValidSize(Core::Uint32 SizeX, Core::Uint32 SizeY);
+        static bool IsValidSize(Uint32 SizeX, Uint32 SizeY);
 
         /**
          * @brief 지정한 형식이 깊이 또는 깊이·스텐실 형식인지 검사합니다.
@@ -259,14 +259,14 @@ namespace Asset {
          * @param[in] Format 픽셀 크기를 구할 텍스처 형식입니다.
          * @return 텍스처 형식의 픽셀 하나가 차지하는 바이트 수를 나타내는 정수 값입니다.
          */
-        static Core::Uint32 GetBytesPerPixel(Asset::ETextureFormat Format);
+        static Uint32 GetBytesPerPixel(Asset::ETextureFormat Format);
 
         /**
          * @brief 텍스처 용도 플래그를 Direct3D 바인딩 플래그로 변환합니다.
          * @param[in] Usage 셰이더 읽기·색상 출력·깊이 출력의 용도 플래그입니다.
          * @return D3D11_BIND_FLAG 비트 조합입니다.
          */
-        static Core::Uint32 GetBindFlags(Asset::ETextureUsage Usage);
+        static Uint32 GetBindFlags(Asset::ETextureUsage Usage);
 
         /**
          * @brief 픽셀 형식과 색 공간에 대응하는 Direct3D 리소스 형식을 반환합니다.
@@ -309,17 +309,17 @@ namespace Asset {
         /**
          * @brief 텍스처의 가로 픽셀 수입니다.
          */
-        Core::Uint32 mSizeX{};
+        Uint32 mSizeX{};
 
         /**
          * @brief 텍스처의 세로 픽셀 수입니다.
          */
-        Core::Uint32 mSizeY{};
+        Uint32 mSizeY{};
 
         /**
          * @brief 텍스처에 포함된 밉 레벨 수입니다.
          */
-        Core::Uint32 mMipLevels{1};
+        Uint32 mMipLevels{1};
 
         /**
          * @brief 텍스처의 픽셀 또는 깊이·스텐실 형식입니다.
@@ -329,12 +329,12 @@ namespace Asset {
         /**
          * @brief CPU에서 보관하는 텍스처 픽셀 바이트 배열입니다.
          */
-        Core::TArray<Core::Uint8> mPixels{};
+        Core::TArray<Uint8> mPixels{};
 
         /**
          * @brief 밉 레벨과 형식을 유지하기 위해 보존한 DDS 이미지 바이트입니다.
          */
-        Core::TArray<Core::Uint8> mDDSData{};
+        Core::TArray<Uint8> mDDSData{};
 
         /**
          * @brief 픽셀을 sRGB 색 공간으로 해석하는지 나타냅니다.

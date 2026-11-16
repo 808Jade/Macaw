@@ -164,10 +164,30 @@ namespace Engine {
         double GetTick() const;
 
     private:
+        /**
+         * @brief 시퀀스 플레이어가 사용하는 월드를 조회합니다.
+         * @return 현재 월드의 비소유 주소입니다.
+         */
         Engine::UWorld* GetWorld() const;
+
+        /**
+         * @brief 재생 대상으로 연결된 레벨 시퀀스를 조회합니다.
+         * @return 시퀀스의 읽기 전용 비소유 주소입니다.
+         */
         const Asset::ULevelSequence* GetSequence() const;
 
+        /**
+         * @brief 식별자로 시퀀스 바인딩을 찾습니다.
+         * @param[in] BindingId 조회할 시퀀스 바인딩 식별자입니다.
+         * @return 바인딩 주소이며 시퀀스나 바인딩이 없으면 nullptr입니다.
+         */
         const Asset::FSequenceBinding* FindBinding(const Core::FGuid& BindingId) const;
+
+        /**
+         * @brief 객체 참조를 해석해 현재 월드의 씬 컴포넌트를 조회합니다.
+         * @param[in] Handle 현재 월드에서 조회할 씬 컴포넌트의 비소유 참조입니다.
+         * @return 유효한 대상 컴포넌트 주소이며 해석할 수 없으면 nullptr입니다.
+         */
         Engine::USceneComponent* ResolveComponent(CoreUObject::TObjectRef<Engine::USceneComponent> Handle) const;
 
         /**

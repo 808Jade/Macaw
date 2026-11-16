@@ -49,7 +49,7 @@ namespace CoreUObject {
             Flags = Flags | CoreUObject::EClassFlags::Abstract;
         }
 
-        const CoreUObject::FReflectionRegistry::FFactory Factory{std::is_abstract_v<T> || !std::is_default_constructible_v<T> || (static_cast<Core::Uint32>(Flags) & static_cast<Core::Uint32>(CoreUObject::EClassFlags::NoFactory | CoreUObject::EClassFlags::Abstract)) != 0 ? nullptr : &CoreUObject::CreateNativeInstance<T>};
+        const CoreUObject::FReflectionRegistry::FFactory Factory{std::is_abstract_v<T> || !std::is_default_constructible_v<T> || (static_cast<Uint32>(Flags) & static_cast<Uint32>(CoreUObject::EClassFlags::NoFactory | CoreUObject::EClassFlags::Abstract)) != 0 ? nullptr : &CoreUObject::CreateNativeInstance<T>};
 
         return CoreUObject::FReflectionRegistry::DefineClass(std::move(Name), Parent, CoreUObject::GetNativeType<T>(), Flags, Factory, &CoreUObject::BuildNativeReflection<T, CoreUObject::UClass>);
     }

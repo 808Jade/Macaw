@@ -28,7 +28,7 @@ namespace RenderCore {
                 return false;
             }
 
-            for (Core::Index_t Index{}; Index < Name.size(); ++Index) {
+            for (Index_t Index{}; Index < Name.size(); ++Index) {
                 const char Character{Name[Index]};
                 const bool Letter{(Character >= 'A' && Character <= 'Z') || (Character >= 'a' && Character <= 'z') || Character == '_'};
 
@@ -75,7 +75,7 @@ namespace RenderCore {
 
         std::sort(mMacros.begin(), mMacros.end(), MacroLess);
 
-        for (Core::Index_t Index{}; Index < mMacros.size(); ++Index) {
+        for (Index_t Index{}; Index < mMacros.size(); ++Index) {
             const RenderCore::FShaderMacro& Macro{mMacros[Index]};
 
             if (!IsIdentifier(Macro.mName) || Macro.mValue.find('\0') != Core::FString::npos || (Index > 0 && mMacros[Index - 1].mName == Macro.mName)) {
@@ -98,7 +98,7 @@ namespace RenderCore {
      * @brief 경로·진입점·프로필·매크로·컴파일러를 포함한 셰이더 식별 문자열을 반환합니다.
      */
     Core::FString RenderCore::FShaderDescription::GetIdentity() const {
-        Core::TArray<Core::Uint8> Data{};
+        Core::TArray<Uint8> Data{};
 
         RenderCore::ShaderFile::AppendString(Data, "Macaw-D3DCompile-Shader-1");
         RenderCore::ShaderFile::AppendString(Data, RenderCore::ShaderFile::GetCompilerIdentity());
@@ -128,7 +128,7 @@ namespace RenderCore {
     Core::FString RenderCore::FShaderDescription::GetCacheKey() const {
         const Core::FString Identity{GetIdentity()};
 
-        return RenderCore::ShaderFile::Hash(std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Identity.data()), Identity.size()});
+        return RenderCore::ShaderFile::Hash(std::span<const Uint8>{reinterpret_cast<const Uint8*>(Identity.data()), Identity.size()});
     }
 
 }

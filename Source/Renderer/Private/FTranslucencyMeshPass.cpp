@@ -1,3 +1,9 @@
+/**
+ * @file FTranslucencyMeshPass.cpp
+ * @brief 반투명 메시·스프라이트·텍스트를 정렬하고 반투명 패스로 그립니다.
+ * @ingroup Renderer
+ */
+
 #include "FTranslucencyMeshPass.h"
 
 #include "FScene.h"
@@ -22,12 +28,12 @@ namespace Renderer {
         return Renderer::EMeshPass::TranslucencyMeshPass;
     }
 
-    Core::Uint32 Renderer::FTranslucencyMeshPass::Render(const Engine::FSceneViewFamily& Family, bool EditorIcons, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
+    Uint32 Renderer::FTranslucencyMeshPass::Render(const Engine::FSceneViewFamily& Family, bool EditorIcons, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
         using FPrimitive = std::variant<const Engine::FPrimitiveSceneProxy*, Engine::FDrawText, std::size_t>;
         using FCommand = std::pair<float, FPrimitive>;
         Core::TArray<FCommand> Commands{};
         Core::TArray<Renderer::FMeshDrawCommand> MeshCommands{};
-        Core::Uint32 DrawCalls{};
+        Uint32 DrawCalls{};
 
         const auto Depth{[&Family](const FVector& Position, bool ScreenSpace) {
             const FVector4 Clip{FVector4{Position, 1.0f} * Family.mView.mViewProjection};
@@ -62,7 +68,7 @@ namespace Renderer {
 
         if (!EditorIcons && Family.mShowFlags.mPrimitives) {
             const auto* Scene{static_cast<const Renderer::FScene*>(Family.mScene)};
-            Core::Uint32 Primitives{};
+            Uint32 Primitives{};
 
             if (BuildCommands(*Scene, Family, Family.mView.mViewProjection, MeshCommands, Primitives)) {
                 for (std::size_t Index{}; Index < MeshCommands.size(); ++Index) {
@@ -136,7 +142,7 @@ namespace Renderer {
         return DrawCalls;
     }
 
-    Core::Uint32 Renderer::FTranslucencyMeshPass::RenderOverlayTexts(const Engine::FSceneViewFamily& Family, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
+    Uint32 Renderer::FTranslucencyMeshPass::RenderOverlayTexts(const Engine::FSceneViewFamily& Family, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
         mContext->RSSetState(Parameters.mRasterizer);
 
         if (Parameters.mTextRenderer == nullptr || !Family.mShowFlags.mText) {
@@ -144,7 +150,7 @@ namespace Renderer {
         }
 
         Core::TArray<Engine::FDrawText> Texts{};
-        Core::Uint32 DrawCalls{};
+        Uint32 DrawCalls{};
 
         if (Family.mShowFlags.mPrimitives) {
             const auto* Scene{static_cast<const Renderer::FScene*>(Family.mScene)};

@@ -19,7 +19,7 @@ namespace Renderer {
         return mConstants.Create(Device, Error);
     }
 
-    bool Renderer::FDeferredLightingPass::CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode) {
+    bool Renderer::FDeferredLightingPass::CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode) {
         Microsoft::WRL::ComPtr<ID3D11VertexShader> Vertex{};
         Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};
 
@@ -33,7 +33,7 @@ namespace Renderer {
         return true;
     }
 
-    Core::Uint32 Renderer::FDeferredLightingPass::Render(ID3D11DeviceContext* Context, const Renderer::FDXRenderTarget& Target, const Renderer::FPassTarget& Output, const Engine::FSceneViewFamily& Family, ID3D11RasterizerState* Rasterizer) {
+    Uint32 Renderer::FDeferredLightingPass::Render(ID3D11DeviceContext* Context, const Renderer::FDXRenderTarget& Target, const Renderer::FPassTarget& Output, const Engine::FSceneViewFamily& Family, ID3D11RasterizerState* Rasterizer) {
         FConstants Constants{};
 
         if (!Family.mView.mViewProjection.TryInverse(Constants.mInverseViewProjection)) {
@@ -41,14 +41,14 @@ namespace Renderer {
         }
 
         Constants.mInverseSize = {1.0f / static_cast<float>(Target.GetWidth()), 1.0f / static_cast<float>(Target.GetHeight())};
-        Constants.mViewMode = static_cast<Core::Uint32>(Family.mViewMode);
+        Constants.mViewMode = static_cast<Uint32>(Family.mViewMode);
         mConstants.Update(Context, Constants);
         mConstants.Bind(Context, RenderCore::EShaderStage::Pixel, 0);
 
         constexpr UINT ResourceSlot{11};
         std::array<ID3D11ShaderResourceView*, Renderer::GBuffer::AttachmentCount + 2> Resources{};
 
-        for (Core::Index_t Index{}; Index < Target.GetGBuffer().size(); ++Index) {
+        for (Index_t Index{}; Index < Target.GetGBuffer().size(); ++Index) {
             Resources[Index] = Target.GetGBuffer()[Index]->GetShaderResourceView();
         }
 

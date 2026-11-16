@@ -37,7 +37,7 @@ namespace Engine {
     /**
      * @brief 새 크기에 맞추어 렌더 타깃 리소스를 생성하거나 교체합니다.
      */
-    bool Engine::FSceneViewport::Resize(Core::Uint32 Width, Core::Uint32 Height) {
+    bool Engine::FSceneViewport::Resize(Uint32 Width, Uint32 Height) {
         if (mTarget == nullptr) {
             mTarget = mRenderer->CreateRenderTarget(Width, Height);
 

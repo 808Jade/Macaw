@@ -26,7 +26,7 @@ namespace Engine {
          * @param Depth 탐색할 상위 보기의 깊이 또는 노드 배치 깊이입니다.
          * @return 상속 관계를 유효하게 해석했으면 true이며 실패 원인은 Error에 기록합니다.
          */
-        bool CollectTemplateLayers(const std::filesystem::path& Directory, Core::TArray<std::filesystem::path>& Layers, Core::FString& Error, Core::Uint32 Depth) {
+        bool CollectTemplateLayers(const std::filesystem::path& Directory, Core::TArray<std::filesystem::path>& Layers, Core::FString& Error, Uint32 Depth) {
             if (Depth >= 8) {
                 Error = "Project template inheritance is cyclic or too deep";
 
@@ -95,7 +95,7 @@ namespace Engine {
     /**
      * @brief 현재 엔진이 지원하는 프로젝트 설정 파일의 버전을 반환합니다.
      */
-    Core::Uint32 Engine::FProject::GetCurrentVersion() {
+    Uint32 Engine::FProject::GetCurrentVersion() {
         return 2;
     }
 
@@ -197,7 +197,7 @@ namespace Engine {
             return false;
         }
 
-        Core::Uint32 Version{};
+        Uint32 Version{};
         Core::FString Name{};
         Core::FString StartupScene{};
 
@@ -209,7 +209,7 @@ namespace Engine {
             return false;
         }
 
-        const Core::Uint32 CurrentVersion{GetCurrentVersion()};
+        const Uint32 CurrentVersion{GetCurrentVersion()};
 
         if (Version != CurrentVersion) {
             Error = "Unsupported project version " + std::to_string(Version) + "; expected " + std::to_string(CurrentVersion);
@@ -267,7 +267,7 @@ namespace Engine {
         }
 
         Serialization::FJsonArchive Archive{Core::EArchiveMode::Saving};
-        Core::Uint32 Version{mVersion};
+        Uint32 Version{mVersion};
         Core::FString Name{mName};
         Core::FString StartupScene{mStartupScene};
 
@@ -314,7 +314,7 @@ namespace Engine {
     /**
      * @brief 마지막으로 연 프로젝트 설정의 버전을 반환합니다.
      */
-    Core::Uint32 Engine::FProject::GetVersion() const {
+    Uint32 Engine::FProject::GetVersion() const {
         return mVersion;
     }
 

@@ -59,7 +59,7 @@ namespace Engine {
          * @return 셰이크 식별 번호이며 인자가 유효하지 않으면 0입니다.
          */
         UFUNCTION()
-        Core::Int32 StartShake(float Duration, float Frequency, const FVector& LocationAmplitude, const FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime);
+        Int32 StartShake(float Duration, float Frequency, const FVector& LocationAmplitude, const FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime);
 
         /**
          * @brief 재생 중인 셰이크를 멈춥니다.
@@ -68,7 +68,7 @@ namespace Engine {
          * @return 재생 중인 셰이크를 찾았으면 true입니다.
          */
         UFUNCTION()
-        bool StopShake(Core::Int32 Id, bool Immediate);
+        bool StopShake(Int32 Id, bool Immediate);
 
         /**
          * @brief 재생 중인 셰이크를 모두 멈춥니다.
@@ -82,7 +82,7 @@ namespace Engine {
          * @return 끝나는 중인 셰이크를 포함한 수입니다.
          */
         UFUNCTION()
-        Core::Int32 GetActiveShakeCount() const;
+        Int32 GetActiveShakeCount() const;
 
     private:
         /**
@@ -92,7 +92,7 @@ namespace Engine {
             /**
              * @brief StartShake가 반환한 번호입니다.
              */
-            Core::Int32 mId{};
+            Int32 mId{};
 
             /**
              * @brief 재생 시간이며 0 이하이면 멈출 때까지 계속합니다.
@@ -166,7 +166,7 @@ namespace Engine {
         /**
          * @brief 다음 StartShake가 반환할 번호입니다.
          */
-        Core::Int32 mNextId{1};
+        Int32 mNextId{1};
 
         /**
          * @brief 축별 위상과 주파수 배율을 정하는 난수 생성기입니다.

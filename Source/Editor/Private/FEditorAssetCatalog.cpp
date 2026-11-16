@@ -110,7 +110,7 @@ namespace Editor {
 
         mIndices.clear();
 
-        for (Core::Index_t Index{}; Index < mEntries.size(); ++Index) {
+        for (Index_t Index{}; Index < mEntries.size(); ++Index) {
             mIndices.emplace(MakeKey(mEntries[Index].GetPath()), Index);
         }
 

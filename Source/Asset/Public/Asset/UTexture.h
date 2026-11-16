@@ -35,13 +35,13 @@ namespace Asset {
          * @brief 텍스처의 가로 픽셀 수를 반환합니다.
          * @return 텍스처의 가로 픽셀 수를 나타내는 정수 값입니다.
          */
-        virtual Core::Uint32 GetSizeX() const = 0;
+        virtual Uint32 GetSizeX() const = 0;
 
         /**
          * @brief 텍스처의 세로 픽셀 수를 반환합니다.
          * @return 텍스처의 세로 픽셀 수를 나타내는 정수 값입니다.
          */
-        virtual Core::Uint32 GetSizeY() const = 0;
+        virtual Uint32 GetSizeY() const = 0;
 
         /**
          * @brief 텍스처의 픽셀 또는 깊이 형식을 반환합니다.

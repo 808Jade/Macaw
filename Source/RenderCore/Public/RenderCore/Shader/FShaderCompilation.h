@@ -31,7 +31,7 @@ namespace RenderCore {
         /**
          * @brief 의존성 검사 시 파일의 바이트 수입니다.
          */
-        Core::Uint64 mSize{};
+        Uint64 mSize{};
 
         /**
          * @brief 의존성 검사 시 파일이 존재했는지 나타냅니다.
@@ -47,7 +47,7 @@ namespace RenderCore {
         /**
          * @brief 컴파일된 셰이더 바이트코드입니다.
          */
-        Core::TArray<Core::Uint8> mByteCode{};
+        Core::TArray<Uint8> mByteCode{};
 
         /**
          * @brief 소스 및 include 파일의 존재·크기·수정 시각 스냅샷입니다.

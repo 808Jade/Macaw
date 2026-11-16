@@ -25,17 +25,17 @@ namespace Asset {
         /**
          * @brief 현재 지원하는 에셋 파일 형식 버전입니다.
          */
-        constexpr Core::Uint32 AssetVersion{1};
+        constexpr Uint32 AssetVersion{1};
 
         /**
          * @brief 에셋 파일에서 허용하는 최대 페이로드 바이트 수입니다.
          */
-        constexpr Core::Uint64 MaximumPayload{512ULL * 1024 * 1024};
+        constexpr Uint64 MaximumPayload{512ULL * 1024 * 1024};
 
         /**
          * @brief 페이로드 앞에 저장하는 에셋 헤더의 바이트 수입니다.
          */
-        constexpr Core::Uint64 HeaderSize{24};
+        constexpr Uint64 HeaderSize{24};
 
         /**
          * @brief 에셋 파일을 열고 매직·버전·종류·데이터 크기를 검증합니다.
@@ -46,12 +46,12 @@ namespace Asset {
          * @param[out] Error 실패 원인을 받을 오류 문자열입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool ReadHeader(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType& Type, Core::Uint64& Size, Core::FGuid& Guid, Core::FString& Error) {
+        bool ReadHeader(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType& Type, Uint64& Size, Core::FGuid& Guid, Core::FString& Error) {
             Error.clear();
             Guid = Core::FGuid::Null();
 
             std::error_code Code{};
-            const Core::Uint64 FileSize{std::filesystem::file_size(Path, Code)};
+            const Uint64 FileSize{std::filesystem::file_size(Path, Code)};
 
             if (Code || Path.extension() != L".masset" || FileSize < HeaderSize || FileSize - HeaderSize > MaximumPayload + 16) {
                 Error = "Cannot read asset file or invalid asset size";
@@ -62,8 +62,8 @@ namespace Asset {
             Input.open(Path, std::ios::binary);
 
             std::array<char, 8> Magic{};
-            Core::Uint32 Version{};
-            Core::Uint32 TypeValue{};
+            Uint32 Version{};
+            Uint32 TypeValue{};
 
             Input.read(Magic.data(), Magic.size());
             Input.read(reinterpret_cast<char*>(&Version), sizeof(Version));
@@ -74,9 +74,9 @@ namespace Asset {
                 Input.read(reinterpret_cast<char*>(Guid.mBytes.data()), Guid.mBytes.size());
             }
 
-            const Core::Uint64 ActualHeaderSize{HeaderSize + (Version == 2 ? Guid.mBytes.size() : 0)};
+            const Uint64 ActualHeaderSize{HeaderSize + (Version == 2 ? Guid.mBytes.size() : 0)};
 
-            if (!Input || Magic != AssetMagic || (Version != AssetVersion && Version != 2) || TypeValue < static_cast<Core::Uint32>(Asset::EAssetType::Scene) || TypeValue > static_cast<Core::Uint32>(Asset::EAssetType::Shader) || (Version == 2 && !Guid.IsValid()) || FileSize < ActualHeaderSize || Size == 0 || Size > MaximumPayload || Size != FileSize - ActualHeaderSize) {
+            if (!Input || Magic != AssetMagic || (Version != AssetVersion && Version != 2) || TypeValue < static_cast<Uint32>(Asset::EAssetType::Scene) || TypeValue > static_cast<Uint32>(Asset::EAssetType::Shader) || (Version == 2 && !Guid.IsValid()) || FileSize < ActualHeaderSize || Size == 0 || Size > MaximumPayload || Size != FileSize - ActualHeaderSize) {
                 Error = "Invalid asset header, version or type";
                 Guid = Core::FGuid::Null();
 
@@ -94,7 +94,7 @@ namespace Asset {
      */
     bool Asset::FAssetFile::GetType(const std::filesystem::path& Path, Asset::EAssetType& Type, Core::FString& Error) {
         std::ifstream Input{};
-        Core::Uint64 Size{};
+        Uint64 Size{};
         Core::FGuid Guid{Core::FGuid::Null()};
 
         return ReadHeader(Path, Input, Type, Size, Guid, Error);
@@ -102,7 +102,7 @@ namespace Asset {
 
     bool FAssetFile::GetIdentity(const std::filesystem::path& Path, Asset::EAssetType& Type, Core::FGuid& Guid, Core::FString& Error) {
         std::ifstream Input{};
-        Core::Uint64 Size{};
+        Uint64 Size{};
 
         return ReadHeader(Path, Input, Type, Size, Guid, Error);
     }
@@ -110,7 +110,7 @@ namespace Asset {
     /**
      * @brief 에셋 종류와 바이트 수를 담은 헤더 및 페이로드를 원자적으로 저장합니다.
      */
-    bool Asset::FAssetFile::Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Core::Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid) {
+    bool Asset::FAssetFile::Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid) {
         Error.clear();
 
         if (Path.extension() != L".masset" || Payload.empty() || Payload.size() > MaximumPayload || Type < Asset::EAssetType::Scene || Type > Asset::EAssetType::Shader) {
@@ -144,10 +144,10 @@ namespace Asset {
             return false;
         }
 
-        const Core::Uint32 TypeValue{static_cast<Core::Uint32>(Type)};
-        const Core::Uint64 Size{Payload.size()};
+        const Uint32 TypeValue{static_cast<Uint32>(Type)};
+        const Uint64 Size{Payload.size()};
         const Core::FGuid Identity{Guid.IsValid() ? Guid : ExistingGuid};
-        const Core::Uint32 Version{Identity.IsValid() ? 2U : AssetVersion};
+        const Uint32 Version{Identity.IsValid() ? 2U : AssetVersion};
         std::ostream& Output{Writer.GetStream()};
         Output.write(AssetMagic.data(), AssetMagic.size());
         Output.write(reinterpret_cast<const char*>(&Version), sizeof(Version));
@@ -166,12 +166,12 @@ namespace Asset {
     /**
      * @brief 에셋 종류와 데이터 무결성을 검사하여 페이로드를 읽습니다.
      */
-    bool Asset::FAssetFile::Load(const std::filesystem::path& Path, Asset::EAssetType Type, Core::TArray<Core::Uint8>& Payload, Core::FString& Error) {
+    bool Asset::FAssetFile::Load(const std::filesystem::path& Path, Asset::EAssetType Type, Core::TArray<Uint8>& Payload, Core::FString& Error) {
         Core::LoadingStatus::ReportFile("Loading", Path);
 
         std::ifstream Input{};
         Asset::EAssetType ActualType{Type};
-        Core::Uint64 Size{};
+        Uint64 Size{};
         Core::FGuid Guid{Core::FGuid::Null()};
 
         if (!ReadHeader(Path, Input, ActualType, Size, Guid, Error)) {
@@ -184,7 +184,7 @@ namespace Asset {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Candidate{};
+        Core::TArray<Uint8> Candidate{};
         Candidate.resize(static_cast<std::size_t>(Size));
         Input.read(reinterpret_cast<char*>(Candidate.data()), static_cast<std::streamsize>(Size));
 

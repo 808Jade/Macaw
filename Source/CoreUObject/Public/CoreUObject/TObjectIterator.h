@@ -115,7 +115,7 @@ namespace CoreUObject {
         /**
          * @brief 소멸한 객체를 건너뛴 현재 위치입니다.
          */
-        mutable Core::Index_t mIndex{};
+        mutable Index_t mIndex{};
     };
 
     /**

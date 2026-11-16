@@ -35,7 +35,7 @@ namespace Asset {
         /**
          * @brief 파라미터에 연결한 Getter ID이며 연결이 없으면 -1입니다.
          */
-        Core::Int32 mGetterId{-1};
+        Int32 mGetterId{-1};
     };
 
     /**
@@ -57,14 +57,14 @@ namespace Asset {
          * @param[in] Value 새 값입니다.
          * @param GetterId 연결할 변수 Getter ID이며 -1은 상수 파라미터입니다.
          */
-        void SetParameter(const Core::FString& Name, const Core::FString& Value, Core::Int32 GetterId = -1);
+        void SetParameter(const Core::FString& Name, const Core::FString& Value, Int32 GetterId = -1);
 
     public:
 
         /**
          * @brief 그래프 안에서 고유한 0 이상의 식별자입니다. 링크가 이 값으로 노드를 가리킵니다.
          */
-        Core::Int32 mId{};
+        Int32 mId{};
 
         /**
          * @brief 노드 종류 이름입니다. 예를 들어 "SequencePlayer"입니다. 엔진의 노드 종류 목록이 해석합니다.
@@ -101,23 +101,23 @@ namespace Asset {
         /**
          * @brief 포즈를 내보내는 노드의 식별자입니다.
          */
-        Core::Int32 mFromNode{};
+        Int32 mFromNode{};
 
         /**
          * @brief 포즈를 받는 노드의 식별자이며, UAnimGraph::OutputNodeId이면 그래프의 최종 포즈입니다.
          */
-        Core::Int32 mToNode{};
+        Int32 mToNode{};
 
         /**
          * @brief 받는 노드의 포즈 입력 핀 순서입니다.
          */
-        Core::Index_t mToPin{};
+        Index_t mToPin{};
     };
 
     /**
      * @brief 그래프 변수의 값이 어디서 오는지 나타냅니다.
      */
-    enum class EAnimGraphVariableSource : Core::Uint8 {
+    enum class EAnimGraphVariableSource : Uint8 {
 
         /**
          * @brief 기본값으로 시작하고 코드나 디버거가 바꿉니다.
@@ -133,7 +133,7 @@ namespace Asset {
     /**
      * @brief 노드 파라미터를 묶을 수 있는 실수 변수입니다.
      */
-    enum class EAnimGraphVariableType : Core::Uint8 {
+    enum class EAnimGraphVariableType : Uint8 {
 
         /**
          * @brief 부동소수점 변수입니다.
@@ -189,7 +189,7 @@ namespace Asset {
         /**
          * @brief 소속 데이터 안에서 항목을 식별하는 ID입니다.
          */
-        Core::Int32 mId{};
+        Int32 mId{};
 
         /**
          * @brief 읽을 그래프 변수 이름입니다.
@@ -223,12 +223,12 @@ namespace Asset {
         /**
          * @brief 최종 포즈를 받는 Output 노드의 식별자입니다.
          */
-        static constexpr Core::Int32 OutputNodeId{-1};
+        static constexpr Int32 OutputNodeId{-1};
 
         /**
          * @brief 한 그래프가 가질 수 있는 최대 노드 수입니다.
          */
-        static constexpr Core::Uint32 MaxNodes{256};
+        static constexpr Uint32 MaxNodes{256};
 
     public:
 
@@ -267,14 +267,14 @@ namespace Asset {
          * @param[in] Id 노드 식별자입니다.
          * @return 없으면 nullptr입니다.
          */
-        Asset::FAnimGraphNode* FindNode(Core::Int32 Id);
+        Asset::FAnimGraphNode* FindNode(Int32 Id);
 
         /**
          * @brief 노드 ID에 대응하는 항목을 찾습니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 내부 노드의 비소유 포인터이며 없으면 nullptr입니다.
          */
-        const Asset::FAnimGraphNode* FindNode(Core::Int32 Id) const;
+        const Asset::FAnimGraphNode* FindNode(Int32 Id) const;
 
         /**
          * @brief 노드를 추가합니다.
@@ -284,14 +284,14 @@ namespace Asset {
          * @param[in] Y 캔버스 Y 위치입니다.
          * @return 새 노드의 식별자이며, 노드 수가 한도에 도달했으면 -2입니다.
          */
-        Core::Int32 AddNode(const Core::FString& Type, const Core::FString& Name, float X, float Y);
+        Int32 AddNode(const Core::FString& Type, const Core::FString& Name, float X, float Y);
 
         /**
          * @brief 노드와 그 노드에 이어진 링크를 지웁니다.
          * @param[in] Id 노드 식별자입니다.
          * @return 지웠으면 true입니다.
          */
-        bool RemoveNode(Core::Int32 Id);
+        bool RemoveNode(Int32 Id);
 
         /**
          * @brief 한 노드의 출력을 다른 노드의 입력 핀에 연결합니다. 핀에 이미 링크가 있으면 바꿉니다.
@@ -300,7 +300,7 @@ namespace Asset {
          * @param[in] ToPin 입력 핀 순서입니다.
          * @return 노드가 있고 순환이 생기지 않으면 true입니다.
          */
-        bool Connect(Core::Int32 FromNode, Core::Int32 ToNode, Core::Index_t ToPin);
+        bool Connect(Int32 FromNode, Int32 ToNode, Index_t ToPin);
 
         /**
          * @brief 입력 핀의 링크를 지웁니다.
@@ -308,7 +308,7 @@ namespace Asset {
          * @param[in] ToPin 입력 핀 순서입니다.
          * @return 지웠으면 true입니다.
          */
-        bool Disconnect(Core::Int32 ToNode, Core::Index_t ToPin);
+        bool Disconnect(Int32 ToNode, Index_t ToPin);
 
         /**
          * @brief 연결하면 순환이 생기는지 검사합니다.
@@ -316,7 +316,7 @@ namespace Asset {
          * @param[in] ToNode 입력 노드입니다.
          * @return 순환이 생기면 true입니다.
          */
-        bool WouldCreateCycle(Core::Int32 FromNode, Core::Int32 ToNode) const;
+        bool WouldCreateCycle(Int32 FromNode, Int32 ToNode) const;
 
         /**
          * @brief 입력 핀에 연결된 노드를 찾습니다.
@@ -324,7 +324,7 @@ namespace Asset {
          * @param[in] ToPin 입력 핀 순서입니다.
          * @return 연결된 노드 식별자이며 없으면 OutputNodeId입니다.
          */
-        Core::Int32 FindInput(Core::Int32 ToNode, Core::Index_t ToPin) const;
+        Int32 FindInput(Int32 ToNode, Index_t ToPin) const;
 
         /**
          * @brief 노드의 위치를 바꿉니다.
@@ -332,7 +332,7 @@ namespace Asset {
          * @param[in] X 캔버스 X 위치입니다.
          * @param[in] Y 캔버스 Y 위치입니다.
          */
-        void SetNodePosition(Core::Int32 Id, float X, float Y);
+        void SetNodePosition(Int32 Id, float X, float Y);
 
         /**
          * @brief Output 노드의 X 위치를 반환합니다.
@@ -359,14 +359,14 @@ namespace Asset {
          * @param[in] Variable 새 값이며 이름이 비어 있지 않고 다른 변수와 겹치지 않아야 합니다.
          * @return 적용했으면 true입니다.
          */
-        bool SetVariable(Core::Index_t Index, const Asset::FAnimGraphVariable& Variable);
+        bool SetVariable(Index_t Index, const Asset::FAnimGraphVariable& Variable);
 
         /**
          * @brief 변수를 지우고, 그 변수를 묶은 파라미터의 바인딩을 해제합니다.
          * @param[in] Index 변수 순서입니다.
          * @return 지웠으면 true입니다.
          */
-        bool RemoveVariable(Core::Index_t Index);
+        bool RemoveVariable(Index_t Index);
 
         /**
          * @brief 값 연결에 사용하는 변수 Getter 목록을 반환합니다.
@@ -379,7 +379,7 @@ namespace Asset {
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 그래프 소유의 Getter이며 없으면 nullptr입니다.
          */
-        const Asset::FAnimGraphVariableGetter* FindVariableGetter(Core::Int32 Id) const;
+        const Asset::FAnimGraphVariableGetter* FindVariableGetter(Int32 Id) const;
 
         /**
          * @brief 노드 파라미터의 연결 정보로 변수 Getter를 찾습니다.
@@ -396,7 +396,7 @@ namespace Asset {
          * @param Y 에디터 배치의 Y 좌표입니다.
          * @return Getter ID이며 변수·위치·용량이 유효하지 않으면 -1입니다.
          */
-        Core::Int32 AddVariableGetter(const Core::FString& Variable, float X, float Y);
+        Int32 AddVariableGetter(const Core::FString& Variable, float X, float Y);
 
         /**
          * @brief Getter의 에디터 표시 위치를 변경합니다.
@@ -405,14 +405,14 @@ namespace Asset {
          * @param Y 에디터 배치의 Y 좌표입니다.
          * @return Getter와 좌표가 유효하면 true입니다.
          */
-        bool SetVariableGetterPosition(Core::Int32 Id, float X, float Y);
+        bool SetVariableGetterPosition(Int32 Id, float X, float Y);
 
         /**
          * @brief Getter와 이를 참조하는 파라미터 연결을 제거합니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 지정한 Getter를 제거했으면 true입니다.
          */
-        bool RemoveVariableGetter(Core::Int32 Id);
+        bool RemoveVariableGetter(Int32 Id);
 
         /**
          * @brief 다른 그래프의 내용으로 바꿉니다.
@@ -431,14 +431,14 @@ namespace Asset {
          * @param NodeId 원본 그래프 노드 ID입니다.
          * @return 그래프가 소유하는 데이터이며 없으면 nullptr입니다.
          */
-        Asset::FAnimStateMachineData* FindStateMachine(Core::Int32 NodeId);
+        Asset::FAnimStateMachineData* FindStateMachine(Int32 NodeId);
 
         /**
          * @brief 상태 머신 노드 ID의 중첩 데이터를 찾습니다.
          * @param NodeId 원본 그래프 노드 ID입니다.
          * @return 그래프가 소유하는 데이터이며 없으면 nullptr입니다.
          */
-        const Asset::FAnimStateMachineData* FindStateMachine(Core::Int32 NodeId) const;
+        const Asset::FAnimStateMachineData* FindStateMachine(Int32 NodeId) const;
 
         /**
          * @brief 상위 그래프의 변수 정의를 중첩 그래프와 일치시킵니다.
@@ -490,7 +490,7 @@ namespace Asset {
         /**
          * @brief 상태 머신 노드 ID별 중첩 상태 데이터입니다.
          */
-        Core::TMap<Core::Int32, Asset::FAnimStateMachineData> mStateMachines{};
+        Core::TMap<Int32, Asset::FAnimStateMachineData> mStateMachines{};
 
         /**
          * @brief 배치한 노드입니다.
@@ -515,12 +515,12 @@ namespace Asset {
         /**
          * @brief 다음 변수 Getter에 부여할 ID입니다.
          */
-        Core::Int32 mNextGetterId{};
+        Int32 mNextGetterId{};
 
         /**
          * @brief 다음에 추가할 노드의 식별자입니다.
          */
-        Core::Int32 mNextNodeId{};
+        Int32 mNextNodeId{};
 
         /**
          * @brief Output 노드의 캔버스 X 위치입니다.

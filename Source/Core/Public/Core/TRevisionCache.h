@@ -26,7 +26,7 @@ namespace Core {
          * @param[in] Frame 현재 프레임입니다.
          * @return 항상 false입니다.
          */
-        bool ShouldEvict(Core::Uint64 LastUsed, Core::Uint64 Frame) const;
+        bool ShouldEvict(Uint64 LastUsed, Uint64 Frame) const;
     };
 
     /**
@@ -40,13 +40,13 @@ namespace Core {
          * @param[in] Frame 현재 프레임입니다.
          * @return 허용 프레임 수를 넘겼으면 true입니다.
          */
-        bool ShouldEvict(Core::Uint64 LastUsed, Core::Uint64 Frame) const;
+        bool ShouldEvict(Uint64 LastUsed, Uint64 Frame) const;
 
     public:
         /**
          * @brief 조회하지 않아도 유지할 최대 프레임 수입니다.
          */
-        Core::Uint64 mMaxAge{};
+        Uint64 mMaxAge{};
     };
 
     /**
@@ -87,7 +87,7 @@ namespace Core {
         /**
          * @brief 항목을 마지막으로 조회하거나 기록한 캐시 프레임입니다.
          */
-        Core::Uint64 mLastUsed{};
+        Uint64 mLastUsed{};
     };
 
     /**
@@ -201,7 +201,7 @@ namespace Core {
         /**
          * @brief BeginFrame마다 증가하는 캐시 프레임 번호입니다.
          */
-        Core::Uint64 mFrame{};
+        Uint64 mFrame{};
 
         /**
          * @brief 같은 스탬프의 결과를 재사용한 조회 수입니다.
@@ -222,14 +222,14 @@ namespace Core {
     /**
      * @brief 항목을 축출할지 판단합니다.
      */
-    inline bool Core::FNoEviction::ShouldEvict(Core::Uint64, Core::Uint64) const {
+    inline bool Core::FNoEviction::ShouldEvict(Uint64, Uint64) const {
         return false;
     }
 
     /**
      * @brief 마지막 사용 이후 허용 프레임 수를 넘겼는지 판단합니다.
      */
-    inline bool Core::FFrameAgeEviction::ShouldEvict(Core::Uint64 LastUsed, Core::Uint64 Frame) const {
+    inline bool Core::FFrameAgeEviction::ShouldEvict(Uint64 LastUsed, Uint64 Frame) const {
         return Frame > LastUsed + mMaxAge;
     }
 

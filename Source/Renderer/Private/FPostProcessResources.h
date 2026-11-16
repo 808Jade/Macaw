@@ -61,7 +61,7 @@ namespace Renderer {
          * @param[in] PixelCode 후처리 픽셀 셰이더의 컴파일된 바이트 코드입니다.
          * @return 두 셰이더를 생성하면 true이며 실패하면 기존 셰이더를 유지하고 false입니다.
          */
-        bool CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode);
+        bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode);
 
         /**
          * @brief 가시 안개를 교대 타깃에 합성한 뒤 복사·깊이 시각화·FXAA 중 최종 패스를 실행합니다.
@@ -72,7 +72,7 @@ namespace Renderer {
          * @return 제출한 전체 화면 드로 수이며 역행렬을 구하지 못해 원본을 복사하면 0입니다.
          * @note Normal·Depth에는 안개와 FXAA를 적용하지 않습니다. 뷰포트 크기는 호출자가 미리 설정해야 합니다.
          */
-        Core::Uint32 Render(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FHeightFogSceneProxy> Fogs);
+        Uint32 Render(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FHeightFogSceneProxy> Fogs);
 
         /**
          * @brief 원본 텍스처를 목적 텍스처의 출력 영역에 샘플링하여 그립니다.

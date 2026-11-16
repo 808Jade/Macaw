@@ -17,7 +17,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UENUM()
-    enum class EWorldPlayState : Core::Uint8 {
+    enum class EWorldPlayState : Uint8 {
         /**
          * @brief 게임 생명주기가 시작되지 않았거나 종료된 상태입니다.
          */

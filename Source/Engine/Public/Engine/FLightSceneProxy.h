@@ -104,7 +104,7 @@ namespace Engine {
         /**
          * @brief 기본 그림자 맵의 한 변 해상도입니다.
          */
-        Core::Uint32 mShadowResolution{1024};
+        Uint32 mShadowResolution{1024};
 
         /**
          * @brief 그림자 해상도 배율입니다.
@@ -139,7 +139,7 @@ namespace Engine {
         /**
          * @brief 방향광 그림자의 캐스케이드 개수입니다.
          */
-        Core::Uint32 mCascadeCount{4};
+        Uint32 mCascadeCount{4};
 
         /**
          * @brief 방향광 그림자의 최대 표시 거리입니다.

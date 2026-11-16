@@ -121,7 +121,7 @@ namespace Core {
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
-    void Core::FArchive::Serialize(std::string_view Name, Core::Uint64& Value) {
+    void Core::FArchive::Serialize(std::string_view Name, Uint64& Value) {
         Core::FString Text{std::to_string(Value)};
 
         Serialize(Name, Text);
@@ -219,8 +219,8 @@ namespace Core {
      */
     void Core::FArchive::Serialize(std::string_view Name, FMatrix& Value) {
         if (BeginObject(Name)) {
-            for (Core::Index_t Row{}; Row < 4; ++Row) {
-                for (Core::Index_t Column{}; Column < 4; ++Column) {
+            for (Index_t Row{}; Row < 4; ++Row) {
+                for (Index_t Column{}; Column < 4; ++Column) {
                     Serialize("M" + std::to_string(Row) + std::to_string(Column), Value(Row, Column));
                 }
             }

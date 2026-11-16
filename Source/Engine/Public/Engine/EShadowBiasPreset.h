@@ -17,7 +17,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UENUM()
-    enum class EShadowBiasPreset : Core::Uint8 {
+    enum class EShadowBiasPreset : Uint8 {
 
         /**
          * @brief 그림자 바이어스 0단계입니다.
@@ -103,7 +103,7 @@ namespace Engine {
     /**
      * @brief 그림자 바이어스 프리셋 단계 수입니다.
      */
-    inline constexpr Core::Uint32 ShadowBiasPresetCount{static_cast<Core::Uint32>(Engine::EShadowBiasPreset::Level15) + 1u};
+    inline constexpr Uint32 ShadowBiasPresetCount{static_cast<Uint32>(Engine::EShadowBiasPreset::Level15) + 1u};
 
     /**
      * @brief 조명의 기본 그림자 바이어스 단계입니다.
@@ -113,7 +113,7 @@ namespace Engine {
     /**
      * @brief 프리셋 한 단계당 정수 깊이 바이어스 증분입니다.
      */
-    inline constexpr Core::Int32 ShadowDepthBiasStep{512};
+    inline constexpr Int32 ShadowDepthBiasStep{512};
 
     /**
      * @brief 프리셋 한 단계당 경사 바이어스 증분입니다.

@@ -17,7 +17,7 @@ namespace Editor {
      * @brief 원근 및 여섯 정사영 카메라 방향입니다.
      */
     UENUM()
-    enum class EEditorViewportType : Core::Uint8 {
+    enum class EEditorViewportType : Uint8 {
         /**
          * @brief 자유 이동하는 원근 카메라 뷰입니다.
          */

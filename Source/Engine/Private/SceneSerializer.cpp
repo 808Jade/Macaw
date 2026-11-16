@@ -29,7 +29,7 @@ namespace Engine {
 
         const Core::FString Payload{Archive.ToString()};
 
-        return Asset::FAssetFile::Save(Path, Asset::EAssetType::Scene, std::span<const Core::Uint8>{reinterpret_cast<const Core::Uint8*>(Payload.data()), Payload.size()}, Error);
+        return Asset::FAssetFile::Save(Path, Asset::EAssetType::Scene, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error);
     }
 
     /**
@@ -38,7 +38,7 @@ namespace Engine {
     std::unique_ptr<Engine::FWorldContext> Engine::FSceneSerializer::Load(const std::filesystem::path& Path, Core::FString& Error, Asset::FAssetManager* Assets, Engine::EWorldType Type) {
         Serialization::FJsonArchive Archive{Core::EArchiveMode::Loading};
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         if (!Asset::FAssetFile::Load(Path, Asset::EAssetType::Scene, Payload, Error)) {
             return nullptr;

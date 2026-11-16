@@ -43,7 +43,7 @@ namespace Editor {
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 상태를 식별하는 노드 키입니다.
          */
-        std::uintptr_t StateNodeKey(Core::Int32 Id) {
+        std::uintptr_t StateNodeKey(Int32 Id) {
             return (static_cast<std::uintptr_t>(Id) + 2) * 16;
         }
 
@@ -52,8 +52,8 @@ namespace Editor {
          * @param Key 해석할 노드 편집기 식별 키입니다.
          * @return 원본 상태 ID입니다.
          */
-        Core::Int32 StateNodeId(std::uintptr_t Key) {
-            return Key >= 32 ? static_cast<Core::Int32>(Key / 16 - 2) : -1;
+        Int32 StateNodeId(std::uintptr_t Key) {
+            return Key >= 32 ? static_cast<Int32>(Key / 16 - 2) : -1;
         }
 
         /**
@@ -105,7 +105,7 @@ namespace Editor {
         mFitRequested = Created;
     }
 
-    void FAnimGraphEditor::Navigate(Asset::UAnimGraph* Graph, EGraphView Mode, Core::Int32 Machine, Core::Int32 Transition, const Core::FString& Label) {
+    void FAnimGraphEditor::Navigate(Asset::UAnimGraph* Graph, EGraphView Mode, Int32 Machine, Int32 Transition, const Core::FString& Label) {
         mView.mSelection = mSelectedNode;
         mNavigation.push_back(mView);
         FGraphView View{};
@@ -119,11 +119,11 @@ namespace Editor {
     }
 
     void FAnimGraphEditor::DrawNavigation() {
-        Core::Int32 Destination{-1};
+        Int32 Destination{-1};
         const float Height{ImGui::GetFrameHeight() + ImGui::GetStyle().ScrollbarSize + 4.0f};
 
         if (ImGui::BeginChild("GraphNavigation", {0.0f, Height}, ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar)) {
-            for (Core::Index_t Index{}; Index <= mNavigation.size(); ++Index) {
+            for (Index_t Index{}; Index <= mNavigation.size(); ++Index) {
                 const bool Current{Index == mNavigation.size()};
                 const FGraphView& View{Current ? mView : mNavigation[Index]};
                 const Core::FString Label{GetViewLabel(View, Index > 0 ? &mNavigation[Index - 1] : nullptr)};
@@ -138,7 +138,7 @@ namespace Editor {
                 ImGui::BeginDisabled(Current);
 
                 if (ImGui::Button(Label.c_str())) {
-                    Destination = static_cast<Core::Int32>(Index);
+                    Destination = static_cast<Int32>(Index);
                 }
 
                 ImGui::EndDisabled();
@@ -178,7 +178,7 @@ namespace Editor {
         return View.mLabel;
     }
 
-    bool FAnimGraphEditor::OpenStateMachine(Core::Int32 NodeId) {
+    bool FAnimGraphEditor::OpenStateMachine(Int32 NodeId) {
         if (mEditing == nullptr || mView.mMode != EGraphView::Pose || mEditing->FindStateMachine(NodeId) == nullptr) {
             return false;
         }
@@ -188,7 +188,7 @@ namespace Editor {
         return true;
     }
 
-    bool FAnimGraphEditor::OpenState(Core::Int32 StateId) {
+    bool FAnimGraphEditor::OpenState(Int32 StateId) {
         auto* Machine{mEditing != nullptr && mView.mMode == EGraphView::Machine ? mEditing->FindStateMachine(mView.mMachine) : nullptr};
         auto* State{Machine != nullptr ? Machine->FindState(StateId) : nullptr};
 
@@ -201,7 +201,7 @@ namespace Editor {
         return true;
     }
 
-    bool FAnimGraphEditor::OpenTransitionRule(Core::Int32 TransitionId) {
+    bool FAnimGraphEditor::OpenTransitionRule(Int32 TransitionId) {
         auto* Machine{mEditing != nullptr && mView.mMode == EGraphView::Machine ? mEditing->FindStateMachine(mView.mMachine) : nullptr};
 
         if (Machine == nullptr || Machine->FindTransition(TransitionId) == nullptr) {
@@ -217,7 +217,7 @@ namespace Editor {
         return !mNavigation.empty() && NavigateTo(mNavigation.size() - 1);
     }
 
-    bool FAnimGraphEditor::NavigateTo(Core::Index_t Depth) {
+    bool FAnimGraphEditor::NavigateTo(Index_t Depth) {
         if (Depth >= mNavigation.size()) {
             return false;
         }
@@ -237,7 +237,7 @@ namespace Editor {
         }
 
         const auto AddState{[this, Machine]() {
-            Core::Uint32 Number{static_cast<Core::Uint32>(Machine->GetStates().size())};
+            Uint32 Number{static_cast<Uint32>(Machine->GetStates().size())};
             Core::FString Name{};
 
             do {
@@ -246,7 +246,7 @@ namespace Editor {
                 return State.mName == Name;
             }));
 
-            const Core::Int32 Id{Machine->AddState(Name, mCreateX, mCreateY, *mRootEditing)};
+            const Int32 Id{Machine->AddState(Name, mCreateX, mCreateY, *mRootEditing)};
 
             if (Id >= 0) {
                 ed::SetNodePosition(ed::NodeId{StateNodeKey(Id)}, {mCreateX, mCreateY});
@@ -342,7 +342,7 @@ namespace Editor {
                 if (Link.Get() == 1) {
                     ed::RejectDeletedItem();
                 } else if (ed::AcceptDeletedItem()) {
-                    mDirty |= Machine->RemoveTransition(static_cast<Core::Int32>(Link.Get() - 2));
+                    mDirty |= Machine->RemoveTransition(static_cast<Int32>(Link.Get() - 2));
                     mView.mTransition = -1;
                 }
             }
@@ -357,16 +357,16 @@ namespace Editor {
             mView.mTransition = -1;
         } else if (ed::GetSelectedLinks(SelectedLinks.data(), 1) == 1 && SelectedLinks[0].Get() >= 2) {
             mSelectedNode = -2;
-            mView.mTransition = static_cast<Core::Int32>(SelectedLinks[0].Get() - 2);
+            mView.mTransition = static_cast<Int32>(SelectedLinks[0].Get() - 2);
         }
 
-        const Core::Int32 DoubleClickedState{StateNodeId(ed::GetDoubleClickedNode().Get())};
+        const Int32 DoubleClickedState{StateNodeId(ed::GetDoubleClickedNode().Get())};
         const std::uintptr_t OpenLink{ed::GetDoubleClickedLink().Get()};
         const ImVec2 Mouse{ImGui::GetMousePos()};
         ed::NodeId ContextNode{};
         ed::LinkId ContextLink{};
-        Core::Int32 OpenStateId{-1};
-        Core::Int32 OpenTransitionId{-1};
+        Int32 OpenStateId{-1};
+        Int32 OpenTransitionId{-1};
         ed::Suspend();
 
         if (ed::ShowNodeContextMenu(&ContextNode)) {
@@ -422,7 +422,7 @@ namespace Editor {
 
         if (ImGui::BeginPopup("AnimTransitionMenu")) {
             mSelectedNode = -2;
-            mView.mTransition = static_cast<Core::Int32>(mContextNode - 2);
+            mView.mTransition = static_cast<Int32>(mContextNode - 2);
             ImGui::PushItemWidth(220.0f);
             DrawMachineSelection();
             ImGui::PopItemWidth();
@@ -464,8 +464,8 @@ namespace Editor {
         ed::End();
         ed::SetCurrentEditor(nullptr);
 
-        const Core::Int32 StateId{OpenStateId >= 0 ? OpenStateId : DoubleClickedState};
-        const Core::Int32 TransitionId{OpenTransitionId >= 0 ? OpenTransitionId : (OpenLink >= 2 ? static_cast<Core::Int32>(OpenLink - 2) : -1)};
+        const Int32 StateId{OpenStateId >= 0 ? OpenStateId : DoubleClickedState};
+        const Int32 TransitionId{OpenTransitionId >= 0 ? OpenTransitionId : (OpenLink >= 2 ? static_cast<Int32>(OpenLink - 2) : -1)};
 
         if (auto* State{Machine->FindState(StateId)}; State != nullptr && State->mGraph != nullptr) {
             OpenState(StateId);
@@ -543,7 +543,7 @@ namespace Editor {
             const std::uintptr_t Key{StateNodeKey(Node.mId)};
             const char* Title{Asset::FAnimTransitionGraph::GetTitle(Node.mType)};
             const bool BoolOutput{Asset::FAnimTransitionGraph::IsBool(Node.mType)};
-            const Core::Int32 InputCount{Asset::FAnimTransitionGraph::GetInputCount(Node.mType)};
+            const Int32 InputCount{Asset::FAnimTransitionGraph::GetInputCount(Node.mType)};
             const ImVec4 InputColor{Asset::FAnimTransitionGraph::IsBoolInput(Node.mType) ? BoolColor : Editor::FAnimGraphNodeBuilder::FloatColor()};
             Editor::FAnimGraphNodeBuilder Builder{};
             Builder.FitHeader(Title, Title);
@@ -577,10 +577,10 @@ namespace Editor {
         for (const auto& Node : Graph.GetNodes()) {
             const std::uintptr_t Key{StateNodeKey(Node.mId)};
             const ImVec4 InputColor{Asset::FAnimTransitionGraph::IsBoolInput(Node.mType) ? BoolColor : Editor::FAnimGraphNodeBuilder::FloatColor()};
-            const Core::Int32 InputCount{Asset::FAnimTransitionGraph::GetInputCount(Node.mType)};
+            const Int32 InputCount{Asset::FAnimTransitionGraph::GetInputCount(Node.mType)};
 
-            for (Core::Index_t Pin{}; Pin < InputCount; ++Pin) {
-                const Core::Int32 Input{Pin == 0 ? Node.mInputA : Node.mInputB};
+            for (Index_t Pin{}; Pin < InputCount; ++Pin) {
+                const Int32 Input{Pin == 0 ? Node.mInputA : Node.mInputB};
 
                 if (Input >= 0) {
                     ed::Link(ed::LinkId{Key + Pin + 1}, ed::PinId{StateNodeKey(Input) + 3}, ed::PinId{Key + Pin + 1}, InputColor, 2.0f);
@@ -601,9 +601,9 @@ namespace Editor {
                     std::swap(A, B);
                 }
 
-                const Core::Int32 From{StateNodeId(A.Get())};
-                const Core::Int32 To{StateNodeId(B.Get())};
-                const Core::Index_t Pin{static_cast<Core::Index_t>(static_cast<Core::Int32>(B.Get() % 16) - 1)};
+                const Int32 From{StateNodeId(A.Get())};
+                const Int32 To{StateNodeId(B.Get())};
+                const Index_t Pin{static_cast<Index_t>(static_cast<Int32>(B.Get() % 16) - 1)};
                 auto Candidate{Graph};
                 const bool Valid{A.Get() % 16 == 3 && (B.Get() == 1 ? Candidate.SetResult(From) : Candidate.Connect(From, To, Pin))};
 
@@ -631,7 +631,7 @@ namespace Editor {
 
             while (ed::QueryDeletedLink(&Link)) {
                 if (ed::AcceptDeletedItem()) {
-                    mDirty |= Link.Get() == 1 ? Graph.SetResult(-1) : Graph.Disconnect(StateNodeId(Link.Get()), static_cast<Core::Int32>(Link.Get() % 16) - 1);
+                    mDirty |= Link.Get() == 1 ? Graph.SetResult(-1) : Graph.Disconnect(StateNodeId(Link.Get()), static_cast<Int32>(Link.Get() % 16) - 1);
                 }
             }
         }
@@ -654,11 +654,11 @@ namespace Editor {
         }
 
         if (ImGui::BeginPopup("CreateRuleNode")) {
-            for (Core::Index_t Index{}; Index < static_cast<Core::Uint32>(Asset::EAnimRuleNodeType::Count); ++Index) {
+            for (Index_t Index{}; Index < static_cast<Uint32>(Asset::EAnimRuleNodeType::Count); ++Index) {
                 const auto Type{static_cast<Asset::EAnimRuleNodeType>(Index)};
 
                 if (ImGui::MenuItem(Asset::FAnimTransitionGraph::GetTitle(Type))) {
-                    const Core::Int32 Id{Graph.AddNode(Type, mCreateX, mCreateY)};
+                    const Int32 Id{Graph.AddNode(Type, mCreateX, mCreateY)};
 
                     if (Id >= 0) {
                         ed::SetNodePosition(ed::NodeId{StateNodeKey(Id)}, Mouse);
@@ -696,7 +696,7 @@ namespace Editor {
                 })};
 
                 if (Found != Variables.end()) {
-                    const Core::Int32 Id{Graph.AddNode(Found->mType == Asset::EAnimGraphVariableType::Bool ? Asset::EAnimRuleNodeType::GetBool : Asset::EAnimRuleNodeType::GetFloat, Mouse.x, Mouse.y)};
+                    const Int32 Id{Graph.AddNode(Found->mType == Asset::EAnimGraphVariableType::Bool ? Asset::EAnimRuleNodeType::GetBool : Asset::EAnimRuleNodeType::GetFloat, Mouse.x, Mouse.y)};
 
                     if (auto* Node{Graph.FindNode(Id)}) {
                         Node->mName = Name;

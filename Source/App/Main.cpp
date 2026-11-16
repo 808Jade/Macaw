@@ -34,7 +34,7 @@ namespace App {
  * @param[in] ShowCommand Windows가 전달한 초기 창 표시 옵션입니다.
  * @return 정상 종료 시 0입니다.
  */
-int WINAPI WinMain(HINSTANCE Instance, HINSTANCE Previous, LPSTR CommandLine, int ShowCommand) {
+int WINAPI WinMain([[maybe_unused]] HINSTANCE Instance, [[maybe_unused]] HINSTANCE Previous, [[maybe_unused]] LPSTR CommandLine, [[maybe_unused]] int ShowCommand) {
     Core::ErrorHandler::Initialize();
 
     const HRESULT ComResult{CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)};

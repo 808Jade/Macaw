@@ -1,3 +1,9 @@
+/**
+ * @file UParticleModuleRequired.cpp
+ * @brief 파티클 머티리얼·이미터 변환·시뮬레이션 공간과 반복 설정을 보관합니다.
+ * @ingroup Engine
+ */
+
 #include "Engine/Cascade/UParticleModuleRequired.h"
 #include "Asset/FAssetManager.h"
 #include "Asset/UMaterial.h"

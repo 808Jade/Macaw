@@ -19,7 +19,7 @@ namespace Renderer {
     /**
      * @brief 타일 광원 컬링에 사용할 컴퓨트 셰이더를 생성합니다.
      */
-    bool FLightingResources::CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> ComputeCode) {
+    bool FLightingResources::CreateShaders(ID3D11Device* Device, std::span<const Uint8> ComputeCode) {
         return mCulling.CreateShaders(Device, ComputeCode);
     }
 
@@ -32,7 +32,7 @@ namespace Renderer {
         Core::FString Error{};
 
         // 광원이 없어도 셰이더가 읽을 뷰가 있어야 하므로 최소 한 칸을 확보합니다.
-        if (!mLightBuffer.Reserve(Device, std::max<Core::Uint64>(mLights.size(), 1), Error)) {
+        if (!mLightBuffer.Reserve(Device, std::max<Uint64>(mLights.size(), 1), Error)) {
             return false;
         }
 
@@ -42,7 +42,7 @@ namespace Renderer {
     /**
      * @brief 현재 뷰의 타일 광원 목록과 카메라 상수를 GPU에 업로드합니다.
      */
-    bool FLightingResources::Upload(ID3D11Device* Device, ID3D11DeviceContext* Context, std::span<const Engine::FLightSceneProxy> Lights, const Engine::FSceneView& View, std::span<const std::array<Core::Uint32, 2>> ShadowRanges) {
+    bool FLightingResources::Upload(ID3D11Device* Device, ID3D11DeviceContext* Context, std::span<const Engine::FLightSceneProxy> Lights, const Engine::FSceneView& View, std::span<const std::array<Uint32, 2>> ShadowRanges) {
         static Core::FStat PrepareTime{"render", "GPU light culling submission CPU", Core::EStatUnit::Milliseconds};
         static Core::FStat SubmittedLights{"render", "Input lights (sum of views)"};
         const Core::FScopedStatTimer StatTimer{PrepareTime};
@@ -52,7 +52,7 @@ namespace Renderer {
         mLights.clear();
         mLights.reserve(Lights.size());
 
-        for (Core::Index_t Index{}; Index < Lights.size(); ++Index) {
+        for (Index_t Index{}; Index < Lights.size(); ++Index) {
             const Engine::FLightSceneProxy& Light{Lights[Index]};
 
             if (!Light.mVisible || Light.mIntensity <= 0.0f) {
@@ -70,9 +70,9 @@ namespace Renderer {
             return false;
         }
 
-        const Core::Uint32 Count{static_cast<Core::Uint32>(mLights.size())};
-        const Core::Uint32 Columns{(static_cast<Core::Uint32>(std::max(View.mSize.x, 1.0f)) + 15) / 16};
-        const Core::Uint32 Rows{(static_cast<Core::Uint32>(std::max(View.mSize.y, 1.0f)) + 15) / 16};
+        const Uint32 Count{static_cast<Uint32>(mLights.size())};
+        const Uint32 Columns{(static_cast<Uint32>(std::max(View.mSize.x, 1.0f)) + 15) / 16};
+        const Uint32 Rows{(static_cast<Uint32>(std::max(View.mSize.y, 1.0f)) + 15) / 16};
 
         mUseGlobalLights = Count == 0 || !mCulling.Dispatch(Device, Context, mLightBuffer, View, Count);
 

@@ -6,12 +6,14 @@
 
 #include "Editor/FPlayInEditorSession.h"
 #include "Editor/FEditorViewport.h"
+#include "FPlayInEditorWindow.h"
 #include "Engine/Engine.h"
 #include "Engine/FProject.h"
 #include "Engine/UWorld.h"
 #include "Engine/ULevel.h"
 #include "Engine/AActor.h"
 #include "Engine/Component/UActorComponent.h"
+#include "Engine/Component/UCameraComponent.h"
 #include "CoreUObject/FObjectDuplicationContext.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Script/FScriptInput.h"
@@ -36,6 +38,31 @@ namespace Editor {
      */
     Editor::FPlayInEditorSession::~FPlayInEditorSession() {
         Stop();
+    }
+
+    const FPlayInEditorSession::FOptions& FPlayInEditorSession::GetOptions() const {
+        return mOptions;
+    }
+
+    bool FPlayInEditorSession::SetOptions(const FOptions& Options) {
+        if (IsActive() || Options.mWindowWidth < 320 || Options.mWindowWidth > 7680 || Options.mWindowHeight < 180 || Options.mWindowHeight > 4320) {
+            return false;
+        }
+
+        mOptions = Options;
+
+        return true;
+    }
+
+    bool FPlayInEditorSession::IsPlayingInNewWindow() const {
+        return IsActive() && mPlayWindow != nullptr;
+    }
+
+    void FPlayInEditorSession::DrawPlayWindow() {
+        if (mPlayWindow != nullptr && !mPlayWindow->Draw()) {
+            mContext->AddLog("PIE window could not present its frame");
+            mStopRequested = true;
+        }
     }
 
     /**
@@ -106,7 +133,23 @@ namespace Editor {
 
             mInspectionContext.SetSelectedActors(Selection);
 
-            if (CoreUObject::UObject* Selected{mContext->GetSelectedObject()}) {
+            if (mOptions.mStartAtEditorCamera) {
+                Engine::UCameraComponent* Camera{World->GetActiveCamera()};
+                const Engine::FEditorCameraState& EditorCamera{mViewport->GetClient()->GetPerspectiveCamera()};
+
+                Ready = Camera != nullptr && Camera->SetTransform(FTransform{EditorCamera.GetLocation(), FQuat{EditorCamera.GetRotation()}, {1.0f, 1.0f, 1.0f}}) && Camera->SetFieldOfView(EditorCamera.GetFieldOfView());
+            }
+
+            if (Ready && mOptions.mNewWindow) {
+                mPlayWindow = std::make_unique<Editor::FPlayInEditorWindow>();
+                Ready = mPlayWindow->Initialize(mEngine->GetRenderer(), &mGameClient, mOptions.mWindowWidth, mOptions.mWindowHeight, mOptions.mCaptureInput && !mOptions.mStartPaused);
+
+                if (Ready) {
+                    Input = &mPlayWindow->GetInput();
+                }
+            }
+
+            if (CoreUObject::UObject * Selected{mContext->GetSelectedObject()}) {
                 const CoreUObject::TObjectRef<CoreUObject::UObject> Copy{FindPlayObject(CoreUObject::MakeObjectRef(Selected))};
 
                 if (Selection.size() <= 1 && Copy.IsValid()) {
@@ -114,7 +157,7 @@ namespace Editor {
                 }
             }
 
-            if (mEngine->GetProject() != nullptr) {
+            if (Ready && mEngine->GetProject() != nullptr) {
                 Script::FScriptRuntime* Runtime{Script::FScriptRuntime::Get()};
                 Runtime->SetLogFunction([this](const Core::FString& Message) {
                     mContext->AddLog("[C#] " + Message);
@@ -123,7 +166,11 @@ namespace Editor {
                 Script::FScriptInput::SetSource(Input);
             }
 
-            Ready = mEngine->SetCurrentWorld(mPlayWorld) && World->BeginPlay() && World->GetPlayState() == Engine::EWorldPlayState::Playing && World->GetActiveCamera() != nullptr && !mStopRequested;
+            Ready = Ready && mEngine->SetCurrentWorld(mPlayWorld) && World->BeginPlay() && World->GetPlayState() == Engine::EWorldPlayState::Playing && World->GetActiveCamera() != nullptr && !mStopRequested;
+
+            if (Ready && mOptions.mStartPaused) {
+                Ready = World->SetPaused(true);
+            }
         }
 
         if (Ready && Input != nullptr) {
@@ -132,7 +179,15 @@ namespace Editor {
 
         if (Ready) {
             mInput = Input;
-            mViewport->SetPlayClient(&mGameClient);
+
+            if (mPlayWindow == nullptr) {
+                mViewport->SetPlayClient(&mGameClient);
+
+                if (mOptions.mCaptureInput && !mOptions.mStartPaused) {
+                    mViewport->CapturePlayInput();
+                }
+            }
+
             mContext->AddLog("PIE started");
         }
 
@@ -186,6 +241,7 @@ namespace Editor {
         Script::FScriptInput::SetSource(nullptr);
         Script::FScriptRuntime::Get()->EndSession();
         Script::FScriptRuntime::Get()->SetLogFunction({});
+        mPlayWindow.reset();
 
         const Engine::FWorldHandle Restore{mEngine->GetWorld(mPreviousWorld) != nullptr ? mPreviousWorld : mContext->GetWorldHandle()};
 
@@ -232,7 +288,7 @@ namespace Editor {
 
         const Engine::UWorld* World{mEngine->GetWorld(mPlayWorld)};
 
-        if (mStopRequested || World == nullptr || World->GetPlayState() == Engine::EWorldPlayState::Stopped || World->GetActiveCamera() == nullptr) {
+        if (mStopRequested || World == nullptr || World->GetPlayState() == Engine::EWorldPlayState::Stopped || World->GetActiveCamera() == nullptr || (mPlayWindow != nullptr && (!mPlayWindow->IsOpen() || mPlayWindow->GetInput().WasPressed(Core::EKey::Escape)))) {
             if (World != nullptr && World->GetActiveCamera() == nullptr) {
                 mContext->AddLog("PIE stopped because its active camera was removed");
             }
@@ -284,7 +340,17 @@ namespace Editor {
         const Engine::UWorld* World{mEngine->GetWorld(mPlayWorld)};
         const bool Playing{World != nullptr && World->GetPlayState() == Engine::EWorldPlayState::Playing && !mStopRequested};
 
-        mInput->SetGameInputEnabled(Playing && AllowInput && mViewport->IsPlayInputCaptured());
+        if (!Playing) {
+            if (mPlayWindow != nullptr) {
+                mPlayWindow->ReleaseInput();
+            } else {
+                mViewport->ReleasePlayInput();
+            }
+        }
+
+        const bool Captured{Playing && (mPlayWindow != nullptr ? mPlayWindow->IsInputCaptured() : mViewport->IsPlayInputCaptured())};
+
+        mInput->SetGameInputEnabled(Playing && (mPlayWindow != nullptr || AllowInput) && Captured);
 
         if (Playing) {
             mGameClient.ProcessInput(*mInput, DeltaTime);

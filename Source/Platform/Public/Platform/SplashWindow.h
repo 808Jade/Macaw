@@ -52,9 +52,10 @@ namespace Platform {
          * @brief 스플래시 스레드를 시작하고 첫 화면이 그려질 때까지 기다립니다.
          * @param[in] Anchor 창을 가운데에 놓을 모니터를 고르는 기준 창입니다.
          * @param[in] ProjectName 화면에 표시할 프로젝트 이름입니다.
-         * @param[in] ProjectDirectory 파일 경로를 상대 경로로 줄일 기준 폴더입니다.
+         * @param[in] ProjectDirectory 스플래시 이미지를 찾을 프로젝트 폴더입니다.
+         * @details 언리얼처럼 프로젝트의 Content/Splash/EdSplash.png(.jpg, .bmp)가 있으면 기본 배경 대신 씁니다.
          */
-        void Show(HWND Anchor,std::wstring_view ProjectName, const std::filesystem::path& ProjectDirectory);
+        void Show(HWND Anchor, std::wstring_view ProjectName, const std::filesystem::path& ProjectDirectory);
 
         /**
          * @brief 진행률을 끝까지 채우는 애니메이션이 끝날 때까지 기다립니다. 창은 남겨 둡니다.
@@ -74,7 +75,7 @@ namespace Platform {
         void OnStage(std::string_view Stage, float Progress) override;
 
         /**
-         * @brief 표시할 처리 중 파일을 교체합니다.
+         * @brief 언리얼 스플래시처럼 처리 중 파일은 표시하지 않으므로 무시합니다.
          * @param[in] Action 파일에 수행하는 작업 이름입니다.
          * @param[in] File 처리 중인 파일 경로입니다.
          */
@@ -104,29 +105,19 @@ namespace Platform {
         std::condition_variable mSignal{};
 
         /**
-         * @brief 파일 경로를 상대 경로로 줄일 프로젝트 폴더입니다. 메인 스레드만 읽습니다.
-         */
-        std::filesystem::path mProjectDirectory{};
-
-        /**
          * @brief 화면에 표시할 프로젝트 이름입니다.
          */
         std::wstring mProjectName{};
 
         /**
+         * @brief 기본 배경 대신 쓸 프로젝트 스플래시 이미지입니다. 없으면 비어 있습니다.
+         */
+        std::filesystem::path mBackgroundImage{};
+
+        /**
          * @brief 현재 로딩 단계 이름입니다.
          */
         std::wstring mStage{};
-
-        /**
-         * @brief 현재 파일에 수행하는 작업 이름입니다.
-         */
-        std::wstring mAction{};
-
-        /**
-         * @brief 처리 중인 파일의 표시용 경로입니다.
-         */
-        std::wstring mFile{};
 
         /**
          * @brief 진행 막대가 따라갈 목표 진행률입니다.

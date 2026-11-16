@@ -84,7 +84,7 @@ namespace Engine {
          * @param Skeleton 대상 본 계층과 역바인드 행렬을 제공하는 스켈레톤입니다.
          * @return 적용했으면 true입니다.
          */
-        bool SetLocalTransform(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Core::Index_t Bone, const FMatrix& Transform);
+        bool SetLocalTransform(const Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Index_t Bone, const FMatrix& Transform);
 
         /**
          * @brief 로컬 포즈를 반환합니다.

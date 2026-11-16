@@ -22,7 +22,7 @@ namespace Asset {
      * @brief 전이 조건 그래프에서 사용할 상수·변수·비교·논리·재생 정보 노드 종류입니다.
      * @ingroup Asset
      */
-    enum class EAnimRuleNodeType : Core::Uint8 {
+    enum class EAnimRuleNodeType : Uint8 {
 
         /**
          * @brief Float 상수를 출력합니다.
@@ -120,7 +120,7 @@ namespace Asset {
         /**
          * @brief 소속 데이터 안에서 항목을 식별하는 ID입니다.
          */
-        Core::Int32 mId{};
+        Int32 mId{};
 
         /**
          * @brief 전이 조건 노드의 연산 종류입니다.
@@ -130,12 +130,12 @@ namespace Asset {
         /**
          * @brief 첫 번째 입력의 원본 노드 ID이며 미연결 시 -1입니다.
          */
-        Core::Int32 mInputA{-1};
+        Int32 mInputA{-1};
 
         /**
          * @brief 두 번째 입력의 원본 노드 ID이며 미연결 시 -1입니다.
          */
-        Core::Int32 mInputB{-1};
+        Int32 mInputB{-1};
 
         /**
          * @brief 변수 조회 또는 상태 플레이어 지정에 사용하는 이름입니다.
@@ -181,14 +181,14 @@ namespace Asset {
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 내부 노드의 비소유 포인터이며 없으면 nullptr입니다.
          */
-        Asset::FAnimRuleNode* FindNode(Core::Int32 Id);
+        Asset::FAnimRuleNode* FindNode(Int32 Id);
 
         /**
          * @brief 노드 ID에 대응하는 항목을 찾습니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 내부 노드의 비소유 포인터이며 없으면 nullptr입니다.
          */
-        const Asset::FAnimRuleNode* FindNode(Core::Int32 Id) const;
+        const Asset::FAnimRuleNode* FindNode(Int32 Id) const;
 
         /**
          * @brief 지정한 종류와 에디터 위치로 전이 조건 노드를 추가합니다.
@@ -197,14 +197,14 @@ namespace Asset {
          * @param Y 에디터 배치의 Y 좌표입니다.
          * @return 새 노드 ID이며 종류·위치·용량이 유효하지 않으면 -1입니다.
          */
-        Core::Int32 AddNode(Asset::EAnimRuleNodeType Type, float X, float Y);
+        Int32 AddNode(Asset::EAnimRuleNodeType Type, float X, float Y);
 
         /**
          * @brief 노드를 제거하고 해당 노드를 참조하는 입력과 결과 지정을 해제합니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 해당 노드를 제거했으면 true입니다.
          */
-        bool RemoveNode(Core::Int32 Id);
+        bool RemoveNode(Int32 Id);
 
         /**
          * @brief 자료형과 순환 여부를 검증한 뒤 원본 노드를 대상 입력 핀에 연결합니다.
@@ -213,7 +213,7 @@ namespace Asset {
          * @param Pin 대상 입력 핀 번호이며 첫 입력은 0입니다.
          * @return 연결 가능한 노드·핀 조합이면 true입니다.
          */
-        bool Connect(Core::Int32 From, Core::Int32 To, Core::Index_t Pin);
+        bool Connect(Int32 From, Int32 To, Index_t Pin);
 
         /**
          * @brief 대상 노드의 지정 입력 연결을 해제합니다.
@@ -221,20 +221,20 @@ namespace Asset {
          * @param Pin 대상 입력 핀 번호이며 첫 입력은 0입니다.
          * @return 실제로 연결을 해제했으면 true입니다.
          */
-        bool Disconnect(Core::Int32 To, Core::Index_t Pin);
+        bool Disconnect(Int32 To, Index_t Pin);
 
         /**
          * @brief Bool 노드를 전이 조건 출력으로 지정하거나 -1로 출력을 해제합니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 출력으로 지정할 수 있는 ID이면 true입니다.
          */
-        bool SetResult(Core::Int32 Id);
+        bool SetResult(Int32 Id);
 
         /**
          * @brief 전이 조건의 최종 출력 노드를 반환합니다.
          * @return Bool 결과 노드 ID이며 미지정 시 -1입니다.
          */
-        Core::Int32 GetResult() const;
+        Int32 GetResult() const;
 
         /**
          * @brief 노드 ID, 자료형, 입력 연결과 순환 참조의 유효성을 검사합니다.
@@ -267,7 +267,7 @@ namespace Asset {
          * @param Type 검사할 전이 조건 노드 종류입니다.
          * @return 단항 연산은 1, 이항 연산은 2, 입력 없는 노드는 0입니다.
          */
-        static Core::Int32 GetInputCount(Asset::EAnimRuleNodeType Type);
+        static Int32 GetInputCount(Asset::EAnimRuleNodeType Type);
 
         /**
          * @brief 노드 입력이 Bool 값을 요구하는지 확인합니다.
@@ -291,7 +291,7 @@ namespace Asset {
          * @param To 연결할 대상 항목 ID입니다.
          * @return From에서 입력을 추적하여 To에 도달하면 true입니다.
          */
-        bool Reaches(Core::Int32 From, Core::Int32 To) const;
+        bool Reaches(Int32 From, Int32 To) const;
 
     private:
 
@@ -303,12 +303,12 @@ namespace Asset {
         /**
          * @brief 다음 노드에 부여할 ID입니다.
          */
-        Core::Int32 mNextId{};
+        Int32 mNextId{};
 
         /**
          * @brief 최종 Bool 조건을 제공하는 노드 ID이며 미지정 시 -1입니다.
          */
-        Core::Int32 mResult{-1};
+        Int32 mResult{-1};
     };
 
     /**
@@ -321,7 +321,7 @@ namespace Asset {
         /**
          * @brief 소속 데이터 안에서 항목을 식별하는 ID입니다.
          */
-        Core::Int32 mId{};
+        Int32 mId{};
 
         /**
          * @brief 상태 머신 안에서 중복되지 않는 상태 이름입니다.
@@ -359,17 +359,17 @@ namespace Asset {
         /**
          * @brief 소속 데이터 안에서 항목을 식별하는 ID입니다.
          */
-        Core::Int32 mId{};
+        Int32 mId{};
 
         /**
          * @brief 전이가 시작되는 상태 ID입니다.
          */
-        Core::Int32 mFromState{};
+        Int32 mFromState{};
 
         /**
          * @brief 전이가 도착하는 상태 ID입니다.
          */
-        Core::Int32 mToState{};
+        Int32 mToState{};
 
         /**
          * @brief 상태 전이 블렌드 시간(초)입니다.
@@ -379,7 +379,7 @@ namespace Asset {
         /**
          * @brief 동시에 성립한 전이 사이에서 사용할 우선순위 값입니다.
          */
-        Core::Int32 mPriority{};
+        Int32 mPriority{};
 
         /**
          * @brief 전이 가능 여부를 계산하는 Bool 조건 그래프입니다.
@@ -397,7 +397,7 @@ namespace Asset {
         /**
          * @brief 단일 상태 머신에서 허용하는 최대 상태 수입니다.
          */
-        static constexpr Core::Uint32 MaxStates{254};
+        static constexpr Uint32 MaxStates{254};
 
         /**
          * @brief 상태 목록을 읽기 전용으로 제공합니다.
@@ -416,28 +416,28 @@ namespace Asset {
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 내부 상태의 비소유 포인터이며 없으면 nullptr입니다.
          */
-        Asset::FAnimStateData* FindState(Core::Int32 Id);
+        Asset::FAnimStateData* FindState(Int32 Id);
 
         /**
          * @brief 상태 ID에 대응하는 항목을 찾습니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 내부 상태의 비소유 포인터이며 없으면 nullptr입니다.
          */
-        const Asset::FAnimStateData* FindState(Core::Int32 Id) const;
+        const Asset::FAnimStateData* FindState(Int32 Id) const;
 
         /**
          * @brief 전이 ID에 대응하는 항목을 찾습니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 내부 전이의 비소유 포인터이며 없으면 nullptr입니다.
          */
-        Asset::FAnimTransitionData* FindTransition(Core::Int32 Id);
+        Asset::FAnimTransitionData* FindTransition(Int32 Id);
 
         /**
          * @brief 전이 ID에 대응하는 항목을 찾습니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 내부 전이의 비소유 포인터이며 없으면 nullptr입니다.
          */
-        const Asset::FAnimTransitionData* FindTransition(Core::Int32 Id) const;
+        const Asset::FAnimTransitionData* FindTransition(Int32 Id) const;
 
         /**
          * @brief 이름이 중복되지 않는 상태와 독립 포즈 그래프를 만들고 소유 그래프의 변수를 복사합니다.
@@ -447,14 +447,14 @@ namespace Asset {
          * @param Owner 새 상태에 복사할 변수 정의를 가진 소유 그래프입니다.
          * @return 추가한 상태 ID이며 이름·위치·용량이 유효하지 않으면 -1입니다.
          */
-        Core::Int32 AddState(const Core::FString& Name, float X, float Y, const Asset::UAnimGraph& Owner);
+        Int32 AddState(const Core::FString& Name, float X, float Y, const Asset::UAnimGraph& Owner);
 
         /**
          * @brief 상태와 연결된 전이를 제거하고 필요하면 진입 상태를 다시 지정합니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 해당 상태를 제거했으면 true입니다.
          */
-        bool RemoveState(Core::Int32 Id);
+        bool RemoveState(Int32 Id);
 
         /**
          * @brief 존재하는 두 상태 사이에 기본 블렌드 설정으로 전이를 추가합니다.
@@ -462,27 +462,27 @@ namespace Asset {
          * @param To 연결할 대상 항목 ID입니다.
          * @return 추가한 전이 ID이며 상태·용량이 유효하지 않으면 -1입니다.
          */
-        Core::Int32 AddTransition(Core::Int32 From, Core::Int32 To);
+        Int32 AddTransition(Int32 From, Int32 To);
 
         /**
          * @brief 지정한 ID의 전이를 제거합니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 해당 전이를 제거했으면 true입니다.
          */
-        bool RemoveTransition(Core::Int32 Id);
+        bool RemoveTransition(Int32 Id);
 
         /**
          * @brief 존재하는 상태를 초기 진입 상태로 지정합니다.
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 상태 ID가 유효하면 true입니다.
          */
-        bool SetEntryState(Core::Int32 Id);
+        bool SetEntryState(Int32 Id);
 
         /**
          * @brief 초기 진입 상태 ID를 반환합니다.
          * @return 진입 상태 ID이며 상태가 없으면 -1입니다.
          */
-        Core::Int32 GetEntryState() const;
+        Int32 GetEntryState() const;
 
         /**
          * @brief 원본의 데이터를 복사하고 중첩 포즈 그래프를 독립 복제합니다.
@@ -511,17 +511,17 @@ namespace Asset {
         /**
          * @brief 초기 진입 상태 ID이며 상태가 없으면 -1입니다.
          */
-        Core::Int32 mEntryState{-1};
+        Int32 mEntryState{-1};
 
         /**
          * @brief 다음 상태에 부여할 단조 증가 ID입니다.
          */
-        Core::Int32 mNextStateId{};
+        Int32 mNextStateId{};
 
         /**
          * @brief 다음 전이에 부여할 단조 증가 ID입니다.
          */
-        Core::Int32 mNextTransitionId{};
+        Int32 mNextTransitionId{};
     };
 
 }

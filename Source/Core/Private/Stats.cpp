@@ -113,7 +113,7 @@ namespace Core {
     /**
      * @brief 해당 프레임에 반영된 기록 횟수를 반환합니다.
      */
-    Core::Uint64 Core::FStatSnapshot::GetSamples() const {
+    Uint64 Core::FStatSnapshot::GetSamples() const {
         return mSamples;
     }
 
@@ -272,7 +272,7 @@ namespace Core {
     /**
      * @brief 마지막 초기화 이후 완료한 통계 프레임 수를 반환합니다.
      */
-    Core::Uint64 Core::FStats::GetFrameNumber() const {
+    Uint64 Core::FStats::GetFrameNumber() const {
         const std::lock_guard Lock{mMutex};
 
         return mFrameNumber;
@@ -327,11 +327,11 @@ namespace Core {
 
         const Core::FStat& Stat{**Found};
         const std::size_t Capacity{Stat.mHistory.size()};
-        const Core::Index_t Oldest{static_cast<Core::Index_t>((Stat.mHistoryIndex + Capacity - Stat.mHistoryCount) % Capacity)};
+        const Index_t Oldest{static_cast<Index_t>((Stat.mHistoryIndex + Capacity - Stat.mHistoryCount) % Capacity)};
         Core::TArray<double> Values{};
         Values.reserve(Stat.mHistoryCount);
 
-        for (Core::Index_t Index{}; Index < Stat.mHistoryCount; ++Index) {
+        for (Index_t Index{}; Index < Stat.mHistoryCount; ++Index) {
             Values.push_back(Stat.mHistory[(Oldest + Index) % Capacity]);
         }
 
@@ -400,7 +400,7 @@ namespace Core {
             Snapshot.mMinimum = Stat.mHistory[0];
             Snapshot.mMaximum = Stat.mHistory[0];
 
-            for (Core::Index_t Index{}; Index < Stat.mHistoryCount; ++Index) {
+            for (Index_t Index{}; Index < Stat.mHistoryCount; ++Index) {
                 const double Value{Stat.mHistory[Index]};
 
                 Snapshot.mAverage += Value / static_cast<double>(Stat.mHistoryCount);

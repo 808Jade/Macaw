@@ -70,7 +70,7 @@ namespace Asset {
          * @brief 스키닝 가중치가 요구하는 본 행렬 수를 반환합니다.
          * @return GPU 스키닝에 필요한 행렬 개수입니다.
          */
-        Core::Uint32 GetSkinMatrixCount() const;
+        Uint32 GetSkinMatrixCount() const;
 
         /**
          * @brief 공통 메시 드로 경로가 사용할 바인드 형상을 반환합니다.
@@ -95,14 +95,14 @@ namespace Asset {
          * @param Context 바인딩할 장치 컨텍스트입니다.
          * @param Slot 입력 슬롯입니다.
          */
-        void BindSkinWeights(ID3D11DeviceContext* Context, Core::Index_t Slot) const;
+        void BindSkinWeights(ID3D11DeviceContext* Context, Index_t Slot) const;
 
         /**
          * @brief 입력 슬롯의 스킨 가중치 버퍼 연결을 해제합니다.
          * @param Context 바인딩할 장치 컨텍스트입니다.
          * @param Slot 입력 슬롯입니다.
          */
-        static void UnbindSkinWeights(ID3D11DeviceContext* Context, Core::Index_t Slot);
+        static void UnbindSkinWeights(ID3D11DeviceContext* Context, Index_t Slot);
 
         /**
          * @brief 바인드 형상의 로컬 경계를 반환합니다.
@@ -114,13 +114,13 @@ namespace Asset {
          * @brief 정점 수를 반환합니다.
          * @return 바인드 형상의 정점 수입니다.
          */
-        Core::Uint32 GetVertexCount() const;
+        Uint32 GetVertexCount() const;
 
         /**
          * @brief 인덱스 수를 반환합니다.
          * @return 삼각형 인덱스 수입니다.
          */
-        Core::Uint32 GetIndexCount() const;
+        Uint32 GetIndexCount() const;
 
         /**
          * @brief 스키닝에 필요한 형상과 가중치가 있는지 검사합니다.
@@ -138,7 +138,7 @@ namespace Asset {
             /**
              * @brief 정점에 영향을 주는 최대 네 개의 본 인덱스입니다.
              */
-            std::array<Core::Uint32, 4> mBoneIndices{};
+            std::array<Uint32, 4> mBoneIndices{};
 
             /**
              * @brief 본 인덱스 순서에 대응하는 정점 스킨 가중치입니다.
@@ -166,7 +166,7 @@ namespace Asset {
         /**
          * @brief GPU 스키닝에서 참조할 본 행렬 수입니다.
          */
-        Core::Uint32 mSkinMatrixCount{};
+        Uint32 mSkinMatrixCount{};
 
         /**
          * @brief BLENDINDICES와 BLENDWEIGHT 입력의 공유 불변 버퍼입니다.

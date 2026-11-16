@@ -48,7 +48,7 @@ namespace Asset {
         // Import가 끝나면 텍스처와 FbxVideo의 연결, FbxVideo 속성, 내장 바이트를 모두 알 수 있으므로 파일 텍스처마다 한 번씩 판별합니다.
         // 판별 실패는 바로 임포트를 실패시키지 않고 mTextureErrors에 기록해 두며, 재질 속성에서 그 텍스처를 실제로 읽을 때 ReadTexture가 보고합니다.
         // 그래서 어느 재질에서도 쓰지 않는 깨진 텍스처는 임포트를 막지 않습니다.
-        for (Core::Index_t Index{}; Index < Scene.GetSrcObjectCount<FbxFileTexture>(); ++Index) {
+        for (Index_t Index{}; Index < Scene.GetSrcObjectCount<FbxFileTexture>(); ++Index) {
             auto* Texture{Scene.GetSrcObject<FbxFileTexture>(Index)};
             Asset::FMeshImportTexture Resolved{};
             Core::FString Error{};
@@ -143,11 +143,11 @@ namespace Asset {
         // 텍스처 이미지의 바이트는 FbxVideo 객체에 속하므로 FbxVideo용 데이터만 보관합니다.
         // FbxVideo에는 정적 이미지(BaseColor, Normal, Roughness 등), 동영상 클립, 001·002처럼 이어지는 이미지 시퀀스가 모두 해당합니다.
         if (DataHint == FbxVideo::ClassId) {
-            const auto* Bytes{static_cast<const Core::Uint8*>(Buffer)};
+            const auto* Bytes{static_cast<const Uint8*>(Buffer)};
 
             // 콜백 시점에는 이 FbxVideo가 어느 텍스처에 연결되는지와 시퀀스 여부를 알 수 없으므로 바이트만 보관하고, 판별은 Import 이후 ResolveTextures가 맡습니다.
             // Buffer는 콜백이 끝나면 무효해지므로 복사본을 보관합니다.
-            mEmbeddedData.insert_or_assign(TextureKey(FileName), Core::TArray<Core::Uint8>{Bytes, Bytes + Size});
+            mEmbeddedData.insert_or_assign(TextureKey(FileName), Core::TArray<Uint8>{Bytes, Bytes + Size});
         }
 
         // 보관하지 않은 데이터도 SDK가 디스크에 추출하지 않도록 eHandled를 반환합니다.
@@ -179,7 +179,7 @@ namespace Asset {
     /**
      * @brief PNG 청크 헤더만 따라가며 APNG 애니메이션 제어 청크가 있는지 확인합니다.
      */
-    bool Asset::FFBXImageProcessor::HasPNGAnimation(std::span<const Core::Uint8> Data, const std::filesystem::path& Path) const {
+    bool Asset::FFBXImageProcessor::HasPNGAnimation(std::span<const Uint8> Data, const std::filesystem::path& Path) const {
         std::ifstream Stream{};
 
         // 내장 바이트가 없으면 외부 파일을 열어 필요한 청크 헤더만 읽습니다.
@@ -192,7 +192,7 @@ namespace Asset {
         }
 
         // 메모리와 파일을 같은 방식으로 읽도록 오프셋 기반 읽기 함수를 만듭니다. 범위를 벗어나면 false입니다.
-        const auto Read{[&](std::size_t Offset, std::span<Core::Uint8> Out) {
+        const auto Read{[&](std::size_t Offset, std::span<Uint8> Out) {
             if (Data.empty()) {
                 Stream.seekg(static_cast<std::streamoff>(Offset));
 
@@ -209,8 +209,8 @@ namespace Asset {
         }};
 
         // PNG 시그니처가 아니면 APNG일 수 없습니다.
-        constexpr std::array<Core::Uint8, 8> Signature{137, 80, 78, 71, 13, 10, 26, 10};
-        std::array<Core::Uint8, 8> Header{};
+        constexpr std::array<Uint8, 8> Signature{137, 80, 78, 71, 13, 10, 26, 10};
+        std::array<Uint8, 8> Header{};
 
         if (!Read(0, Header) || Header != Signature) {
             return false;
@@ -281,7 +281,7 @@ namespace Asset {
     /**
      * @brief DirectXTex가 직접 읽지 않는 형식을 WIC 디코더로 열어 프레임 수와 첫 프레임 크기로 텍스처 형태를 판별합니다.
      */
-    bool Asset::FFBXImageProcessor::InspectWICImage(std::span<const Core::Uint8> Data, const std::filesystem::path& Path, Asset::EMeshImportTextureShape& Shape, Core::FString& Error) const {
+    bool Asset::FFBXImageProcessor::InspectWICImage(std::span<const Uint8> Data, const std::filesystem::path& Path, Asset::EMeshImportTextureShape& Shape, Core::FString& Error) const {
         const Core::FString Name{Core::FilePath::ToUtf8(Path)};
 
         // WIC 메모리 API는 UINT 크기만 받습니다.
@@ -344,7 +344,7 @@ namespace Asset {
     /**
      * @brief 이미지 헤더 메타데이터만 읽어 픽셀 디코딩 없이 텍스처 형태를 판별합니다.
      */
-    bool Asset::FFBXImageProcessor::InspectImage(std::span<const Core::Uint8> Data, const std::filesystem::path& Path, Asset::EMeshImportTextureShape& Shape, Core::FString& Error) const {
+    bool Asset::FFBXImageProcessor::InspectImage(std::span<const Uint8> Data, const std::filesystem::path& Path, Asset::EMeshImportTextureShape& Shape, Core::FString& Error) const {
         const Core::FString Name{Core::FilePath::ToUtf8(Path)};
 
         Shape = Asset::EMeshImportTextureShape::Unknown;
@@ -441,7 +441,7 @@ namespace Asset {
         const bool Embedded{Texture.GetSource() == Asset::EMeshImportTextureSource::Embedded};
 
         // 외부 파일은 바이트를 넘기지 않아 InspectImage가 파일에서 헤더만 읽게 합니다.
-        const std::span<const Core::Uint8> Data{Embedded ? std::span<const Core::Uint8>{Texture.GetEmbeddedData()} : std::span<const Core::Uint8>{}};
+        const std::span<const Uint8> Data{Embedded ? std::span<const Uint8>{Texture.GetEmbeddedData()} : std::span<const Uint8>{}};
 
         // 내장 텍스처도 확장자로 디코더를 고르므로 내장 참조 이름을 경로로 넘깁니다.
         const std::filesystem::path Path{Embedded ? Core::FilePath::FromUtf8(Texture.GetEmbeddedReference()) : Texture.GetFilePath()};
@@ -460,7 +460,7 @@ namespace Asset {
      */
     bool Asset::FFBXImageProcessor::IsImageSequence(const FbxFileTexture& Texture) const {
         // 시퀀스 여부는 이미지 바이트가 아니라 텍스처에 연결된 FbxVideo의 속성입니다.
-        for (Core::Index_t Index{}; Index < Texture.GetSrcObjectCount<FbxVideo>(); ++Index) {
+        for (Index_t Index{}; Index < Texture.GetSrcObjectCount<FbxVideo>(); ++Index) {
             if (Texture.GetSrcObject<FbxVideo>(Index)->GetImageSequence()) {
                 return true;
             }

@@ -61,12 +61,12 @@ namespace Asset {
         /**
          * @brief 분자입니다. 정수 레이트에서는 초당 프레임 수입니다.
          */
-        Core::Uint32 mNumerator{30};
+        Uint32 mNumerator{30};
 
         /**
          * @brief 분모입니다.
          */
-        Core::Uint32 mDenominator{1};
+        Uint32 mDenominator{1};
     };
 
 }

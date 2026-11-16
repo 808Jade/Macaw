@@ -46,13 +46,13 @@ namespace Viewer {
          * @brief 캡처 이미지의 너비를 반환합니다.
          * @return 너비(픽셀)이며 이미지가 없으면 0입니다.
          */
-        Core::Uint32 GetWidth() const;
+        Uint32 GetWidth() const;
 
         /**
          * @brief 캡처 이미지의 높이를 반환합니다.
          * @return 높이(픽셀)이며 이미지가 없으면 0입니다.
          */
-        Core::Uint32 GetHeight() const;
+        Uint32 GetHeight() const;
 
         /**
          * @brief 소유한 캡처 텍스처의 GPU 리소스 크기를 반환합니다.

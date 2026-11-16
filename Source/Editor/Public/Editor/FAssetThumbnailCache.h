@@ -76,7 +76,7 @@ namespace Editor {
             /**
              * @brief 마지막으로 이미지를 요청한 프레임 번호입니다.
              */
-            Core::Uint64 mLastUsed{};
+            Uint64 mLastUsed{};
 
             /**
              * @brief 현재 이미지의 변경 서명이 유효한지 여부입니다.
@@ -324,7 +324,7 @@ namespace Editor {
         /**
          * @brief 캐시 사용 시점을 기록하는 프레임 번호입니다.
          */
-        Core::Uint64 mFrame{};
+        Uint64 mFrame{};
 
         /**
          * @brief 촬영 뷰어가 현재 요청의 준비 상태를 보관 중인지 여부입니다.

@@ -59,40 +59,40 @@ namespace Engine {
          * @brief 아틀라스의 가로 셀 수를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::Uint32 GetColumns() const;
+        Uint32 GetColumns() const;
 
         /**
          * @brief 아틀라스의 가로 셀 수를 설정합니다.
          * @param[in] Columns 1에서 256 사이의 가로 셀 수입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetColumns(Core::Uint32 Columns);
+        bool SetColumns(Uint32 Columns);
 
         /**
          * @brief 아틀라스의 세로 셀 수를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::Uint32 GetRows() const;
+        Uint32 GetRows() const;
 
         /**
          * @brief 아틀라스의 세로 셀 수를 설정합니다.
          * @param[in] Rows 1에서 256 사이의 세로 셀 수입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetRows(Core::Uint32 Rows);
+        bool SetRows(Uint32 Rows);
 
         /**
          * @brief 재생할 셀 수를 반환합니다. 0은 전체 격자를 뜻합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::Uint32 GetFrameCount() const;
+        Uint32 GetFrameCount() const;
 
         /**
          * @brief 재생할 셀 수를 설정합니다. 0이면 전체 격자를 재생합니다.
          * @param[in] FrameCount 최대 65536개이며 0은 전체 격자를 뜻합니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetFrameCount(Core::Uint32 FrameCount);
+        bool SetFrameCount(Uint32 FrameCount);
 
         /**
          * @brief 초당 재생 프레임 수를 반환합니다.
@@ -135,7 +135,7 @@ namespace Engine {
          * @brief 현재 0 기반 프레임 번호를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::Index_t GetCurrentFrame() const;
+        Index_t GetCurrentFrame() const;
 
         /**
          * @brief 완료된 애니메이션을 되감고 현재 위치부터 SubUV 재생을 시작합니다.
@@ -183,7 +183,7 @@ namespace Engine {
          * @brief 전체 격자 수로 제한한 실제 재생 프레임 수를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::Uint32 GetEffectiveFrameCount() const;
+        Uint32 GetEffectiveFrameCount() const;
 
     private:
         /**
@@ -196,19 +196,19 @@ namespace Engine {
          * @brief 아틀라스의 가로 셀 수입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetColumns, Setter = SetColumns)
-        Core::Uint32 mColumns{4};
+        Uint32 mColumns{4};
 
         /**
          * @brief 아틀라스의 세로 셀 수입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetRows, Setter = SetRows)
-        Core::Uint32 mRows{4};
+        Uint32 mRows{4};
 
         /**
          * @brief 재생할 셀 수이며 0은 전체 격자입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetFrameCount, Setter = SetFrameCount)
-        Core::Uint32 mFrameCount{};
+        Uint32 mFrameCount{};
 
         /**
          * @brief 초당 재생 프레임 수입니다.

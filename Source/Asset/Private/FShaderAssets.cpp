@@ -244,15 +244,15 @@ UShader* FAssetManager::LoadShader(const std::filesystem::path& Path, Core::FStr
         }
     }
 
-    Core::TArray<Core::Uint8> Payload{};
+    Core::TArray<Uint8> Payload{};
 
     if (!FAssetFile::Load(Target, EAssetType::Shader, Payload, Error)) {
         return nullptr;
     }
 
     auto Shader{CoreUObject::NewObject<UShader>()};
-    Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Core::Uint8>&>(Payload)};
-    Core::Uint32 Version{};
+    Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
+    Uint32 Version{};
     Archive.Serialize("Version", Version);
 
     if (Version != 1) {
@@ -305,9 +305,9 @@ bool FAssetManager::SaveShader(const std::filesystem::path& Path, UShader& Shade
         return false;
     }
 
-    Core::TArray<Core::Uint8> Payload{};
+    Core::TArray<Uint8> Payload{};
     Serialization::FMemoryArchive Archive{Payload};
-    Core::Uint32 Version{1};
+    Uint32 Version{1};
     Archive.Serialize("Version", Version);
     Shader.Serialize(Archive);
 

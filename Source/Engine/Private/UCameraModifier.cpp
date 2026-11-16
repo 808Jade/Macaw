@@ -48,12 +48,12 @@ namespace Engine {
         return mCameraOwner;
     }
 
-    Core::Int32 Engine::UCameraModifier::GetPriority() const {
+    Int32 Engine::UCameraModifier::GetPriority() const {
         return mPriority;
     }
 
-    void Engine::UCameraModifier::SetPriority(Core::Int32 Priority) {
-        mPriority = std::clamp<Core::Int32>(Priority, 0, 255);
+    void Engine::UCameraModifier::SetPriority(Int32 Priority) {
+        mPriority = std::clamp<Int32>(Priority, 0, 255);
     }
 
     float Engine::UCameraModifier::GetAlphaInTime() const {

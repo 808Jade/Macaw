@@ -65,14 +65,14 @@ namespace Engine {
     /**
      * @brief 아틀라스의 가로 셀 수를 반환합니다.
      */
-    Core::Uint32 Engine::USubUVComponent::GetColumns() const {
+    Uint32 Engine::USubUVComponent::GetColumns() const {
         return mColumns;
     }
 
     /**
      * @brief 아틀라스의 가로 셀 수를 설정합니다.
      */
-    bool Engine::USubUVComponent::SetColumns(Core::Uint32 Columns) {
+    bool Engine::USubUVComponent::SetColumns(Uint32 Columns) {
         if (Columns == 0 || Columns > 256) {
             return false;
         }
@@ -88,14 +88,14 @@ namespace Engine {
     /**
      * @brief 아틀라스의 세로 셀 수를 반환합니다.
      */
-    Core::Uint32 Engine::USubUVComponent::GetRows() const {
+    Uint32 Engine::USubUVComponent::GetRows() const {
         return mRows;
     }
 
     /**
      * @brief 아틀라스의 세로 셀 수를 설정합니다.
      */
-    bool Engine::USubUVComponent::SetRows(Core::Uint32 Rows) {
+    bool Engine::USubUVComponent::SetRows(Uint32 Rows) {
         if (Rows == 0 || Rows > 256) {
             return false;
         }
@@ -111,14 +111,14 @@ namespace Engine {
     /**
      * @brief 재생할 셀 수를 반환합니다. 0은 전체 격자를 뜻합니다.
      */
-    Core::Uint32 Engine::USubUVComponent::GetFrameCount() const {
+    Uint32 Engine::USubUVComponent::GetFrameCount() const {
         return mFrameCount;
     }
 
     /**
      * @brief 재생할 셀 수를 설정합니다. 0이면 전체 격자를 재생합니다.
      */
-    bool Engine::USubUVComponent::SetFrameCount(Core::Uint32 FrameCount) {
+    bool Engine::USubUVComponent::SetFrameCount(Uint32 FrameCount) {
         if (FrameCount > 65536) {
             return false;
         }
@@ -184,15 +184,15 @@ namespace Engine {
     /**
      * @brief 전체 격자 수로 제한한 실제 재생 프레임 수를 반환합니다.
      */
-    Core::Uint32 Engine::USubUVComponent::GetEffectiveFrameCount() const {
+    Uint32 Engine::USubUVComponent::GetEffectiveFrameCount() const {
         return mFrameCount == 0 ? mColumns * mRows : std::min(mFrameCount, mColumns * mRows);
     }
 
     /**
      * @brief 현재 0 기반 프레임 번호를 반환합니다.
      */
-    Core::Index_t Engine::USubUVComponent::GetCurrentFrame() const {
-        return std::min(static_cast<Core::Index_t>(mFramePosition), static_cast<Core::Index_t>(GetEffectiveFrameCount()) - 1);
+    Index_t Engine::USubUVComponent::GetCurrentFrame() const {
+        return std::min(static_cast<Index_t>(mFramePosition), static_cast<Index_t>(GetEffectiveFrameCount()) - 1);
     }
 
     /**
@@ -303,7 +303,7 @@ namespace Engine {
         }
 
         if (Target != nullptr) {
-            const Core::Index_t Frame{GetCurrentFrame()};
+            const Index_t Frame{GetCurrentFrame()};
 
             Target->SetUVTransform({1.0f / mColumns, 1.0f / mRows}, {static_cast<float>(Frame % mColumns) / mColumns, static_cast<float>(Frame / mColumns) / mRows}, CoreUObject::MakeObjectRef(this));
         }

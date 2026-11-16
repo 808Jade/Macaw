@@ -51,7 +51,7 @@ namespace Renderer {
     /**
      * @brief 정점·픽셀 바이트 코드로 후처리 셰이더를 생성하고 둘 다 성공한 경우에만 교체합니다.
      */
-    bool Renderer::FPostProcessResources::CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode) {
+    bool Renderer::FPostProcessResources::CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode) {
         Microsoft::WRL::ComPtr<ID3D11VertexShader> Vertex{};
         Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};
 
@@ -68,7 +68,7 @@ namespace Renderer {
     /**
      * @brief 가시 안개를 교대 타깃에 합성한 뒤 복사·깊이 시각화·FXAA 중 최종 패스를 실행합니다.
      */
-    Core::Uint32 Renderer::FPostProcessResources::Render(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FHeightFogSceneProxy> Fogs) {
+    Uint32 Renderer::FPostProcessResources::Render(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FHeightFogSceneProxy> Fogs) {
         Renderer::FPostProcessConstants Constants{};
 
         if (!Family.mView.mViewProjection.TryInverse(Constants.mInverseViewProjection)) {
@@ -83,7 +83,7 @@ namespace Renderer {
         Constants.mScreenSize = {static_cast<float>(Target.GetWidth()), static_cast<float>(Target.GetHeight()), 1.0f / static_cast<float>(Target.GetWidth()), 1.0f / static_cast<float>(Target.GetHeight())};
 
         Asset::UTexture2D* Source{Target.GetSceneColor()};
-        Core::Uint32 DrawCalls{};
+        Uint32 DrawCalls{};
         const bool Visualization{Engine::IsBufferVisualization(Family.mViewMode)};
 
         if (!Visualization && Family.mShowFlags.mFog) {

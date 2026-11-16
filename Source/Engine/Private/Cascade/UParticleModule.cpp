@@ -55,7 +55,7 @@ FString UParticleModule::FContext::GetTemplateName() const {
 /**
  * @brief 새 파티클 초기화 호출에 필요한 정보를 구성합니다.
  */
-UParticleModule::FSpawnContext::FSpawnContext(FParticleEmitterInstance& Owner, Core::Index_t Offset, float SpawnTime, FBaseParticle* ParticleBase)
+UParticleModule::FSpawnContext::FSpawnContext(FParticleEmitterInstance& Owner, Index_t Offset, float SpawnTime, FBaseParticle* ParticleBase)
 	: FContext{Owner},
 	  mOffset{Offset},
 	  mSpawnTime{SpawnTime},
@@ -65,7 +65,7 @@ UParticleModule::FSpawnContext::FSpawnContext(FParticleEmitterInstance& Owner, C
 /**
  * @brief 파티클 레코드 내 모듈 추가 데이터의 위치를 반환합니다.
  */
-Core::Index_t UParticleModule::FSpawnContext::GetOffset() const {
+Index_t UParticleModule::FSpawnContext::GetOffset() const {
     return mOffset;
 }
 
@@ -86,7 +86,7 @@ FBaseParticle* UParticleModule::FSpawnContext::GetParticleBase() const {
 /**
  * @brief 모듈 갱신 호출의 인스턴스와 데이터 위치 및 시간 간격을 구성합니다.
  */
-UParticleModule::FUpdateContext::FUpdateContext(FParticleEmitterInstance& Owner, Core::Index_t Offset, float DeltaTime)
+UParticleModule::FUpdateContext::FUpdateContext(FParticleEmitterInstance& Owner, Index_t Offset, float DeltaTime)
 	: FContext{Owner},
 	  mOffset{Offset},
 	  mDeltaTime{DeltaTime} {
@@ -95,7 +95,7 @@ UParticleModule::FUpdateContext::FUpdateContext(FParticleEmitterInstance& Owner,
 /**
  * @brief 파티클 레코드 내 모듈 추가 데이터의 위치를 반환합니다.
  */
-Core::Index_t UParticleModule::FUpdateContext::GetOffset() const {
+Index_t UParticleModule::FUpdateContext::GetOffset() const {
     return mOffset;
 }
 

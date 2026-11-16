@@ -26,6 +26,8 @@ namespace Asset {
 
 namespace Editor {
 
+    class FEditorTab;
+
     class FAssetThumbnailCache;
     class FEditorAssetCatalog;
 
@@ -79,17 +81,17 @@ namespace Editor {
             /**
              * @brief 현재 보기가 속한 상태 머신 노드 ID입니다.
              */
-            Core::Int32 mMachine{-1};
+            Int32 mMachine{-1};
 
             /**
              * @brief 현재 보기에서 편집할 전이 ID입니다.
              */
-            Core::Int32 mTransition{-1};
+            Int32 mTransition{-1};
 
             /**
              * @brief 현재 보기에서 선택한 상태 또는 전이 ID입니다.
              */
-            Core::Int32 mSelection{-2};
+            Int32 mSelection{-2};
 
             /**
              * @brief UI에 표시할 이름입니다.
@@ -138,9 +140,28 @@ namespace Editor {
         bool Open(const std::filesystem::path& Path, Core::FString& Error);
 
         /**
-         * @brief 열려 있으면 창을 그립니다.
+         * @brief 호스트 주 탭에 편집기 위젯과 도킹 배치를 등록합니다.
+         * @param[in] Tab 편집기를 포함할 호스트 탭 또는 등록할 외부 소유 탭입니다.
          */
-        void Draw();
+        void InitializeToolkit(Editor::FEditorTab& Tab);
+
+        /**
+         * @brief 툴킷에 포함된 편집기 상태와 저장 가능 여부를 프레임별로 갱신합니다.
+         * @param[in] DeltaTime 이전 프레임 이후 경과한 시간이며 단위는 초입니다.
+         * @param[in] CanSave 현재 편집 내용을 저장할 수 있는지 지정합니다.
+         */
+        void UpdateToolkit(float DeltaTime, bool CanSave);
+
+        /**
+         * @brief 편집기 포커스와 저장 가능 상태에 따라 단축키 명령을 처리합니다.
+         * @param[in] CanSave 현재 편집 내용을 저장할 수 있는지 지정합니다.
+         */
+        void HandleCommands(bool CanSave);
+
+        /**
+         * @brief 툴킷 그리기 뒤에 예약된 그래프 저장 등 후속 작업을 처리합니다.
+         */
+        void FinishToolkit();
 
         /**
          * @brief 열린 에셋이 지정한 경로나 그 아래에 있으면 닫습니다.
@@ -156,17 +177,19 @@ namespace Editor {
 
         /**
          * @brief 이 에디터 창의 ImGui 식별자를 지정하여 같은 종류의 에디터를 여러 탭으로 열 수 있게 합니다.
-         * @param[in] Id ###로 시작하는 창 식별자입니다.
+         * @param[in] Id 세 개의 해시 기호로 시작하는 ImGui 창 식별자입니다.
          */
         void SetWindowId(Core::FString Id);
 
         /**
          * @brief 이 에디터 창의 ImGui 식별자를 반환합니다.
+         * @return 호스트 창을 구분하는 ImGui 창 식별자 문자열입니다.
          */
         const Core::FString& GetWindowId() const;
 
         /**
          * @brief 에디터 창이 열려 있는지 반환합니다.
+         * @return 창이 실행 중이면 true입니다.
          */
         bool IsOpen() const;
 
@@ -175,21 +198,21 @@ namespace Editor {
          * @param NodeId 원본 그래프 노드 ID입니다.
          * @return 상태 머신 데이터를 찾았으면 true입니다.
          */
-        bool OpenStateMachine(Core::Int32 NodeId);
+        bool OpenStateMachine(Int32 NodeId);
 
         /**
          * @brief 선택한 상태의 중첩 포즈 그래프를 엽니다.
          * @param StateId 열거나 조회할 상태 ID입니다.
          * @return 상태와 포즈 그래프가 존재하면 true입니다.
          */
-        bool OpenState(Core::Int32 StateId);
+        bool OpenState(Int32 StateId);
 
         /**
          * @brief 선택한 전이의 Bool 조건 그래프를 엽니다.
          * @param TransitionId 열거나 조회할 전이 ID입니다.
          * @return 전이 데이터를 찾았으면 true입니다.
          */
-        bool OpenTransitionRule(Core::Int32 TransitionId);
+        bool OpenTransitionRule(Int32 TransitionId);
 
         /**
          * @brief 중첩 그래프 탐색에서 직전 보기로 돌아갑니다.
@@ -202,7 +225,7 @@ namespace Editor {
          * @param Depth 탐색할 상위 보기의 깊이 또는 노드 배치 깊이입니다.
          * @return 깊이가 유효하여 보기를 전환했으면 true입니다.
          */
-        bool NavigateTo(Core::Index_t Depth);
+        bool NavigateTo(Index_t Depth);
 
     private:
 
@@ -229,7 +252,7 @@ namespace Editor {
          * @param SaveRequested 현재 프레임에 저장 단축키를 요청했는지 여부입니다.
          * @return 이 변수의 삭제 버튼을 눌렀으면 true입니다.
          */
-        bool DrawVariable(Core::Index_t Index, bool SaveRequested);
+        bool DrawVariable(Index_t Index, bool SaveRequested);
 
         /**
          * @brief 노드 에디터 캔버스를 그리고 생성·연결·삭제를 처리합니다.
@@ -249,9 +272,9 @@ namespace Editor {
         /**
          * @brief 이름에 대응하는 그래프 변수 인덱스를 찾습니다.
          * @param Name 찾을 그래프 변수 이름입니다.
-         * @return 변수 인덱스이며 없으면 Core::InvalidIndex입니다.
+         * @return 변수 인덱스이며 없으면 InvalidIndex입니다.
          */
-        Core::Index_t FindVariableIndex(const Core::FString& Name) const;
+        Index_t FindVariableIndex(const Core::FString& Name) const;
 
         /**
          * @brief 선택한 노드의 이름과 파라미터를 그립니다.
@@ -299,7 +322,7 @@ namespace Editor {
          * @param Transition 중첩 보기의 전이 ID입니다.
          * @param Label UI 항목의 표시 이름입니다.
          */
-        void Navigate(Asset::UAnimGraph* Graph, EGraphView Mode, Core::Int32 Machine, Core::Int32 Transition, const Core::FString& Label);
+        void Navigate(Asset::UAnimGraph* Graph, EGraphView Mode, Int32 Machine, Int32 Transition, const Core::FString& Label);
 
         /**
          * @brief 지정한 그래프 보기와 노드 편집기 컨텍스트를 활성화합니다.
@@ -380,9 +403,19 @@ namespace Editor {
         Core::FString mWindowId{"###AnimGraphEditor"};
 
         /**
+         * @brief 편집기를 포함하는 호스트 주 탭의 비소유 주소입니다.
+         */
+        Editor::FEditorTab* mHostTab{};
+
+        /**
+         * @brief 툴킷 그리기 뒤 그래프 저장을 처리할지 나타냅니다.
+         */
+        bool mSaveRequested{};
+
+        /**
          * @brief 선택한 노드 식별자이며 없으면 -2입니다.
          */
-        Core::Int32 mSelectedNode{-2};
+        Int32 mSelectedNode{-2};
 
         /**
          * @brief 다음 그리기에서 저장된 위치를 노드 에디터에 적용할지 여부입니다.

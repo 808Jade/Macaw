@@ -130,7 +130,7 @@ namespace Core {
          * @param[in,out] Count 저장할 배열 길이이며 로드 시 읽어 온 배열 길이를 받습니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        virtual bool BeginArray(std::string_view Name, Core::Uint32& Count) = 0;
+        virtual bool BeginArray(std::string_view Name, Uint32& Count) = 0;
 
         /**
          * @brief 현재 배열 컨테이너를 끝내고 상위 컨테이너로 돌아갑니다.
@@ -149,21 +149,21 @@ namespace Core {
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        virtual void Serialize(std::string_view Name, Core::Int32& Value) = 0;
+        virtual void Serialize(std::string_view Name, Int32& Value) = 0;
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        virtual void Serialize(std::string_view Name, Core::Uint32& Value) = 0;
+        virtual void Serialize(std::string_view Name, Uint32& Value) = 0;
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
          * @param[in] Name 조회하거나 기록할 이름입니다.
          * @param[in,out] Value 저장 시 읽고 로드 시 덮어쓸 값입니다.
          */
-        virtual void Serialize(std::string_view Name, Core::Uint64& Value);
+        virtual void Serialize(std::string_view Name, Uint64& Value);
 
         /**
          * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.

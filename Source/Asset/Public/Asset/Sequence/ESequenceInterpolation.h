@@ -17,7 +17,7 @@ namespace Asset {
      * @ingroup Asset
      */
     UENUM()
-    enum class ESequenceInterpolation : Core::Uint8 {
+    enum class ESequenceInterpolation : Uint8 {
         /**
          * @brief 다음 키까지 현재 키 값을 유지합니다.
          */

@@ -22,7 +22,7 @@ namespace Engine {
     class FRenderTarget;
     struct FSceneViewFamily;
 
-    enum class EPrimitiveType : Core::Uint8;
+    enum class EPrimitiveType : Uint8;
 }
 
 struct FVector2;
@@ -51,7 +51,7 @@ namespace RenderCore {
          * @param[in] Height 창 클라이언트 영역의 세로 픽셀 수입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        virtual bool Initialize(void* WindowHandle, Core::Uint32 Width, Core::Uint32 Height) = 0;
+        virtual bool Initialize(void* WindowHandle, Uint32 Width, Uint32 Height) = 0;
 
         /**
          * @brief 종속 객체를 역순으로 정리하고 여러 번 호출해도 안전한 종료 상태로 만듭니다.
@@ -78,7 +78,7 @@ namespace RenderCore {
          * @param[in] Height 렌더 타깃의 세로 픽셀 수입니다.
          * @return 생성한 객체의 단독 소유권이며, 실패하면 nullptr입니다.
          */
-        virtual std::unique_ptr<Engine::FRenderTarget> CreateRenderTarget(Core::Uint32 Width, Core::Uint32 Height) = 0;
+        virtual std::unique_ptr<Engine::FRenderTarget> CreateRenderTarget(Uint32 Width, Uint32 Height) = 0;
 
         /**
          * @brief 렌더 타깃의 최종 컬러만 별도 GPU 텍스처로 복사합니다.
@@ -97,7 +97,7 @@ namespace RenderCore {
          * @param Error 실패 원인을 기록할 출력 문자열입니다.
          * @return 호출자가 소유하는 출력 텍스처이며 실패하면 nullptr이고 Error에 원인을 기록합니다.
          */
-        virtual std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Core::Uint32 Width, Core::Uint32 Height, const FVector4& Region, Core::FString& Error) = 0;
+        virtual std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error) = 0;
 
         /**
          * @brief 기존 오프스크린 렌더 타깃을 새 픽셀 크기로 변경합니다.
@@ -106,14 +106,14 @@ namespace RenderCore {
          * @param[in] Height 렌더 타깃의 세로 픽셀 수입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        virtual bool ResizeRenderTarget(Engine::FRenderTarget* Target, Core::Uint32 Width, Core::Uint32 Height) = 0;
+        virtual bool ResizeRenderTarget(Engine::FRenderTarget* Target, Uint32 Width, Uint32 Height) = 0;
 
         /**
          * @brief 백 버퍼 크기를 동기화하고 프레임 렌더링 통계를 초기화합니다.
          * @param[in] Width 창 클라이언트 영역의 가로 픽셀 수입니다.
          * @param[in] Height 창 클라이언트 영역의 세로 픽셀 수입니다.
          */
-        virtual void BeginFrame(Core::Uint32 Width, Core::Uint32 Height) = 0;
+        virtual void BeginFrame(Uint32 Width, Uint32 Height) = 0;
 
         /**
          * @brief 지정한 장면 뷰를 타깃에 렌더링하고 에디터 보조 선분을 그립니다.

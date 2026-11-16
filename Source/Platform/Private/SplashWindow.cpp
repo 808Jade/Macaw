@@ -10,6 +10,7 @@
 #include "FSplashCanvas.h"
 
 #include <dwmapi.h>
+#include <objbase.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -23,12 +24,12 @@ namespace Platform {
         /**
          * @brief 스플래시 레이아웃 기준 너비입니다.
          */
-        constexpr Core::Int32 LogicalWidth{900};
+        constexpr Int32 LogicalWidth{720};
 
         /**
          * @brief 스플래시 레이아웃 기준 높이입니다.
          */
-        constexpr Core::Int32 LogicalHeight{500};
+        constexpr Int32 LogicalHeight{370};
 
         /**
          * @brief 애니메이션 타이머의 밀리초 간격입니다.
@@ -55,10 +56,10 @@ namespace Platform {
                 return {};
             }
 
-            const Core::Int32 Length{MultiByteToWideChar(CP_UTF8, 0, Text.data(), static_cast<Core::Int32>(Text.size()), nullptr, 0)};
+            const Int32 Length{MultiByteToWideChar(CP_UTF8, 0, Text.data(), static_cast<Int32>(Text.size()), nullptr, 0)};
             std::wstring Result{};
             Result.resize(static_cast<std::size_t>(std::max(Length, 0)), L'\0');
-            MultiByteToWideChar(CP_UTF8, 0, Text.data(), static_cast<Core::Int32>(Text.size()), Result.data(), Length);
+            MultiByteToWideChar(CP_UTF8, 0, Text.data(), static_cast<Int32>(Text.size()), Result.data(), Length);
 
             return Result;
         }
@@ -106,10 +107,22 @@ namespace Platform {
         }
 
         mProjectName = ProjectName;
-        mProjectDirectory = ProjectDirectory;
-        mStage = L"Starting...";
-        mAction.clear();
-        mFile.clear();
+        mBackgroundImage.clear();
+
+        for (const wchar_t* Extension : {L".png", L".jpg", L".bmp"}) {
+            std::filesystem::path Candidate{ProjectDirectory / L"Content" / L"Splash" / L"EdSplash"};
+            std::error_code Code{};
+
+            Candidate += Extension;
+
+            if (!ProjectDirectory.empty() && std::filesystem::is_regular_file(Candidate, Code)) {
+                mBackgroundImage = std::move(Candidate);
+
+                break;
+            }
+        }
+
+        mStage = L"Loading...";
         mProgress = 0.0f;
         mStarted = false;
         mFinishRequested = false;
@@ -140,8 +153,6 @@ namespace Platform {
         mFinishRequested = true;
         mProgress = 1.0f;
         mStage = L"Opening editor...";
-        mAction.clear();
-        mFile.clear();
         mSignal.wait(Lock, [this]() {
             return mFinished;
         });
@@ -172,37 +183,18 @@ namespace Platform {
         const std::lock_guard Lock{mMutex};
 
         mStage = std::move(Text);
-        mAction.clear();
-        mFile.clear();
         mProgress = std::max(mProgress, std::clamp(Progress, 0.0f, 1.0f));
     }
 
-    /**
-     * @brief 표시할 처리 중 파일을 교체합니다.
-     */
-    void Platform::FSplashWindow::OnFile(std::string_view Action, const std::filesystem::path& File) {
-        std::wstring Text{Widen(Action)};
-        std::filesystem::path Display{File.lexically_normal()};
-
-        if (!mProjectDirectory.empty()) {
-            const std::filesystem::path Relative{Display.lexically_relative(mProjectDirectory)};
-
-            if (!Relative.empty() && *Relative.begin() != L"..") {
-                Display = Relative;
-            }
-        }
-
-        std::wstring Path{Display.generic_wstring()};
-        const std::lock_guard Lock{mMutex};
-
-        mAction = std::move(Text);
-        mFile = std::move(Path);
+    void Platform::FSplashWindow::OnFile(std::string_view, const std::filesystem::path&) {
     }
 
     /**
      * @brief 스플래시 창을 만들고 닫기 요청까지 메시지 처리와 그리기를 반복합니다.
      */
     void Platform::FSplashWindow::ThreadMain(HMONITOR Monitor) {
+        // 프로젝트 스플래시 이미지를 WIC로 읽으므로 이 스레드에도 COM이 필요합니다.
+        const bool ComReady{SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))};
         const HINSTANCE Instance{GetModuleHandleW(nullptr)};
 
         WNDCLASSEXW Class{};
@@ -232,22 +224,21 @@ namespace Platform {
 
         if (Window != nullptr) {
             const float Scale{static_cast<float>(GetDpiForWindow(Window)) / 96.0f};
-            const Core::Int32 Width{static_cast<Core::Int32>(std::lround(LogicalWidth * Scale))};
-            const Core::Int32 Height{static_cast<Core::Int32>(std::lround(LogicalHeight * Scale))};
-            const DWM_WINDOW_CORNER_PREFERENCE Corners{DWMWCP_DONOTROUND};
+            const Int32 Width{static_cast<Int32>(std::lround(LogicalWidth * Scale))};
+            const Int32 Height{static_cast<Int32>(std::lround(LogicalHeight * Scale))};
+            const DWM_WINDOW_CORNER_PREFERENCE Corners{DWMWCP_ROUNDSMALL};
 
             DwmSetWindowAttribute(Window, DWMWA_WINDOW_CORNER_PREFERENCE, &Corners, sizeof(Corners));
             SetWindowPos(Window, nullptr, CenterX - Width / 2, CenterY - Height / 2, Width, Height, SWP_NOZORDER | SWP_NOACTIVATE);
 
-            Ready = Canvas.Initialize(Width, Height, Scale, mProjectName);
+            Ready = Canvas.Initialize(Width, Height, Scale, mProjectName, mBackgroundImage);
         }
 
         if (!Ready) {
             Core::ErrorHandler::Report("Splash", "Cannot create the splash window", Core::ErrorHandler::EErrorLevel::Warning);
         }
 
-        const auto Start{std::chrono::steady_clock::now()};
-        auto Previous{Start};
+        auto Previous{std::chrono::steady_clock::now()};
         float Displayed{};
         float FinishElapsed{};
         bool Shown{};
@@ -261,8 +252,6 @@ namespace Platform {
             }
 
             std::wstring Stage{};
-            std::wstring Action{};
-            std::wstring File{};
             float Target{};
             bool Finishing{};
 
@@ -274,8 +263,6 @@ namespace Platform {
                 }
 
                 Stage = mStage;
-                Action = mAction;
-                File = mFile;
                 Target = mProgress;
                 Finishing = mFinishRequested && !mFinished;
             }
@@ -302,7 +289,7 @@ namespace Platform {
 
             const HDC Surface{GetDC(Window)};
 
-            Canvas.Draw(Surface, Stage, Action, File, Displayed, std::chrono::duration<float>(Now - Start).count());
+            Canvas.Draw(Surface, Stage, Displayed);
             ReleaseDC(Window, Surface);
             ValidateRect(Window, nullptr);
 
@@ -321,6 +308,10 @@ namespace Platform {
 
         if (Window != nullptr) {
             DestroyWindow(Window);
+        }
+
+        if (ComReady) {
+            CoUninitialize();
         }
 
         const std::lock_guard Lock{mMutex};

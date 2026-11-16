@@ -14,7 +14,7 @@ namespace Core {
      * @brief 프로퍼티의 편집, 저장, 읽기 전용 및 일시 상태를 지정하는 비트 플래그입니다.
      * @ingroup Core
      */
-    enum class EPropertyFlags : Core::Uint32 {
+    enum class EPropertyFlags : Uint32 {
         /**
          * @brief 추가 플래그가 없습니다.
          */

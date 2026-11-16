@@ -22,7 +22,7 @@ namespace Engine {
         /**
          * @brief 소속 데이터 안에서 항목을 식별하는 ID입니다.
          */
-        Core::Int32 mId{};
+        Int32 mId{};
 
         /**
          * @brief 플레이어 조회와 디버그 표시에 사용하는 상태 이름입니다.
@@ -77,13 +77,13 @@ namespace Engine {
          * @brief 현재 활성 상태의 에셋 ID를 반환합니다.
          * @return 상태 ID이며 활성 상태가 없으면 -1입니다.
          */
-        Core::Int32 GetCurrentState() const;
+        Int32 GetCurrentState() const;
 
         /**
          * @brief 진행 중인 전이의 대상 상태 ID를 반환합니다.
          * @return 대상 상태 ID이며 전이가 없으면 -1입니다.
          */
-        Core::Int32 GetTargetState() const;
+        Int32 GetTargetState() const;
 
         /**
          * @brief 진행 중인 전이의 정규화된 블렌드 진행도를 반환합니다.
@@ -104,7 +104,7 @@ namespace Engine {
          * @param Id 조회 또는 변경할 항목 ID입니다.
          * @return 상태 인덱스이며 없으면 -1입니다.
          */
-        Core::Int32 FindStateIndex(Core::Int32 Id) const;
+        Int32 FindStateIndex(Int32 Id) const;
 
     private:
 
@@ -126,17 +126,17 @@ namespace Engine {
         /**
          * @brief 초기 진입 상태의 에셋 ID입니다.
          */
-        Core::Int32 mEntry{-1};
+        Int32 mEntry{-1};
 
         /**
          * @brief 현재 상태의 실행 배열 인덱스이며 미지정 시 -1입니다.
          */
-        Core::Int32 mCurrent{-1};
+        Int32 mCurrent{-1};
 
         /**
          * @brief 전이 대상 상태의 실행 배열 인덱스이며 전이하지 않을 때 -1입니다.
          */
-        Core::Int32 mTarget{-1};
+        Int32 mTarget{-1};
 
         /**
          * @brief 진행 중인 전이의 경과 시간(초)입니다.

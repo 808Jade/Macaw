@@ -39,17 +39,17 @@ namespace Renderer {
         /**
          * @brief 할당 블록 왼쪽 가장자리의 픽셀 좌표입니다.
          */
-        Core::Uint32 mX{};
+        Uint32 mX{};
 
         /**
          * @brief 할당 블록 위쪽 가장자리의 픽셀 좌표입니다.
          */
-        Core::Uint32 mY{};
+        Uint32 mY{};
 
         /**
          * @brief 할당 블록 한 변의 픽셀 수입니다.
          */
-        Core::Uint32 mSize{};
+        Uint32 mSize{};
     };
 
     /**
@@ -71,7 +71,7 @@ namespace Renderer {
             /**
              * @brief 사분할된 네 자식 노드의 배열 인덱스입니다.
              */
-            std::array<Core::Index_t, 4> mChildren{};
+            std::array<Index_t, 4> mChildren{};
 
             /**
              * @brief 이 노드가 네 자식 영역으로 분할되었는지 나타냅니다.
@@ -89,7 +89,7 @@ namespace Renderer {
          * @brief 지정한 크기의 아틀라스 전체를 빈 영역으로 초기화합니다.
          * @param[in] Size 아틀라스 한 변의 픽셀 수이며 2의 거듭제곱 크기를 사용합니다.
          */
-        explicit FShadowAtlasAllocator(Core::Uint32 Size = 16384);
+        explicit FShadowAtlasAllocator(Uint32 Size = 16384);
 
     public:
         /**
@@ -102,7 +102,7 @@ namespace Renderer {
          * @param[in] Size 할당할 한 변의 픽셀 수이며 0이 아닌 2의 거듭제곱이어야 합니다.
          * @return 할당된 블록이며 크기가 유효하지 않거나 공간이 없으면 std::nullopt입니다.
          */
-        std::optional<Renderer::FShadowAtlasBlock> Allocate(Core::Uint32 Size);
+        std::optional<Renderer::FShadowAtlasBlock> Allocate(Uint32 Size);
 
     private:
         /**
@@ -111,13 +111,13 @@ namespace Renderer {
          * @param[in] Size 할당할 한 변의 픽셀 수이며 0이 아닌 2의 거듭제곱이어야 합니다.
          * @return 할당된 블록이며 해당 하위 트리에 공간이 없으면 std::nullopt입니다.
          */
-        std::optional<Renderer::FShadowAtlasBlock> AllocateNode(Core::Index_t Index, Core::Uint32 Size);
+        std::optional<Renderer::FShadowAtlasBlock> AllocateNode(Index_t Index, Uint32 Size);
 
     private:
         /**
          * @brief 아틀라스 한 변의 픽셀 수입니다.
          */
-        Core::Uint32 mSize{};
+        Uint32 mSize{};
 
         /**
          * @brief 아틀라스 사분할 트리의 노드 저장소입니다.

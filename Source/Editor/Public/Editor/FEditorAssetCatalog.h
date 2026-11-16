@@ -121,7 +121,7 @@ namespace Editor {
         /**
          * @brief 실제 경로별 항목 인덱스입니다.
          */
-        Core::TMap<Core::FString, Core::Index_t> mIndices{};
+        Core::TMap<Core::FString, Index_t> mIndices{};
 
         /**
          * @brief 표시할 실제 폴더 목록입니다.

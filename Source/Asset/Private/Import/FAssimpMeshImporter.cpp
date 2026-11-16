@@ -48,8 +48,8 @@ namespace Asset {
             // Assimp 행렬은 열 벡터 규약(이동이 4번째 열)이므로 전치해서 행 벡터 규약의 행렬로 만듭니다.
             FMatrix Result{};
 
-            for (Core::Index_t Row{}; Row < 4; ++Row) {
-                for (Core::Index_t Column{}; Column < 4; ++Column) {
+            for (Index_t Row{}; Row < 4; ++Row) {
+                for (Index_t Column{}; Column < 4; ++Column) {
                     Result(Row, Column) = Matrix[Column][Row];
                 }
             }
@@ -99,15 +99,15 @@ namespace Asset {
         Asset::FMeshData& MeshData{Target.GetMeshData()};
         Core::FString& Error{GetError()};
 
-        constexpr std::size_t MaximumBytes{std::numeric_limits<Core::Uint32>::max()};
+        constexpr std::size_t MaximumBytes{std::numeric_limits<Uint32>::max()};
         const std::size_t MaximumVertices{MaximumBytes / sizeof(std::array<float, 7>)};
-        constexpr Core::Index_t MaximumIndices{static_cast<Core::Index_t>(MaximumBytes / sizeof(Core::Uint32))};
+        constexpr Index_t MaximumIndices{static_cast<Index_t>(MaximumBytes / sizeof(Uint32))};
         Core::TArray<FVector>& Positions{MeshData.GetPositions()};
         Core::TArray<FVector>& Normals{MeshData.GetNormals()};
         Core::TArray<FVector4>& Tangents{MeshData.GetTangents()};
         Core::TArray<Core::TArray<FVector2>>& UVChannels{MeshData.GetUVChannels()};
         Core::TArray<FVector4>& Colors{MeshData.GetColors()};
-        Core::TArray<Core::Uint32>& Indices{MeshData.GetIndices()};
+        Core::TArray<Uint32>& Indices{MeshData.GetIndices()};
         const std::size_t VertexCount{Positions.size()};
 
         if (!Source.HasPositions() || !Source.HasFaces() || Source.mNumVertices > MaximumVertices - VertexCount || Source.mNumFaces > (MaximumIndices - Indices.size()) / 3 || Source.mMaterialIndex >= mScene->mNumMaterials) {
@@ -119,7 +119,7 @@ namespace Asset {
         // UV 채널 수는 메시마다 다를 수 있으므로, 지금까지의 채널 수와 이 메시가 사용하는 가장 높은 채널 번호 + 1 중 큰 값으로 맞춥니다.
         std::size_t UVChannelCount{UVChannels.size()};
 
-        for (Core::Index_t Channel{}; Channel < AI_MAX_NUMBER_OF_TEXTURECOORDS; ++Channel) {
+        for (Index_t Channel{}; Channel < AI_MAX_NUMBER_OF_TEXTURECOORDS; ++Channel) {
             if (Source.HasTextureCoords(Channel)) {
                 UVChannelCount = std::max<std::size_t>(UVChannelCount, Channel + 1);
             }
@@ -147,11 +147,11 @@ namespace Asset {
         Colors.reserve(VertexCount + Source.mNumVertices);
         Indices.reserve(Indices.size() + static_cast<std::size_t>(Source.mNumFaces) * 3);
 
-        const Core::Index_t BaseVertex{static_cast<Core::Index_t>(static_cast<Core::Uint32>(VertexCount))};
-        const Core::Index_t FirstIndex{static_cast<Core::Index_t>(static_cast<Core::Uint32>(Indices.size()))};
-        const Core::Index_t Slot{static_cast<Core::Index_t>(Target.FindOrAddMaterialSlot(Source.mMaterialIndex, GetResult().GetMaterials()[Source.mMaterialIndex].GetName()))};
+        const Index_t BaseVertex{static_cast<Index_t>(static_cast<Uint32>(VertexCount))};
+        const Index_t FirstIndex{static_cast<Index_t>(static_cast<Uint32>(Indices.size()))};
+        const Index_t Slot{static_cast<Index_t>(Target.FindOrAddMaterialSlot(Source.mMaterialIndex, GetResult().GetMaterials()[Source.mMaterialIndex].GetName()))};
 
-        for (Core::Index_t VertexIndex{}; VertexIndex < Source.mNumVertices; ++VertexIndex) {
+        for (Index_t VertexIndex{}; VertexIndex < Source.mNumVertices; ++VertexIndex) {
             const FVector Position{Transform.TransformPosition(ToVector(Source.mVertices[VertexIndex]))};
             FVector Normal{Transform.TransformNormal(Source.HasNormals() ? ToVector(Source.mNormals[VertexIndex]) : FVector{0.0f, 1.0f, 0.0f})};
 
@@ -186,7 +186,7 @@ namespace Asset {
             Tangents.push_back(Tangent);
             Colors.push_back(Color);
 
-            for (Core::Index_t Channel{}; Channel < UVChannelCount; ++Channel) {
+            for (Index_t Channel{}; Channel < UVChannelCount; ++Channel) {
                 // Assimp UV는 왼쪽 아래가 원점이고 D3D 텍스처 좌표는 왼쪽 위가 원점이므로 V를 1 - V로 뒤집습니다.
                 // 이 메시에 없는 채널은 (0, 0)을 넣습니다.
                 const bool HasChannel{Channel < AI_MAX_NUMBER_OF_TEXTURECOORDS && Source.HasTextureCoords(Channel)};
@@ -202,7 +202,7 @@ namespace Asset {
             }
         }
 
-        for (Core::Index_t FaceIndex{}; FaceIndex < Source.mNumFaces; ++FaceIndex) {
+        for (Index_t FaceIndex{}; FaceIndex < Source.mNumFaces; ++FaceIndex) {
             const aiFace& Face{Source.mFaces[FaceIndex]};
 
             if (Face.mNumIndices != 3) {
@@ -211,9 +211,9 @@ namespace Asset {
                 return false;
             }
 
-            for (Core::Index_t Corner{}; Corner < 3; ++Corner) {
+            for (Index_t Corner{}; Corner < 3; ++Corner) {
                 // 원본의 CCW 앞면은 손 방향이 바뀌는 변환 뒤에도 화면에서 CCW로 보이므로, 엔진의 CW 앞면에 맞게 꼭짓점을 역순으로 읽습니다.
-                const Core::Index_t SourceCorner{static_cast<Core::Index_t>(Transform.ReversesWinding() ? 2 - Corner : Corner)};
+                const Index_t SourceCorner{static_cast<Index_t>(Transform.ReversesWinding() ? 2 - Corner : Corner)};
 
                 if (Face.mIndices[SourceCorner] >= Source.mNumVertices) {
                     Error = "The source contains an invalid vertex index";
@@ -225,17 +225,17 @@ namespace Asset {
             }
         }
 
-        MeshData.GetSubMeshes().emplace_back(FirstIndex, static_cast<Core::Uint32>(Source.mNumFaces * 3), Slot);
+        MeshData.GetSubMeshes().emplace_back(FirstIndex, static_cast<Uint32>(Source.mNumFaces * 3), Slot);
 
         // 스켈레톤을 읽었고 메시에 본이 있으면 정점별로 (결과 본 인덱스, 가중치)를 모아 정리합니다.
         if (GetOption().mImportSkeleton && Source.HasBones()) {
-            Core::TArray<Core::TArray<std::pair<Core::Index_t, float>>> Influences(Source.mNumVertices);
+            Core::TArray<Core::TArray<std::pair<Index_t, float>>> Influences(Source.mNumVertices);
 
-            for (Core::Index_t BoneIndex{}; BoneIndex < Source.mNumBones; ++BoneIndex) {
+            for (Index_t BoneIndex{}; BoneIndex < Source.mNumBones; ++BoneIndex) {
                 const aiBone& Bone{*Source.mBones[BoneIndex]};
                 const auto Found{mBoneIndices.find(Core::FString{Bone.mName.C_Str()})};
 
-                for (Core::Index_t WeightIndex{}; Found != mBoneIndices.end() && WeightIndex < Bone.mNumWeights; ++WeightIndex) {
+                for (Index_t WeightIndex{}; Found != mBoneIndices.end() && WeightIndex < Bone.mNumWeights; ++WeightIndex) {
                     const aiVertexWeight& Weight{Bone.mWeights[WeightIndex]};
 
                     if (Weight.mVertexId < Source.mNumVertices) {
@@ -281,7 +281,7 @@ namespace Asset {
                 Meshes.emplace_back(Node.mName.length == 0 ? "Mesh_" + std::to_string(Meshes.size()) : Core::FString{Node.mName.C_Str()});
             }
 
-            for (Core::Index_t Index{}; Index < Node.mNumMeshes; ++Index) {
+            for (Index_t Index{}; Index < Node.mNumMeshes; ++Index) {
                 if (Node.mMeshes[Index] >= mScene->mNumMeshes) {
                     GetError() = "The source node references an invalid mesh";
 
@@ -294,7 +294,7 @@ namespace Asset {
             }
         }
 
-        for (Core::Index_t Index{}; Index < Node.mNumChildren; ++Index) {
+        for (Index_t Index{}; Index < Node.mNumChildren; ++Index) {
             if (!ReadNode(*Node.mChildren[Index], Global)) {
                 return false;
             }
@@ -309,14 +309,14 @@ namespace Asset {
     bool Asset::FAssimpMeshImporter::CollectBindPoses(const aiNode& Node, const FMatrix& ParentTransform) {
         const FMatrix Global{ToMatrix(Node.mTransformation) * ParentTransform};
 
-        for (Core::Index_t Index{}; Index < Node.mNumMeshes; ++Index) {
+        for (Index_t Index{}; Index < Node.mNumMeshes; ++Index) {
             if (Node.mMeshes[Index] >= mScene->mNumMeshes) {
                 continue;
             }
 
             const aiMesh& Mesh{*mScene->mMeshes[Node.mMeshes[Index]]};
 
-            for (Core::Index_t BoneIndex{}; BoneIndex < Mesh.mNumBones; ++BoneIndex) {
+            for (Index_t BoneIndex{}; BoneIndex < Mesh.mNumBones; ++BoneIndex) {
                 const aiBone& Bone{*Mesh.mBones[BoneIndex]};
                 const Core::FString Name{Bone.mName.C_Str()};
                 FMatrix InverseOffset{};
@@ -338,7 +338,7 @@ namespace Asset {
             }
         }
 
-        for (Core::Index_t Child{}; Child < Node.mNumChildren; ++Child) {
+        for (Index_t Child{}; Child < Node.mNumChildren; ++Child) {
             if (!CollectBindPoses(*Node.mChildren[Child], Global)) {
                 return false;
             }
@@ -350,9 +350,9 @@ namespace Asset {
     /**
      * @brief 메시가 참조하는 본 이름과 같은 노드를 깊이 우선으로 순회하며 결과 본 목록에 추가합니다.
      */
-    bool Asset::FAssimpMeshImporter::ReadSkeleton(const aiNode& Node, Core::Int32 ParentIndex, const FMatrix& ParentBoneGlobal) {
+    bool Asset::FAssimpMeshImporter::ReadSkeleton(const aiNode& Node, Int32 ParentIndex, const FMatrix& ParentBoneGlobal) {
         const Core::FString Name{Node.mName.C_Str()};
-        Core::Int32 Index{ParentIndex};
+        Int32 Index{ParentIndex};
         FMatrix BoneGlobal{ParentBoneGlobal};
 
         // 메시의 본이 참조하는 노드만 본으로 추가합니다. 사이에 끼인 일반 노드는 건너뛰고 가장 가까운 조상 본을 부모로 연결합니다.
@@ -368,13 +368,13 @@ namespace Asset {
 
             // mTransformation은 직계 부모 노드 기준이라 사이에 일반 노드가 끼면 부모 본 기준과 달라지므로,
             // 전역 변환에서 부모 본의 전역 변환을 되돌려 부모 본 공간 기준의 로컬 변환을 구합니다. 루트 본은 장면 원점 기준입니다.
-            Index = static_cast<Core::Int32>(Bones.size());
+            Index = static_cast<Int32>(Bones.size());
 
             mBoneIndices.emplace(Name, Index);
             Bones.emplace_back(Name, ParentIndex, BoneGlobal * ParentInverse);
         }
 
-        for (Core::Index_t Child{}; Child < Node.mNumChildren; ++Child) {
+        for (Index_t Child{}; Child < Node.mNumChildren; ++Child) {
             if (!ReadSkeleton(*Node.mChildren[Child], Index, BoneGlobal)) {
                 return false;
             }
@@ -396,7 +396,7 @@ namespace Asset {
 
         // 좌표축 변환·UV 반전·감김 순서는 FBX 임포터와 같은 결과가 나오도록 ReadMesh에서 직접 처리하므로 ConvertToLeftHanded를 쓰지 않습니다.
         // 노드 계층도 직접 순회해야 메시 분리와 스켈레톤 옵션을 따를 수 있으므로 PreTransformVertices를 쓰지 않습니다.
-        Core::Uint32 ImportFlags{aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure};
+        Uint32 ImportFlags{aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure};
 
         // GenSmoothNormals와 CalcTangentSpace는 없는 요소만 만들므로, 다시 계산할 요소는 RemoveComponent로 먼저 지웁니다.
         const int RemovedComponents{Option.mNormalImportMethod == Asset::ENormalImportMethod::ComputeNormals ? aiComponent_NORMALS | aiComponent_TANGENTS_AND_BITANGENTS : Option.mNormalImportMethod == Asset::ENormalImportMethod::ImportNormals ? aiComponent_TANGENTS_AND_BITANGENTS : 0};
@@ -443,7 +443,7 @@ namespace Asset {
         Core::TArray<Asset::FMeshImportMaterial>& Materials{GetResult().GetMaterials()};
         Materials.reserve(mScene->mNumMaterials);
 
-        for (Core::Index_t Index{}; Index < mScene->mNumMaterials; ++Index) {
+        for (Index_t Index{}; Index < mScene->mNumMaterials; ++Index) {
             const aiMaterial& Material{*mScene->mMaterials[Index]};
             aiString MaterialName{};
 
@@ -458,14 +458,14 @@ namespace Asset {
 
             Material.Get(AI_MATKEY_OPACITY, Opacity);
 
-            Core::Int32 TwoSided{};
+            Int32 TwoSided{};
 
             Material.Get(AI_MATKEY_TWOSIDED, TwoSided);
 
             Asset::FMeshImportTexture SpecularTexture{ReadTexture(Material, aiTextureType_SPECULAR, aiTextureType_SPECULAR)};
             Asset::FMeshImportTexture EmissiveTexture{ReadTexture(Material, aiTextureType_EMISSIVE, aiTextureType_EMISSION_COLOR)};
             Asset::FMeshImportTexture ReflectionTexture{ReadTexture(Material, aiTextureType_REFLECTION, aiTextureType_REFLECTION)};
-            const auto ReadColor{[&](const char* Key, Core::Uint32 Type, Core::Index_t PropertyIndex, const FVector4& Default) {
+            const auto ReadColor{[&](const char* Key, Uint32 Type, Index_t PropertyIndex, const FVector4& Default) {
                 aiColor4D Value{Default.x, Default.y, Default.z, Default.w};
 
                 aiGetMaterialColor(&Material, Key, Type, PropertyIndex, &Value);

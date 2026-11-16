@@ -55,9 +55,9 @@ namespace Asset {
         // 데이터 유입 경로와 관계없이 공유할 형상 규칙과 GPU 버퍼 크기 한도를 검사합니다.
         const std::size_t VertexCount{MeshData.GetPositions().size()};
         const std::size_t ChannelCount{std::max<std::size_t>(1, MeshData.GetUVChannels().size())};
-        constexpr std::size_t MaximumBytes{std::numeric_limits<Core::Uint32>::max()};
+        constexpr std::size_t MaximumBytes{std::numeric_limits<Uint32>::max()};
 
-        if (VertexCount == 0 || MeshData.GetIndices().empty() || MeshData.GetIndices().size() % 3 != 0 || VertexCount > MaximumBytes / (sizeof(float) * 7) || MeshData.GetIndices().size() > MaximumBytes / sizeof(Core::Uint32) || ChannelCount > D3D11_REQ_MULTI_ELEMENT_STRUCTURE_SIZE_IN_BYTES / (sizeof(float) * 2) || VertexCount > MaximumBytes / (ChannelCount * sizeof(float) * 2)) {
+        if (VertexCount == 0 || MeshData.GetIndices().empty() || MeshData.GetIndices().size() % 3 != 0 || VertexCount > MaximumBytes / (sizeof(float) * 7) || MeshData.GetIndices().size() > MaximumBytes / sizeof(Uint32) || ChannelCount > D3D11_REQ_MULTI_ELEMENT_STRUCTURE_SIZE_IN_BYTES / (sizeof(float) * 2) || VertexCount > MaximumBytes / (ChannelCount * sizeof(float) * 2)) {
             return false;
         }
 
@@ -65,7 +65,7 @@ namespace Asset {
             return false;
         }
 
-        for (Core::Index_t Index : MeshData.GetIndices()) {
+        for (Index_t Index : MeshData.GetIndices()) {
             if (Index >= VertexCount) {
                 return false;
             }
@@ -119,10 +119,10 @@ namespace Asset {
         }
 
         if (MeshData.GetSubMeshes().empty()) {
-            MeshData.GetSubMeshes().emplace_back(0, static_cast<Core::Uint32>(MeshData.GetIndices().size()), 0);
+            MeshData.GetSubMeshes().emplace_back(0, static_cast<Uint32>(MeshData.GetIndices().size()), 0);
         }
 
-        Core::Index_t NextIndex{};
+        Index_t NextIndex{};
 
         for (const Asset::FSubMesh& SubMesh : MeshData.GetSubMeshes()) {
             if (SubMesh.GetFirstIndex() != NextIndex || SubMesh.GetIndexCount() == 0 || SubMesh.GetIndexCount() % 3 != 0 || SubMesh.GetIndexCount() > MeshData.GetIndices().size() - NextIndex || SubMesh.GetMaterialIndex() >= MeshData.GetMaterialSlots().size()) {

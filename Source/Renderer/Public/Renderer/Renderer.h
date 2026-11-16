@@ -53,7 +53,7 @@ namespace Renderer {
     class FDecalPass;
     class FDeferredLightingPass;
 
-    enum class EMeshPass : Core::Uint8;
+    enum class EMeshPass : Uint8;
 
     /**
      * @brief Direct3D 11 장치, 스왑 체인, 메시와 프레임 렌더링을 관리합니다.
@@ -92,7 +92,7 @@ namespace Renderer {
          * @param[in] Height 창 클라이언트 영역의 세로 픽셀 수입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool Initialize(void* WindowHandle, Core::Uint32 Width, Core::Uint32 Height) override;
+        bool Initialize(void* WindowHandle, Uint32 Width, Uint32 Height) override;
 
         /**
          * @brief 장면 파이프라인 없이 창과 스왑체인·장치를 초기화합니다.
@@ -101,7 +101,7 @@ namespace Renderer {
          * @param[in] Height 창 클라이언트 영역의 세로 픽셀 수입니다.
          * @return 성공하면 true, 실패하면 false입니다.
          */
-        bool InitializeUi(void* WindowHandle, Core::Uint32 Width, Core::Uint32 Height);
+        bool InitializeUi(void* WindowHandle, Uint32 Width, Uint32 Height);
 
         /**
          * @brief 종속 객체를 역순으로 정리하고 여러 번 호출해도 안전한 종료 상태로 만듭니다.
@@ -128,7 +128,7 @@ namespace Renderer {
          * @param[in] Height 렌더 타깃의 세로 픽셀 수입니다.
          * @return 생성한 객체의 단독 소유권이며, 실패하면 nullptr입니다.
          */
-        std::unique_ptr<Engine::FRenderTarget> CreateRenderTarget(Core::Uint32 Width, Core::Uint32 Height) override;
+        std::unique_ptr<Engine::FRenderTarget> CreateRenderTarget(Uint32 Width, Uint32 Height) override;
 
         /**
          * @brief 렌더 타깃의 최종 컬러를 별도 GPU 텍스처로 복사합니다.
@@ -147,7 +147,7 @@ namespace Renderer {
          * @param Error 실패 원인을 기록할 출력 문자열입니다.
          * @return 호출자가 소유하는 출력 텍스처이며 실패하면 nullptr이고 Error에 원인을 기록합니다.
          */
-        std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Core::Uint32 Width, Core::Uint32 Height, const FVector4& Region, Core::FString& Error) override;
+        std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error) override;
 
         /**
          * @brief 기존 오프스크린 렌더 타깃을 새 픽셀 크기로 변경합니다.
@@ -156,14 +156,14 @@ namespace Renderer {
          * @param[in] Height 렌더 타깃의 세로 픽셀 수입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool ResizeRenderTarget(Engine::FRenderTarget* Target, Core::Uint32 Width, Core::Uint32 Height) override;
+        bool ResizeRenderTarget(Engine::FRenderTarget* Target, Uint32 Width, Uint32 Height) override;
 
         /**
          * @brief 백 버퍼 크기를 동기화하고 프레임 렌더링 통계를 초기화합니다.
          * @param[in] Width 창 클라이언트 영역의 가로 픽셀 수입니다.
          * @param[in] Height 창 클라이언트 영역의 세로 픽셀 수입니다.
          */
-        void BeginFrame(Core::Uint32 Width, Core::Uint32 Height) override;
+        void BeginFrame(Uint32 Width, Uint32 Height) override;
 
         /**
          * @brief 지정한 장면 뷰를 타깃에 렌더링하고 에디터 보조 선분을 그립니다.
@@ -181,6 +181,10 @@ namespace Renderer {
          */
         void Present() override;
 
+        /**
+         * @brief 렌더러의 현재 프레임을 스왑 체인에 표시합니다.
+         * @return 프레임 표시에 성공하면 true입니다.
+         */
         bool PresentFrame();
 
         /**
@@ -292,6 +296,9 @@ namespace Renderer {
         void SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory);
 
     private:
+        /**
+         * @brief FTranslucencyMeshPass에서 내부 연결 또는 저장 상태에 접근하도록 허용합니다.
+         */
         friend class FTranslucencyMeshPass;
 
         /**
@@ -311,7 +318,7 @@ namespace Renderer {
          * @param[in] Height 창 클라이언트 영역의 세로 픽셀 수입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        bool CreateBackBuffer(Core::Uint32 Width, Core::Uint32 Height);
+        bool CreateBackBuffer(Uint32 Width, Uint32 Height);
 
         /**
          * @brief 메시·선분·기즈모 셰이더, 입력 레이아웃과 고정 파이프라인 상태를 생성합니다.
@@ -402,7 +409,7 @@ namespace Renderer {
          * @param MarkDecalReceivers 명령의 데칼 수신 여부를 스텐실에 기록할지 여부입니다.
          * @return 제출한 드로 호출 수입니다.
          */
-        Core::Uint32 SubmitMeshCommands(ID3D11RasterizerState* Rasterizer, Renderer::EMeshPass Pass, std::span<const Renderer::FMeshDrawCommand> Commands, bool MarkDecalReceivers);
+        Uint32 SubmitMeshCommands(ID3D11RasterizerState* Rasterizer, Renderer::EMeshPass Pass, std::span<const Renderer::FMeshDrawCommand> Commands, bool MarkDecalReceivers);
 
     private:
 
@@ -446,6 +453,9 @@ namespace Renderer {
          */
         std::unique_ptr<Renderer::FOpaqueMeshPass> mOpaqueMeshPass{};
 
+        /**
+         * @brief 반투명 메시·스프라이트·텍스트 렌더링 패스의 소유 객체입니다.
+         */
         std::unique_ptr<Renderer::FTranslucencyMeshPass> mTranslucencyMeshPass{};
 
         /**
@@ -626,12 +636,12 @@ namespace Renderer {
         /**
          * @brief 가로 픽셀 수입니다.
          */
-        Core::Uint32 mWidth{};
+        Uint32 mWidth{};
 
         /**
          * @brief 세로 픽셀 수입니다.
          */
-        Core::Uint32 mHeight{};
+        Uint32 mHeight{};
 
         /**
          * @brief 프레임 렌더링 통계입니다.

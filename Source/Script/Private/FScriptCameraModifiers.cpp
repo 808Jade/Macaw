@@ -11,7 +11,7 @@
 
 namespace Script {
 
-    Engine::UCameraModifier* Script::FScriptCameraModifiers::AddModifier(Engine::APlayerCameraManager* CameraManager, const Core::FString& ClassName, Core::Int32 Priority) {
+    Engine::UCameraModifier* Script::FScriptCameraModifiers::AddModifier(Engine::APlayerCameraManager* CameraManager, const Core::FString& ClassName, Int32 Priority) {
         if (CameraManager == nullptr || ClassName.empty()) {
             return nullptr;
         }

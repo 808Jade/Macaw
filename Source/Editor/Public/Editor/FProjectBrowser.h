@@ -34,8 +34,18 @@ namespace Editor {
     class FProjectBrowser {
     private:
 
+        /**
+         * @brief 프로젝트 파일에 연결된 미리 보기 텍스처 캐시 항목입니다.
+         */
         struct FProjectPreview {
+            /**
+             * @brief 미리 보기 캐시가 연결된 프로젝트 파일 경로입니다.
+             */
             std::filesystem::path mFile{};
+
+            /**
+             * @brief 프로젝트 미리 보기의 GPU 텍스처 뷰입니다.
+             */
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mTexture{};
         };
 
@@ -46,6 +56,9 @@ namespace Editor {
          */
         FProjectBrowser();
 
+        /**
+         * @brief 객체를 소멸하고 소유 멤버와 연결 상태를 정리합니다.
+         */
         ~FProjectBrowser();
 
     public:
@@ -82,6 +95,7 @@ namespace Editor {
         /**
          * @brief 기존 프로젝트 열기 UI를 표시합니다.
          * @param[in] Platform 창과 플랫폼 입력을 제공하는 객체입니다.
+         * @param[in] Device GPU 텍스처 리소스를 만들 네이티브 D3D11 장치입니다.
          */
         void DrawOpenProject(Platform::FWindowsApplication& Platform, void* Device);
 
@@ -109,10 +123,36 @@ namespace Editor {
          */
         bool IsProjectNameValid() const;
 
+        /**
+         * @brief 에디터 또는 프로젝트 브라우저의 브랜드 이미지 리소스를 로드합니다.
+         * @param[in] Device GPU 텍스처 리소스를 만들 네이티브 D3D11 장치입니다.
+         */
         void LoadBranding(void* Device);
+
+        /**
+         * @brief 프로젝트의 미리 보기 텍스처를 캐시에서 조회하거나 로드합니다.
+         * @param[in] File 조회할 프로젝트 파일 경로입니다.
+         * @param[in] Device GPU 텍스처 리소스를 만들 네이티브 D3D11 장치입니다.
+         * @return 미리 보기 텍스처의 비소유 주소이며 로드하지 못하면 nullptr입니다.
+         */
         ID3D11ShaderResourceView* GetProjectPreview(const std::filesystem::path& File, void* Device);
+
+        /**
+         * @brief 프로젝트 브라우저의 탐색 사이드바를 그립니다.
+         */
         void DrawSidebar();
+
+        /**
+         * @brief 프로젝트 선택·생성 실행 버튼과 오류 상태를 하단에 표시합니다.
+         * @param[in] Platform 창·입력·파일 대화상자를 제공하는 플랫폼 애플리케이션입니다.
+         * @param[out] Error 실패 원인을 전달하는 오류 문자열입니다.
+         */
         void DrawFooter(Platform::FWindowsApplication& Platform, const Core::FString& Error);
+
+        /**
+         * @brief 프로젝트 생성 입력의 유효성을 검사합니다.
+         * @return 생성을 막는 오류 설명이며 유효하면 빈 문자열입니다.
+         */
         Core::FString GetCreationError() const;
 
     private:
@@ -142,8 +182,19 @@ namespace Editor {
          */
         std::array<char, 4096> mLocation{};
 
+        /**
+         * @brief 프로젝트 검색 문자열 입력 버퍼입니다.
+         */
         std::array<char, 256> mSearch{};
+
+        /**
+         * @brief 프로젝트 브라우저의 기본 미리 보기에 사용하는 마스코트 텍스처입니다.
+         */
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mMascot{};
+
+        /**
+         * @brief 프로젝트 파일별 미리 보기 텍스처 캐시입니다.
+         */
         std::vector<FProjectPreview> mPreviews{};
 
         /**
@@ -165,6 +216,10 @@ namespace Editor {
          * @brief 프로젝트 선택 완료 여부입니다.
          */
         bool mSubmitted{};
+
+        /**
+         * @brief 프로젝트 브라우저에서 선택을 취소했는지 나타냅니다.
+         */
         bool mCancelled{};
     };
 

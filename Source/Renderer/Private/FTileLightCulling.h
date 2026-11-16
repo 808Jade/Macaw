@@ -33,7 +33,7 @@ namespace Renderer {
         /**
          * @brief 가로·세로 타일 수와 광원 수입니다.
          */
-        std::array<Core::Uint32, 4> mDimensions{};
+        std::array<Uint32, 4> mDimensions{};
 
         /**
          * @brief 현재 렌더 뷰의 픽셀 너비·높이입니다.
@@ -54,7 +54,7 @@ namespace Renderer {
          * @param[in] ComputeCode 컴파일된 컴퓨트 셰이더 바이트코드입니다.
          * @return 컴퓨트 셰이더 생성에 성공하면 true입니다.
          */
-        bool CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> ComputeCode);
+        bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> ComputeCode);
 
         /**
          * @brief 16×16 화면 타일마다 영향을 주는 광원 목록을 GPU에서 계산합니다.
@@ -65,7 +65,7 @@ namespace Renderer {
          * @param[in] LightCount 버퍼의 유효한 광원 수입니다.
          * @return 뷰·GPU 자원을 준비해 컬링을 제출했으면 true입니다.
          */
-        bool Dispatch(ID3D11Device* Device, ID3D11DeviceContext* Context, const RenderCore::TStructuredBuffer<Renderer::FGpuLight>& Lights, const Engine::FSceneView& View, Core::Uint32 LightCount);
+        bool Dispatch(ID3D11Device* Device, ID3D11DeviceContext* Context, const RenderCore::TStructuredBuffer<Renderer::FGpuLight>& Lights, const Engine::FSceneView& View, Uint32 LightCount);
 
         /**
          * @brief 타일별 광원 범위·인덱스 버퍼를 연속된 셰이더 슬롯에 연결합니다.
@@ -73,7 +73,7 @@ namespace Renderer {
          * @param[in] Stages 연결하거나 해제할 셰이더 단계입니다.
          * @param[in] FirstSlot 타일 범위 버퍼를 연결할 첫 SRV 슬롯입니다.
          */
-        void Bind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t FirstSlot) const;
+        void Bind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t FirstSlot) const;
 
         /**
          * @brief 타일별 광원 범위·인덱스 버퍼의 셰이더 연결을 해제합니다.
@@ -81,7 +81,7 @@ namespace Renderer {
          * @param[in] Stages 연결하거나 해제할 셰이더 단계입니다.
          * @param[in] FirstSlot 타일 범위 버퍼를 연결할 첫 SRV 슬롯입니다.
          */
-        void Unbind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t FirstSlot) const;
+        void Unbind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t FirstSlot) const;
 
     private:
         /**
@@ -97,17 +97,17 @@ namespace Renderer {
         /**
          * @brief 타일별 광원 목록의 시작·개수를 보관하는 GPU 버퍼입니다.
          */
-        RenderCore::TRWStructuredBuffer<std::array<Core::Uint32, 2>> mTileRanges{};
+        RenderCore::TRWStructuredBuffer<std::array<Uint32, 2>> mTileRanges{};
 
         /**
          * @brief 타일에 영향을 주는 광원 인덱스를 이어 붙인 GPU 버퍼입니다.
          */
-        RenderCore::TRWStructuredBuffer<Core::Uint32> mTileLightIndices{};
+        RenderCore::TRWStructuredBuffer<Uint32> mTileLightIndices{};
 
         /**
          * @brief 광원 인덱스 목록의 다음 기록 위치를 보관하는 GPU 카운터입니다.
          */
-        RenderCore::TRWStructuredBuffer<Core::Uint32> mAllocator{};
+        RenderCore::TRWStructuredBuffer<Uint32> mAllocator{};
     };
 
 }

@@ -28,42 +28,42 @@ namespace Asset {
          * @param IndexCount 삼각형 인덱스 개수입니다.
          * @param MaterialIndex 재질 슬롯의 인덱스입니다.
          */
-        FSubMesh(Core::Index_t FirstIndex, Core::Uint32 IndexCount, Core::Index_t MaterialIndex);
+        FSubMesh(Index_t FirstIndex, Uint32 IndexCount, Index_t MaterialIndex);
 
     public:
         /**
          * @brief 첫 인덱스 오프셋을 반환합니다.
          * @return 공유 인덱스 버퍼의 오프셋입니다.
          */
-        Core::Index_t GetFirstIndex() const;
+        Index_t GetFirstIndex() const;
 
         /**
          * @brief 인덱스 개수를 반환합니다.
          * @return 삼각형 인덱스 개수입니다.
          */
-        Core::Uint32 GetIndexCount() const;
+        Uint32 GetIndexCount() const;
 
         /**
          * @brief 재질 슬롯을 반환합니다.
          * @return 메시 재질 배열의 인덱스입니다.
          */
-        Core::Index_t GetMaterialIndex() const;
+        Index_t GetMaterialIndex() const;
 
     private:
         /**
          * @brief 공유 인덱스 버퍼의 시작 오프셋입니다.
          */
-        Core::Index_t mFirstIndex{};
+        Index_t mFirstIndex{};
 
         /**
          * @brief 이 구간의 인덱스 개수입니다.
          */
-        Core::Uint32 mIndexCount{};
+        Uint32 mIndexCount{};
 
         /**
          * @brief 이 구간에 할당된 재질 슬롯입니다.
          */
-        Core::Index_t mMaterialIndex{};
+        Index_t mMaterialIndex{};
     };
 
 }

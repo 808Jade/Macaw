@@ -38,7 +38,7 @@ namespace Asset {
          * @param[in] Tick 제거할 키의 시간이며 틱 단위입니다.
          * @return 키가 있어 제거하면 true입니다.
          */
-        bool RemoveKey(Core::Int32 Tick);
+        bool RemoveKey(Int32 Tick);
 
         /**
          * @brief 키를 다른 시간으로 옮깁니다.
@@ -46,7 +46,7 @@ namespace Asset {
          * @param[in] ToTick 새 시간이며 틱 단위입니다.
          * @return 원본 키가 있고 새 시간에 다른 키가 없어 옮기면 true입니다.
          */
-        bool MoveKey(Core::Int32 FromTick, Core::Int32 ToTick);
+        bool MoveKey(Int32 FromTick, Int32 ToTick);
 
         /**
          * @brief 지정한 시간의 값을 계산합니다.

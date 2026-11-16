@@ -85,13 +85,13 @@ namespace Renderer {
          * @brief 텍스처 가로 픽셀 수를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::Uint32 GetWidth() const;
+        Uint32 GetWidth() const;
 
         /**
          * @brief 텍스처 세로 픽셀 수를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Core::Uint32 GetHeight() const;
+        Uint32 GetHeight() const;
 
     private:
         /**
@@ -99,14 +99,14 @@ namespace Renderer {
          * @param[in] Text UTF-8 문자열입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        static Core::TArray<Core::Uint32> Decode(const Core::FString& Text);
+        static Core::TArray<Uint32> Decode(const Core::FString& Text);
 
         /**
          * @brief 코드포인트의 글리프를 찾고 없으면 대체 글리프를 반환합니다.
          * @param[in] CodePoint 조회할 유니코드 코드포인트입니다.
          * @return 찾은 글리프 또는 대체 글리프의 비소유 주소이며, 둘 다 없으면 nullptr입니다.
          */
-        const Renderer::FFontGlyph* FindGlyph(Core::Uint32 CodePoint) const;
+        const Renderer::FFontGlyph* FindGlyph(Uint32 CodePoint) const;
 
         /**
          * @brief 두 코드포인트 사이에 적용할 수평 간격 보정값을 반환합니다.
@@ -114,18 +114,18 @@ namespace Renderer {
          * @param[in] Second 둘째 코드포인트입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        float GetKerning(Core::Uint32 First, Core::Uint32 Second) const;
+        float GetKerning(Uint32 First, Uint32 Second) const;
 
     private:
         /**
          * @brief 코드포인트별 글리프 메트릭입니다.
          */
-        Core::TMap<Core::Uint32, Renderer::FFontGlyph> mGlyphs{};
+        Core::TMap<Uint32, Renderer::FFontGlyph> mGlyphs{};
 
         /**
          * @brief 코드포인트 쌍별 수평 간격 보정입니다.
          */
-        Core::TMap<Core::Uint64, float> mKerning{};
+        Core::TMap<Uint64, float> mKerning{};
 
         /**
          * @brief MSDF 거리장의 픽셀 범위입니다.
@@ -140,12 +140,12 @@ namespace Renderer {
         /**
          * @brief 텍스처 가로 픽셀 수입니다.
          */
-        Core::Uint32 mWidth{};
+        Uint32 mWidth{};
 
         /**
          * @brief 텍스처 세로 픽셀 수입니다.
          */
-        Core::Uint32 mHeight{};
+        Uint32 mHeight{};
     };
 
 }

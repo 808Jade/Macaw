@@ -37,14 +37,14 @@ namespace Engine {
     /**
      * @brief 방향광 그림자의 캐스케이드 개수를 반환합니다.
      */
-    Core::Uint32 Engine::UDirectionalLightComponent::GetCascadeCount() const {
+    Uint32 Engine::UDirectionalLightComponent::GetCascadeCount() const {
         return mCascadeCount;
     }
 
     /**
      * @brief 방향광 그림자의 캐스케이드 개수를 검증하고 변경합니다.
      */
-    bool Engine::UDirectionalLightComponent::SetCascadeCount(Core::Uint32 Count) {
+    bool Engine::UDirectionalLightComponent::SetCascadeCount(Uint32 Count) {
         if (Count < 1 || Count > 4) {
             return false;
         }

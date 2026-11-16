@@ -125,7 +125,7 @@ namespace Renderer {
          * @brief 프리미티브 추가, 제거 또는 변환 갱신 시 증가하는 장면 개정 번호를 반환합니다.
          * @return 프리미티브 추가, 제거 또는 변환 갱신 시 증가하는 장면 개정 번호입니다.
          */
-        Core::Uint64 GetRevision() const override;
+        Uint64 GetRevision() const override;
 
         /**
          * @brief 장면이 소유한 렌더 프리미티브를 반환합니다.
@@ -137,7 +137,7 @@ namespace Renderer {
          * @brief 누적 변환 업로드 횟수를 반환하고 카운터를 초기화합니다.
          * @return 초기화하기 전까지 누적된 업로드 횟수입니다.
          */
-        Core::Uint32 TakeTransformUpdates() const;
+        Uint32 TakeTransformUpdates() const;
 
         /**
          * @brief 장면 인스턴스마다 생성 시 한 번 발급하는 고유 번호를 반환합니다.
@@ -196,7 +196,7 @@ namespace Renderer {
         /**
          * @brief 광원 GUID를 조밀한 광원 배열의 인덱스에 연결합니다.
          */
-        Core::TMap<Core::FGuid, Core::Index_t, Core::FGuidHash> mLightIndices{};
+        Core::TMap<Core::FGuid, Index_t, Core::FGuidHash> mLightIndices{};
 
         /**
          * @brief 장면의 GPU 자원 생성에 사용할 Direct3D 장치의 비소유 주소입니다.
@@ -216,17 +216,17 @@ namespace Renderer {
         /**
          * @brief 프리미티브 GUID에서 밀집 배열 인덱스로의 조회 맵입니다.
          */
-        Core::TMap<Core::FGuid, Core::Index_t, Core::FGuidHash> mIndices{};
+        Core::TMap<Core::FGuid, Index_t, Core::FGuidHash> mIndices{};
 
         /**
          * @brief 프리미티브 추가·제거 또는 변환 갱신 시 증가하는 장면 개정 번호입니다.
          */
-        Core::Uint64 mRevision{};
+        Uint64 mRevision{};
 
         /**
          * @brief 소비 전 누적된 객체 상수 버퍼 갱신 수입니다.
          */
-        mutable Core::Uint32 mTransformUpdates{};
+        mutable Uint32 mTransformUpdates{};
 
         /**
          * @brief 장면 생성 시 발급한 고유 번호입니다.

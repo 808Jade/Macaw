@@ -55,7 +55,7 @@ namespace CoreUObject {
      * @brief 요청한 클래스 플래그 중 하나라도 설정되어 있는지 검사합니다.
      */
     bool CoreUObject::UClass::HasAnyFlags(CoreUObject::EClassFlags Flags) const {
-        return (static_cast<Core::Uint32>(mFlags) & static_cast<Core::Uint32>(Flags)) != 0;
+        return (static_cast<Uint32>(mFlags) & static_cast<Uint32>(Flags)) != 0;
     }
 
     /**

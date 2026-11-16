@@ -83,7 +83,7 @@ namespace Editor {
          * @param[in] Input 키·마우스 상태를 조회할 공통 입력입니다.
          * @param[in] ToolbarExtras 오른쪽 툴바 묶음의 앞(인수 0)과 뒤(인수 1)에 추가 위젯을 그릴 콜백입니다.
          */
-        void DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput = true, const std::function<void(Core::Index_t)>& ToolbarExtras = {});
+        void DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput = true, const std::function<void(Index_t)>& ToolbarExtras = {});
 
         /**
          * @brief 뷰포트가 마우스 입력을 캡처 중인지 검사합니다.
@@ -147,6 +147,23 @@ namespace Editor {
         bool IsPlayInputCaptured() const;
 
         /**
+         * @brief 뷰포트의 게임 입력 캡처를 요청합니다.
+         */
+        void CapturePlayInput();
+
+        /**
+         * @brief 뷰포트의 게임 입력 캡처를 해제합니다.
+         */
+        void ReleasePlayInput();
+
+        /**
+         * @brief 플랫폼의 게임 입력 캡처·해제 콜백을 연결합니다.
+         * @param[in] Capture 뷰포트 위치·크기로 플랫폼 캡처를 요청하는 콜백입니다.
+         * @param[in] Release 플랫폼 입력 캡처를 해제하는 콜백입니다.
+         */
+        void SetPlayInputCaptureHandlers(std::function<bool(const FVector2&, const FVector2&)> Capture, std::function<void()> Release);
+
+        /**
          * @brief 입력, 크기 변경과 피킹 요청을 연결하는 장면 뷰포트를 반환합니다.
          * @return 소유한 장면 뷰포트의 비소유 주소이며 초기화 전이나 종료 후에는 nullptr입니다.
          */
@@ -157,6 +174,13 @@ namespace Editor {
          * @return 소유한 타깃의 비소유 주소이며 준비되지 않았으면 nullptr입니다.
          */
         Engine::FRenderTarget* GetRenderTarget() const;
+
+    private:
+        /**
+         * @brief 뷰포트가 보관하는 게임 입력 캡처 상태를 갱신합니다.
+         * @param[in] Captured 적용할 게임 입력 캡처 상태입니다.
+         */
+        void SetPlayInputCaptured(bool Captured);
 
     private:
         /**
@@ -178,6 +202,21 @@ namespace Editor {
          * @brief PIE 뷰포트가 입력 캡처를 소유하는지 나타냅니다.
          */
         bool mPlayInputCaptured{};
+
+        /**
+         * @brief 게임 입력 캡처를 다음 처리 시도까지 예약했는지 나타냅니다.
+         */
+        bool mPlayInputPending{};
+
+        /**
+         * @brief 뷰포트 영역의 플랫폼 입력 캡처를 요청하는 콜백입니다.
+         */
+        std::function<bool(const FVector2&, const FVector2&)> mCapturePlayInput{};
+
+        /**
+         * @brief 플랫폼 마우스 캡처를 해제하는 콜백입니다.
+         */
+        std::function<void()> mReleasePlayInput{};
 
         /**
          * @brief 프레임 및 리소스 통계의 뷰포트 표시 상태입니다.

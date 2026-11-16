@@ -85,10 +85,10 @@ const Core::FString& UShader::GetCacheKey() const {
 /**
  * @brief 현재 컴파일 결과의 셰이더 바이트코드를 비소유 뷰로 반환합니다.
  */
-std::span<const Core::Uint8> UShader::GetByteCode(const Core::FString& VariantKey) const {
+std::span<const Uint8> UShader::GetByteCode(const Core::FString& VariantKey) const {
     const auto Compilation{GetCompilation(VariantKey)};
 
-    return Compilation != nullptr ? std::span<const Core::Uint8>{Compilation->mByteCode} : std::span<const Core::Uint8>{};
+    return Compilation != nullptr ? std::span<const Uint8>{Compilation->mByteCode} : std::span<const Uint8>{};
 }
 
 /**
@@ -103,7 +103,7 @@ std::shared_ptr<const FShaderCompilation> UShader::GetCompilation(const Core::FS
 /**
  * @brief 컴파일 결과를 교체할 때 증가하는 셰이더 갱신 세대를 반환합니다.
  */
-Core::Uint64 UShader::GetRevision(const Core::FString& VariantKey) const {
+Uint64 UShader::GetRevision(const Core::FString& VariantKey) const {
     const FCompiledVariant* Variant{FindVariant(VariantKey)};
 
     return Variant != nullptr ? Variant->mRevision : 0;
@@ -121,7 +121,7 @@ bool UShader::IsLoadedFromCache(const Core::FString& VariantKey) const {
 /**
  * @brief 이 객체가 보관하는 컴파일 변형의 개수를 반환합니다.
  */
-Core::Index_t UShader::GetCompilationCount() const {
+Index_t UShader::GetCompilationCount() const {
     return mCompiledVariants.size();
 }
 

@@ -29,15 +29,15 @@ namespace Engine {
      * @brief AABB의 열두 모서리를 지정한 픽셀 두께의 선분으로 수집합니다.
      */
     void Engine::FPrimitiveDrawInterface::DrawBox(const FBox& Bounds, const FVector& Color, bool DepthTest, float Thickness) {
-        for (Core::Index_t Corner{}; Corner < 8; ++Corner) {
+        for (Index_t Corner{}; Corner < 8; ++Corner) {
             const FVector Start{(Corner & 1) != 0 ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Corner & 2) != 0 ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Corner & 4) != 0 ? Bounds.mMaximum.z : Bounds.mMinimum.z};
 
-            for (Core::Index_t Axis{}; Axis < 3; ++Axis) {
+            for (Index_t Axis{}; Axis < 3; ++Axis) {
                 if ((Corner & (1 << Axis)) != 0) {
                     continue;
                 }
 
-                const Core::Index_t Other{Corner | (Core::Index_t{1} << Axis)};
+                const Index_t Other{Corner | (Index_t{1} << Axis)};
                 const FVector End{(Other & 1) != 0 ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Other & 2) != 0 ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Other & 4) != 0 ? Bounds.mMaximum.z : Bounds.mMinimum.z};
 
                 DrawLine(Start, End, Color, DepthTest, Thickness);

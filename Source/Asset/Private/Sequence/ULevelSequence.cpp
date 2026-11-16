@@ -22,27 +22,27 @@ namespace Asset {
         /**
          * @brief 레벨 시퀀스의 저장 형식 버전입니다.
          */
-        constexpr Core::Uint32 SequenceFormatVersion{1};
+        constexpr Uint32 SequenceFormatVersion{1};
     }
 
     /**
      * @brief 편집 화면에 표시할 초당 프레임 수를 반환합니다.
      */
-    Core::Int32 Asset::ULevelSequence::GetDisplayRate() const {
+    Int32 Asset::ULevelSequence::GetDisplayRate() const {
         return mDisplayRate;
     }
 
     /**
      * @brief 재생 시작 시간을 반환합니다.
      */
-    Core::Int32 Asset::ULevelSequence::GetStartTick() const {
+    Int32 Asset::ULevelSequence::GetStartTick() const {
         return mStartTick;
     }
 
     /**
      * @brief 재생 끝 시간을 반환합니다.
      */
-    Core::Int32 Asset::ULevelSequence::GetEndTick() const {
+    Int32 Asset::ULevelSequence::GetEndTick() const {
         return mEndTick;
     }
 
@@ -70,8 +70,8 @@ namespace Asset {
     /**
      * @brief 카메라 컷을 시간순 위치에 추가하고 같은 시간의 컷은 교체합니다.
      */
-    void Asset::ULevelSequence::AddCameraCut(Core::Int32 Tick, const Core::FGuid& CameraBinding) {
-        const auto Position{std::lower_bound(mCameraCuts.begin(), mCameraCuts.end(), Tick, [](const Asset::FSequenceCameraCut& Cut, Core::Int32 Value) {
+    void Asset::ULevelSequence::AddCameraCut(Int32 Tick, const Core::FGuid& CameraBinding) {
+        const auto Position{std::lower_bound(mCameraCuts.begin(), mCameraCuts.end(), Tick, [](const Asset::FSequenceCameraCut& Cut, Int32 Value) {
             return Cut.mTick < Value;
         })};
 
@@ -91,7 +91,7 @@ namespace Asset {
     /**
      * @brief 지정한 시간의 카메라 컷을 제거합니다.
      */
-    void Asset::ULevelSequence::RemoveCameraCut(Core::Int32 Tick) {
+    void Asset::ULevelSequence::RemoveCameraCut(Int32 Tick) {
         std::erase_if(mCameraCuts, [Tick](const Asset::FSequenceCameraCut& Cut) {
             return Cut.mTick == Tick;
         });
@@ -109,8 +109,8 @@ namespace Asset {
     /**
      * @brief 카메라 컷을 다른 시간으로 옮깁니다.
      */
-    bool Asset::ULevelSequence::MoveCameraCut(Core::Int32 FromTick, Core::Int32 ToTick) {
-        const auto HasTick{[](Core::Int32 Tick) {
+    bool Asset::ULevelSequence::MoveCameraCut(Int32 FromTick, Int32 ToTick) {
+        const auto HasTick{[](Int32 Tick) {
             return [Tick](const Asset::FSequenceCameraCut& Cut) {
                 return Cut.mTick == Tick;
             };
@@ -144,7 +144,7 @@ namespace Asset {
     /**
      * @brief 표시 프레임 수를 설정합니다.
      */
-    bool Asset::ULevelSequence::SetDisplayRate(Core::Int32 DisplayRate) {
+    bool Asset::ULevelSequence::SetDisplayRate(Int32 DisplayRate) {
         if (DisplayRate <= 0 || TicksPerSecond % DisplayRate != 0) {
             return false;
         }
@@ -157,29 +157,29 @@ namespace Asset {
     /**
      * @brief 재생 끝 시간을 설정하고 시작 시간 이상으로 맞춥니다.
      */
-    void Asset::ULevelSequence::SetEndTick(Core::Int32 EndTick) {
+    void Asset::ULevelSequence::SetEndTick(Int32 EndTick) {
         mEndTick = EndTick > mStartTick ? EndTick : mStartTick;
     }
 
     /**
      * @brief 표시 프레임을 틱으로 변환합니다.
      */
-    Core::Int32 Asset::ULevelSequence::FrameToTick(Core::Int32 Frame) const {
+    Int32 Asset::ULevelSequence::FrameToTick(Int32 Frame) const {
         return Frame * (TicksPerSecond / mDisplayRate);
     }
 
     /**
      * @brief 틱을 가장 가까운 표시 프레임으로 변환합니다.
      */
-    Core::Int32 Asset::ULevelSequence::TickToFrame(double Tick) const {
-        return static_cast<Core::Int32>(std::lround(Tick * mDisplayRate / TicksPerSecond));
+    Int32 Asset::ULevelSequence::TickToFrame(double Tick) const {
+        return static_cast<Int32>(std::lround(Tick * mDisplayRate / TicksPerSecond));
     }
 
     /**
      * @brief 아카이브 모드에 따라 값을 읽거나 저장합니다.
      */
     void Asset::ULevelSequence::Serialize(Core::FArchive& Archive) {
-        Core::Uint32 Version{SequenceFormatVersion};
+        Uint32 Version{SequenceFormatVersion};
 
         Archive.Serialize("FormatVersion", Version);
         Archive.Serialize("DisplayRate", mDisplayRate);
@@ -196,7 +196,7 @@ namespace Asset {
             return;
         }
 
-        Core::Uint32 Count{static_cast<Core::Uint32>(mBindings.size())};
+        Uint32 Count{static_cast<Uint32>(mBindings.size())};
 
         if (!Archive.BeginArray("Bindings", Count)) {
             return;
@@ -206,7 +206,7 @@ namespace Asset {
             mBindings.clear();
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
@@ -225,7 +225,7 @@ namespace Asset {
             return;
         }
 
-        Count = static_cast<Core::Uint32>(mCameraCuts.size());
+        Count = static_cast<Uint32>(mCameraCuts.size());
 
         if (!Archive.BeginArray("CameraCuts", Count)) {
             return;
@@ -238,7 +238,7 @@ namespace Asset {
             mCameraCuts.clear();
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }

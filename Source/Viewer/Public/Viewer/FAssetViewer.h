@@ -102,7 +102,7 @@ namespace Viewer {
          * @param Height 출력 또는 UI 영역의 높이(픽셀)입니다.
          * @return 각 변이 1~16384이고 필요한 리소스가 준비되면 true입니다.
          */
-        bool Resize(Core::Uint32 Width, Core::Uint32 Height);
+        bool Resize(Uint32 Width, Uint32 Height);
 
         /**
          * @brief 현재 콘텐츠의 전체 경계가 출력 영역에 들어오도록 카메라 또는 이미지 여백을 맞춥니다.

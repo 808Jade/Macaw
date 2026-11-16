@@ -45,7 +45,7 @@ namespace Engine {
         Core::TArray<FVector>& Positions{Mesh.GetPositions()};
         Core::TArray<FVector>& Normals{Mesh.GetNormals()};
         Core::TArray<FVector4>& Tangents{Mesh.GetTangents()};
-        Core::TArray<Core::Uint32>& Indices{Mesh.GetIndices()};
+        Core::TArray<Uint32>& Indices{Mesh.GetIndices()};
 
         Mesh.GetUVChannels().resize(1);
 
@@ -67,7 +67,7 @@ namespace Engine {
             for (const FVector& Normal : FaceNormals) {
                 const FVector Up{std::abs(Normal.z) > 0.5f ? FVector{0.0f, 1.0f, 0.0f} : FVector{0.0f, 0.0f, 1.0f}};
                 const FVector Right{Up.Cross(Normal)};
-                const Core::Uint32 Base{static_cast<Core::Uint32>(Positions.size())};
+                const Uint32 Base{static_cast<Uint32>(Positions.size())};
 
                 Positions.insert(Positions.end(), {(Normal - Right - Up) * 0.5f, (Normal + Right - Up) * 0.5f, (Normal + Right + Up) * 0.5f, (Normal - Right + Up) * 0.5f});
                 Normals.insert(Normals.end(), 4, Normal);
@@ -79,12 +79,12 @@ namespace Engine {
 
             Mesh.SetBounds({{-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}});
         } else if (Type == Engine::EPrimitiveType::Sphere) {
-            constexpr Core::Uint32 Rings{20};
-            constexpr Core::Uint32 Segments{32};
+            constexpr Uint32 Rings{20};
+            constexpr Uint32 Segments{32};
 
             std::array<FVector2, Segments + 1> Circle{};
 
-            for (Core::Index_t Segment{}; Segment < Segments; ++Segment) {
+            for (Index_t Segment{}; Segment < Segments; ++Segment) {
                 Circle[Segment] = FVector2{1.0f, 0.0f}.Rotated(1_turn * Segment / Segments / 1_deg);
             }
 
@@ -95,12 +95,12 @@ namespace Engine {
             Tangents.reserve((Rings + 1) * (Segments + 1));
             UVs.reserve((Rings + 1) * (Segments + 1));
 
-            for (Core::Index_t Ring{}; Ring <= Rings; ++Ring) {
+            for (Index_t Ring{}; Ring <= Rings; ++Ring) {
                 const Core::FAngle Phi{0.5_turn * Ring / Rings};
                 const float Radius{Core::Math::Sin(Phi)};
                 const float Height{Core::Math::Cos(Phi)};
 
-                for (Core::Index_t Segment{}; Segment <= Segments; ++Segment) {
+                for (Index_t Segment{}; Segment <= Segments; ++Segment) {
                     const FVector2 Radial{Circle[Segment] * Radius};
                     const FVector Normal{Radial.x, Radial.y, Height};
 
@@ -111,10 +111,10 @@ namespace Engine {
                 }
             }
 
-            for (Core::Index_t Ring{}; Ring < Rings; ++Ring) {
-                for (Core::Index_t Segment{}; Segment < Segments; ++Segment) {
-                    const Core::Uint32 A{static_cast<Core::Uint32>(Ring * (Segments + 1) + Segment)};
-                    const Core::Uint32 B{static_cast<Core::Uint32>(A + Segments + 1)};
+            for (Index_t Ring{}; Ring < Rings; ++Ring) {
+                for (Index_t Segment{}; Segment < Segments; ++Segment) {
+                    const Uint32 A{static_cast<Uint32>(Ring * (Segments + 1) + Segment)};
+                    const Uint32 B{static_cast<Uint32>(A + Segments + 1)};
 
                     Indices.insert(Indices.end(), {A, B, A + 1, A + 1, B, B + 1});
                 }
@@ -134,7 +134,7 @@ namespace Engine {
     const Asset::FMeshData& GetPrimitiveMesh(Engine::EPrimitiveType Type) {
         static const std::array<Asset::FMeshData, 3> Meshes{Engine::BuildPrimitive(Engine::EPrimitiveType::Plane), Engine::BuildPrimitive(Engine::EPrimitiveType::Cube), Engine::BuildPrimitive(Engine::EPrimitiveType::Sphere)};
 
-        return Meshes[static_cast<Core::Index_t>(Type)];
+        return Meshes[static_cast<Index_t>(Type)];
     }
 
 }

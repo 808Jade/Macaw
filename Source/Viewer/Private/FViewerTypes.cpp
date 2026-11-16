@@ -8,7 +8,7 @@
 
 using namespace Viewer;
 
-FViewerCaptureState::FViewerCaptureState(double Time, Core::Uint32 Seed, float FixedStep)
+FViewerCaptureState::FViewerCaptureState(double Time, Uint32 Seed, float FixedStep)
 	: mTime{Time},
 	  mSeed{Seed},
 	  mFixedStep{FixedStep} {
@@ -18,7 +18,7 @@ double FViewerCaptureState::GetTime() const {
     return mTime;
 }
 
-Core::Uint32 FViewerCaptureState::GetSeed() const {
+Uint32 FViewerCaptureState::GetSeed() const {
     return mSeed;
 }
 

@@ -503,12 +503,12 @@ namespace Editor {
                         const FVector Color{1.0f, 0.65f, 0.15f};
                         std::array<FVector, 8> Corners{};
 
-                        for (Core::Index_t Corner{}; Corner < Corners.size(); ++Corner) {
+                        for (Index_t Corner{}; Corner < Corners.size(); ++Corner) {
                             Corners[Corner] = DecalToWorld.TransformPosition({(Corner & 1u) != 0 ? 1.0f : -1.0f, (Corner & 2u) != 0 ? 1.0f : -1.0f, (Corner & 4u) != 0 ? 1.0f : -1.0f});
                         }
 
-                        for (Core::Index_t Corner{}; Corner < Corners.size(); ++Corner) {
-                            for (Core::Index_t Axis{1}; Axis < Corners.size(); Axis <<= 1) {
+                        for (Index_t Corner{}; Corner < Corners.size(); ++Corner) {
+                            for (Index_t Axis{1}; Axis < Corners.size(); Axis <<= 1) {
                                 if ((Corner & Axis) == 0) {
                                     mDrawInterface.DrawLine(Corners[Corner], Corners[Corner | Axis], Color, true, mLineThickness);
                                 }

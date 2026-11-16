@@ -47,7 +47,7 @@ namespace Renderer {
          * @brief GPU 자원에 반영한 셰이더 코드 리비전을 반환합니다.
          * @return GPU 자원에 반영한 셰이더 코드 리비전입니다.
          */
-        Core::Uint64 GetRevision() const;
+        Uint64 GetRevision() const;
 
         /**
          * @brief 최신 코드로 D3D11 셰이더와 필요한 정점 입력 레이아웃을 생성합니다.
@@ -92,7 +92,7 @@ namespace Renderer {
         /**
          * @brief GPU 자원에 반영한 코드 리비전입니다.
          */
-        Core::Uint64 mRevision{};
+        Uint64 mRevision{};
 
         /**
          * @brief 바이트코드로 생성한 정점 셰이더입니다.

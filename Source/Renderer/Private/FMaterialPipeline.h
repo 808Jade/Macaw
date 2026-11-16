@@ -75,7 +75,7 @@ namespace Renderer {
          * @brief GPU 파이프라인을 만들 때 사용한 정점 셰이더의 리비전을 반환합니다.
          * @return 아직 만들지 않았으면 0, 그 외에는 생성에 사용한 정점 셰이더 리비전입니다.
          */
-        Core::Uint64 GetVertexRevision() const;
+        Uint64 GetVertexRevision() const;
 
         /**
          * @brief 필요한 GPU 자원을 생성하거나 변경된 상수를 업로드합니다.

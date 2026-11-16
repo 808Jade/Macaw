@@ -108,7 +108,20 @@ namespace Asset {
          */
         Core::FString GetTexturePath(const Asset::UTexture2D* Texture) const;
 
+        /**
+         * @brief 머티리얼의 에셋 경로를 반환합니다.
+         * @param[in] Material 연결할 머티리얼의 비소유 주소입니다.
+         * @return 등록된 머티리얼 경로이며 찾지 못하면 빈 문자열입니다.
+         */
         Core::FString GetMaterialPath(const Asset::UMaterial* Material) const;
+
+        /**
+         * @brief 대상 폴더에서 기존 파일과 충돌하지 않는 에셋 경로를 만듭니다.
+         * @param[in] Directory 탐색 또는 에셋 생성·가져오기 대상 디렉터리입니다.
+         * @param[in] Name 새 에셋 경로의 기본 이름입니다.
+         * @param[out] Error 실패 원인을 전달하는 오류 문자열입니다.
+         * @return 사용 가능한 경로이며 실패하면 빈 경로입니다.
+         */
         std::filesystem::path MakeUniqueAssetPath(const std::filesystem::path& Directory, const Core::FString& Name, Core::FString& Error) const;
 
         /**

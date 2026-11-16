@@ -82,14 +82,14 @@ namespace Asset {
     /**
      * @brief 삼각형을 구성하는 정점 인덱스 배열의 참조를 반환합니다.
      */
-    Core::TArray<Core::Uint32>& Asset::FMeshData::GetIndices() {
+    Core::TArray<Uint32>& Asset::FMeshData::GetIndices() {
         return mIndices;
     }
 
     /**
      * @brief 삼각형을 구성하는 정점 인덱스 배열의 참조를 반환합니다.
      */
-    const Core::TArray<Core::Uint32>& Asset::FMeshData::GetIndices() const {
+    const Core::TArray<Uint32>& Asset::FMeshData::GetIndices() const {
         return mIndices;
     }
 
@@ -160,7 +160,7 @@ namespace Asset {
      * @brief 정점 속성과 인덱스 배열에 할당된 CPU 메모리 바이트 수를 반환합니다.
      */
     std::size_t Asset::FMeshData::GetAllocatedBytes() const {
-        std::size_t Bytes{mPositions.capacity() * sizeof(FVector) + mNormals.capacity() * sizeof(FVector) + mTangents.capacity() * sizeof(FVector4) + mUVChannels.capacity() * sizeof(Core::TArray<FVector2>) + mColors.capacity() * sizeof(FVector4) + mIndices.capacity() * sizeof(Core::Uint32)};
+        std::size_t Bytes{mPositions.capacity() * sizeof(FVector) + mNormals.capacity() * sizeof(FVector) + mTangents.capacity() * sizeof(FVector4) + mUVChannels.capacity() * sizeof(Core::TArray<FVector2>) + mColors.capacity() * sizeof(FVector4) + mIndices.capacity() * sizeof(Uint32)};
 
         for (const Core::TArray<FVector2>& Channel : mUVChannels) {
             Bytes += Channel.capacity() * sizeof(FVector2);

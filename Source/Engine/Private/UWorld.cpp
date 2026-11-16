@@ -312,7 +312,7 @@ namespace Engine {
 
         const std::size_t Count{mDirtyComponents.size()};
 
-        for (Core::Index_t Index{}; Index < Count; ++Index) {
+        for (Index_t Index{}; Index < Count; ++Index) {
             const CoreUObject::TObjectRef<Engine::UPrimitiveComponent> Handle{mDirtyComponents[Index]};
 
             if (auto* Component{CoreUObject::Cast<Engine::UPrimitiveComponent>(Handle.Get())}; Component != nullptr && Component->GetWorld() == this) {
@@ -595,7 +595,7 @@ namespace Engine {
     /**
      * @brief 마지막 실행 시작 이후 수행한 게임 갱신 횟수를 반환합니다.
      */
-    Core::Uint64 Engine::UWorld::GetTickCount() const {
+    Uint64 Engine::UWorld::GetTickCount() const {
         return mTickCount;
     }
 
@@ -734,8 +734,8 @@ namespace Engine {
 
         Core::TArray<std::pair<CoreUObject::TObjectRef<Engine::UShapeComponent>, CoreUObject::TObjectRef<Engine::UShapeComponent>>> Current{};
 
-        for (Core::Index_t First{}; First < Shapes.size(); ++First) {
-            for (Core::Index_t Second{static_cast<Core::Index_t>(First + 1)}; Second < Shapes.size(); ++Second) {
+        for (Index_t First{}; First < Shapes.size(); ++First) {
+            for (Index_t Second{static_cast<Index_t>(First + 1)}; Second < Shapes.size(); ++Second) {
                 if (Shapes[First]->GetOwner() != Shapes[Second]->GetOwner() && Shapes[First]->IsOverlapping(*Shapes[Second])) {
                     Current.emplace_back(Shapes[First], Shapes[Second]);
                 }

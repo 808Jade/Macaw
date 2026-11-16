@@ -196,7 +196,7 @@ FAnimSequenceTimeline::FAnimSequenceTimeline() = default;
 FAnimSequenceTimeline::~FAnimSequenceTimeline() = default;
 
 void FAnimSequenceTimeline::Reset(const Asset::UAnimSequence& Sequence) {
-    mEndFrame = std::max(static_cast<Core::Int32>(Sequence.GetDataModel().GetNumberOfFrames()), 1);
+    mEndFrame = std::max(static_cast<Int32>(Sequence.GetDataModel().GetNumberOfFrames()), 1);
     ++mSequenceRevision;
 }
 
@@ -221,10 +221,10 @@ void FAnimSequenceTimeline::DrawTimeArea(Viewer::FAnimationViewerContent& Previe
     }
 
     const double Rate{Sequence.GetDataModel().GetFrameRate().AsDecimal()};
-    const Core::Int32 CurrentFrame{static_cast<Core::Int32>(std::clamp(std::floor(Preview.GetPosition() * Rate + 0.0001), 0.0, static_cast<double>(mEndFrame)))};
-    Core::Int32 Frame{CurrentFrame};
-    Core::Int32 StartFrame{};
-    Core::Int32 EndFrame{mEndFrame};
+    const Int32 CurrentFrame{static_cast<Int32>(std::clamp(std::floor(Preview.GetPosition() * Rate + 0.0001), 0.0, static_cast<double>(mEndFrame)))};
+    Int32 Frame{CurrentFrame};
+    Int32 StartFrame{};
+    Int32 EndFrame{mEndFrame};
     const Core::FString Id{std::format("##AnimationSequence{}", mSequenceRevision)};
 
     ImGui::PushID(this);
@@ -247,7 +247,7 @@ void FAnimSequenceTimeline::DrawTimeArea(Viewer::FAnimationViewerContent& Previe
     ImGui::EndChild();
 }
 
-void FAnimSequenceTimeline::StepFrame(Viewer::FAnimationViewerContent& Preview, const Asset::UAnimSequence& Sequence, Core::Int32 Direction) {
+void FAnimSequenceTimeline::StepFrame(Viewer::FAnimationViewerContent& Preview, const Asset::UAnimSequence& Sequence, Int32 Direction) {
     const double Rate{Sequence.GetDataModel().GetFrameRate().AsDecimal()};
     const double Frame{Preview.GetPosition() * Rate};
     const double Next{Direction < 0 ? std::ceil(Frame - 0.00001) - 1.0 : std::floor(Frame + 0.00001) + 1.0};
@@ -267,7 +267,7 @@ void FAnimSequenceTimeline::DrawTransportBar(Viewer::FAnimationViewerContent& Pr
         const float RowY{ImGui::GetCursorPosY()};
         const double Time{Preview.GetPosition()};
         const double Rate{Sequence.GetDataModel().GetFrameRate().AsDecimal()};
-        const Core::Int32 Frame{static_cast<Core::Int32>(std::floor(Time * Rate + 0.0001))};
+        const Int32 Frame{static_cast<Int32>(std::floor(Time * Rate + 0.0001))};
 
         ImGui::AlignTextToFramePadding();
         ImGui::TextDisabled("%d / %u  (%.3fs)", Frame, Sequence.GetDataModel().GetNumberOfFrames(), Time);

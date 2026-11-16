@@ -58,7 +58,16 @@ namespace Engine {
          */
         Engine::UPrimitiveComponent* GetComponent() const;
 
+        /**
+         * @brief 충돌 결과의 액터를 세대 핸들 기반 비소유 참조로 기록합니다.
+         * @param[in] Actor 충돌 결과에 기록할 액터이며 nullptr이면 참조를 해제합니다.
+         */
         void SetActor(Engine::AActor* Actor);
+
+        /**
+         * @brief 충돌 결과의 프리미티브 컴포넌트를 비소유 참조로 기록합니다.
+         * @param[in] Component 기록할 프리미티브 컴포넌트이며 nullptr이면 참조를 해제합니다.
+         */
         void SetComponent(Engine::UPrimitiveComponent* Component);
 
         /**
@@ -74,7 +83,7 @@ namespace Engine {
         /**
          * @brief 충돌한 삼각형의 인덱스입니다.
          */
-        Core::Int32 mFaceIndex{-1};
+        Int32 mFaceIndex{-1};
 
         /**
          * @brief 전체 추적 거리에서 적중한 비율입니다.

@@ -21,21 +21,21 @@ namespace Renderer::GBuffer {
     /**
      * @brief 월드 공간 노멀을 저장하는 GBuffer 첨부 인덱스입니다.
      */
-    inline constexpr Core::Index_t NormalAttachment{1};
+    inline constexpr Index_t NormalAttachment{1};
 
     /**
      * @brief 데칼을 받을 표면을 식별하는 스텐실 비트입니다.
      */
-    inline constexpr Core::Uint32 ReceivesDecals{1};
+    inline constexpr Uint32 ReceivesDecals{1};
 
     /**
      * @brief GBuffer에 표면 정보를 기록한 픽셀의 스텐실 비트입니다.
      */
-    inline constexpr Core::Uint32 Surface{2};
+    inline constexpr Uint32 Surface{2};
 
     /**
      * @brief 조명 합성을 생략하는 표면을 식별하는 스텐실 비트입니다.
      */
-    inline constexpr Core::Uint32 Prelit{4};
+    inline constexpr Uint32 Prelit{4};
 
 }

@@ -23,7 +23,7 @@ namespace RenderCore {
          * @brief T 크기로 설정한 빈 버퍼를 생성합니다.
          */
         TConstantBuffer()
-            : RenderCore::FGpuBuffer{static_cast<Core::Uint32>(sizeof(T)), RenderCore::EBufferUpdate::Default} {
+            : RenderCore::FGpuBuffer{static_cast<Uint32>(sizeof(T)), RenderCore::EBufferUpdate::Default} {
             static_assert(sizeof(T) % 16 == 0, "Constant buffer size must be a multiple of 16 bytes");
         }
 
@@ -53,7 +53,7 @@ namespace RenderCore {
          * @param[in] Stages 연결할 셰이더 단계입니다.
          * @param[in] Slot 상수 버퍼 슬롯(b 레지스터)입니다.
          */
-        void Bind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t Slot) const {
+        void Bind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t Slot) const {
             SetBuffer(Context, Stages, Slot, GetBuffer());
         }
 
@@ -63,7 +63,7 @@ namespace RenderCore {
          * @param[in] Stages 해제할 셰이더 단계입니다.
          * @param[in] Slot 상수 버퍼 슬롯(b 레지스터)입니다.
          */
-        static void Unbind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t Slot) {
+        static void Unbind(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t Slot) {
             SetBuffer(Context, Stages, Slot, nullptr);
         }
 
@@ -80,7 +80,7 @@ namespace RenderCore {
          * @brief 이 버퍼가 담을 수 있는 최대 원소 수를 반환합니다.
          * @return 기본 구현은 바이트 크기가 32비트에 들어가는 원소 수입니다.
          */
-        Core::Uint64 GetMaximumCount() const override {
+        Uint64 GetMaximumCount() const override {
             return 1;
         }
 
@@ -92,7 +92,7 @@ namespace RenderCore {
          * @param[in] Slot 조회하거나 바꿀 머티리얼 슬롯입니다.
          * @param[in] Buffer 래핑할 D3D11 버퍼의 COM 소유권입니다.
          */
-        static void SetBuffer(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Core::Index_t Slot, ID3D11Buffer* Buffer) {
+        static void SetBuffer(ID3D11DeviceContext* Context, RenderCore::EShaderStage Stages, Index_t Slot, ID3D11Buffer* Buffer) {
             if (RenderCore::HasStage(Stages, RenderCore::EShaderStage::Vertex)) {
                 Context->VSSetConstantBuffers(static_cast<UINT>(Slot), 1, &Buffer);
             }

@@ -42,7 +42,7 @@ namespace Engine {
          * @brief 현재 엔진이 지원하는 프로젝트 설정 파일의 버전을 반환합니다.
          * @return 읽고 쓸 수 있는 .mproject 저장 형식 버전입니다.
          */
-        static Core::Uint32 GetCurrentVersion();
+        static Uint32 GetCurrentVersion();
 
         /**
          * @brief 빈 프로젝트 폴더에 템플릿 콘텐츠와 초기 장면 및 설정 파일을 생성합니다.
@@ -80,7 +80,7 @@ namespace Engine {
          * @brief 마지막으로 연 프로젝트 설정의 버전을 반환합니다.
          * @return 프로젝트 파일에서 읽은 버전이며 열기 전에는 0입니다.
          */
-        Core::Uint32 GetVersion() const;
+        Uint32 GetVersion() const;
 
         /**
          * @brief 프로젝트의 표시 이름을 반환합니다.
@@ -118,13 +118,17 @@ namespace Engine {
          */
         Asset::FAssetManager* GetAssets() const;
 
+        /**
+         * @brief 프로젝트의 파티클 시스템 에셋 관리자를 조회합니다.
+         * @return 관리자의 비소유 주소입니다.
+         */
         Engine::FParticleSystemAssetManager* GetParticleSystems() const;
 
     private:
         /**
          * @brief 마지막으로 연 프로젝트 파일의 저장 형식 버전이며 초기값은 0입니다.
          */
-        Core::Uint32 mVersion{};
+        Uint32 mVersion{};
 
         /**
          * @brief 프로젝트 설정에 저장된 표시 이름입니다.
@@ -145,6 +149,10 @@ namespace Engine {
          * @brief 프로젝트 콘텐츠를 읽고 캐시하는 소유 에셋 관리자입니다.
          */
         std::unique_ptr<Asset::FAssetManager> mAssets{};
+
+        /**
+         * @brief 프로젝트가 소유하는 파티클 시스템 에셋 관리자입니다.
+         */
         std::unique_ptr<Engine::FParticleSystemAssetManager> mParticleSystems{};
     };
 

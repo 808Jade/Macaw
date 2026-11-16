@@ -86,7 +86,7 @@ void FAssetThumbnailCache::Invalidate() {
 
 Core::FString FAssetThumbnailCache::MakeKey(const std::filesystem::path& Path, Asset::EAssetType Type) const {
     if (Path.empty()) {
-        return "@Default" + std::to_string(static_cast<Core::Uint32>(Type));
+        return "@Default" + std::to_string(static_cast<Uint32>(Type));
     }
 
     Core::FString Error{};
@@ -252,13 +252,13 @@ void FAssetThumbnailCache::LoadPreviewSettings() {
 
     Serialization::FJsonArchive Archive{Core::EArchiveMode::Loading};
     const std::filesystem::path Path{mAssets->GetContentRoot().parent_path() / "Saved/ViewerPreviews.json"};
-    Core::Uint32 Count{};
+    Uint32 Count{};
 
     if (!Archive.Load(Path) || !Archive.BeginArray("Animations", Count) || Count > 10000) {
         return;
     }
 
-    for (Core::Index_t Index{}; Index < Count; ++Index) {
+    for (Index_t Index{}; Index < Count; ++Index) {
         if (Archive.BeginObject(std::to_string(Index))) {
             Core::FString AssetPath{};
             Core::FString MeshPath{};
@@ -283,9 +283,9 @@ bool FAssetThumbnailCache::SavePreviewSettings() {
     }
 
     Serialization::FJsonArchive Archive{Core::EArchiveMode::Saving};
-    Core::Uint32 Count{static_cast<Core::Uint32>(mAnimationPreviews.size())};
+    Uint32 Count{static_cast<Uint32>(mAnimationPreviews.size())};
     Archive.BeginArray("Animations", Count);
-    Core::Index_t Index{};
+    Index_t Index{};
 
     for (const auto& [Key, Preview] : mAnimationPreviews) {
         Archive.BeginObject(std::to_string(Index++));
@@ -320,11 +320,11 @@ std::size_t FAssetThumbnailCache::MaterialSignature(const Asset::UMaterial* Mate
     Hash ^= static_cast<std::size_t>(Material->GetBlendMode()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
 
     for (const float Value : {Material->GetSpecularStrength(), Material->GetShininess(), Material->GetNormalStrength()}) {
-        Hash ^= std::bit_cast<Core::Uint32>(Value) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
+        Hash ^= std::bit_cast<Uint32>(Value) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
     }
 
     for (float Value : Material->GetBaseColor().ToArray()) {
-        Hash ^= std::bit_cast<Core::Uint32>(Value) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
+        Hash ^= std::bit_cast<Uint32>(Value) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
     }
 
     return Hash ^ static_cast<std::size_t>(Material->IsTwoSided());

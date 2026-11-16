@@ -22,7 +22,7 @@ namespace Asset {
     /**
      * @brief 원본 장면 내부 텍스처의 이름 또는 인덱스를 보관하는 참조를 생성합니다.
      */
-    Asset::FMeshImportTexture Asset::FMeshImportTexture::FromEmbedded(Core::FString Reference, Core::TArray<Core::Uint8> Data, Asset::EMeshImportTextureShape Shape) {
+    Asset::FMeshImportTexture Asset::FMeshImportTexture::FromEmbedded(Core::FString Reference, Core::TArray<Uint8> Data, Asset::EMeshImportTextureShape Shape) {
         Asset::FMeshImportTexture Texture{};
         Texture.mSource = Asset::EMeshImportTextureSource::Embedded;
         Texture.mEmbeddedReference = std::move(Reference);
@@ -56,7 +56,7 @@ namespace Asset {
     /**
      * @brief 원본에서 추출한 내장 텍스처 바이트를 조회합니다.
      */
-    const Core::TArray<Core::Uint8>& Asset::FMeshImportTexture::GetEmbeddedData() const {
+    const Core::TArray<Uint8>& Asset::FMeshImportTexture::GetEmbeddedData() const {
         return mEmbeddedData;
     }
 

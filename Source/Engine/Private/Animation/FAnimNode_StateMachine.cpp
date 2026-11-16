@@ -80,7 +80,7 @@ namespace Engine {
          * @param Depth 탐색할 상위 보기의 깊이 또는 노드 배치 깊이입니다.
          * @return Float 또는 Bool 값이며 평가할 수 없으면 monostate입니다.
          */
-        FRuleValue EvaluateRuleNode(const Asset::FAnimTransitionGraph& Graph, Core::Int32 Id, const Engine::FAnimationUpdateContext& Context, Engine::FAnimNode_Base* Root, float StateTime, Core::TMap<Core::Int32, FRuleValue>& Cache, Core::Uint32 Depth) {
+        FRuleValue EvaluateRuleNode(const Asset::FAnimTransitionGraph& Graph, Int32 Id, const Engine::FAnimationUpdateContext& Context, Engine::FAnimNode_Base* Root, float StateTime, Core::TMap<Int32, FRuleValue>& Cache, Uint32 Depth) {
             if (Depth >= Asset::UAnimGraph::MaxNodes) {
                 return {};
             }
@@ -174,7 +174,7 @@ namespace Engine {
     }
 
     bool FAnimTransitionEvaluator::Evaluate(const Asset::FAnimTransitionGraph& Graph, const Engine::FAnimationUpdateContext& Context, Engine::FAnimNode_Base* StateRoot, float StateTime) {
-        Core::TMap<Core::Int32, FRuleValue> Cache{};
+        Core::TMap<Int32, FRuleValue> Cache{};
         const FRuleValue Value{EvaluateRuleNode(Graph, Graph.GetResult(), Context, StateRoot, StateTime, Cache, 0)};
         const auto* Result{std::get_if<bool>(&Value)};
 
@@ -193,12 +193,12 @@ namespace Engine {
         mStates.push_back({Data.mId, Data.mName, {Root}, Data.mResetOnEntry, 0.0f});
     }
 
-    Core::Int32 FAnimNode_StateMachine::FindStateIndex(Core::Int32 Id) const {
+    Int32 FAnimNode_StateMachine::FindStateIndex(Int32 Id) const {
         const auto Found{std::find_if(mStates.begin(), mStates.end(), [Id](const auto& State) {
             return State.mId == Id;
         })};
 
-        return Found != mStates.end() ? static_cast<Core::Int32>(Found - mStates.begin()) : -1;
+        return Found != mStates.end() ? static_cast<Int32>(Found - mStates.begin()) : -1;
     }
 
     void FAnimNode_StateMachine::Initialize(Engine::UAnimInstance& AnimInstance) {
@@ -220,12 +220,12 @@ namespace Engine {
         }
 
         const float Delta{std::isfinite(Context.GetDeltaTime()) ? std::max(Context.GetDeltaTime(), 0.0f) : 0.0f};
-        auto& Current{mStates[static_cast<Core::Int32>(mCurrent)]};
+        auto& Current{mStates[static_cast<Int32>(mCurrent)]};
         Current.mPose.Update(Context);
         Current.mElapsed += Delta;
 
         if (mTarget >= 0) {
-            auto& Target{mStates[static_cast<Core::Int32>(mTarget)]};
+            auto& Target{mStates[static_cast<Int32>(mTarget)]};
             Target.mPose.Update(Context);
             Target.mElapsed += Delta;
             mBlendElapsed += Delta;
@@ -241,7 +241,7 @@ namespace Engine {
         mRuleDebugValues.clear();
 
         for (const auto& Transition : mTransitions) {
-            const Core::Int32 TargetIndex{static_cast<Core::Int32>(FindStateIndex(Transition.mToState))};
+            const Int32 TargetIndex{static_cast<Int32>(FindStateIndex(Transition.mToState))};
 
             if (Transition.mFromState != Current.mId || TargetIndex < 0) {
                 continue;
@@ -281,7 +281,7 @@ namespace Engine {
             return;
         }
 
-        auto& Current{mStates[static_cast<Core::Int32>(mCurrent)]};
+        auto& Current{mStates[static_cast<Int32>(mCurrent)]};
 
         if (mTarget < 0) {
             Current.mPose.Evaluate(Output);
@@ -293,7 +293,7 @@ namespace Engine {
         Engine::FPoseContext Target{Output.GetAnimInstance()};
         const float Alpha{GetBlendAlpha()};
         Current.mPose.Evaluate(Source, 1.0f - Alpha);
-        mStates[static_cast<Core::Int32>(mTarget)].mPose.Evaluate(Target, Alpha);
+        mStates[static_cast<Int32>(mTarget)].mPose.Evaluate(Target, Alpha);
         Engine::FAnimationRuntime::BlendTwoPosesTogether(Source.mPose, Target.mPose, 1.0f - Alpha, Output.mPose);
     }
 
@@ -310,12 +310,12 @@ namespace Engine {
     }
 
     void FAnimNode_StateMachine::GetDebugValues(Core::TArray<Engine::FAnimNodeValue>& OutValues) {
-        OutValues.push_back({"Current State", mCurrent >= 0 ? mStates[static_cast<Core::Int32>(mCurrent)].mName : Core::FString{"None"}});
-        OutValues.push_back({"Target State", mTarget >= 0 ? mStates[static_cast<Core::Int32>(mTarget)].mName : Core::FString{"None"}});
+        OutValues.push_back({"Current State", mCurrent >= 0 ? mStates[static_cast<Int32>(mCurrent)].mName : Core::FString{"None"}});
+        OutValues.push_back({"Target State", mTarget >= 0 ? mStates[static_cast<Int32>(mTarget)].mName : Core::FString{"None"}});
         OutValues.push_back({"Transition", std::format("{:.0f}%", GetBlendAlpha() * 100.0f)});
 
         if (mCurrent >= 0) {
-            OutValues.push_back({"State Time", std::format("{:.2f} s", mStates[static_cast<Core::Int32>(mCurrent)].mElapsed)});
+            OutValues.push_back({"State Time", std::format("{:.2f} s", mStates[static_cast<Int32>(mCurrent)].mElapsed)});
         }
 
         if (mTarget >= 0) {
@@ -325,12 +325,12 @@ namespace Engine {
         }
     }
 
-    Core::Int32 FAnimNode_StateMachine::GetCurrentState() const {
-        return mCurrent >= 0 ? mStates[static_cast<Core::Int32>(mCurrent)].mId : -1;
+    Int32 FAnimNode_StateMachine::GetCurrentState() const {
+        return mCurrent >= 0 ? mStates[static_cast<Int32>(mCurrent)].mId : -1;
     }
 
-    Core::Int32 FAnimNode_StateMachine::GetTargetState() const {
-        return mTarget >= 0 ? mStates[static_cast<Core::Int32>(mTarget)].mId : -1;
+    Int32 FAnimNode_StateMachine::GetTargetState() const {
+        return mTarget >= 0 ? mStates[static_cast<Int32>(mTarget)].mId : -1;
     }
 
     float FAnimNode_StateMachine::GetBlendAlpha() const {
@@ -342,14 +342,14 @@ namespace Engine {
             return {};
         }
 
-        const Engine::FAnimNode_Base* Current{mStates[static_cast<Core::Int32>(mCurrent)].mPose.mLinkedNode};
+        const Engine::FAnimNode_Base* Current{mStates[static_cast<Int32>(mCurrent)].mPose.mLinkedNode};
         const FTransform Source{Current != nullptr ? Current->GetRootMotionDelta() : FTransform{}};
 
         if (mTarget < 0) {
             return Source;
         }
 
-        const Engine::FAnimNode_Base* Target{mStates[static_cast<Core::Int32>(mTarget)].mPose.mLinkedNode};
+        const Engine::FAnimNode_Base* Target{mStates[static_cast<Int32>(mTarget)].mPose.mLinkedNode};
 
         return Engine::FAnimationRuntime::BlendTransforms(Source, Target != nullptr ? Target->GetRootMotionDelta() : FTransform{}, 1.0f - GetBlendAlpha());
     }

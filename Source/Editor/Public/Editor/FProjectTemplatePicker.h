@@ -121,7 +121,7 @@ namespace Editor {
          * @brief 검색한 프로젝트 템플릿 수를 반환합니다.
          * @return 사용 가능한 템플릿 개수입니다.
          */
-        Core::Uint32 GetTemplateCount() const;
+        Uint32 GetTemplateCount() const;
 
         /**
          * @brief 템플릿 카드와 설명·미리보기를 표시하고 선택 입력을 처리합니다.
@@ -130,10 +130,35 @@ namespace Editor {
          */
         bool Draw(void* Device = nullptr);
 
+        /**
+         * @brief 현재 선택한 템플릿의 미리 보기를 지정한 크기로 표시합니다.
+         * @param[in] Device GPU 텍스처 리소스를 만들 네이티브 D3D11 장치입니다.
+         * @param[in] Width 대상 영역의 너비이며 단위는 픽셀입니다.
+         * @param[in] Height 대상 영역의 높이이며 단위는 픽셀입니다.
+         */
         void DrawSelectedPreview(void* Device, float Width, float Height);
+
+        /**
+         * @brief 선택한 템플릿의 이름을 반환합니다.
+         * @return 선택 템플릿 이름입니다.
+         */
         const Core::FString& GetSelectedName() const;
+
+        /**
+         * @brief 선택한 템플릿의 설명을 반환합니다.
+         * @return 선택 템플릿 설명입니다.
+         */
         const Core::FString& GetSelectedDescription() const;
+
+        /**
+         * @brief 선택한 템플릿에 스크립트 빌드가 필요한지 검사합니다.
+         * @return 스크립트가 필요한 템플릿이면 true입니다.
+         */
         bool SelectedRequiresScripts() const;
+
+        /**
+         * @brief 캐시한 템플릿 미리 보기 리소스를 해제합니다.
+         */
         void ReleasePreviews();
 
     private:
@@ -163,7 +188,7 @@ namespace Editor {
         /**
          * @brief 현재 선택한 템플릿의 목록 인덱스입니다.
          */
-        Core::Index_t mSelectedIndex{};
+        Index_t mSelectedIndex{};
     };
 
 }

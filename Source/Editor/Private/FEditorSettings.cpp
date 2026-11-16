@@ -1,0 +1,1111 @@
+/**
+ * @file FEditorSettings.cpp
+ * @brief 에디터 설정의 표시·직렬화·지연 저장과 테마 적용을 관리합니다.
+ * @ingroup Editor
+ */
+
+#include "FEditorSettings.h"
+#include "Editor/Widget/FEditorButtonWidget.h"
+#include "Editor/Widget/FEditorSliderWidget.h"
+#include "Editor/Widget/FEditorCheckBoxWidget.h"
+#include "Editor/Widget/FEditorTextInputWidget.h"
+#include "EditorStyle.h"
+#include "FEditorDrawerManager.h"
+#include "FEditorWorkspace.h"
+#include "FEditorViewportLayout.h"
+#include "BufferVisualization.h"
+#include "Editor/FImGuiUIScale.h"
+#include "Editor/FEditorTabManager.h"
+#include "Editor/FEditorTab.h"
+#include "Core/FilePath.h"
+#include "Core/Stats.h"
+#include "Editor/FEditorContext.h"
+#include "Editor/FEditorViewport.h"
+#include "Editor/FPlayInEditorSession.h"
+#include "Engine/FProject.h"
+#include "Platform/Window.h"
+#include "RenderCore/IRendererModule.h"
+#include "Serialization/JsonArchive.h"
+#include <imgui_internal.h>
+#include <commdlg.h>
+#include <algorithm>
+#include <cfloat>
+#include <cmath>
+#include <cstring>
+#include <utility>
+
+using namespace Editor;
+
+/**
+ * @brief FEditorSettings 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
+ */
+namespace {
+    /**
+     * @brief 뷰포트 설정 UI와 직렬화에서 공유하는 표시 이름·ShowFlag 멤버 포인터 목록입니다.
+     */
+    const std::array<std::pair<const char*, bool Engine::FEngineShowFlags::*>, 13> ShowOptions{{{"Primitives", &Engine::FEngineShowFlags::mPrimitives},
+        {"Sprites", &Engine::FEngineShowFlags::mSprites},
+        {"Text", &Engine::FEngineShowFlags::mText},
+        {"Shadows", &Engine::FEngineShowFlags::mShadows},
+        {"Sky", &Engine::FEngineShowFlags::mSky},
+        {"Fog", &Engine::FEngineShowFlags::mFog},
+        {"FXAA", &Engine::FEngineShowFlags::mFXAA},
+        {"Fog Icons", &Engine::FEngineShowFlags::mFogIcons},
+        {"Light Icons", &Engine::FEngineShowFlags::mLightIcons},
+        {"Light Visualizers", &Engine::FEngineShowFlags::mLightVisualizers},
+        {"Bounds", &Engine::FEngineShowFlags::mBounds},
+        {"Grid", &Engine::FEngineShowFlags::mGrid},
+        {"Axes", &Engine::FEngineShowFlags::mAxes}}};
+
+    /**
+     * @brief 버퍼 시각화를 제외한 컬러 조명·와이어프레임 표시 모드 목록입니다.
+     */
+    const std::array<Engine::EViewMode, 5> ViewModes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
+
+    /**
+     * @brief 컬러 표시 모드 목록과 같은 순서로 보여 줄 설정 UI 이름입니다.
+     */
+    const std::array<const char*, 5> ViewModeNames{"Lit - Gouraud", "Lit - Lambert", "Lit - Phong", "Unlit", "Wireframe"};
+
+
+
+    /**
+     * @brief 카메라 조작·표시·변환 스냅·통계 그룹 설정을 뷰포트별로 저장하거나 복원합니다.
+     * @param[in,out] Archive 모드에 따라 값을 읽거나 쓸 아카이브입니다.
+     * @param[in,out] Client 설정을 조회하고 변경할 뷰포트 클라이언트입니다.
+     * @param[in,out] Statistics 저장하거나 복원할 뷰포트 통계 그룹 설정입니다.
+     */
+    void SerializeViewport(Serialization::FJsonArchive& Archive, Editor::FEditorViewportClient& Client, Editor::FViewportStatistics& Statistics) {
+        float Speed{Client.GetCameraSpeed()};
+        float Sensitivity{Client.GetCameraSensitivity()};
+        float Spacing{Client.GetGridSpacing()};
+        float Thickness{Client.GetLineThickness()};
+        float Width{Client.GetOrthographicWidth()};
+        Int32 Mode{static_cast<Int32>(Client.GetViewMode())};
+        Int32 ColorMode{static_cast<Int32>(Client.GetColorViewMode())};
+        Editor::FGizmoSettings Gizmo{*Client.GetGizmoSettings()};
+        Int32 TransformMode{static_cast<Int32>(Client.GetGizmoMode())};
+        Int32 Space{static_cast<Int32>(Client.GetGizmoSpace())};
+        Engine::FEngineShowFlags Flags{Client.GetShowFlags()};
+
+        Archive.Serialize("CameraSpeed", Speed);
+        Archive.Serialize("CameraSensitivity", Sensitivity);
+        Archive.Serialize("GridSpacing", Spacing);
+        Archive.Serialize("LineThickness", Thickness);
+        Archive.Serialize("OrthographicWidth", Width);
+        Archive.Serialize("ViewMode", Mode);
+
+        if (!Archive.IsLoading() || Archive.HasField("ColorViewMode")) {
+            Archive.Serialize("ColorViewMode", ColorMode);
+        }
+
+        Archive.Serialize("TranslationSnap", Gizmo.mTranslationSnap);
+        Archive.Serialize("RotationSnap", Gizmo.mRotationSnap);
+        Archive.Serialize("ScaleSnap", Gizmo.mScaleSnap);
+        Archive.Serialize("TranslationStep", Gizmo.mTranslationStep);
+        Archive.Serialize("RotationStep", Gizmo.mRotationStep);
+        Archive.Serialize("ScaleStep", Gizmo.mScaleStep);
+        Archive.Serialize("GizmoSize", Gizmo.mSize);
+        Archive.Serialize("TransformMode", TransformMode);
+        Archive.Serialize("CoordinateSpace", Space);
+
+        for (const auto& [Name, Member] : ShowOptions) {
+            if (!Archive.IsLoading() || Archive.HasField(Name)) {
+                Archive.Serialize(Name, Flags.*Member);
+            }
+        }
+
+        Core::TArray<Core::FString> Groups{Core::FStats::Get().GetGroups()};
+        Core::FString EnabledGroups{"\n"};
+
+        for (const Core::FString& Group : Groups) {
+            if (Statistics.IsEnabled(Group)) {
+                EnabledGroups += Group + '\n';
+            }
+        }
+
+        Archive.Serialize("StatGroups", EnabledGroups);
+
+        if (!Archive.IsLoading() || Archive.HasError()) {
+            return;
+        }
+
+        Client.SetCameraSpeed(Speed);
+        Client.SetCameraSensitivity(Sensitivity);
+        Client.SetGridSpacing(Spacing);
+        Client.SetLineThickness(Thickness);
+        Client.SetOrthographicWidth(Width);
+        Client.SetViewMode(static_cast<Engine::EViewMode>(ColorMode));
+        Client.SetViewMode(static_cast<Engine::EViewMode>(Mode));
+        Client.SetShowFlags(Flags);
+        Client.SetGizmoSetting(Editor::EGizmoSetting::TranslationStep, Gizmo.mTranslationStep);
+        Client.SetGizmoSetting(Editor::EGizmoSetting::RotationStep, Gizmo.mRotationStep);
+        Client.SetGizmoSetting(Editor::EGizmoSetting::ScaleStep, Gizmo.mScaleStep);
+        Client.SetGizmoSetting(Editor::EGizmoSetting::Size, Gizmo.mSize);
+
+        for (const auto& [Command, Enabled] : {std::pair{Editor::EViewportCommand::ToggleTranslationSnap, Gizmo.mTranslationSnap}, std::pair{Editor::EViewportCommand::ToggleRotationSnap, Gizmo.mRotationSnap}, std::pair{Editor::EViewportCommand::ToggleScaleSnap, Gizmo.mScaleSnap}}) {
+            if (Client.IsCommandChecked(Command) != Enabled) {
+                Client.ExecuteCommand(Command);
+            }
+        }
+
+        const std::array<Editor::EViewportCommand, 4> Commands{Editor::EViewportCommand::Translate, Editor::EViewportCommand::Rotate, Editor::EViewportCommand::Scale, Editor::EViewportCommand::Select};
+
+        if (TransformMode >= 0 && static_cast<size_t>(TransformMode) < Commands.size()) {
+            Client.ExecuteCommand(Commands[TransformMode]);
+        }
+
+        if (Space == static_cast<Int32>(Editor::EGizmoSpace::World) || Space == static_cast<Int32>(Editor::EGizmoSpace::Local)) {
+            Client.ExecuteCommand(Space == static_cast<Int32>(Editor::EGizmoSpace::World) ? Editor::EViewportCommand::WorldSpace : Editor::EViewportCommand::LocalSpace);
+        }
+
+        Core::FString Output{};
+
+        Statistics.ExecuteCommand("stat none", Output);
+
+        for (const Core::FString& Group : Groups) {
+            if (EnabledGroups.find('\n' + Group + '\n') != Core::FString::npos) {
+                Statistics.ExecuteCommand("stat " + Group + " on", Output);
+            }
+        }
+    }
+}
+
+FEditorSettings::FEditorSettings(FEditorContext* Context, Platform::FWindowsApplication* Platform, FPlayInEditorSession* PlaySession, FEditorViewportLayout& ViewportLayout, FEditorWorkspace& Workspace, FEditorTabManager& Tabs, FEditorDrawerManager& Drawers, FImGuiUIScale& UIScale, Core::FString IniPath)
+	: mContext{Context},
+	  mPlatform{Platform},
+	  mPlaySession{PlaySession},
+	  mViewportLayout{ViewportLayout},
+	  mWorkspace{Workspace},
+	  mTabs{Tabs},
+	  mDrawers{Drawers},
+	  mUIScale{UIScale},
+	  mIniPath{std::move(IniPath)} {
+    InitializeWidgets();
+}
+
+FEditorSettings::~FEditorSettings() = default;
+
+void FEditorSettings::InitializeWidgets() {
+    const auto Add{[this](std::unique_ptr<FEditorWidget> Widget) {
+        const Core::FString Id{Widget->GetId()};
+        mWidgets.emplace(Id, std::move(Widget));
+    }};
+    const auto AddSlider{[this, &Add](Core::FString Label, float Minimum, float Maximum, std::function<float()> Getter, std::function<void(float)> Setter, Core::FString Format, float DragSpeed = 0.0f) {
+        auto Widget{std::make_unique<FEditorSliderWidget>(Label, Label, Minimum, Maximum, std::move(Getter), [this, Setter = std::move(Setter)](float Value) {
+            Setter(Value);
+            MarkDirty();
+        }, std::move(Format))};
+        Widget->SetDragSpeed(DragSpeed);
+        Add(std::move(Widget));
+    }};
+    const auto AddCheckBox{[this, &Add](Core::FString Label, std::function<bool()> Getter, std::function<void(bool)> Setter) {
+        Add(std::make_unique<FEditorCheckBoxWidget>(Label, Label, std::move(Getter), [this, Setter = std::move(Setter)](bool Value) {
+            Setter(Value);
+            MarkDirty();
+        }));
+    }};
+
+    Add(std::make_unique<FEditorButtonWidget>("Save Settings", "Save Settings", [this]() {
+        SaveSettings();
+    }));
+    Add(std::make_unique<FEditorButtonWidget>("Reset to Defaults", "Reset to Defaults", [this]() {
+        ImGui::OpenPopup("Reset Settings?");
+    }));
+    Add(std::make_unique<FEditorButtonWidget>("Close", "Close", [this]() {
+        mSettingsOpen = false;
+    }));
+    Add(std::make_unique<FEditorButtonWidget>("Reset", "Reset", [this]() {
+        ResetSettings();
+        ImGui::CloseCurrentPopup();
+    }));
+    Add(std::make_unique<FEditorButtonWidget>("Cancel", "Cancel", [this]() {
+        ImGui::CloseCurrentPopup();
+    }));
+    Add(std::make_unique<FEditorButtonWidget>("Import ImThemes TOML...", "Import ImThemes TOML...", [this]() {
+        ImportTheme();
+    }));
+    Add(std::make_unique<FEditorButtonWidget>("Reload Changed Shaders", "Reload Changed Shaders", [this]() {
+        mSettingsStatus = mContext->GetRenderer()->ReloadChangedShaders() ? "Shaders reloaded" : "Shader reload failed; see Console";
+    }));
+    Add(std::make_unique<FEditorButtonWidget>("Open Shadow Atlas", "Open Shadow Atlas", [this]() {
+        mContext->SetShadowAtlasOpen(true);
+    }));
+    Add(std::make_unique<FEditorButtonWidget>("Save Startup Scene", "Save Startup Scene", [this]() {
+        Core::FString Error{};
+        mSettingsStatus = mContext->GetProject()->SetStartupScene(Core::FilePath::FromUtf8(mStartupScene.data()), Error) ? "Startup scene saved" : Error;
+    }));
+
+    Add(std::make_unique<FEditorTextInputWidget>("Search", "Search", "Filter themes...", [this]() {
+        return Core::FString{mThemeFilter.data()};
+    }, [this](const Core::FString& Value) {
+        const Index_t Count{std::min(Value.size(), mThemeFilter.size() - 1)};
+        std::copy_n(Value.data(), Count, mThemeFilter.data());
+        mThemeFilter[Count] = '\0';
+    }, mThemeFilter.size()));
+    Add(std::make_unique<FEditorTextInputWidget>("Content Path", "Content Path", "", [this]() {
+        return Core::FString{mStartupScene.data()};
+    }, [this](const Core::FString& Value) {
+        const Index_t Count{std::min(Value.size(), mStartupScene.size() - 1)};
+        std::copy_n(Value.data(), Count, mStartupScene.data());
+        mStartupScene[Count] = '\0';
+    }, mStartupScene.size()));
+    AddCheckBox("Automatic UI Scale", [this]() {
+        return mUIScale.GetUserScale() == 0.0f;
+    }, [this](bool Value) {
+        mUIScale.SetUserScale(Value ? 0.0f : 1.0f);
+    });
+    AddSlider("UI Scale", 0.75f, 3.0f, [this]() {
+        return mUIScale.GetUserScale() == 0.0f ? 1.0f : mUIScale.GetUserScale();
+    }, [this](float Value) {
+        mUIScale.SetUserScale(Value);
+    }, "%.2fx");
+    mWidgets.at("UI Scale")->SetEnabledAttribute([this]() {
+        return mUIScale.GetUserScale() != 0.0f;
+    });
+    AddSlider("Font Size", 10.0f, 32.0f, [this]() {
+        return mFontSize;
+    }, [this](float Value) {
+        mFontSize = Value;
+        mAppearanceDirty = true;
+    }, "%.0f px");
+    AddCheckBox("Keyboard Navigation", [this]() {
+        return (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NavEnableKeyboard) != 0;
+    }, [this](bool Value) {
+        ImGuiIO& Input{ImGui::GetIO()};
+        Input.ConfigFlags = Value ? Input.ConfigFlags | ImGuiConfigFlags_NavEnableKeyboard : Input.ConfigFlags & ~ImGuiConfigFlags_NavEnableKeyboard;
+    });
+    AddCheckBox("Move Windows from Title Bar Only", [this]() {
+        return ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly;
+    }, [this](bool Value) {
+        ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = Value;
+    });
+    AddSlider("Double Click Time", 0.1f, 1.0f, [this]() {
+        return ImGui::GetIO().MouseDoubleClickTime;
+    }, [this](float Value) {
+        ImGui::GetIO().MouseDoubleClickTime = Value;
+    }, "%.2f s");
+    AddSlider("Mouse Drag Threshold", 1.0f, 20.0f, [this]() {
+        return ImGui::GetIO().MouseDragThreshold;
+    }, [this](float Value) {
+        ImGui::GetIO().MouseDragThreshold = Value;
+    }, "%.0f px");
+    AddSlider("Key Repeat Delay", 0.1f, 1.0f, [this]() {
+        return ImGui::GetIO().KeyRepeatDelay;
+    }, [this](float Value) {
+        ImGui::GetIO().KeyRepeatDelay = Value;
+    }, "%.2f s");
+    AddSlider("Key Repeat Rate", 0.02f, 0.3f, [this]() {
+        return ImGui::GetIO().KeyRepeatRate;
+    }, [this](float Value) {
+        ImGui::GetIO().KeyRepeatRate = Value;
+    }, "%.2f s");
+    AddSlider("Horizontal Split", 0.1f, 0.9f, [this]() {
+        return mViewportLayout.GetHorizontalRatio();
+    }, [this](float Value) {
+        mViewportLayout.SetSplitRatios(Value, mViewportLayout.GetVerticalRatio());
+    }, "%.2f");
+    AddSlider("Vertical Split", 0.1f, 0.9f, [this]() {
+        return mViewportLayout.GetVerticalRatio();
+    }, [this](float Value) {
+        mViewportLayout.SetSplitRatios(mViewportLayout.GetHorizontalRatio(), Value);
+    }, "%.2f");
+    AddSlider("Movement Speed", 0.1f, 128.0f, [this]() {
+        return GetSettingsClient().GetCameraSpeed();
+    }, [this](float Value) {
+        GetSettingsClient().SetCameraSpeed(Value);
+    }, "%.2f", 0.01f);
+    AddSlider("Mouse Sensitivity", 0.01f, 2.0f, [this]() {
+        return GetSettingsClient().GetCameraSensitivity();
+    }, [this](float Value) {
+        GetSettingsClient().SetCameraSensitivity(Value);
+    }, "%.3f", 0.001f);
+    AddSlider("Orthographic Width", 0.01f, 100000.0f, [this]() {
+        return GetSettingsClient().GetOrthographicWidth();
+    }, [this](float Value) {
+        GetSettingsClient().SetOrthographicWidth(Value);
+    }, "%.2f", 0.001f);
+    AddSlider("Grid Spacing", 0.01f, 1000.0f, [this]() {
+        return GetSettingsClient().GetGridSpacing();
+    }, [this](float Value) {
+        GetSettingsClient().SetGridSpacing(Value);
+    }, "%.2f", 0.001f);
+    AddSlider("Line Thickness", 0.5f, 10.0f, [this]() {
+        return GetSettingsClient().GetLineThickness();
+    }, [this](float Value) {
+        GetSettingsClient().SetLineThickness(Value);
+    }, "%.1f px", 0.05f);
+    AddSlider("Field of View", 1.0f, 179.0f, [this]() {
+        return GetSettingsClient().GetPerspectiveCamera().GetFieldOfView();
+    }, [this](float Value) {
+        Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
+        if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Value, Camera.GetNearClip(), Camera.GetFarClip())) {
+            GetSettingsClient().SetPerspectiveCamera(Camera);
+        }
+    }, "%.1f degrees");
+    AddSlider("Near Clip", 0.001f, 999999.0f, [this]() {
+        return GetSettingsClient().GetPerspectiveCamera().GetNearClip();
+    }, [this](float Value) {
+        Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
+        if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Camera.GetFieldOfView(), std::min(Value, Camera.GetFarClip() - 0.001f), Camera.GetFarClip())) {
+            GetSettingsClient().SetPerspectiveCamera(Camera);
+        }
+    }, "%.3f", 0.01f);
+    AddSlider("Far Clip", 0.002f, 1000000.0f, [this]() {
+        return GetSettingsClient().GetPerspectiveCamera().GetFarClip();
+    }, [this](float Value) {
+        Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
+        if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Camera.GetFieldOfView(), Camera.GetNearClip(), std::max(Value, Camera.GetNearClip() + 0.001f))) {
+            GetSettingsClient().SetPerspectiveCamera(Camera);
+        }
+    }, "%.1f", 10.0f);
+    AddSlider("Translation Step", 0.001f, 10000.0f, [this]() {
+        return GetSettingsClient().GetGizmoSettings()->mTranslationStep;
+    }, [this](float Value) {
+        GetSettingsClient().SetGizmoSetting(EGizmoSetting::TranslationStep, Value);
+    }, "%.3f", 0.01f);
+    AddSlider("Rotation Step", 0.001f, 360.0f, [this]() {
+        return GetSettingsClient().GetGizmoSettings()->mRotationStep;
+    }, [this](float Value) {
+        GetSettingsClient().SetGizmoSetting(EGizmoSetting::RotationStep, Value);
+    }, "%.3f degrees", 0.1f);
+    AddSlider("Scale Step", 0.001f, 100.0f, [this]() {
+        return GetSettingsClient().GetGizmoSettings()->mScaleStep;
+    }, [this](float Value) {
+        GetSettingsClient().SetGizmoSetting(EGizmoSetting::ScaleStep, Value);
+    }, "%.3f", 0.01f);
+    AddSlider("Gizmo Size", 0.5f, 2.0f, [this]() {
+        return GetSettingsClient().GetGizmoSettings()->mSize;
+    }, [this](float Value) {
+        GetSettingsClient().SetGizmoSetting(EGizmoSetting::Size, Value);
+    }, "%.2fx");
+    AddCheckBox("VSync", [this]() {
+        return !mContext->GetRenderer()->IsTearingAllowed();
+    }, [this](bool Value) {
+        mContext->GetRenderer()->SetAllowTearing(!Value);
+    });
+    AddCheckBox("Statistics Window", [this]() {
+        return mShowStatistics;
+    }, [this](bool Value) {
+        mShowStatistics = Value;
+    });
+
+    for (const auto& [Name, Member] : ShowOptions) {
+        AddCheckBox(Name, [this, Member]() {
+            return GetSettingsClient().GetShowFlags().*Member;
+        }, [this, Member](bool Value) {
+            Engine::FEngineShowFlags Flags{GetSettingsClient().GetShowFlags()};
+            Flags.*Member = Value;
+            GetSettingsClient().SetShowFlags(Flags);
+        });
+    }
+
+    for (const auto& [Label, Command] : {std::pair{"Translation Snap", EViewportCommand::ToggleTranslationSnap}, std::pair{"Rotation Snap", EViewportCommand::ToggleRotationSnap}, std::pair{"Scale Snap", EViewportCommand::ToggleScaleSnap}}) {
+        AddCheckBox(Label, [this, Command]() {
+            return GetSettingsClient().IsCommandChecked(Command);
+        }, [this, Command](bool Value) {
+            if (GetSettingsClient().IsCommandChecked(Command) != Value) {
+                GetSettingsClient().ExecuteCommand(Command);
+            }
+        });
+    }
+
+    for (const char* Id : {"PlaceActors", "Outliner", "Details"}) {
+        const Core::FString TabId{Id};
+        mWidgets.emplace(TabId, std::make_unique<FEditorCheckBoxWidget>(TabId, mTabs.FindTab(TabId)->GetName(), [this, TabId]() {
+            return mTabs.IsVisible(TabId);
+        }, [this, TabId](bool Value) {
+            mTabs.SetVisible(TabId, Value);
+            MarkDirty();
+        }));
+    }
+}
+
+void FEditorSettings::DrawWidget(const char* Id) {
+    mWidgets.at(Id)->Draw(ImGui::GetIO().DeltaTime);
+}
+
+FEditorViewportClient& FEditorSettings::GetSettingsClient() const {
+    return *mViewportLayout.GetViewport(mSettingsViewport)->GetClient();
+}
+
+
+void FEditorSettings::MarkDirty() {
+    mSettingsDirty = true;
+}
+
+bool& FEditorSettings::GetStatisticsVisibility() {
+    return mShowStatistics;
+}
+
+void FEditorSettings::ApplyAppearance() {
+    if (mAppearanceDirty) {
+        mUIScale.SetBaseStyle(mThemes.GetStyle(mThemeIndex), mFontSize);
+        mAppearanceDirty = false;
+    }
+
+    mUIScale.Update(*mPlatform);
+}
+
+void FEditorSettings::Tick(float DeltaTime) {
+    if (mSettingsDirty) {
+        mSettingsSaveDelay += DeltaTime;
+        if (mSettingsSaveDelay >= 2.0f) {
+            SaveSettings();
+            mSettingsSaveDelay = 0.0f;
+        }
+    }
+}
+
+void FEditorSettings::InitializeSettings() {
+    mThemes = Editor::FImGuiThemeCatalog{};
+    mThemeIndex = 0;
+    mFontSize = 16.0f;
+    mTabs.SetVisible("Content", false);
+    mTabs.SetVisible("Console", false);
+    mWorkspace.SetLayoutVersion(0);
+    mUIScale.SetUserScale(0.0f);
+    mSettingsPath = mContext->GetProject()->GetRootPath() / "Saved/EditorSettings.json";
+    mSettingsStatus.clear();
+    mSettingsDirty = false;
+    mSettingsSaveDelay = 0.0f;
+    mSettingsViewport = 0;
+    mPlaySession->SetOptions({});
+    mThemeFilter.fill('\0');
+    strncpy_s(mStartupScene.data(), mStartupScene.size(), mContext->GetProject()->GetStartupScene().c_str(), _TRUNCATE);
+
+    std::array<wchar_t, 32768> Executable{};
+    const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
+    std::filesystem::path Bundled{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Editor/ImThemes/themes.toml" : std::filesystem::path{}};
+    std::error_code Code{};
+
+    if (!std::filesystem::is_regular_file(Bundled, Code)) {
+        Bundled = "Templates/Project/Editor/ImThemes/themes.toml";
+    }
+
+    Core::FString Error{};
+
+    if (!mThemes.Load(Bundled, Error)) {
+        mContext->AddLog(Error);
+        mSettingsStatus = Error;
+    }
+
+    const std::filesystem::path Imported{mSettingsPath.parent_path() / "Themes"};
+    Core::TArray<std::filesystem::path> Files{};
+
+    if (std::filesystem::is_directory(Imported, Code)) {
+        for (std::filesystem::directory_iterator Iterator{Imported, Code}; !Code && Iterator != std::filesystem::directory_iterator{}; Iterator.increment(Code)) {
+            if (Iterator->path().extension() == ".toml") {
+                Files.push_back(Iterator->path());
+            }
+        }
+    }
+
+    std::sort(Files.begin(), Files.end());
+
+    for (const auto& File : Files) {
+        if (!mThemes.Load(File, Error)) {
+            mContext->AddLog(Error);
+            mSettingsStatus = Error;
+        }
+    }
+
+    LoadSettings();
+
+    mAppearanceDirty = true;
+}
+
+void FEditorSettings::LoadSettings() {
+    std::error_code Code{};
+
+    if (!std::filesystem::is_regular_file(mSettingsPath, Code)) {
+        return;
+    }
+
+    Serialization::FJsonArchive Archive{Core::EArchiveMode::Loading};
+
+    if (!Archive.Load(mSettingsPath)) {
+        mSettingsStatus = Archive.GetError();
+        mContext->AddLog(mSettingsStatus);
+
+        return;
+    }
+
+    Uint32 Version{};
+
+    Archive.Serialize("Version", Version);
+
+    if (Version != 1 || Archive.HasError()) {
+        mSettingsStatus = "Cannot load unsupported editor settings";
+        mContext->AddLog(mSettingsStatus);
+
+        return;
+    }
+
+    SerializeSettings(Archive);
+
+    if (Archive.HasError()) {
+        mSettingsStatus = Archive.GetError();
+        mContext->AddLog(mSettingsStatus);
+    }
+}
+
+bool FEditorSettings::SaveSettings() {
+    if (mSettingsPath.empty()) {
+        return false;
+    }
+
+    Serialization::FJsonArchive Archive{Core::EArchiveMode::Saving};
+    Uint32 Version{1};
+
+    Archive.Serialize("Version", Version);
+    SerializeSettings(Archive);
+
+    std::error_code Code{};
+
+    std::filesystem::create_directories(mSettingsPath.parent_path(), Code);
+
+    std::filesystem::path Temporary{mSettingsPath};
+
+    Temporary += ".tmp";
+
+    if (Code || !Archive.Save(Temporary) || !MoveFileExW(Temporary.c_str(), mSettingsPath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        mSettingsStatus = "Cannot save editor settings: " + (Code ? Code.message() : Archive.HasError() ? Archive.GetError() : std::system_category().message(static_cast<int>(GetLastError())));
+        mContext->AddLog(mSettingsStatus);
+
+        return false;
+    }
+
+    ImGui::SaveIniSettingsToDisk(mIniPath.c_str());
+
+    mSettingsDirty = false;
+    mSettingsSaveDelay = 0.0f;
+    mSettingsStatus = "Settings saved";
+
+    return true;
+}
+
+void FEditorSettings::SerializeSettings(Serialization::FJsonArchive& Archive) {
+    Core::FString Theme{mThemes.GetName(mThemeIndex)};
+    float FontSize{mFontSize};
+    float Scale{mUIScale.GetUserScale()};
+    bool Tearing{mContext->GetRenderer()->IsTearingAllowed()};
+    bool PlaceActors{mTabs.IsVisible("PlaceActors")};
+    bool Outliner{mTabs.IsVisible("Outliner")};
+    bool Details{mTabs.IsVisible("Details")};
+    bool Statistics{mShowStatistics};
+    ImGuiIO& Input{ImGui::GetIO()};
+    bool KeyboardNavigation{(Input.ConfigFlags & ImGuiConfigFlags_NavEnableKeyboard) != 0};
+    bool TitleBarOnly{Input.ConfigWindowsMoveFromTitleBarOnly};
+    float DoubleClickTime{Input.MouseDoubleClickTime};
+    float DragThreshold{Input.MouseDragThreshold};
+    float RepeatDelay{Input.KeyRepeatDelay};
+    float RepeatRate{Input.KeyRepeatRate};
+
+    Archive.Serialize("Theme", Theme);
+    Archive.Serialize("FontSize", FontSize);
+    Archive.Serialize("UIScale", Scale);
+    Archive.Serialize("AllowTearing", Tearing);
+    Archive.Serialize("PlaceActors", PlaceActors);
+    Archive.Serialize("Outliner", Outliner);
+    Archive.Serialize("Details", Details);
+    Archive.Serialize("Statistics", Statistics);
+
+    Uint32 LayoutVersion{mWorkspace.GetLayoutVersion()};
+
+    if (!Archive.IsLoading() || Archive.HasField("LayoutVersion")) {
+        Archive.Serialize("LayoutVersion", LayoutVersion);
+    }
+
+    Archive.Serialize("KeyboardNavigation", KeyboardNavigation);
+    Archive.Serialize("TitleBarOnly", TitleBarOnly);
+    Archive.Serialize("DoubleClickTime", DoubleClickTime);
+    Archive.Serialize("DragThreshold", DragThreshold);
+    Archive.Serialize("KeyRepeatDelay", RepeatDelay);
+    Archive.Serialize("KeyRepeatRate", RepeatRate);
+
+    if ((!Archive.IsLoading() || Archive.HasField("PlayInEditor")) && Archive.BeginObject("PlayInEditor")) {
+        FPlayInEditorSession::FOptions Options{mPlaySession->GetOptions()};
+
+        Archive.Serialize("NewWindow", Options.mNewWindow);
+        Archive.Serialize("StartAtEditorCamera", Options.mStartAtEditorCamera);
+        Archive.Serialize("WindowWidth", Options.mWindowWidth);
+        Archive.Serialize("WindowHeight", Options.mWindowHeight);
+        Archive.Serialize("CaptureInput", Options.mCaptureInput);
+        Archive.Serialize("StartPaused", Options.mStartPaused);
+        Archive.EndObject();
+
+        if (Archive.IsLoading() && !Archive.HasError()) {
+            mPlaySession->SetOptions(Options);
+        }
+    }
+
+    if (Archive.IsLoading() && !Archive.HasError()) {
+        mThemeIndex = mThemes.Find(Theme);
+        mFontSize = std::isfinite(FontSize) && FontSize >= 10.0f && FontSize <= 32.0f ? FontSize : 16.0f;
+        mUIScale.SetUserScale(Scale);
+        mAppearanceDirty = true;
+        mContext->GetRenderer()->SetAllowTearing(Tearing);
+        mTabs.SetVisible("PlaceActors", PlaceActors);
+        mTabs.SetVisible("Outliner", Outliner);
+        mTabs.SetVisible("Details", Details);
+        mShowStatistics = Statistics;
+        mWorkspace.SetLayoutVersion(LayoutVersion);
+        Input.ConfigFlags = KeyboardNavigation ? Input.ConfigFlags | ImGuiConfigFlags_NavEnableKeyboard : Input.ConfigFlags & ~ImGuiConfigFlags_NavEnableKeyboard;
+        Input.ConfigWindowsMoveFromTitleBarOnly = TitleBarOnly;
+        Input.MouseDoubleClickTime = std::isfinite(DoubleClickTime) ? std::clamp(DoubleClickTime, 0.1f, 1.0f) : 0.3f;
+        Input.MouseDragThreshold = std::isfinite(DragThreshold) ? std::clamp(DragThreshold, 1.0f, 20.0f) : 6.0f;
+        Input.KeyRepeatDelay = std::isfinite(RepeatDelay) ? std::clamp(RepeatDelay, 0.1f, 1.0f) : 0.275f;
+        Input.KeyRepeatRate = std::isfinite(RepeatRate) ? std::clamp(RepeatRate, 0.02f, 0.3f) : 0.05f;
+    }
+
+    mDrawers.SerializeSettings(Archive);
+
+    for (Index_t Index{}; Index < 4; ++Index) {
+        Editor::FEditorViewport* Viewport{mViewportLayout.GetViewport(Index)};
+
+        if (Viewport != nullptr && Archive.BeginObject("Viewport" + std::to_string(Index))) {
+            SerializeViewport(Archive, *Viewport->GetClient(), *Viewport->GetStatistics());
+            Archive.EndObject();
+        }
+    }
+}
+
+void FEditorSettings::DrawSettingsMenu() {
+    if (ImGui::MenuItem("Editor Preferences...", "Ctrl+,")) {
+        OpenSettings(0);
+    }
+
+    if (ImGui::MenuItem("Project Settings...")) {
+        OpenSettings(5);
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::BeginMenu("Theme")) {
+        for (Index_t Index{}; Index < mThemes.GetCount(); ++Index) {
+            ImGui::PushID(static_cast<int>(Index));
+
+            if (ImGui::MenuItem(mThemes.GetName(Index).c_str(), nullptr, mThemeIndex == Index)) {
+                mThemeIndex = Index;
+                mAppearanceDirty = true;
+                mSettingsDirty = true;
+            }
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndMenu();
+    }
+
+    mSettingsDirty |= mUIScale.DrawMenu();
+
+    ImGui::BeginDisabled(!mContext->GetRenderer()->IsTearingSupported());
+
+    bool VSync{!mContext->GetRenderer()->IsTearingAllowed()};
+
+    if (ImGui::MenuItem("VSync", nullptr, &VSync)) {
+        mSettingsDirty |= mContext->GetRenderer()->SetAllowTearing(!VSync);
+    }
+
+    ImGui::EndDisabled();
+}
+
+void FEditorSettings::DrawSettings() {
+    if (!mSettingsOpen) {
+        return;
+    }
+
+    const float Scale{mUIScale.GetScale()};
+    const ImGuiViewport* Viewport{ImGui::GetMainViewport()};
+
+    ImGui::SetNextWindowSize({std::min(820.0f * Scale, Viewport->WorkSize.x * 0.9f), std::min(680.0f * Scale, Viewport->WorkSize.y * 0.9f)}, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints({std::min(480.0f * Scale, Viewport->WorkSize.x), std::min(340.0f * Scale, Viewport->WorkSize.y)}, {FLT_MAX, FLT_MAX});
+    ImGui::SetNextWindowPos(Viewport->GetWorkCenter(), ImGuiCond_Appearing, {0.5f, 0.5f});
+
+    if (mFocusSettings) {
+        ImGui::SetNextWindowFocus();
+
+        mFocusSettings = false;
+    }
+
+    if (ImGui::Begin("Settings", &mSettingsOpen, ImGuiWindowFlags_NoDocking)) {
+        const char* Sections[]{"Interface", "Viewport & Camera", "Gizmo & Snapping", "Rendering", "Panels & Statistics", "Project"};
+        const float FooterHeight{ImGui::GetFrameHeightWithSpacing() * 2.0f};
+
+        if (ImGui::BeginChild("SettingsNavigation", {170.0f * Scale, -FooterHeight}, ImGuiChildFlags_Borders)) {
+            for (Index_t Index{}; Index < static_cast<int>(std::size(Sections)); ++Index) {
+                if (ImGui::Selectable(Sections[Index], mSettingsSection == Index)) {
+                    mSettingsSection = Index;
+                }
+            }
+        }
+
+        ImGui::EndChild();
+        ImGui::SameLine();
+
+        if (ImGui::BeginChild("SettingsValues", {0.0f, -FooterHeight}, ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar)) {
+            ImGui::SeparatorText(Sections[mSettingsSection]);
+            ImGui::PushItemWidth(std::max(140.0f * Scale, ImGui::GetContentRegionAvail().x * 0.55f));
+
+            if (mSettingsSection == 0) {
+                DrawInterfaceSettings();
+            } else if (mSettingsSection == 1 || mSettingsSection == 2 || mSettingsSection == 4) {
+                const std::array<const char*, 4> Names{"Viewport 1", "Viewport 2", "Viewport 3", "Viewport 4"};
+                Int32 Selected{static_cast<Int32>(mSettingsViewport)};
+
+                if (ImGui::Combo("Viewport", &Selected, Names.data(), static_cast<int>(Names.size()))) {
+                    mSettingsViewport = static_cast<Index_t>(Selected);
+                }
+
+                ImGui::TextDisabled("%s", mViewportLayout.GetViewport(mSettingsViewport)->GetClient()->GetViewTypeName());
+                ImGui::Spacing();
+
+                if (mSettingsSection == 1) {
+                    DrawViewportSettings();
+                } else if (mSettingsSection == 2) {
+                    DrawGizmoSettings();
+                } else {
+                    DrawPanelSettings();
+                }
+            } else if (mSettingsSection == 3) {
+                DrawRenderingSettings();
+            } else {
+                DrawProjectSettings();
+            }
+
+            ImGui::PopItemWidth();
+        }
+
+        ImGui::EndChild();
+        ImGui::Separator();
+
+        DrawWidget("Save Settings");
+
+        ImGui::SameLine();
+
+        DrawWidget("Reset to Defaults");
+
+        ImGui::SameLine();
+
+        DrawWidget("Close");
+
+        if (ImGui::BeginPopupModal("Reset Settings?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextUnformatted("Reset editor preferences for this project?");
+            ImGui::BeginDisabled(!mViewportLayout.CanChangeLayout());
+
+            DrawWidget("Reset");
+
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+
+            DrawWidget("Cancel");
+
+            ImGui::EndPopup();
+        }
+
+        ImGui::TextDisabled("%s", !mSettingsStatus.empty() ? mSettingsStatus.c_str() : mSettingsDirty ? "Changes apply immediately and save automatically." : "Preferences are saved per project.");
+    }
+
+    ImGui::End();
+
+    if (!mSettingsOpen && mSettingsDirty) {
+        SaveSettings();
+    }
+}
+
+void FEditorSettings::DrawInterfaceSettings() {
+    ImGui::TextDisabled("ImThemes: %u themes", mThemes.GetCount() - 1);
+    DrawWidget("Search");
+
+    if (ImGui::BeginCombo("Theme", mThemes.GetName(mThemeIndex).c_str())) {
+        ImGuiTextFilter Filter{mThemeFilter.data()};
+
+        for (Index_t Index{}; Index < mThemes.GetCount(); ++Index) {
+            if (!Filter.PassFilter(mThemes.GetName(Index).c_str()) && !Filter.PassFilter(mThemes.GetAuthor(Index).c_str())) {
+                continue;
+            }
+
+            ImGui::PushID(static_cast<int>(Index));
+
+            if (ImGui::Selectable(mThemes.GetName(Index).c_str(), mThemeIndex == Index)) {
+                mThemeIndex = Index;
+                mAppearanceDirty = true;
+                MarkDirty();
+            }
+
+            if (mThemeIndex == Index) {
+                ImGui::SetItemDefaultFocus();
+            }
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndCombo();
+    }
+
+    ImGui::TextWrapped("%s", mThemes.GetDescription(mThemeIndex).c_str());
+    ImGui::TextDisabled("By %s", mThemes.GetAuthor(mThemeIndex).c_str());
+    DrawWidget("Import ImThemes TOML...");
+    ImGui::SeparatorText("Size");
+    DrawWidget("Automatic UI Scale");
+    DrawWidget("UI Scale");
+    ImGui::TextDisabled("Effective scale: %.2fx (includes display DPI)", mUIScale.GetScale());
+    DrawWidget("Font Size");
+    ImGui::SeparatorText("Input & Windows");
+    DrawWidget("Keyboard Navigation");
+    DrawWidget("Move Windows from Title Bar Only");
+    DrawWidget("Double Click Time");
+    DrawWidget("Mouse Drag Threshold");
+    DrawWidget("Key Repeat Delay");
+    DrawWidget("Key Repeat Rate");
+}
+
+void FEditorSettings::DrawViewportSettings() {
+    FEditorViewportClient& Client{GetSettingsClient()};
+    ImGui::BeginDisabled(!mViewportLayout.CanChangeLayout());
+
+    if (ImGui::BeginCombo("Viewport Layout", FEditorViewportLayout::GetPresetName(mViewportLayout.GetPreset()))) {
+        for (Index_t Index{}; Index < static_cast<Index_t>(EEditorViewportLayoutPreset::Count); ++Index) {
+            const auto Preset{static_cast<EEditorViewportLayoutPreset>(Index)};
+
+            if (ImGui::Selectable(FEditorViewportLayout::GetPresetName(Preset), mViewportLayout.GetPreset() == Preset)) {
+                mViewportLayout.SetPreset(Preset);
+                MarkDirty();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    DrawWidget("Horizontal Split");
+    DrawWidget("Vertical Split");
+    ImGui::SeparatorText("Camera");
+    DrawWidget("Movement Speed");
+    DrawWidget("Mouse Sensitivity");
+    DrawWidget("Orthographic Width");
+    DrawWidget("Field of View");
+    DrawWidget("Near Clip");
+    DrawWidget("Far Clip");
+    ImGui::TextWrapped("Camera projection is stored with the scene when you save it.");
+    ImGui::SeparatorText("Display");
+
+    const auto Current{std::find(ViewModes.begin(), ViewModes.end(), Client.GetColorViewMode())};
+    int Mode{Current == ViewModes.end() ? 2 : static_cast<int>(Current - ViewModes.begin())};
+
+    if (ImGui::Combo("View Mode", &Mode, ViewModeNames.data(), static_cast<int>(ViewModeNames.size()))) {
+        Client.SetViewMode(ViewModes[Mode]);
+        MarkDirty();
+    }
+
+    const auto& BufferNames{Editor::BufferVisualization::Names};
+    const auto& BufferModes{Editor::BufferVisualization::Modes};
+    const auto SelectedBuffer{std::find(BufferModes.begin(), BufferModes.end(), Client.GetViewMode())};
+    int Buffer{SelectedBuffer == BufferModes.end() ? 0 : static_cast<int>(SelectedBuffer - BufferModes.begin())};
+
+    if (ImGui::Combo("Buffer Visualization", &Buffer, BufferNames.data(), static_cast<int>(BufferNames.size()))) {
+        Client.SetViewMode(Buffer == 0 ? Client.GetColorViewMode() : BufferModes[Buffer]);
+        MarkDirty();
+    }
+
+    DrawWidget("Grid Spacing");
+    DrawWidget("Line Thickness");
+
+    for (const auto& [Name, Member] : ShowOptions) {
+        DrawWidget(Name);
+    }
+
+    ImGui::EndDisabled();
+}
+
+void FEditorSettings::DrawGizmoSettings() {
+    FEditorViewportClient& Client{GetSettingsClient()};
+    ImGui::BeginDisabled(!Client.CanEditGizmoSettings());
+    const char* Modes[]{"Select", "Translate", "Rotate", "Scale"};
+    const EViewportCommand Commands[]{EViewportCommand::Select, EViewportCommand::Translate, EViewportCommand::Rotate, EViewportCommand::Scale};
+    int Mode{Client.GetGizmoMode() == EGizmoMode::None ? 0 : static_cast<int>(Client.GetGizmoMode()) + 1};
+
+    if (ImGui::Combo("Transform Mode", &Mode, Modes, static_cast<int>(std::size(Modes)))) {
+        mSettingsDirty |= Client.ExecuteCommand(Commands[Mode]);
+    }
+
+    ImGui::BeginDisabled(!Client.CanExecuteCommand(EViewportCommand::WorldSpace));
+    const char* Spaces[]{"World", "Local"};
+    int Space{Client.GetGizmoSpace() == EGizmoSpace::World ? 0 : 1};
+
+    if (ImGui::Combo("Coordinate System", &Space, Spaces, static_cast<int>(std::size(Spaces)))) {
+        mSettingsDirty |= Client.ExecuteCommand(Space == 0 ? EViewportCommand::WorldSpace : EViewportCommand::LocalSpace);
+    }
+
+    ImGui::EndDisabled();
+    ImGui::SeparatorText("Snapping");
+    DrawWidget("Translation Snap");
+    DrawWidget("Rotation Snap");
+    DrawWidget("Scale Snap");
+    DrawWidget("Translation Step");
+    DrawWidget("Rotation Step");
+    DrawWidget("Scale Step");
+    DrawWidget("Gizmo Size");
+    ImGui::EndDisabled();
+}
+
+void FEditorSettings::DrawRenderingSettings() {
+    RenderCore::IRendererModule& Renderer{*mContext->GetRenderer()};
+    ImGui::BeginDisabled(!Renderer.IsTearingSupported());
+    DrawWidget("VSync");
+    ImGui::EndDisabled();
+    ImGui::TextWrapped("%s", Renderer.IsTearingSupported() ? "Disabling VSync allows tearing in windowed mode." : "Tearing is unavailable on this device. VSync is enabled.");
+    DrawWidget("Reload Changed Shaders");
+    DrawWidget("Open Shadow Atlas");
+    ImGui::TextWrapped("View mode, shadows and visibility filters are available under Viewport & Camera for each viewport.");
+}
+
+void FEditorSettings::DrawPanelSettings() {
+    for (const char* Id : {"PlaceActors", "Outliner", "Details"}) {
+        DrawWidget(Id);
+    }
+
+    DrawWidget("Statistics Window");
+    ImGui::SeparatorText("Viewport Statistics Overlay");
+
+    for (const Core::FString& Group : Core::FStats::Get().GetGroups()) {
+        const Core::FString Id{"Stat:" + Group};
+
+        if (!mWidgets.contains(Id)) {
+            mWidgets.emplace(Id, std::make_unique<FEditorCheckBoxWidget>(Id, Group, [this, Group]() {
+                return mViewportLayout.GetViewport(mSettingsViewport)->GetStatistics()->IsEnabled(Group);
+            }, [this, Group](bool Value) {
+                Core::FString Output{};
+                mSettingsDirty |= mViewportLayout.GetViewport(mSettingsViewport)->GetStatistics()->ExecuteCommand("stat " + Group + (Value ? " on" : " off"), Output);
+            }));
+        }
+
+        DrawWidget(Id.c_str());
+    }
+}
+
+void FEditorSettings::DrawProjectSettings() {
+    Engine::FProject& Project{*mContext->GetProject()};
+    ImGui::TextWrapped("Project: %s", Project.GetName().c_str());
+    ImGui::TextWrapped("Location: %s", Core::FilePath::ToUtf8(Project.GetFilePath()).c_str());
+    ImGui::SeparatorText("Startup Scene");
+    ImGui::BeginDisabled(!mContext->CanEditWorld());
+    DrawWidget("Content Path");
+    DrawWidget("Save Startup Scene");
+    ImGui::EndDisabled();
+    ImGui::SeparatorText("Preferences");
+    ImGui::TextWrapped("Settings: %s", Core::FilePath::ToUtf8(mSettingsPath).c_str());
+    ImGui::TextWrapped("Custom themes: %s", Core::FilePath::ToUtf8(mSettingsPath.parent_path() / "Themes").c_str());
+}
+
+void FEditorSettings::ImportTheme() {
+    std::array<wchar_t, 32768> Filename{};
+    OPENFILENAMEW Dialog{};
+    Dialog.lStructSize = sizeof(Dialog);
+    Dialog.hwndOwner = mPlatform->GetWindowHandle();
+    Dialog.lpstrFilter = L"ImThemes TOML\0*.toml\0\0";
+    Dialog.lpstrFile = Filename.data();
+    Dialog.nMaxFile = static_cast<DWORD>(Filename.size());
+    Dialog.lpstrTitle = L"Import ImThemes theme";
+    Dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+    if (!GetOpenFileNameW(&Dialog)) {
+        return;
+    }
+
+    const std::filesystem::path Source{Filename.data()};
+    Editor::FImGuiThemeCatalog Candidate{};
+    Core::FString Error{};
+
+    if (!Candidate.Load(Source, Error)) {
+        mSettingsStatus = Error;
+
+        return;
+    }
+
+    const std::filesystem::path Target{mSettingsPath.parent_path() / "Themes" / Source.filename()};
+    std::error_code Code{};
+
+    std::filesystem::create_directories(Target.parent_path(), Code);
+
+    const std::filesystem::path CanonicalSource{Code ? std::filesystem::path{} : std::filesystem::weakly_canonical(Source, Code)};
+    const std::filesystem::path CanonicalTarget{Code ? std::filesystem::path{} : std::filesystem::weakly_canonical(Target, Code)};
+
+    if (!Code && CanonicalSource != CanonicalTarget) {
+        std::filesystem::copy_file(Source, Target, std::filesystem::copy_options::overwrite_existing, Code);
+    }
+
+    if (Code || !mThemes.Load(Target, Error)) {
+        mSettingsStatus = Code ? "Cannot save imported theme: " + Code.message() : Error;
+
+        return;
+    }
+
+    mThemeIndex = mThemes.Find(Candidate.GetName(1));
+    mAppearanceDirty = true;
+    mSettingsDirty = true;
+    mSettingsStatus = "Theme imported";
+}
+
+void FEditorSettings::ResetSettings() {
+    mPlaySession->SetOptions({});
+    mThemeIndex = 0;
+    mFontSize = 16.0f;
+    mUIScale.SetUserScale(0.0f);
+    mAppearanceDirty = true;
+    mContext->GetRenderer()->SetAllowTearing(false);
+    mTabs.SetVisible("PlaceActors", true);
+    mTabs.SetVisible("Outliner", true);
+    mTabs.SetVisible("Details", true);
+    mTabs.SetVisible("Content", false);
+    mTabs.SetVisible("Console", false);
+    mShowStatistics = false;
+
+    ImGuiIO& Input{ImGui::GetIO()};
+    Input.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    Input.ConfigWindowsMoveFromTitleBarOnly = false;
+    Input.MouseDoubleClickTime = 0.3f;
+    Input.MouseDragThreshold = 6.0f;
+    Input.KeyRepeatDelay = 0.275f;
+    Input.KeyRepeatRate = 0.05f;
+
+    mViewportLayout.SetPreset(EEditorViewportLayoutPreset::Single);
+    mViewportLayout.SetSplitRatios(0.5f, 0.5f);
+
+    for (Index_t Index{}; Index < 4; ++Index) {
+        Editor::FEditorViewport* Viewport{mViewportLayout.GetViewport(Index)};
+        Editor::FEditorViewportClient& Client{*Viewport->GetClient()};
+        Client.SetCameraSpeed(4.0f);
+        Client.SetCameraSensitivity(0.2f);
+        Client.SetGridSpacing(1.0f);
+        Client.SetLineThickness(1.5f);
+        Client.SetOrthographicWidth(20.0f);
+        Client.SetViewMode(Engine::EViewMode::Lit_Phong);
+        Client.SetShowFlags(Engine::FEngineShowFlags{});
+        Client.SetGizmoSetting(Editor::EGizmoSetting::TranslationStep, 1.0f);
+        Client.SetGizmoSetting(Editor::EGizmoSetting::RotationStep, 15.0f);
+        Client.SetGizmoSetting(Editor::EGizmoSetting::ScaleStep, 0.1f);
+        Client.SetGizmoSetting(Editor::EGizmoSetting::Size, 1.0f);
+
+        for (Editor::EViewportCommand Command : {Editor::EViewportCommand::ToggleTranslationSnap, Editor::EViewportCommand::ToggleRotationSnap, Editor::EViewportCommand::ToggleScaleSnap}) {
+            if (Client.IsCommandChecked(Command)) {
+                Client.ExecuteCommand(Command);
+            }
+        }
+
+        Client.ExecuteCommand(Editor::EViewportCommand::Translate);
+        Client.ExecuteCommand(Editor::EViewportCommand::WorldSpace);
+
+        Core::FString Output{};
+
+        Viewport->GetStatistics()->ExecuteCommand("stat none", Output);
+    }
+
+    mSettingsDirty = true;
+}
+
+void FEditorSettings::OpenSettings(Index_t Section) {
+    mSettingsSection = Section;
+    mSettingsOpen = true;
+    mFocusSettings = true;
+}

@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "FBlendSpaceEditor.h"
+#include "Editor/FEditorToolkitHost.h"
 #include "Asset/FAssetManager.h"
 #include "Asset/Animation/UAnimSequence.h"
 #include "Asset/Animation/UBlendSpace1D.h"
@@ -119,8 +120,8 @@ namespace Editor {
         mDirty = false;
         mOpen = true;
         mError.clear();
-        mSelectedSample = Core::InvalidIndex;
-        mDraggingSample = Core::InvalidIndex;
+        mSelectedSample = InvalidIndex;
+        mDraggingSample = InvalidIndex;
         mDraggingPreview = false;
         mRevealSample = false;
 
@@ -145,6 +146,10 @@ namespace Editor {
     }
 
     bool FBlendSpaceEditor::IsFocused() const {
+        if (mHostTab != nullptr) {
+            return mHostTab->IsFocused();
+        }
+
         ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(mWindowId.c_str()) : nullptr};
         ImGuiWindow* Focused{ImGui::GetCurrentContext()->NavWindow};
 
@@ -201,9 +206,9 @@ namespace Editor {
     void FBlendSpaceEditor::AddSampleAt(const Core::FString& AnimationPath, float Value) {
         Core::FString Error{};
         const Asset::UAnimSequence* Animation{AnimationPath.empty() || mAssets == nullptr ? nullptr : mAssets->LoadAnimSequence(Core::FilePath::FromUtf8(AnimationPath), Error)};
-        const Core::Index_t Index{mEditing->AddSample(Animation, {Value, 0.0f, 0.0f})};
+        const Index_t Index{mEditing->AddSample(Animation, {Value, 0.0f, 0.0f})};
 
-        if (Index == Core::InvalidIndex) {
+        if (Index == InvalidIndex) {
             mError = "샘플 수가 한도에 도달했습니다.";
 
             return;
@@ -215,71 +220,44 @@ namespace Editor {
         mError = Error;
     }
 
-    void FBlendSpaceEditor::Draw() {
-        if (!mOpen || mEditing == nullptr) {
-            return;
-        }
-
-        const Core::FString Title{std::format("{}{}{}{}", Editor::EditorStyle::TabIconPadding, mEditing->GetName(), mDirty ? "*" : "", mWindowId.c_str())};
-        bool Visible{true};
-
-        ImGui::SetNextWindowSize({960.0f, 640.0f}, ImGuiCond_FirstUseEver);
-
-        const bool Expanded{ImGui::Begin(Title.c_str(), &Visible)};
-
-        Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Grid, IM_COL32(255, 168, 111, 255));
-
-        if (!Visible) {
-            ImGui::End();
-            Close();
-
-            return;
-        }
-
-        if (Expanded) {
-            if (Editor::EditorStyle::AssetToolbar(mPath, mDirty)) {
-                Save();
-            }
-
-            ImGui::Checkbox("격자에 맞춤", &mSnapToGrid);
-            ImGui::SameLine();
-            ImGui::Checkbox("샘플 이름", &mShowSampleNames);
-
-            if (!mError.empty()) {
-                ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "%s", mError.c_str());
-            }
-
-            DrawCanvas();
-
-            ImGui::Spacing();
-
-            if (ImGui::BeginTable("BlendSpaceDetails", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV, ImGui::GetContentRegionAvail())) {
-                ImGui::TableSetupColumn("Axis", ImGuiTableColumnFlags_WidthFixed, 240.0f);
-                ImGui::TableSetupColumn("Samples", ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-
-                if (ImGui::BeginChild("BlendAxis")) {
-                    DrawAxis();
+    void FBlendSpaceEditor::InitializeToolkit(FEditorTab& Tab) {
+        mHostTab = &Tab;
+        Tab.SetIcon(EEditorIcon::Grid, IM_COL32(255, 168, 111, 255));
+        FEditorToolkitHost& Host{Tab.GetToolkitHost()};
+        Host.AddWidget("BlendSpace", "Blend Space", [this](float) {
+            if (mEditing != nullptr) {
+                if (!mError.empty()) {
+                    ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "%s", mError.c_str());
                 }
 
-                ImGui::EndChild();
-                ImGui::TableSetColumnIndex(1);
-
-                if (ImGui::BeginChild("BlendSamples")) {
-                    DrawSamples();
-                }
-
-                ImGui::EndChild();
-                ImGui::EndTable();
+                ImGui::Checkbox("격자에 맞춤", &mSnapToGrid);
+                ImGui::SameLine();
+                ImGui::Checkbox("샘플 이름", &mShowSampleNames);
+                DrawCanvas();
             }
-        }
+        });
+        Host.AddWidget("Axis", "Axis", [this](float) {
+            if (mEditing != nullptr) {
+                DrawAxis();
+            }
+        }, EEditorDockRegion::Details);
+        Host.AddWidget("Samples", "Samples", [this](float) {
+            if (mEditing != nullptr) {
+                DrawSamples();
+            }
+        }, EEditorDockRegion::Bottom);
+    }
 
-        if (mDirty && IsFocused() && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S)) {
+    void FBlendSpaceEditor::UpdateToolkit(float, bool) {
+        if (mEditing != nullptr) {
+            mHostTab->SetName(EditorStyle::TabIconPadding + mEditing->GetName() + (mDirty ? "*" : "") + mWindowId);
+        }
+    }
+
+    void FBlendSpaceEditor::HandleCommands(bool CanSave) {
+        if (mEditing != nullptr && CanSave && mDirty && IsFocused() && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup) && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S)) {
             Save();
         }
-
-        ImGui::End();
     }
 
     void FBlendSpaceEditor::DrawAxis() {
@@ -328,7 +306,7 @@ namespace Editor {
         const auto& Samples{mEditing->GetSamples()};
         const std::size_t CommonPrefix{CommonNamePrefix(Samples)};
         const float RowHeight{ImGui::GetFrameHeight() + 2.0f * ImGui::GetStyle().CellPadding.y};
-        Core::Index_t Remove{Core::InvalidIndex};
+        Index_t Remove{InvalidIndex};
 
         if (ImGui::BeginTable("SampleList", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY, ImGui::GetContentRegionAvail())) {
             ImGui::TableSetupColumn("Animation", ImGuiTableColumnFlags_WidthStretch, 3.0f);
@@ -337,7 +315,7 @@ namespace Editor {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableHeadersRow();
 
-            for (Core::Index_t Index{}; Index < Samples.size(); ++Index) {
+            for (Index_t Index{}; Index < Samples.size(); ++Index) {
                 const Asset::FBlendSample& Sample{Samples[Index]};
                 const bool Selected{mSelectedSample == Index};
 
@@ -400,7 +378,7 @@ namespace Editor {
 
         if (Remove < Samples.size()) {
             mEditing->RemoveSample(Remove);
-            mSelectedSample = Core::InvalidIndex;
+            mSelectedSample = InvalidIndex;
             mDirty = true;
         }
     }
@@ -452,11 +430,11 @@ namespace Editor {
         }
 
         // 마우스 아래 샘플을 찾습니다. 축 근처에서 가장 가까운 마름모를 고릅니다.
-        Core::Index_t Hovered{Core::InvalidIndex};
+        Index_t Hovered{InvalidIndex};
         float HoveredDistance{TextHeight * 0.75f};
 
         if (CanvasHovered && std::abs(Mouse.y - AxisY) < TextHeight) {
-            for (Core::Index_t Index{}; Index < Samples.size(); ++Index) {
+            for (Index_t Index{}; Index < Samples.size(); ++Index) {
                 const float Distance{std::abs(Mouse.x - ToScreen(Samples[Index].mSampleValue.x))};
 
                 if (Distance < HoveredDistance || (Distance == HoveredDistance && Index == mSelectedSample)) {
@@ -478,7 +456,7 @@ namespace Editor {
         }
 
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            mDraggingSample = Core::InvalidIndex;
+            mDraggingSample = InvalidIndex;
             mDraggingPreview = false;
         }
 
@@ -491,7 +469,7 @@ namespace Editor {
             }
         }
 
-        if (mDraggingPreview || (CanvasHovered && IO.KeyCtrl && mDraggingSample == Core::InvalidIndex)) {
+        if (mDraggingPreview || (CanvasHovered && IO.KeyCtrl && mDraggingSample == InvalidIndex)) {
             mPreviewInput = ToValue(Mouse.x);
         }
 
@@ -524,12 +502,12 @@ namespace Editor {
         DrawList->AddRectFilled(Origin, End, IM_COL32(19, 25, 34, 255), 6.0f);
         DrawList->AddRect(Origin, End, CanvasHovered ? IM_COL32(95, 113, 139, 255) : GridColor, 6.0f);
 
-        const Core::Int32 Divisions{std::max(Parameter.mGridDivisions, 1)};
+        const Int32 Divisions{std::max(Parameter.mGridDivisions, 1)};
         const float TickGap{TickWidth + TextHeight};
         const float TrackEnd{ToScreen(Parameter.mMax)};
         float LastTickX{ToScreen(Parameter.mMin) - TickGap};
 
-        for (Core::Int32 Line{}; Line <= Divisions; ++Line) {
+        for (Int32 Line{}; Line <= Divisions; ++Line) {
             const float Value{static_cast<float>(Parameter.mMin + Range * Line / Divisions)};
             const float X{ToScreen(Value)};
             const bool Endpoint{Line == 0 || Line == Divisions};
@@ -565,7 +543,7 @@ namespace Editor {
         DrawList->AddText({PreviewLabelX, LabelY}, PreviewColor, PreviewLabel.c_str());
         DrawList->AddText({Origin.x + Margin, End.y - 1.15f * TextHeight}, TextColor, Parameter.mDisplayName.c_str());
 
-        Core::TArray<Core::Index_t> Order{};
+        Core::TArray<Index_t> Order{};
         std::array<float, Asset::UBlendSpace::MaxSamples> SampleWeights{};
 
         Order.resize(Samples.size());
@@ -574,21 +552,21 @@ namespace Editor {
             SampleWeights[Weight.mSampleIndex] = Weight.mWeight;
         }
 
-        for (Core::Index_t Index{}; Index < Samples.size(); ++Index) {
+        for (Index_t Index{}; Index < Samples.size(); ++Index) {
             Order[Index] = Index;
         }
 
-        const auto Priority{[&](Core::Index_t Index) {
+        const auto Priority{[&](Index_t Index) {
             return Index == Hovered || Index == mSelectedSample ? 2 : SampleWeights[Index] > 0.0f ? 1 : 0;
         }};
-        std::stable_sort(Order.begin(), Order.end(), [&Priority](Core::Index_t Left, Core::Index_t Right) {
+        std::stable_sort(Order.begin(), Order.end(), [&Priority](Index_t Left, Index_t Right) {
             return Priority(Left) > Priority(Right);
         });
 
         const std::size_t CommonPrefix{CommonNamePrefix(Samples)};
         std::array<Core::TArray<ImVec2>, 2> LabelBounds{};
 
-        for (const Core::Index_t Index : Order) {
+        for (const Index_t Index : Order) {
             const auto SampleIndex{Index};
             const Asset::FBlendSample& Sample{Samples[SampleIndex]};
             const float X{ToScreen(Sample.mSampleValue.x)};
@@ -609,7 +587,7 @@ namespace Editor {
                 const float Left{std::clamp(X - NameWidth * 0.5f, Origin.x + 6.0f, std::max(Origin.x + 6.0f, End.x - NameWidth - 6.0f))};
                 const ImVec2 Bounds{Left - 5.0f, Left + NameWidth + 5.0f};
 
-                for (Core::Index_t Lane{}; Lane < LabelBounds.size(); ++Lane) {
+                for (Index_t Lane{}; Lane < LabelBounds.size(); ++Lane) {
                     const auto& Placed{LabelBounds[Lane]};
 
                     if (Bounds.y > End.x || std::any_of(Placed.begin(), Placed.end(), [Bounds](const ImVec2& Other) {
@@ -628,7 +606,7 @@ namespace Editor {
                 }
             }
 
-            if (Index == Hovered && mDraggingSample == Core::InvalidIndex) {
+            if (Index == Hovered && mDraggingSample == InvalidIndex) {
                 ImGui::SetTooltip("%s\n%s = %.4g   ·   %.1f%%", SampleName(Sample).c_str(), Parameter.mDisplayName.c_str(), Sample.mSampleValue.x, Weight * 100.0f);
             }
         }
@@ -650,7 +628,7 @@ namespace Editor {
             ImGui::TableSetupColumn("Percent", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("100.0%").x);
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ActiveColor);
 
-            for (Core::Index_t Index{}; Index < 2; ++Index) {
+            for (Index_t Index{}; Index < 2; ++Index) {
                 ImGui::TableNextRow(ImGuiTableRowFlags_None, TextHeight + 2.0f * ImGui::GetStyle().CellPadding.y);
                 ImGui::TableSetColumnIndex(0);
 
@@ -686,7 +664,7 @@ namespace Editor {
 
             if (ImGui::MenuItem("샘플 삭제", nullptr, false, Valid)) {
                 mEditing->RemoveSample(mSelectedSample);
-                mSelectedSample = Core::InvalidIndex;
+                mSelectedSample = InvalidIndex;
                 mDirty = true;
             }
 

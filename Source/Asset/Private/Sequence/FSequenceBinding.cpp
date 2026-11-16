@@ -136,7 +136,7 @@ namespace Asset {
         Archive.Serialize("Id", mId);
         Archive.Serialize("Name", mName);
 
-        Core::Uint32 Count{static_cast<Core::Uint32>(mTracks.size())};
+        Uint32 Count{static_cast<Uint32>(mTracks.size())};
 
         if (Archive.HasError() || !Archive.BeginArray("Tracks", Count)) {
             return;
@@ -146,7 +146,7 @@ namespace Asset {
             mTracks.clear();
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }

@@ -86,7 +86,7 @@ namespace Editor {
         /**
          * @brief 뷰포트 통계의 표시 그룹을 비트 플래그로 구분합니다.
          */
-        enum class EGroup : Core::Uint32 {
+        enum class EGroup : Uint32 {
             /**
              * @brief 프레임 속도와 프레임 시간 통계입니다.
              */

@@ -56,7 +56,7 @@ namespace Renderer {
          * @param[in] PixelCode 하늘 픽셀 셰이더의 컴파일된 바이트 코드입니다.
          * @return 두 셰이더를 생성하면 true이며 실패하면 기존 셰이더를 유지하고 false입니다.
          */
-        bool CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode);
+        bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode);
 
         /**
          * @brief 불투명 패스의 깊이가 비어 있는 픽셀에만 하늘을 그립니다.
@@ -65,7 +65,7 @@ namespace Renderer {
          * @param[in] View 시선 방향을 복원할 카메라 뷰입니다.
          * @return 제출한 드로 수이며 파노라마가 없거나 역행렬을 구하지 못하면 0입니다.
          */
-        Core::Uint32 Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View);
+        Uint32 Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View);
 
     private:
         /**

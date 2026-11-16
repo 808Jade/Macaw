@@ -23,7 +23,7 @@ namespace Core {
 
         Core::ErrorHandler::ReportHRESULT(CoCreateGuid(&Native), "UUID", "UUID creation failed", Core::ErrorHandler::EErrorLevel::Critical);
 
-        mBytes = std::bit_cast<std::array<Core::Uint8, 16>>(Native);
+        mBytes = std::bit_cast<std::array<Uint8, 16>>(Native);
     }
 
     /**
@@ -44,16 +44,16 @@ namespace Core {
             return false;
         }
 
-        std::array<Core::Uint8, 16> Bytes{};
-        Core::Index_t ByteIndex{};
-        Core::Int32 High{-1};
+        std::array<Uint8, 16> Bytes{};
+        Index_t ByteIndex{};
+        Int32 High{-1};
 
         for (char Character : Text) {
             if (Character == '-') {
                 continue;
             }
 
-            const Core::Int32 Digit{Character >= '0' && Character <= '9' ? Character - '0' : Character >= 'a' && Character <= 'f' ? Character - 'a' + 10 : Character >= 'A' && Character <= 'F' ? Character - 'A' + 10 : -1};
+            const Int32 Digit{Character >= '0' && Character <= '9' ? Character - '0' : Character >= 'a' && Character <= 'f' ? Character - 'a' + 10 : Character >= 'A' && Character <= 'F' ? Character - 'A' + 10 : -1};
 
             if (Digit < 0) {
                 return false;
@@ -62,7 +62,7 @@ namespace Core {
             if (High < 0) {
                 High = Digit;
             } else {
-                Bytes[ByteIndex++] = static_cast<Core::Uint8>(High * 16 + Digit);
+                Bytes[ByteIndex++] = static_cast<Uint8>(High * 16 + Digit);
                 High = -1;
             }
         }
@@ -80,7 +80,7 @@ namespace Core {
         Core::FString Result{};
         Result.reserve(36);
 
-        for (Core::Index_t Index{}; Index < mBytes.size(); ++Index) {
+        for (Index_t Index{}; Index < mBytes.size(); ++Index) {
             if (Index == 4 || Index == 6 || Index == 8 || Index == 10) {
                 Result.push_back('-');
             }
@@ -96,7 +96,7 @@ namespace Core {
      * @brief GUID가 모두 0인 무효 값이 아닌지 검사합니다.
      */
     bool Core::FGuid::IsValid() const {
-        return std::any_of(mBytes.begin(), mBytes.end(), [](Core::Uint8 Byte) {
+        return std::any_of(mBytes.begin(), mBytes.end(), [](Uint8 Byte) {
             return Byte != 0;
         });
     }

@@ -18,7 +18,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UENUM(Script)
-    enum class EViewTargetBlendFunction : Core::Uint8 {
+    enum class EViewTargetBlendFunction : Uint8 {
         /**
          * @brief 일정한 속도로 보간합니다.
          */

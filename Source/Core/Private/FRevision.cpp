@@ -11,7 +11,7 @@ namespace Core {
     /**
      * @brief 지정한 정수 값으로 번호를 만듭니다.
      */
-    Core::FRevision::FRevision(Core::Uint64 Value)
+    Core::FRevision::FRevision(Uint64 Value)
 		: mValue{Value} {
     }
 
@@ -19,7 +19,7 @@ namespace Core {
      * @brief 전역 카운터에서 이전에 발급한 적 없는 새 번호를 발급합니다.
      */
     Core::FRevision Core::FRevision::Next() {
-        static Core::Uint64 Counter{};
+        static Uint64 Counter{};
 
         return Core::FRevision{++Counter};
     }
@@ -34,7 +34,7 @@ namespace Core {
     /**
      * @brief 번호의 정수 값을 반환합니다.
      */
-    Core::Uint64 Core::FRevision::GetValue() const {
+    Uint64 Core::FRevision::GetValue() const {
         return mValue;
     }
 

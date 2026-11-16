@@ -12,6 +12,7 @@
 #include "Core/Memory.h"
 #include "Core/Stats.h"
 #include "Editor/FProjectBrowser.h"
+#include "Editor/FPlayInEditorSession.h"
 #include "Platform/SplashWindow.h"
 
 #include <array>
@@ -57,7 +58,7 @@ namespace App {
         }
 
         while (mPlatform.PumpMessages() && !mEngine.WantsExit()) {
-            if (mPlatform.IsMinimized()) {
+            if (mPlatform.IsMinimized() && !mEngine.GetPlaySession()->IsPlayingInNewWindow()) {
                 mPlatform.WaitForMessages(16);
 
                 continue;

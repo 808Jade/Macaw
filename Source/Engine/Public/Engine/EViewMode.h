@@ -16,7 +16,7 @@ namespace Engine {
      * @brief 장면 전체에 적용하는 메시 채우기 방식입니다.
      */
     UENUM()
-    enum class EViewMode : Core::Uint8 {
+    enum class EViewMode : Uint8 {
 
         /**
          * @brief 픽셀별 확산·정반사 조명 모드이며 Lit과 같은 값입니다.

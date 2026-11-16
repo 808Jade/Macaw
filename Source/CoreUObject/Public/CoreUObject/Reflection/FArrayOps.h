@@ -32,17 +32,17 @@ namespace CoreUObject {
         /**
          * @brief 배열의 원소 수를 반환합니다.
          */
-        Core::Uint32 (*mSize)(const void* Array);
+        Uint32 (*mSize)(const void* Array);
 
         /**
          * @brief 배열의 원소 수를 변경합니다.
          */
-        void (*mResize)(void* Array, Core::Uint32 Count);
+        void (*mResize)(void* Array, Uint32 Count);
 
         /**
          * @brief 원소의 주소를 반환합니다.
          */
-        void* (*mAt)(void* Array, Core::Index_t Index);
+        void* (*mAt)(void* Array, Index_t Index);
 
         /**
          * @brief 원소 주소를 컨테이너로 사용하는 프로퍼티입니다.

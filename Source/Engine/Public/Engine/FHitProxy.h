@@ -20,7 +20,7 @@ namespace Engine {
      * @note 헤더 툴이 이 타입의 네이티브 열거형 메타데이터 접근자를 생성합니다.
      */
     UENUM()
-    enum class EHitProxyType : Core::Uint8 {
+    enum class EHitProxyType : Uint8 {
         /**
          * @brief 마우스 위치에 선택 대상이 없습니다.
          */
@@ -55,7 +55,7 @@ namespace Engine {
         /**
          * @brief 기즈모 핸들을 X/Y/Z=0/1/2, XY/XZ/YZ=3/4/5, 화면=6, 균일 스케일=7로 나타내며 객체 피킹에서는 -1입니다.
          */
-        Core::Int32 mAxis{-1};
+        Int32 mAxis{-1};
     };
 
 }

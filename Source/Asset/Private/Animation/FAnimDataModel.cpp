@@ -88,15 +88,15 @@ namespace Asset {
         mFrameRate = FrameRate;
     }
 
-    Core::Uint32 Asset::FAnimDataModel::GetNumberOfFrames() const {
+    Uint32 Asset::FAnimDataModel::GetNumberOfFrames() const {
         return mNumberOfFrames;
     }
 
-    void Asset::FAnimDataModel::SetNumberOfFrames(Core::Uint32 NumberOfFrames) {
+    void Asset::FAnimDataModel::SetNumberOfFrames(Uint32 NumberOfFrames) {
         mNumberOfFrames = NumberOfFrames;
     }
 
-    Core::Uint32 Asset::FAnimDataModel::GetNumberOfKeys() const {
+    Uint32 Asset::FAnimDataModel::GetNumberOfKeys() const {
         return mNumberOfFrames + 1;
     }
 

@@ -13,7 +13,7 @@ namespace RenderCore {
     /**
      * @brief CPU 데이터를 GPU 버퍼에 기록하는 방식을 나타냅니다.
      */
-    enum class EBufferUpdate : Core::Uint8 {
+    enum class EBufferUpdate : Uint8 {
         /**
          * @brief D3D11_USAGE_DEFAULT 버퍼를 UpdateSubresource로 기록합니다.
          */

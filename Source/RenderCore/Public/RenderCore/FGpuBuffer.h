@@ -47,7 +47,7 @@ namespace RenderCore {
          * @return 용량이 충분하거나 할당에 성공하면 true입니다.
          * @note 재할당하면 기존 내용은 보존하지 않습니다. Immutable 버퍼는 초기 데이터가 필요하므로 실패합니다.
          */
-        bool Reserve(ID3D11Device* Device, Core::Uint64 Count, Core::FString& Error);
+        bool Reserve(ID3D11Device* Device, Uint64 Count, Core::FString& Error);
 
         /**
          * @brief 소유한 GPU 자원과 용량 정보를 초기화합니다.
@@ -79,7 +79,7 @@ namespace RenderCore {
          * @param[in] Stride 원소 하나의 바이트 수입니다.
          * @param[in] Update CPU 데이터를 기록하는 방식입니다.
          */
-        FGpuBuffer(Core::Uint32 Stride, RenderCore::EBufferUpdate Update);
+        FGpuBuffer(Uint32 Stride, RenderCore::EBufferUpdate Update);
 
         /**
          * @brief GPU 자원 소유권을 옮기고 원본을 미할당 상태로 만듭니다.
@@ -122,7 +122,7 @@ namespace RenderCore {
          * @brief 원소 하나의 바이트 수를 반환합니다.
          * @return 원소 크기입니다.
          */
-        Core::Uint32 GetStride() const;
+        Uint32 GetStride() const;
 
     protected:
         /**
@@ -135,14 +135,14 @@ namespace RenderCore {
          * @brief 이 버퍼가 담을 수 있는 최대 원소 수를 반환합니다.
          * @return 기본 구현은 바이트 크기가 32비트에 들어가는 원소 수입니다.
          */
-        virtual Core::Uint64 GetMaximumCount() const;
+        virtual Uint64 GetMaximumCount() const;
 
         /**
          * @brief 재할당할 때 확보할 원소 수를 정합니다.
          * @param[in] Count 필요한 원소 수입니다.
          * @return 기본 구현은 Count 이상의 가장 작은 2의 거듭제곱입니다.
          */
-        virtual Core::Uint64 GetGrowthCapacity(Core::Uint64 Count) const;
+        virtual Uint64 GetGrowthCapacity(Uint64 Count) const;
 
         /**
          * @brief 새 버퍼를 가리키는 뷰를 만듭니다.
@@ -167,7 +167,7 @@ namespace RenderCore {
          * @param[out] Error 할당 실패 원인입니다.
          * @return 성공하면 true이며, 실패하면 기존 자원을 유지합니다.
          */
-        bool CreateResource(ID3D11Device* Device, Core::Uint32 Capacity, const void* InitialData, Core::FString& Error);
+        bool CreateResource(ID3D11Device* Device, Uint32 Capacity, const void* InitialData, Core::FString& Error);
 
     private:
         /**
@@ -178,12 +178,12 @@ namespace RenderCore {
         /**
          * @brief 원소 하나의 바이트 수입니다.
          */
-        Core::Uint32 mStride{};
+        Uint32 mStride{};
 
         /**
          * @brief 버퍼에 확보한 원소 수입니다.
          */
-        Core::Uint32 mCapacity{};
+        Uint32 mCapacity{};
 
         /**
          * @brief CPU 데이터를 기록하는 방식입니다.

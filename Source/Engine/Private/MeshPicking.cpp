@@ -35,7 +35,7 @@ namespace Engine {
         const FRay Local{Inverse.TransformPosition(Ray.mOrigin), Inverse.TransformVector(Ray.mDirection)};
         bool Found{};
 
-        for (Core::Index_t Index{}; Index + 2 < Mesh->GetIndices().size(); Index += 3) {
+        for (Index_t Index{}; Index + 2 < Mesh->GetIndices().size(); Index += 3) {
             const FVector A{Mesh->GetPositions()[Mesh->GetIndices()[Index]]};
             const FVector B{Mesh->GetPositions()[Mesh->GetIndices()[Index + 1]]};
             const FVector C{Mesh->GetPositions()[Mesh->GetIndices()[Index + 2]]};

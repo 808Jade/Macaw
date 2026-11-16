@@ -20,7 +20,7 @@ namespace Asset {
         /**
          * @brief 키의 시간이며 ULevelSequence::TicksPerSecond 단위입니다.
          */
-        Core::Int32 mTick{};
+        Int32 mTick{};
 
         /**
          * @brief 키의 값입니다.

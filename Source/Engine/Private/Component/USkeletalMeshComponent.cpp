@@ -253,7 +253,7 @@ namespace Engine {
     /**
      * @brief 본 하나의 부모 기준 변환을 변경합니다.
      */
-    bool USkeletalMeshComponent::SetBoneLocalTransform(Core::Index_t Bone, const FMatrix& Transform) {
+    bool USkeletalMeshComponent::SetBoneLocalTransform(Index_t Bone, const FMatrix& Transform) {
         if (mSkeletalMesh == nullptr || mSkeleton == nullptr || !mPose.SetLocalTransform(*mSkeletalMesh, *mSkeleton, Bone, Transform)) {
             return false;
         }
@@ -584,12 +584,12 @@ namespace Engine {
         }
     }
 
-    Core::Int32 USkeletalMeshComponent::GetRootMotionModeValue() const {
-        return static_cast<Core::Int32>(GetRootMotionMode());
+    Int32 USkeletalMeshComponent::GetRootMotionModeValue() const {
+        return static_cast<Int32>(GetRootMotionMode());
     }
 
-    bool USkeletalMeshComponent::SetRootMotionModeValue(Core::Int32 Mode) {
-        if (Mode < static_cast<Core::Int32>(Engine::ERootMotionMode::NoRootMotionExtraction) || Mode > static_cast<Core::Int32>(Engine::ERootMotionMode::RootMotionFromEverything)) {
+    bool USkeletalMeshComponent::SetRootMotionModeValue(Int32 Mode) {
+        if (Mode < static_cast<Int32>(Engine::ERootMotionMode::NoRootMotionExtraction) || Mode > static_cast<Int32>(Engine::ERootMotionMode::RootMotionFromEverything)) {
             return false;
         }
 

@@ -155,14 +155,14 @@ void UParticleSystem::MoveEmittersFrom(UParticleSystem& Source) {
 /**
  * @brief 인덱스에 해당하는 Emitter의 수정 가능한 비소유 주소를 반환합니다.
  */
-UParticleEmitter* UParticleSystem::GetEmitter(Core::Index_t Index) {
+UParticleEmitter* UParticleSystem::GetEmitter(Index_t Index) {
     return Index >= 0 && Index < mEmitters.size() ? mEmitters[Index].get() : nullptr;
 }
 
 /**
  * @brief 인덱스에 해당하는 Emitter의 읽기 전용 비소유 주소를 반환합니다.
  */
-const UParticleEmitter* UParticleSystem::GetEmitter(Core::Index_t Index) const {
+const UParticleEmitter* UParticleSystem::GetEmitter(Index_t Index) const {
     return Index >= 0 && Index < mEmitters.size() ? mEmitters[Index].get() : nullptr;
 }
 
@@ -210,7 +210,7 @@ void UParticleSystem::Serialize(FArchive& Archive) {
 
     TArray<std::shared_ptr<UParticleEmitter>> Emitters{};
 
-    for (Core::Index_t Index{}; Index < static_cast<Core::Index_t>(Count) && !Archive.HasError(); ++Index) {
+    for (Index_t Index{}; Index < static_cast<Index_t>(Count) && !Archive.HasError(); ++Index) {
         if (!Archive.BeginObject(std::to_string(Index))) {
             break;
         }

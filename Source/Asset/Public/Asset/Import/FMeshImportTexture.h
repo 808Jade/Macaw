@@ -19,7 +19,7 @@ namespace Asset {
      * @brief 임포트한 재질 텍스처의 없음·외부 파일·내장 참조 출처를 구분합니다.
      */
     UENUM()
-    enum class EMeshImportTextureSource : Core::Uint8 {
+    enum class EMeshImportTextureSource : Uint8 {
         /**
          * @brief 원본 재질에 해당 텍스처 참조가 없습니다.
          */
@@ -38,7 +38,7 @@ namespace Asset {
      * @brief 임포터가 이미지 바이트와 원본 장면에서 판별한 텍스처의 형태를 구분합니다.
      */
     UENUM()
-    enum class EMeshImportTextureShape : Core::Uint8 {
+    enum class EMeshImportTextureShape : Uint8 {
         /**
          * @brief 임포터가 형태를 판별하지 않았습니다.
          */
@@ -94,7 +94,7 @@ namespace Asset {
          * @param[in] Shape 임포터가 판별한 텍스처 형태입니다.
          * @return Embedded 출처와 지정한 내장 참조를 가진 값 객체입니다.
          */
-        static Asset::FMeshImportTexture FromEmbedded(Core::FString Reference, Core::TArray<Core::Uint8> Data = {}, Asset::EMeshImportTextureShape Shape = Asset::EMeshImportTextureShape::Unknown);
+        static Asset::FMeshImportTexture FromEmbedded(Core::FString Reference, Core::TArray<Uint8> Data = {}, Asset::EMeshImportTextureShape Shape = Asset::EMeshImportTextureShape::Unknown);
 
         /**
          * @brief 재질 텍스처의 출처 종류를 반환합니다.
@@ -118,7 +118,7 @@ namespace Asset {
          * @brief 원본에서 추출한 내장 텍스처 바이트를 조회합니다.
          * @return 인코딩된 이미지 바이트의 읽기 전용 참조이며 추출한 데이터가 없으면 빈 배열입니다.
          */
-        const Core::TArray<Core::Uint8>& GetEmbeddedData() const;
+        const Core::TArray<Uint8>& GetEmbeddedData() const;
 
         /**
          * @brief 임포터가 판별한 텍스처 형태를 반환합니다.
@@ -151,7 +151,7 @@ namespace Asset {
         /**
          * @brief 원본에서 추출한 내장 텍스처의 인코딩된 이미지 바이트입니다.
          */
-        Core::TArray<Core::Uint8> mEmbeddedData{};
+        Core::TArray<Uint8> mEmbeddedData{};
 
         /**
          * @brief 임포터가 판별한 텍스처 형태입니다.

@@ -38,10 +38,10 @@ namespace CoreUObject {
             return false;
         }
 
-        Core::Int32 Index{};
+        Int32 Index{};
 
         if (mFreeSlots.empty()) {
-            Index = static_cast<Core::Int32>(mSlots.size());
+            Index = static_cast<Int32>(mSlots.size());
 
             mSlots.push_back(FSlot{});
         } else {

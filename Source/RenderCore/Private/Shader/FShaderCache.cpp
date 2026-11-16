@@ -23,12 +23,12 @@ namespace RenderCore {
         /**
          * @brief 셰이더 캐시 파일에서 지원하는 형식 버전입니다.
          */
-        constexpr Core::Uint64 FormatVersion{1};
+        constexpr Uint64 FormatVersion{1};
 
         /**
          * @brief 셰이더 캐시에 저장할 수 있는 최대 의존 파일 개수입니다.
          */
-        constexpr Core::Uint64 MaxDependencies{4096};
+        constexpr Uint64 MaxDependencies{4096};
 
         /**
          * @brief 16진수 SHA-256 체크섬의 바이트 수입니다.
@@ -40,8 +40,8 @@ namespace RenderCore {
          * @param[in] Time 캐시 형식으로 인코딩하거나 복원할 파일 시각입니다.
          * @return 파일 시각을 저장용 정수로 변환한 값입니다.
          */
-        Core::Uint64 EncodeTime(std::filesystem::file_time_type Time) {
-            return std::bit_cast<Core::Uint64>(static_cast<std::int64_t>(Time.time_since_epoch().count()));
+        Uint64 EncodeTime(std::filesystem::file_time_type Time) {
+            return std::bit_cast<Uint64>(static_cast<std::int64_t>(Time.time_since_epoch().count()));
         }
 
         /**
@@ -49,7 +49,7 @@ namespace RenderCore {
          * @param[in] Time 캐시 형식으로 인코딩하거나 복원할 파일 시각입니다.
          * @return 복원한 파일 시각입니다.
          */
-        std::filesystem::file_time_type DecodeTime(Core::Uint64 Time) {
+        std::filesystem::file_time_type DecodeTime(Uint64 Time) {
             return std::filesystem::file_time_type{std::filesystem::file_time_type::duration{std::bit_cast<std::int64_t>(Time)}};
         }
 
@@ -60,13 +60,13 @@ namespace RenderCore {
          * @param[out] Compilation 셰이더 바이트코드와 의존성을 포함하는 컴파일 결과입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool ReadCompilation(std::span<const Core::Uint8> Data, const Core::FString& ExpectedIdentity, RenderCore::FShaderCompilation& Compilation) {
+        bool ReadCompilation(std::span<const Uint8> Data, const Core::FString& ExpectedIdentity, RenderCore::FShaderCompilation& Compilation) {
             std::size_t Position{};
             Core::FString Magic{};
             Core::FString Identity{};
-            Core::Uint64 Version{};
-            Core::Uint64 BuildTime{};
-            Core::Uint64 Count{};
+            Uint64 Version{};
+            Uint64 BuildTime{};
+            Uint64 Count{};
 
             if (!RenderCore::ShaderFile::ReadString(Data, Position, Magic) || Magic != "Macaw.Shader" || !RenderCore::ShaderFile::ReadUint64(Data, Position, Version) || Version != FormatVersion || !RenderCore::ShaderFile::ReadString(Data, Position, Identity) || Identity != ExpectedIdentity || !RenderCore::ShaderFile::ReadUint64(Data, Position, BuildTime) || !RenderCore::ShaderFile::ReadUint64(Data, Position, Count) || Count == 0 || Count > MaxDependencies) {
                 return false;
@@ -76,10 +76,10 @@ namespace RenderCore {
             Candidate.mBuildTime = DecodeTime(BuildTime);
             Candidate.mDependencies.reserve(static_cast<std::size_t>(Count));
 
-            for (Core::Uint64 Index{}; Index < Count; ++Index) {
+            for (Uint64 Index{}; Index < Count; ++Index) {
                 Core::FString Path{};
-                Core::Uint64 Exists{};
-                Core::Uint64 WriteTime{};
+                Uint64 Exists{};
+                Uint64 WriteTime{};
                 RenderCore::FShaderDependency Dependency{};
 
                 if (!RenderCore::ShaderFile::ReadString(Data, Position, Path) || Path.empty() || Path.find('\0') != Core::FString::npos || !RenderCore::ShaderFile::ReadUint64(Data, Position, Exists) || Exists > 1 || !RenderCore::ShaderFile::ReadUint64(Data, Position, WriteTime) || !RenderCore::ShaderFile::ReadUint64(Data, Position, Dependency.mSize)) {
@@ -93,7 +93,7 @@ namespace RenderCore {
                 Candidate.mDependencies.push_back(std::move(Dependency));
             }
 
-            Core::Uint64 ByteCodeSize{};
+            Uint64 ByteCodeSize{};
 
             if (!RenderCore::ShaderFile::ReadUint64(Data, Position, ByteCodeSize) || ByteCodeSize == 0 || ByteCodeSize != Data.size() - Position) {
                 return false;
@@ -140,7 +140,7 @@ namespace RenderCore {
         }
 
         const std::filesystem::path Path{GetPath(Key)};
-        Core::TArray<Core::Uint8> Data{};
+        Core::TArray<Uint8> Data{};
         RenderCore::FShaderDependency Dependency{};
 
         if (!RenderCore::ShaderFile::Read(Path, Data, Dependency, Diagnostics)) {
@@ -153,7 +153,7 @@ namespace RenderCore {
             return false;
         }
 
-        const std::span<const Core::Uint8> Payload{Data.data() + ChecksumSize, Data.size() - ChecksumSize};
+        const std::span<const Uint8> Payload{Data.data() + ChecksumSize, Data.size() - ChecksumSize};
         const Core::FString ExpectedChecksum{reinterpret_cast<const char*>(Data.data()), ChecksumSize};
         RenderCore::FShaderCompilation Candidate{};
 
@@ -194,7 +194,7 @@ namespace RenderCore {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Payload{};
+        Core::TArray<Uint8> Payload{};
 
         RenderCore::ShaderFile::AppendString(Payload, "Macaw.Shader");
         RenderCore::ShaderFile::AppendUint64(Payload, FormatVersion);
@@ -231,7 +231,7 @@ namespace RenderCore {
         }
 
         const std::filesystem::path Path{GetPath(Key)};
-        static std::atomic<Core::Uint64> Sequence{};
+        static std::atomic<Uint64> Sequence{};
         std::filesystem::path Temporary{Path};
 
         Temporary += L"." + std::to_wstring(GetCurrentProcessId()) + L"." + std::to_wstring(GetTickCount64()) + L"." + std::to_wstring(Sequence.fetch_add(1)) + L".tmp";

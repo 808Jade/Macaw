@@ -33,12 +33,12 @@ namespace RenderCore {
         /**
          * @brief 점광원 큐브 면 또는 방향광 캐스케이드의 0 기반 번호입니다.
          */
-        Core::Index_t mFace{};
+        Index_t mFace{};
 
         /**
          * @brief 보호 여백을 제외한 그림자 맵 한 변의 유효 픽셀 수입니다.
          */
-        Core::Uint32 mResolution{};
+        Uint32 mResolution{};
     };
 
     /**
@@ -55,7 +55,7 @@ namespace RenderCore {
         /**
          * @brief 아틀라스 텍스처 한 변의 픽셀 수입니다.
          */
-        Core::Uint32 mSize{};
+        Uint32 mSize{};
 
         /**
          * @brief 현재 아틀라스에서 광원별 타일을 식별할 배치 정보 사본입니다.

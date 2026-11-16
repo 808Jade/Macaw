@@ -26,7 +26,7 @@ namespace Asset {
          * @param Alpha 0~1의 보간 가중치입니다.
          * @return 보간한 트랙 로컬 변환입니다.
          */
-        FTransform SampleAnimationTrack(const Asset::FRawAnimSequenceTrack& Track, Core::Index_t Key, Core::Index_t NextKey, float Alpha) {
+        FTransform SampleAnimationTrack(const Asset::FRawAnimSequenceTrack& Track, Index_t Key, Index_t NextKey, float Alpha) {
             return {Track.mPosKeys.size() == 1 ? Track.mPosKeys[0] : Track.mPosKeys[Key] + (Track.mPosKeys[NextKey] - Track.mPosKeys[Key]) * Alpha, Track.mRotKeys.size() == 1 ? Track.mRotKeys[0] : Track.mRotKeys[Key].Slerp(Track.mRotKeys[NextKey], Alpha), Track.mScaleKeys.size() == 1 ? Track.mScaleKeys[0] : Track.mScaleKeys[Key] + (Track.mScaleKeys[NextKey] - Track.mScaleKeys[Key]) * Alpha};
         }
 
@@ -99,7 +99,7 @@ namespace Asset {
         return true;
     }
 
-    FTransform UAnimSequence::SampleTrackTransform(Core::Index_t TrackIndex, double Time) const {
+    FTransform UAnimSequence::SampleTrackTransform(Index_t TrackIndex, double Time) const {
         const auto& Tracks{mDataModel.GetBoneAnimationTracks()};
 
         if (TrackIndex < 0 || TrackIndex >= Tracks.size()) {
@@ -109,19 +109,19 @@ namespace Asset {
         Time = std::clamp(std::isfinite(Time) ? Time : 0.0, 0.0, GetPlayLength());
 
         const double Frame{Time * mDataModel.GetFrameRate().AsDecimal()};
-        const Core::Index_t LastKey{static_cast<Core::Index_t>(mDataModel.GetNumberOfFrames())};
-        const Core::Index_t Key{static_cast<Core::Index_t>(std::min(static_cast<Core::Index_t>(Frame), LastKey))};
-        const Core::Index_t NextKey{static_cast<Core::Index_t>(std::min(Key + 1, LastKey))};
+        const Index_t LastKey{static_cast<Index_t>(mDataModel.GetNumberOfFrames())};
+        const Index_t Key{static_cast<Index_t>(std::min(static_cast<Index_t>(Frame), LastKey))};
+        const Index_t NextKey{static_cast<Index_t>(std::min(Key + 1, LastKey))};
         const float Alpha{static_cast<float>(std::clamp(Frame - static_cast<double>(Key), 0.0, 1.0))};
 
         return SampleAnimationTrack(Tracks[TrackIndex].mInternalTrack, Key, NextKey, Alpha);
     }
 
-    FTransform UAnimSequence::GetRootTrackTransform(Core::Index_t TrackIndex, double Time) const {
+    FTransform UAnimSequence::GetRootTrackTransform(Index_t TrackIndex, double Time) const {
         return TrackIndex >= 0 ? SampleTrackTransform(TrackIndex, Time) : FTransform{};
     }
 
-    FTransform UAnimSequence::GetRootLockTransform(Core::Index_t TrackIndex, const FTransform& ReferencePose) const {
+    FTransform UAnimSequence::GetRootLockTransform(Index_t TrackIndex, const FTransform& ReferencePose) const {
         switch (mRootMotionRootLock) {
         case Asset::ERootMotionRootLock::RefPose:
             return ReferencePose;
@@ -134,7 +134,7 @@ namespace Asset {
         return ReferencePose;
     }
 
-    FTransform UAnimSequence::ExtractRootMotionFromRange(Core::Index_t TrackIndex, double StartTime, double EndTime) const {
+    FTransform UAnimSequence::ExtractRootMotionFromRange(Index_t TrackIndex, double StartTime, double EndTime) const {
         if (TrackIndex < 0 || TrackIndex >= mDataModel.GetBoneAnimationTracks().size() || !std::isfinite(StartTime) || !std::isfinite(EndTime)) {
             return {};
         }
@@ -146,7 +146,7 @@ namespace Asset {
         return {Inverse.RotateVector(End.mLocation - Start.mLocation), (Inverse * End.mRotation).Normalized(), {1.0f, 1.0f, 1.0f}};
     }
 
-    FTransform UAnimSequence::ExtractRootMotion(Core::Index_t TrackIndex, double StartTime, double DeltaTime, bool Looping) const {
+    FTransform UAnimSequence::ExtractRootMotion(Index_t TrackIndex, double StartTime, double DeltaTime, bool Looping) const {
         const double Length{GetPlayLength()};
 
         if (Length <= 0.0 || !std::isfinite(StartTime) || !std::isfinite(DeltaTime) || DeltaTime == 0.0) {
@@ -220,12 +220,12 @@ namespace Asset {
         }
 
         const double Frame{Time * mDataModel.GetFrameRate().AsDecimal()};
-        const Core::Index_t LastKey{static_cast<Core::Index_t>(mDataModel.GetNumberOfFrames())};
-        const Core::Index_t Key{static_cast<Core::Index_t>(std::min(static_cast<Core::Index_t>(Frame), LastKey))};
-        const Core::Index_t NextKey{static_cast<Core::Index_t>(std::min(Key + 1, LastKey))};
+        const Index_t LastKey{static_cast<Index_t>(mDataModel.GetNumberOfFrames())};
+        const Index_t Key{static_cast<Index_t>(std::min(static_cast<Index_t>(Frame), LastKey))};
+        const Index_t NextKey{static_cast<Index_t>(std::min(Key + 1, LastKey))};
         const float Alpha{static_cast<float>(std::clamp(Frame - static_cast<double>(Key), 0.0, 1.0))};
 
-        for (Core::Index_t Index{}; Index < Tracks.size(); ++Index) {
+        for (Index_t Index{}; Index < Tracks.size(); ++Index) {
             OutTrackPose[Index] = SampleAnimationTrack(Tracks[Index].mInternalTrack, Key, NextKey, Alpha);
         }
     }

@@ -23,7 +23,7 @@ namespace Asset {
      * @brief 아카이브 모드에 따라 트랙 내용을 읽거나 저장합니다.
      */
     void Asset::FSequenceTransformTrack::Serialize(Core::FArchive& Archive) {
-        Core::Uint32 Count{static_cast<Core::Uint32>(mSections.size())};
+        Uint32 Count{static_cast<Uint32>(mSections.size())};
 
         if (!Archive.BeginArray("Sections", Count)) {
             return;
@@ -33,7 +33,7 @@ namespace Asset {
             mSections.clear();
         }
 
-        for (Core::Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+        for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
             if (!Archive.BeginObject(std::to_string(Index))) {
                 break;
             }
@@ -63,7 +63,7 @@ namespace Asset {
     /**
      * @brief 모든 섹션이 지정한 시간을 포함하도록 넓힙니다.
      */
-    void Asset::FSequenceTransformTrack::ExpandSections(Core::Int32 Tick) {
+    void Asset::FSequenceTransformTrack::ExpandSections(Int32 Tick) {
         for (Asset::FSequenceTransformSection& Section : mSections) {
             Section.ExpandToInclude(Tick);
         }

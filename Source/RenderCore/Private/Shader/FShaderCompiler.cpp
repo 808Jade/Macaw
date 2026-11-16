@@ -25,7 +25,7 @@ namespace RenderCore {
             return false;
         }
 
-        Core::TArray<Core::Uint8> Source{};
+        Core::TArray<Uint8> Source{};
         RenderCore::FShaderDependency RootDependency{};
 
         if (!RenderCore::ShaderFile::Read(Normalized.mSourcePath, Source, RootDependency, Diagnostics)) {
@@ -82,7 +82,7 @@ namespace RenderCore {
         }
 
         RenderCore::FShaderCompilation Candidate{};
-        const auto* Begin{static_cast<const Core::Uint8*>(Code->GetBufferPointer())};
+        const auto* Begin{static_cast<const Uint8*>(Code->GetBufferPointer())};
 
         Candidate.mByteCode.assign(Begin, Begin + Code->GetBufferSize());
         Candidate.mDependencies = Includes.GetDependencies();

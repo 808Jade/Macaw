@@ -35,7 +35,7 @@ namespace Renderer {
          * @param[in] FirstIndex SubMesh의 첫 인덱스 오프셋입니다.
          * @param[in] IndexCount SubMesh의 삼각형 인덱스 개수입니다.
          */
-        FMeshDrawCommand(Renderer::FMaterialPipeline* Pipeline, Asset::UMaterial* Material, Asset::UStaticMesh* Mesh, const Renderer::FScenePrimitive* Primitive, Core::Index_t FirstIndex, Core::Uint32 IndexCount);
+        FMeshDrawCommand(Renderer::FMaterialPipeline* Pipeline, Asset::UMaterial* Material, Asset::UStaticMesh* Mesh, const Renderer::FScenePrimitive* Primitive, Index_t FirstIndex, Uint32 IndexCount);
 
     private:
         /**
@@ -48,6 +48,9 @@ namespace Renderer {
          */
         friend class FMeshPass;
 
+        /**
+         * @brief FTranslucencyMeshPass에서 내부 연결 또는 저장 상태에 접근하도록 허용합니다.
+         */
         friend class FTranslucencyMeshPass;
 
     private:
@@ -74,12 +77,12 @@ namespace Renderer {
         /**
          * @brief 이 드로의 첫 인덱스 오프셋입니다.
          */
-        Core::Index_t mFirstIndex{};
+        Index_t mFirstIndex{};
 
         /**
          * @brief 이 드로의 삼각형 인덱스 개수입니다.
          */
-        Core::Uint32 mIndexCount{};
+        Uint32 mIndexCount{};
     };
 
 }

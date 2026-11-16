@@ -34,7 +34,7 @@ namespace RenderCore {
             /**
              * @brief 열린 include 파일의 내용을 소유하는 바이트 배열입니다.
              */
-            Core::TArray<Core::Uint8> mData{};
+            Core::TArray<Uint8> mData{};
         };
 
     public:

@@ -19,6 +19,7 @@
         "win32-binding"
       ]
     },
+    "imanim",
     "imgui-neo-sequencer",
     "imgui-node-editor",
     "imterm",

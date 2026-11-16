@@ -5,6 +5,7 @@
  */
 
 #include "FAnimSequenceEditor.h"
+#include "Editor/FEditorToolkitHost.h"
 
 #include "Viewer/FAnimationViewerContent.h"
 #include "FAnimSequenceViewportClient.h"
@@ -67,7 +68,7 @@ namespace {
         while (*Tail != '\0' && ImGui::CalcTextSize(Tail).x + EllipsisWidth > Width) {
             ++Tail;
 
-            while ((static_cast<Core::Uint8>(*Tail) & 0xc0) == 0x80) {
+            while ((static_cast<Uint8>(*Tail) & 0xc0) == 0x80) {
                 ++Tail;
             }
         }
@@ -251,6 +252,10 @@ const Core::FString& FAnimSequenceEditor::GetWindowId() const {
 }
 
 bool FAnimSequenceEditor::IsFocused() const {
+    if (mHostTab != nullptr) {
+        return mHostTab->IsFocused();
+    }
+
     ImGuiWindow* Window{mOpen ? ImGui::FindWindowByName(mWindowId.c_str()) : nullptr};
     ImGuiWindow* Focused{ImGui::GetCurrentContext()->NavWindow};
 
@@ -309,93 +314,68 @@ void FAnimSequenceEditor::RefreshAssets() {
     }
 }
 
-void FAnimSequenceEditor::Draw(float DeltaTime, bool CanSave) {
-    if (!mOpen || mEditing == nullptr) {
-        mViewport.reset();
-        mPreview = nullptr;
-        mEditing.reset();
-        mSource = nullptr;
-
-        return;
-    }
-
-    RefreshAssets();
-    const float Scale{ImGui::GetFontSize() / 16.0f};
-    ImGui::SetNextWindowSize({1160.0f, 760.0f}, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints({700.0f * Scale, 480.0f * Scale}, {std::numeric_limits<float>::max(), std::numeric_limits<float>::max()});
-
-    const Core::FString Title{Editor::EditorStyle::TabIconPadding + Core::FilePath::ToUtf8(mPath.stem()) + (mDirty ? "*" : "") + mWindowId.c_str()};
-    bool Open{true};
-
-    const bool Expanded{ImGui::Begin(Title.c_str(), &Open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)};
-
-    Editor::EditorStyle::TabIcon(Editor::EditorStyle::EIcon::Skeleton, IM_COL32(80, 123, 255, 255));
-
-    if (Expanded) {
-        HandleShortcuts(CanSave);
-
-        if (Editor::EditorStyle::AssetToolbar(mPath, CanSave && !mSourceChanged && mDirty)) {
-            Save();
+void FAnimSequenceEditor::InitializeToolkit(FEditorTab& Tab) {
+    mHostTab = &Tab;
+    Tab.SetIcon(EEditorIcon::Skeleton, IM_COL32(80, 123, 255, 255));
+    FEditorToolkitHost& Host{Tab.GetToolkitHost()};
+    Host.AddWidget("Preview", "Preview", [this](float DeltaTime) {
+        if (mPreview == nullptr || mViewport == nullptr) {
+            return;
         }
 
         if (!ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup)) {
             mPreview->Tick(DeltaTime);
         }
 
-        const ImVec2 Available{ImGui::GetContentRegionAvail()};
-        const float TimelineHeight{ImGui::GetFrameHeightWithSpacing() * 3.0f + 100.0f * Scale};
-        const float BodyHeight{std::max(Available.y - TimelineHeight, 80.0f)};
-
-        if (ImGui::BeginTable("##AnimationLayout", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
-            ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-            ImGui::TableSetupColumn("Preview Settings", ImGuiTableColumnFlags_WidthFixed, 300.0f * Scale);
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-
-            if (ImGui::BeginChild("##AnimationViewport", {0.0f, BodyHeight}, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
-                const ImVec2 Size{ImGui::GetContentRegionAvail()};
-                mViewport->SetDisplay(mShowBones, mShowGrid, mWireframe);
-                mViewport->DrawUI({Size.x, Size.y});
-            }
-
-            ImGui::EndChild();
-            ImGui::TableSetColumnIndex(1);
-            const float SettingsHeight{std::max(BodyHeight * 0.55f, 1.0f)};
-            const float BrowserHeight{std::max(BodyHeight - SettingsHeight - ImGui::GetStyle().ItemSpacing.y, 1.0f)};
-
-            if (ImGui::BeginChild("##AnimationSettings", {0.0f, SettingsHeight})) {
-                DrawSettings(CanSave);
-            }
-
-            ImGui::EndChild();
-
-            if (ImGui::BeginChild("##AnimationBrowser", {0.0f, BrowserHeight}, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
-                DrawAssetBrowser();
-            }
-
-            ImGui::EndChild();
-            ImGui::EndTable();
-        }
-
-        mTimeline.Draw(*mPreview, *mEditing, TimelineHeight);
-
-        DrawClosePrompt(CanSave);
+        const ImVec2 Size{ImGui::GetContentRegionAvail()};
+        mViewport->SetDisplay(mShowBones, mShowGrid, mWireframe);
+        mViewport->DrawUI({Size.x, Size.y});
         mViewport->Render();
-    } else {
-        mPreview->Pause();
-    }
-
-    ImGui::End();
-
-    if (!Open && mOpen) {
-        if (mDirty) {
-            mConfirmClose = true;
-            mPendingPath.clear();
-            ImGui::SetWindowCollapsed(mWindowId.c_str(), false);
-        } else {
-            Close();
+    });
+    Host.AddWidget("Settings", "Preview Settings", [this](float) {
+        if (mEditing != nullptr) {
+            DrawSettings(mToolkitCanSave);
         }
+    }, EEditorDockRegion::Outliner);
+    Host.AddWidget("Browser", "Asset Browser", [this](float) {
+        DrawAssetBrowser();
+    }, EEditorDockRegion::Details);
+    Host.AddWidget("Timeline", "Timeline", [this](float) {
+        if (mPreview != nullptr && mEditing != nullptr) {
+            mTimeline.Draw(*mPreview, *mEditing, std::max(1.0f, ImGui::GetContentRegionAvail().y));
+        }
+    }, EEditorDockRegion::Bottom);
+}
+
+void FAnimSequenceEditor::UpdateToolkit(float, bool CanSave) {
+    mToolkitCanSave = CanSave;
+
+    if (mOpen && mEditing != nullptr) {
+        RefreshAssets();
+        mHostTab->SetName(EditorStyle::TabIconPadding + Core::FilePath::ToUtf8(mPath.stem()) + (mDirty ? "*" : "") + mWindowId);
     }
+}
+
+void FAnimSequenceEditor::HandleCommands(bool CanSave) {
+    if (mEditing == nullptr) {
+        return;
+    }
+
+    HandleShortcuts(CanSave);
+
+    DrawClosePrompt(CanSave);
+}
+
+bool FAnimSequenceEditor::RequestClose() {
+    if (mOpen && mDirty) {
+        mConfirmClose = true;
+        mPendingPath.clear();
+        mHostTab->Open();
+
+        return false;
+    }
+
+    return true;
 }
 
 void FAnimSequenceEditor::DrawSettings(bool CanSave) {
@@ -569,7 +549,7 @@ void FAnimSequenceEditor::DrawAssetBrowser() {
     }
 }
 
-void FAnimSequenceEditor::StepFrame(Core::Int32 Direction) {
+void FAnimSequenceEditor::StepFrame(Int32 Direction) {
     mTimeline.StepFrame(*mPreview, *mEditing, Direction);
 }
 

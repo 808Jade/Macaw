@@ -47,7 +47,7 @@ namespace Renderer {
         /**
          * @brief 점광원 큐브 면 또는 방향광 캐스케이드 번호입니다.
          */
-        Core::Index_t mFace{};
+        Index_t mFace{};
     };
 
     /**
@@ -102,7 +102,7 @@ namespace Renderer {
         /**
          * @brief 깊이를 기록한 깊이 전용 정점 셰이더의 리비전입니다.
          */
-        Core::Uint64 mDepthShader{};
+        Uint64 mDepthShader{};
 
         /**
          * @brief 타일을 그릴 때 사용할 깊이 바이어스 단계입니다.

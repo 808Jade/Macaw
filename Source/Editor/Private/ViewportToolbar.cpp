@@ -124,11 +124,11 @@ namespace Editor {
             const std::array<Engine::EViewMode, 5> Modes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
             const std::array<const char*, 5> Names{"Lit (Gouraud)", "Lit (Lambert)", "Lit", "Unlit", "Wireframe"};
             const auto Current{std::find(Modes.begin(), Modes.end(), Client->GetColorViewMode())};
-            const Core::Index_t Index{static_cast<Core::Index_t>(Current != Modes.end() ? static_cast<std::size_t>(Current - Modes.begin()) : 2)};
+            const Index_t Index{static_cast<Index_t>(Current != Modes.end() ? static_cast<std::size_t>(Current - Modes.begin()) : 2)};
             const auto& Buffers{Editor::BufferVisualization::Modes};
             const auto& BufferNames{Editor::BufferVisualization::Names};
             const auto SelectedBuffer{std::find(Buffers.begin(), Buffers.end(), Client->GetViewMode())};
-            const Core::Index_t BufferIndex{static_cast<Core::Index_t>(SelectedBuffer == Buffers.end() ? 0u : static_cast<std::size_t>(SelectedBuffer - Buffers.begin()))};
+            const Index_t BufferIndex{static_cast<Index_t>(SelectedBuffer == Buffers.end() ? 0u : static_cast<std::size_t>(SelectedBuffer - Buffers.begin()))};
             const char* Preview{BufferIndex == 0 ? Names[Index] : BufferNames[BufferIndex]};
 
             if (Editor::EditorStyle::LabelButton((Core::FString{Preview} + "##ViewMode").c_str(), nullptr, true, true, "뷰 모드")) {
@@ -138,7 +138,7 @@ namespace Editor {
             ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
 
             if (ImGui::BeginPopup("ViewModeMenu")) {
-                for (Core::Index_t Mode{}; Mode < Modes.size(); ++Mode) {
+                for (Index_t Mode{}; Mode < Modes.size(); ++Mode) {
                     if (ImGui::Selectable(Names[Mode], Client->GetViewMode() == Modes[Mode])) {
                         Client->SetViewMode(Modes[Mode]);
                     }
@@ -147,7 +147,7 @@ namespace Editor {
                 ImGui::Separator();
 
                 if (ImGui::BeginMenu("Buffer Visualization")) {
-                    for (Core::Index_t Buffer{}; Buffer < Buffers.size(); ++Buffer) {
+                    for (Index_t Buffer{}; Buffer < Buffers.size(); ++Buffer) {
                         if (ImGui::MenuItem(BufferNames[Buffer], nullptr, Buffer == BufferIndex)) {
                             Client->SetViewMode(Buffer == 0 ? Client->GetColorViewMode() : Buffers[Buffer]);
                         }

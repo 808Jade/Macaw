@@ -57,7 +57,7 @@ namespace Editor {
          * @param Sequence 시간 범위와 프레임률을 제공하는 시퀀스입니다.
          * @param Direction 음수는 이전, 양수는 다음 프레임입니다.
          */
-        void StepFrame(Viewer::FAnimationViewerContent& Preview, const Asset::UAnimSequence& Sequence, Core::Int32 Direction);
+        void StepFrame(Viewer::FAnimationViewerContent& Preview, const Asset::UAnimSequence& Sequence, Int32 Direction);
 
     private:
 
@@ -81,12 +81,12 @@ namespace Editor {
         /**
          * @brief 타임라인 표시 범위의 마지막 프레임입니다.
          */
-        Core::Int32 mEndFrame{1};
+        Int32 mEndFrame{1};
 
         /**
          * @brief 타임라인 상태를 초기화할 때 위젯 ID를 갱신하는 세대 번호입니다.
          */
-        Core::Uint32 mSequenceRevision{};
+        Uint32 mSequenceRevision{};
     };
 
 }

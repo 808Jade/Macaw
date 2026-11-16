@@ -14,7 +14,7 @@ namespace CoreUObject {
      * @brief 리플렉션 클래스의 인스턴스 생성 정책을 지정하는 비트 플래그입니다.
      * @ingroup CoreUObject
      */
-    enum class EClassFlags : Core::Uint32 {
+    enum class EClassFlags : Uint32 {
         /**
          * @brief 추가 플래그가 없습니다.
          */

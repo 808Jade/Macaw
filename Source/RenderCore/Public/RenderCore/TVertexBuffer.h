@@ -26,7 +26,7 @@ namespace RenderCore {
          * @brief T 크기로 설정한 빈 버퍼를 생성합니다.
          */
         TVertexBuffer()
-            : RenderCore::FGpuBuffer{static_cast<Core::Uint32>(sizeof(T)), Update} {
+            : RenderCore::FGpuBuffer{static_cast<Uint32>(sizeof(T)), Update} {
         }
 
         /**
@@ -59,7 +59,7 @@ namespace RenderCore {
          * @param[in] Slot 입력 슬롯입니다.
          * @param[in] ElementsPerVertex 정점 하나가 차지하는 T의 개수입니다.
          */
-        void Bind(ID3D11DeviceContext* Context, Core::Index_t Slot, Core::Uint32 ElementsPerVertex = 1) const {
+        void Bind(ID3D11DeviceContext* Context, Index_t Slot, Uint32 ElementsPerVertex = 1) const {
             ID3D11Buffer* Buffer{GetBuffer()};
             const UINT Stride{GetStride() * ElementsPerVertex};
             const UINT Offset{};
@@ -72,7 +72,7 @@ namespace RenderCore {
          * @param[in] Context 바인딩할 장치 컨텍스트입니다.
          * @param[in] Slot 입력 슬롯입니다.
          */
-        static void Unbind(ID3D11DeviceContext* Context, Core::Index_t Slot) {
+        static void Unbind(ID3D11DeviceContext* Context, Index_t Slot) {
             ID3D11Buffer* Buffer{};
             const UINT Stride{};
             const UINT Offset{};
@@ -94,8 +94,8 @@ namespace RenderCore {
          * @param[in] Count 필요한 원소 수입니다.
          * @return 기본 구현은 Count 이상의 가장 작은 2의 거듭제곱입니다.
          */
-        Core::Uint64 GetGrowthCapacity(Core::Uint64 Count) const override {
-            return RenderCore::FGpuBuffer::GetGrowthCapacity(std::max<Core::Uint64>(Count, 256));
+        Uint64 GetGrowthCapacity(Uint64 Count) const override {
+            return RenderCore::FGpuBuffer::GetGrowthCapacity(std::max<Uint64>(Count, 256));
         }
     };
 

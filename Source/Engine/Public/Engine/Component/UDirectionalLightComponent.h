@@ -35,14 +35,14 @@ namespace Engine {
          * @brief 방향광 그림자의 캐스케이드 개수를 반환합니다.
          * @return 방향광 그림자의 캐스케이드 개수입니다.
          */
-        Core::Uint32 GetCascadeCount() const;
+        Uint32 GetCascadeCount() const;
 
         /**
          * @brief 방향광 그림자의 캐스케이드 개수를 검증하고 변경합니다.
          * @param[in] Count 1 이상 4 이하인 캐스케이드 개수입니다.
          * @return 입력값을 수락하고 상태를 갱신하면 true이며 잘못된 값이면 false입니다.
          */
-        bool SetCascadeCount(Core::Uint32 Count);
+        bool SetCascadeCount(Uint32 Count);
 
         /**
          * @brief 방향광 그림자의 최대 표시 거리를 반환합니다.
@@ -94,7 +94,7 @@ namespace Engine {
          * @brief 방향광 그림자의 캐스케이드 개수입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetCascadeCount, Setter = SetCascadeCount)
-        Core::Uint32 mCascadeCount{4};
+        Uint32 mCascadeCount{4};
 
         /**
          * @brief 방향광 그림자의 최대 표시 거리입니다.

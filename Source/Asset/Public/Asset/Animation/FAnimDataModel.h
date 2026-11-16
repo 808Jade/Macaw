@@ -20,12 +20,12 @@ namespace Asset {
         /**
          * @brief 한 클립이 가질 수 있는 최대 프레임 수입니다.
          */
-        static constexpr Core::Uint32 MaxFrames{1000000};
+        static constexpr Uint32 MaxFrames{1000000};
 
         /**
          * @brief 한 클립이 가질 수 있는 최대 트랙 수입니다.
          */
-        static constexpr Core::Uint32 MaxTracks{100000};
+        static constexpr Uint32 MaxTracks{100000};
 
     public:
         /**
@@ -52,19 +52,19 @@ namespace Asset {
          * @brief 프레임(구간) 수를 반환합니다.
          * @return 마지막 키의 프레임 번호입니다.
          */
-        Core::Uint32 GetNumberOfFrames() const;
+        Uint32 GetNumberOfFrames() const;
 
         /**
          * @brief 프레임(구간) 수를 설정합니다.
          * @param[in] NumberOfFrames 마지막 키의 프레임 번호입니다.
          */
-        void SetNumberOfFrames(Core::Uint32 NumberOfFrames);
+        void SetNumberOfFrames(Uint32 NumberOfFrames);
 
         /**
          * @brief 채널이 변할 때 가지는 키 수를 반환합니다.
          * @return 프레임 수 + 1입니다.
          */
-        Core::Uint32 GetNumberOfKeys() const;
+        Uint32 GetNumberOfKeys() const;
 
         /**
          * @brief 재생 길이를 초 단위로 반환합니다.
@@ -93,7 +93,7 @@ namespace Asset {
         /**
          * @brief 프레임(구간) 수입니다.
          */
-        Core::Uint32 mNumberOfFrames{};
+        Uint32 mNumberOfFrames{};
 
         /**
          * @brief 본별 트랙입니다.

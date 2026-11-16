@@ -93,11 +93,11 @@ namespace Engine {
         return true;
     }
 
-    Core::Int32 Engine::UDecalComponent::GetSortOrder() const {
+    Int32 Engine::UDecalComponent::GetSortOrder() const {
         return mSortOrder;
     }
 
-    void Engine::UDecalComponent::SetSortOrder(Core::Int32 SortOrder) {
+    void Engine::UDecalComponent::SetSortOrder(Int32 SortOrder) {
         mSortOrder = SortOrder;
         SynchronizeDecal();
     }

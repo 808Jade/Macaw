@@ -22,11 +22,11 @@ namespace Asset {
         GlobalBindPoses.reserve(Bones.size());
         InverseBindPoses.reserve(Bones.size());
 
-        for (Core::Index_t Index{}; Index < Bones.size(); ++Index) {
+        for (Index_t Index{}; Index < Bones.size(); ++Index) {
             const Asset::FMeshImportBone& Bone{Bones[Index]};
-            const Core::Int32 Parent{static_cast<Core::Int32>(Bone.GetParentIndex())};
+            const Int32 Parent{static_cast<Int32>(Bone.GetParentIndex())};
 
-            if (Parent < -1 || (Parent >= 0 && static_cast<Core::Index_t>(Parent) >= Index) || Bone.GetName().find('\0') != Core::FString::npos || !Bone.GetBindPose().IsFinite()) {
+            if (Parent < -1 || (Parent >= 0 && static_cast<Index_t>(Parent) >= Index) || Bone.GetName().find('\0') != Core::FString::npos || !Bone.GetBindPose().IsFinite()) {
                 return false;
             }
 

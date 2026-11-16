@@ -40,7 +40,7 @@ namespace Renderer {
     /**
      * @brief GPU 자원에 반영한 셰이더 코드 리비전을 반환합니다.
      */
-    Core::Uint64 Renderer::FShaderInstance::GetRevision() const {
+    Uint64 Renderer::FShaderInstance::GetRevision() const {
         return mRevision;
     }
 
@@ -67,7 +67,7 @@ namespace Renderer {
             return false;
         }
 
-        const std::span<const Core::Uint8> Bytes{Compilation->mByteCode};
+        const std::span<const Uint8> Bytes{Compilation->mByteCode};
 
         if (mCode->GetDescription(mVariantKey).mTargetProfile.starts_with("ps_")) {
             Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};

@@ -36,7 +36,7 @@ namespace Engine {
     class USceneComponent;
     class FWorldContext;
 
-    enum class EPrimitiveType : Core::Uint8;
+    enum class EPrimitiveType : Uint8;
 }
 
 namespace CoreUObject {
@@ -71,7 +71,7 @@ namespace Editor {
             /**
              * @brief 장면을 직렬화한 바이트 배열입니다.
              */
-            Core::TArray<Core::Uint8> mBytes{};
+            Core::TArray<Uint8> mBytes{};
 
             /**
              * @brief 복원할 선택 액터 GUID 목록입니다.
@@ -117,12 +117,12 @@ namespace Editor {
             /**
              * @brief 명령 적용 전 장면 리비전입니다.
              */
-            Core::Uint64 mBeforeRevision{};
+            Uint64 mBeforeRevision{};
 
             /**
              * @brief 명령 적용 후 장면 리비전입니다.
              */
-            Core::Uint64 mAfterRevision{};
+            Uint64 mAfterRevision{};
         };
 
         /**
@@ -163,7 +163,7 @@ namespace Editor {
             /**
              * @brief 이 범위가 시작한 장면 편집 토큰입니다.
              */
-            Core::Uint64 mToken{};
+            Uint64 mToken{};
         };
 
         /**
@@ -268,13 +268,13 @@ namespace Editor {
          * @brief 실행 취소용 변경 전 스냅샷을 확보하고 편집 범위를 시작합니다.
          * @return 이 범위를 종료할 토큰이며 새 범위를 시작하지 못하면 0입니다.
          */
-        Core::Uint64 BeginSceneEdit();
+        Uint64 BeginSceneEdit();
 
         /**
          * @brief 일치하는 토큰의 편집을 종료하고 변경 전후를 실행 취소 이력에 기록합니다.
          * @param Token BeginSceneEdit가 반환한 편집 범위 토큰입니다.
          */
-        void EndSceneEdit(Core::Uint64 Token);
+        void EndSceneEdit(Uint64 Token);
 
         /**
          * @brief 장면 편집 범위가 진행 중인지 확인합니다.
@@ -386,7 +386,7 @@ namespace Editor {
          * @brief 선택 대상 변경을 추적할 개정 번호를 반환합니다.
          * @return 단조 증가하는 선택 개정 번호입니다.
          */
-        Core::Uint64 GetSelectionRevision() const;
+        Uint64 GetSelectionRevision() const;
 
         /**
          * @brief 현재 선택 액터들을 새 GUID로 복제하고 복제본들을 선택합니다.
@@ -646,7 +646,7 @@ namespace Editor {
          * @brief 로그 목록 변경 세대를 반환합니다.
          * @return 추가 또는 초기화마다 증가하는 값입니다.
          */
-        Core::Uint64 GetLogRevision() const;
+        Uint64 GetLogRevision() const;
 
         /**
          * @brief 콘솔 문자열을 공통 편집 동작으로 전달합니다.
@@ -705,7 +705,7 @@ namespace Editor {
          * @param Path Content 기준 재질 경로입니다.
          * @return 변경을 적용하면 true입니다.
          */
-        bool SetMaterialOverride(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, Core::Index_t Slot, const Core::FString& Path);
+        bool SetMaterialOverride(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, Index_t Slot, const Core::FString& Path);
 
         /**
          * @brief C# 스크립트 필드 값을 저장하고 장면을 수정 상태로 표시합니다.
@@ -861,27 +861,27 @@ namespace Editor {
         /**
          * @brief 다음 다시 실행 명령의 위치이며 앞쪽 명령은 적용된 상태입니다.
          */
-        Core::Index_t mSceneHistoryPosition{};
+        Index_t mSceneHistoryPosition{};
 
         /**
          * @brief 편집 토큰 발급용 단조 증가 번호입니다.
          */
-        Core::Uint64 mSceneEditSerial{};
+        Uint64 mSceneEditSerial{};
 
         /**
          * @brief 현재 장면 편집 범위를 종료할 토큰이며 비활성 시 0입니다.
          */
-        Core::Uint64 mSceneEditToken{};
+        Uint64 mSceneEditToken{};
 
         /**
          * @brief 현재 장면 내용의 리비전입니다.
          */
-        Core::Uint64 mSceneRevision{};
+        Uint64 mSceneRevision{};
 
         /**
          * @brief 마지막 저장 시점의 장면 리비전입니다.
          */
-        Core::Uint64 mSavedSceneRevision{};
+        Uint64 mSavedSceneRevision{};
 
         /**
          * @brief 진행 중인 편집에서 장면 변경이 보고되었는지 여부입니다.
@@ -906,7 +906,7 @@ namespace Editor {
         /**
          * @brief 로그 추가와 초기화를 구분하는 변경 세대입니다.
          */
-        Core::Uint64 mLogRevision{};
+        Uint64 mLogRevision{};
 
         /**
          * @brief 활성 뷰포트 등에 따른 새 액터의 배치 변환 제공자입니다.
@@ -941,7 +941,7 @@ namespace Editor {
         /**
          * @brief 선택 변경을 감지하거나 드래그 시작 시 선택을 검증하는 세대 값입니다.
          */
-        Core::Uint64 mSelectionRevision{};
+        Uint64 mSelectionRevision{};
 
         /**
          * @brief 프로젝트 생성 또는 열기를 애플리케이션에 전달하는 콜백입니다.

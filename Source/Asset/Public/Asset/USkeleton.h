@@ -16,7 +16,7 @@ namespace Asset {
     /**
      * @brief 스켈레톤에서 허용하는 최대 본 수입니다.
      */
-    inline constexpr Core::Uint32 MaxSkeletonBones{100000};
+    inline constexpr Uint32 MaxSkeletonBones{100000};
 
     /**
      * @brief 본 계층, 로컬 기준 포즈, 전역 바인드·역바인드 행렬을 공유하는 스켈레톤 에셋입니다.

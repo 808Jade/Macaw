@@ -31,6 +31,8 @@ namespace Viewer {
 
 namespace Editor {
 
+    class FEditorTab;
+
     class FAnimSequenceViewportClient;
     class FAssetThumbnailCache;
     class FEditorAssetCatalog;
@@ -75,11 +77,29 @@ namespace Editor {
         bool SetPreviewMesh(const Core::FString& MeshPath, const Core::FString& SkeletonPath);
 
         /**
-         * @brief 시퀀스 설정·뷰포트·타임라인·에셋 목록을 그리고 재생을 갱신합니다.
-         * @param DeltaTime 이전 갱신 이후 경과 시간(초)입니다.
-         * @param CanSave 현재 상태에서 에셋 저장을 허용하는지 여부입니다.
+         * @brief 호스트 주 탭에 편집기 위젯과 도킹 배치를 등록합니다.
+         * @param[in] Tab 편집기를 포함할 호스트 탭 또는 등록할 외부 소유 탭입니다.
          */
-        void Draw(float DeltaTime, bool CanSave);
+        void InitializeToolkit(Editor::FEditorTab& Tab);
+
+        /**
+         * @brief 툴킷에 포함된 편집기 상태와 저장 가능 여부를 프레임별로 갱신합니다.
+         * @param[in] DeltaTime 이전 프레임 이후 경과한 시간이며 단위는 초입니다.
+         * @param[in] CanSave 현재 편집 내용을 저장할 수 있는지 지정합니다.
+         */
+        void UpdateToolkit(float DeltaTime, bool CanSave);
+
+        /**
+         * @brief 편집기 포커스와 저장 가능 상태에 따라 단축키 명령을 처리합니다.
+         * @param[in] CanSave 현재 편집 내용을 저장할 수 있는지 지정합니다.
+         */
+        void HandleCommands(bool CanSave);
+
+        /**
+         * @brief 저장하지 않은 편집 내용의 처리 여부를 확인하고 닫기를 요청합니다.
+         * @return 사용자가 닫기를 허용하면 true입니다.
+         */
+        bool RequestClose();
 
         /**
          * @brief 열린 에셋이 제거·교체된 경로에 해당하면 편집기를 정리합니다.
@@ -101,12 +121,13 @@ namespace Editor {
 
         /**
          * @brief 이 에디터 창의 ImGui 식별자를 지정하여 같은 종류의 에디터를 여러 탭으로 열 수 있게 합니다.
-         * @param[in] Id ###로 시작하는 창 식별자입니다.
+         * @param[in] Id 세 개의 해시 기호로 시작하는 ImGui 창 식별자입니다.
          */
         void SetWindowId(Core::FString Id);
 
         /**
          * @brief 이 에디터 창의 ImGui 식별자를 반환합니다.
+         * @return 호스트 창을 구분하는 ImGui 창 식별자 문자열입니다.
          */
         const Core::FString& GetWindowId() const;
 
@@ -163,7 +184,7 @@ namespace Editor {
          * @brief 재생을 정지하고 지정 방향으로 시퀀스 한 프레임을 이동합니다.
          * @param Direction 음수는 이전, 양수는 다음 프레임입니다.
          */
-        void StepFrame(Core::Int32 Direction);
+        void StepFrame(Int32 Direction);
 
     private:
 
@@ -226,6 +247,16 @@ namespace Editor {
          * @brief 이 에디터 창의 ImGui 식별자입니다.
          */
         Core::FString mWindowId{"###AnimSequenceEditor"};
+
+        /**
+         * @brief 편집기를 포함하는 호스트 주 탭의 비소유 주소입니다.
+         */
+        Editor::FEditorTab* mHostTab{};
+
+        /**
+         * @brief 현재 툴킷에서 에셋 저장을 허용하는지 나타냅니다.
+         */
+        bool mToolkitCanSave{};
 
         /**
          * @brief 변경 처리 확인 후 열 에셋 경로입니다.

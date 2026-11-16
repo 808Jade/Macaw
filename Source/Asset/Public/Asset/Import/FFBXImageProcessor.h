@@ -31,7 +31,7 @@ namespace Asset {
         /**
          * @brief 정규화한 텍스처 경로 키와 FBX에 내장된 원본 바이트의 대응입니다.
          */
-        using FEmbeddedData = Core::TMap<Core::FString, Core::TArray<Core::Uint8>>;
+        using FEmbeddedData = Core::TMap<Core::FString, Core::TArray<Uint8>>;
 
         /**
          * @brief FBX 파일 텍스처와 형태를 판별한 임포트 텍스처의 대응입니다.
@@ -102,7 +102,7 @@ namespace Asset {
          * @param[in] Path Data가 비어 있으면 읽을 외부 파일 경로입니다.
          * @return 첫 IDAT 앞에 acTL 청크가 있으면 true이며 PNG가 아니거나 읽을 수 없으면 false입니다.
          */
-        bool HasPNGAnimation(std::span<const Core::Uint8> Data, const std::filesystem::path& Path) const;
+        bool HasPNGAnimation(std::span<const Uint8> Data, const std::filesystem::path& Path) const;
 
         /**
          * @brief DirectXTex 메타데이터의 차원·큐브맵·배열 정보로 텍스처 형태를 정하고 형태별 D3D11 크기 한계를 확인합니다.
@@ -123,7 +123,7 @@ namespace Asset {
          * @param[out] Error 형식을 인식할 수 없으면 원인을 기록할 대상입니다.
          * @return 디코더를 열고 첫 프레임 크기가 텍스처 한계 안이면 true입니다.
          */
-        bool InspectWICImage(std::span<const Core::Uint8> Data, const std::filesystem::path& Path, Asset::EMeshImportTextureShape& Shape, Core::FString& Error) const;
+        bool InspectWICImage(std::span<const Uint8> Data, const std::filesystem::path& Path, Asset::EMeshImportTextureShape& Shape, Core::FString& Error) const;
 
         /**
          * @brief 이미지 헤더 메타데이터만 읽어 픽셀 디코딩 없이 텍스처 형태를 판별합니다.
@@ -134,7 +134,7 @@ namespace Asset {
          * @param[out] Error 형식을 인식할 수 없으면 원인을 기록할 대상입니다.
          * @return 헤더를 읽을 수 있고 크기가 텍스처 한계 안이면 true입니다.
          */
-        bool InspectImage(std::span<const Core::Uint8> Data, const std::filesystem::path& Path, Asset::EMeshImportTextureShape& Shape, Core::FString& Error) const;
+        bool InspectImage(std::span<const Uint8> Data, const std::filesystem::path& Path, Asset::EMeshImportTextureShape& Shape, Core::FString& Error) const;
 
         /**
          * @brief FBX 파일 텍스처의 이미지를 내장 바이트에서 찾고 없으면 원본 디렉터리 기준 외부 파일에서 찾습니다.

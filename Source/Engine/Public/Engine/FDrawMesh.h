@@ -43,7 +43,7 @@ namespace Engine {
         /**
          * @brief 겹치는 핸들의 CPU 선택 우선순위이며 작은 값이 우선합니다.
          */
-        Core::Uint32 mPriority{2};
+        Uint32 mPriority{2};
 
         /**
          * @brief 장면 깊이를 검사할지 지정하며 false이면 별도 오버레이 깊이를 사용합니다.

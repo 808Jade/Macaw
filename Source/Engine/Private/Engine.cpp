@@ -37,7 +37,7 @@ namespace Engine {
         /**
          * @brief 프로세스 내 엔진 및 월드 슬롯 재사용을 구분하는 다음 세대입니다.
          */
-        std::atomic<Core::Uint64> NextWorldGeneration{1};
+        std::atomic<Uint64> NextWorldGeneration{1};
     }
 
     /**
@@ -102,7 +102,7 @@ namespace Engine {
             return false;
         }
 
-        for (Core::Index_t Index{}; Index < static_cast<Core::Uint32>(Engine::EPrimitiveType::Count); ++Index) {
+        for (Index_t Index{}; Index < static_cast<Uint32>(Engine::EPrimitiveType::Count); ++Index) {
             if (!Renderer->UploadMesh(static_cast<Engine::EPrimitiveType>(Index), Engine::GetPrimitiveMesh(static_cast<Engine::EPrimitiveType>(Index)))) {
                 return false;
             }
@@ -112,7 +112,7 @@ namespace Engine {
 
         std::size_t GeometryBytes{};
 
-        for (Core::Index_t Index{}; Index < static_cast<Core::Uint32>(Engine::EPrimitiveType::Count); ++Index) {
+        for (Index_t Index{}; Index < static_cast<Uint32>(Engine::EPrimitiveType::Count); ++Index) {
             GeometryBytes += Engine::GetPrimitiveMesh(static_cast<Engine::EPrimitiveType>(Index)).GetAllocatedBytes();
         }
 
@@ -258,14 +258,14 @@ namespace Engine {
             return {};
         }
 
-        Core::Index_t Index{};
+        Index_t Index{};
 
         while (Index < mWorldContexts.size() && mWorldContexts[Index] != nullptr) {
             ++Index;
         }
 
-        const Core::Uint64 Generation{NextWorldGeneration.fetch_add(1, std::memory_order_relaxed)};
-        const Engine::FWorldHandle Handle{static_cast<Core::Int32>(Index), Generation};
+        const Uint64 Generation{NextWorldGeneration.fetch_add(1, std::memory_order_relaxed)};
+        const Engine::FWorldHandle Handle{static_cast<Int32>(Index), Generation};
 
         Context->SetHandle(Handle);
 
@@ -557,7 +557,7 @@ namespace Engine {
     /**
      * @brief 월드 교체 시 증가하는 컨텍스트 세대를 반환합니다.
      */
-    Core::Uint64 Engine::UEngine::GetWorldGeneration() const {
+    Uint64 Engine::UEngine::GetWorldGeneration() const {
         return mWorldGeneration;
     }
 

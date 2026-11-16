@@ -1,3 +1,9 @@
+/**
+ * @file FProjectBrowser.cpp
+ * @brief 최근 프로젝트 탐색·선택과 템플릿 기반 프로젝트 생성을 제공합니다.
+ * @ingroup Editor
+ */
+
 #include "Core/Types.h"
 #include "Editor/FProjectBrowser.h"
 #include "Asset/UTexture2D.h"
@@ -17,16 +23,43 @@
 #include <cctype>
 #include <fstream>
 
+/**
+ * @brief Win32 메시지를 ImGui 입력 백엔드에 전달합니다.
+ * @param[in] Window 마우스 캡처 또는 메시지 처리 대상 Win32 창입니다.
+ * @param[in] Message Win32 메시지 식별자입니다.
+ * @param[in] WParam Win32 메시지의 첫 번째 매개변수입니다.
+ * @param[in] LParam Win32 메시지의 두 번째 매개변수입니다.
+ * @return 백엔드의 메시지 처리 결과입니다.
+ */
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
 
 namespace Editor {
 
+    /**
+     * @brief FProjectBrowser 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
+     */
     namespace {
 
+        /**
+         * @brief 프로젝트 브라우저의 강조 색상입니다.
+         */
         constexpr ImU32 Accent{IM_COL32(0, 122, 218, 255)};
+
+        /**
+         * @brief 프로젝트 브라우저의 보조 텍스트 색상입니다.
+         */
         constexpr ImU32 Muted{IM_COL32(146, 149, 155, 255)};
+
+        /**
+         * @brief 프로젝트 브라우저의 기본 밝은 텍스트 색상입니다.
+         */
         constexpr ImU32 White{IM_COL32(237, 239, 242, 255)};
 
+        /**
+         * @brief Windows 알려진 폴더 식별자를 파일 시스템 경로로 해석합니다.
+         * @param[in] Folder 조회할 Windows 알려진 폴더 식별자입니다.
+         * @return 폴더 경로이며 조회에 실패하면 빈 경로입니다.
+         */
         std::filesystem::path KnownFolder(REFKNOWNFOLDERID Folder) {
             PWSTR Buffer{};
 
@@ -40,16 +73,33 @@ namespace Editor {
             return Path;
         }
 
+        /**
+         * @brief 최근 프로젝트 목록을 저장할 파일 경로를 계산합니다.
+         * @return 사용자별 최근 프로젝트 목록 파일 경로입니다.
+         */
         std::filesystem::path RecentProjectsFile() {
             const std::filesystem::path Directory{KnownFolder(FOLDERID_LocalAppData)};
 
             return Directory.empty() ? std::filesystem::path{} : Directory / "Macaw/RecentProjects.txt";
         }
 
+        /**
+         * @brief D3D11 텍스처 뷰 주소를 ImGui 텍스처 식별자로 변환합니다.
+         * @param[in] Texture 미리 보기에 사용할 텍스처 또는 D3D11 텍스처 뷰입니다.
+         * @return ImGui 이미지 그리기에 사용할 식별자입니다.
+         */
         ImTextureID TextureId(ID3D11ShaderResourceView* Texture) {
             return static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Texture));
         }
 
+        /**
+         * @brief 에셋 또는 프로젝트의 미리 보기 이미지를 표시합니다.
+         * @param[in] Draw 미리 보기 도형과 이미지를 기록할 ImGui 그리기 목록입니다.
+         * @param[in] Texture 미리 보기에 사용할 텍스처 또는 D3D11 텍스처 뷰입니다.
+         * @param[in] Mascot 기본 미리 보기에 사용할 마스코트 텍스처 뷰입니다.
+         * @param[in] Min 그리기 영역의 왼쪽 위 화면 좌표입니다.
+         * @param[in] Max 그리기 영역의 오른쪽 아래 화면 좌표입니다.
+         */
         void DrawPreview(ImDrawList* Draw, ID3D11ShaderResourceView* Texture, ID3D11ShaderResourceView* Mascot, ImVec2 Min, ImVec2 Max) {
             Draw->AddRectFilledMultiColor(Min, Max, IM_COL32(30, 37, 46, 255), IM_COL32(34, 51, 63, 255), IM_COL32(21, 25, 32, 255), IM_COL32(24, 27, 34, 255));
 
@@ -75,6 +125,12 @@ namespace Editor {
             }
         }
 
+        /**
+         * @brief 프로젝트 이름이 검색 문자열에 맞는지 대소문자를 무시하고 검사합니다.
+         * @param[in] Name 검색 문자열과 비교할 프로젝트 이름입니다.
+         * @param[in] Search 이름과 비교할 검색 문자열입니다.
+         * @return 검색 조건에 맞으면 true입니다.
+         */
         bool MatchesSearch(const Core::FString& Name, const char* Search) {
             Core::FString Haystack{Name};
             Core::FString Needle{Search};
@@ -87,6 +143,12 @@ namespace Editor {
             return Haystack.find(Needle) != Core::FString::npos;
         }
 
+        /**
+         * @brief 프로젝트 정보의 레이블과 값을 지정한 배율로 표시합니다.
+         * @param[in] Label 메뉴 또는 컨트롤에 표시할 레이블입니다.
+         * @param[in] Value 프로젝트 속성에 표시할 문자열입니다.
+         * @param[in] Scale UI 표시 크기에 적용할 배율입니다.
+         */
         void DrawProperty(const char* Label, const char* Value, float Scale) {
             ImGui::TextDisabled("%s", Label);
             ImGui::SameLine(130.0f * Scale);
@@ -267,7 +329,7 @@ namespace Editor {
         const HMODULE Module{GetModuleHandleW(nullptr)};
         const HRSRC Resource{FindResourceW(Module, MAKEINTRESOURCEW(MacawBrandResource), RT_RCDATA)};
         const HGLOBAL Data{Resource != nullptr ? LoadResource(Module, Resource) : nullptr};
-        const auto* Bytes{Data != nullptr ? static_cast<const Core::Uint8*>(LockResource(Data)) : nullptr};
+        const auto* Bytes{Data != nullptr ? static_cast<const Uint8*>(LockResource(Data)) : nullptr};
         Asset::UTexture2D Texture{};
 
         if (Bytes != nullptr && Texture.LoadFromMemory({Bytes, SizeofResource(Module, Resource)}, "Macaw.png", false) && Texture.CreateResources(static_cast<ID3D11Device*>(Device))) {
@@ -382,7 +444,7 @@ namespace Editor {
         const float CardHeight{177.0f * Scale};
         const float Gap{14.0f * Scale};
         const int Columns{std::max(1, static_cast<int>((GridWidth - 16.0f * Scale + Gap) / (CardWidth + Gap)))};
-        Core::Index_t Visible{};
+        Index_t Visible{};
 
         for (const auto& Path : mRecentProjects) {
             const Core::FString Name{Core::FilePath::ToUtf8(Path.stem())};
@@ -667,7 +729,7 @@ namespace Editor {
 
         std::ofstream Output{File, std::ios::binary | std::ios::trunc};
 
-        for (Core::Index_t Index{}; Index < std::min<std::size_t>(24, Browser.mRecentProjects.size()); ++Index) {
+        for (Index_t Index{}; Index < std::min<std::size_t>(24, Browser.mRecentProjects.size()); ++Index) {
             Output << Core::FilePath::ToUtf8(Browser.mRecentProjects[Index]) << '\n';
         }
     }

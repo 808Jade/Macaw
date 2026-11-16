@@ -65,7 +65,7 @@ namespace Renderer {
     /**
      * @brief GPU 파이프라인을 만들 때 사용한 정점 셰이더의 리비전을 반환합니다.
      */
-    Core::Uint64 Renderer::FMaterialPipeline::GetVertexRevision() const {
+    Uint64 Renderer::FMaterialPipeline::GetVertexRevision() const {
         return mVertexShader != nullptr ? mVertexShader->GetRevision() : 0;
     }
 

@@ -151,7 +151,7 @@ namespace Editor {
          * @brief 마우스가 가리키는 핸들 인덱스, 없으면 -1을 반환합니다.
          * @return 마우스가 가리키는 핸들 인덱스, 없으면 -1입니다.
          */
-        Core::Int32 GetHoveredAxis() const;
+        Int32 GetHoveredAxis() const;
 
     private:
 
@@ -180,7 +180,7 @@ namespace Editor {
          * @param[in] Index 축 인덱스(0=X, 1=Y, 2=Z)입니다.
          * @return 선택한 좌표 공간에 맞는 기즈모 단위 축을 구합니다.입니다.
          */
-        FVector GetAxis(const FTransform& Transform, Core::Int32 Index) const;
+        FVector GetAxis(const FTransform& Transform, Int32 Index) const;
 
         /**
          * @brief 선택 축과 대상의 시작 변환을 저장하고 드래그 평면을 구성합니다.
@@ -190,7 +190,7 @@ namespace Editor {
          * @param Target 드래그 시작 변환을 기록할 대상 컴포넌트입니다.
          * @return 드래그 대상과 시작 상태를 준비하면 true입니다.
          */
-        bool BeginDrag(Core::Int32 Axis, const Engine::USceneComponent& Target, const Engine::FViewportInput& Input, const Engine::FSceneView& View);
+        bool BeginDrag(Int32 Axis, const Engine::USceneComponent& Target, const Engine::FViewportInput& Input, const Engine::FSceneView& View);
 
         /**
          * @brief 마우스 이동량을 활성 모드의 변환으로 바꾸어 선택한 액터에 적용합니다.
@@ -241,7 +241,7 @@ namespace Editor {
         /**
          * @brief 현재 장면 편집 범위를 종료할 토큰이며 비활성 시 0입니다.
          */
-        Core::Uint64 mSceneEditToken{};
+        Uint64 mSceneEditToken{};
 
         /**
          * @brief 드래그 시작 시 대상 변환입니다.
@@ -256,12 +256,12 @@ namespace Editor {
         /**
          * @brief 선택 변경을 감지하거나 드래그 시작 시 선택을 검증하는 세대 값입니다.
          */
-        Core::Uint64 mSelectionRevision{};
+        Uint64 mSelectionRevision{};
 
         /**
          * @brief 사용자 피벗을 설정한 선택 세대이며 다른 선택에서는 피벗을 무시합니다.
          */
-        Core::Uint64 mPivotRevision{};
+        Uint64 mPivotRevision{};
 
         /**
          * @brief 현재 선택에서 유지할 사용자 지정 월드 피벗입니다.

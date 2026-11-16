@@ -51,14 +51,14 @@ namespace Engine {
          * @brief 기본 그림자 맵의 한 변 해상도를 반환합니다.
          * @return 기본 그림자 맵의 한 변 해상도입니다.
          */
-        Core::Uint32 GetShadowResolution() const;
+        Uint32 GetShadowResolution() const;
 
         /**
          * @brief 기본 그림자 맵의 한 변 해상도를 검증하고 변경합니다.
          * @param[in] Resolution 64 이상 8192 이하인 2의 거듭제곱 해상도입니다.
          * @return 입력값을 수락하고 상태를 갱신하면 true이며 잘못된 값이면 false입니다.
          */
-        bool SetShadowResolution(Core::Uint32 Resolution);
+        bool SetShadowResolution(Uint32 Resolution);
 
         /**
          * @brief 그림자 해상도 배율을 반환합니다.
@@ -144,7 +144,7 @@ namespace Engine {
          * @brief 기본 그림자 맵의 한 변 해상도입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetShadowResolution, Setter = SetShadowResolution)
-        Core::Uint32 mShadowResolution{1024};
+        Uint32 mShadowResolution{1024};
 
         /**
          * @brief 그림자 해상도 배율입니다.

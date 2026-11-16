@@ -220,14 +220,14 @@ namespace Engine {
             return;
         }
 
-        constexpr Core::Uint32 Segments{64};
+        constexpr Uint32 Segments{64};
         const float Radius{Proxy.mAttenuationRadius};
 
         if (Proxy.mType == Engine::ELightType::Point) {
             const std::array<FVector, 3> Axes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
 
-            for (Core::Index_t Axis{}; Axis < 3; ++Axis) {
-                for (Core::Index_t Index{}; Index < Segments; ++Index) {
+            for (Index_t Axis{}; Axis < 3; ++Axis) {
+                for (Index_t Index{}; Index < Segments; ++Index) {
                     const Core::FAngle Start{1_turn * Index / Segments};
                     const Core::FAngle End{1_turn * (Index + 1) / Segments};
 
@@ -243,7 +243,7 @@ namespace Engine {
             const FVector Center{Position + Forward * (Radius * Core::Math::Cos(Angle * 1_deg))};
             const FVector ConeColor{Angle == Proxy.mOuterConeAngle ? Color : Color * 0.5f};
 
-            for (Core::Index_t Index{}; Index < Segments; ++Index) {
+            for (Index_t Index{}; Index < Segments; ++Index) {
                 const Core::FAngle Start{1_turn * Index / Segments};
                 const Core::FAngle End{1_turn * (Index + 1) / Segments};
                 const FVector Edge{Center + (Right * Core::Math::Cos(Start) + Up * Core::Math::Sin(Start)) * ConeRadius};

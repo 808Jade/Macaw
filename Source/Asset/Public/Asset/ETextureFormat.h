@@ -16,7 +16,7 @@ namespace Asset {
      * @brief 텍스처의 픽셀 및 깊이·스텐실 저장 형식을 구분합니다.
      */
     UENUM()
-    enum class ETextureFormat : Core::Uint8 {
+    enum class ETextureFormat : Uint8 {
         /**
          * @brief 각 RGBA 성분을 8비트 정규화 값으로 저장하는 색상 형식입니다.
          */

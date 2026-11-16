@@ -64,7 +64,7 @@ namespace {
         return Near(Transform.mLocation, {}) && Transform.mRotation.Equals(FQuat{});
     }
 
-    std::unique_ptr<Asset::UAnimSequence> MakeSequence(float Distance, Core::Uint32 Frames = 4, const FQuat& EndRotation = {}) {
+    std::unique_ptr<Asset::UAnimSequence> MakeSequence(float Distance, Uint32 Frames = 4, const FQuat& EndRotation = {}) {
         Asset::FAnimDataModel Model{};
 
         Model.SetFrameRate({4, 1});
@@ -83,7 +83,7 @@ namespace {
         Root.mName = "Root";
         Root.mInternalTrack.mScaleKeys.push_back({1.0f, 1.0f, 1.0f});
 
-        for (Core::Index_t Key{}; Key <= Frames; ++Key) {
+        for (Index_t Key{}; Key <= Frames; ++Key) {
             const float Phase{static_cast<float>(Key) / static_cast<float>(Frames)};
 
             Root.mInternalTrack.mPosKeys.push_back({3.0f + Phase * Distance, 0.0f, 0.0f});
@@ -101,14 +101,14 @@ namespace {
         return Sequence;
     }
 
-    void WriteSequenceFixture(Asset::FAssetManager& Assets, const Asset::UAnimSequence& Sequence, const std::filesystem::path& Path, Core::Uint32 Version, Core::Uint32 Lock) {
-        Core::TArray<Core::Uint8> Payload{};
+    void WriteSequenceFixture(Asset::FAssetManager& Assets, const Asset::UAnimSequence& Sequence, const std::filesystem::path& Path, Uint32 Version, Uint32 Lock) {
+        Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FAnimDataModel Model{Sequence.GetDataModel()};
-        Core::Uint32 Numerator{Model.GetFrameRate().mNumerator};
-        Core::Uint32 Denominator{Model.GetFrameRate().mDenominator};
-        Core::Uint32 Frames{Model.GetNumberOfFrames()};
-        Core::Uint32 Tracks{static_cast<Core::Uint32>(Model.GetBoneAnimationTracks().size())};
+        Uint32 Numerator{Model.GetFrameRate().mNumerator};
+        Uint32 Denominator{Model.GetFrameRate().mDenominator};
+        Uint32 Frames{Model.GetNumberOfFrames()};
+        Uint32 Tracks{static_cast<Uint32>(Model.GetBoneAnimationTracks().size())};
 
         Archive.Serialize("AnimSequenceVersion", Version);
         Archive.Serialize("FrameRateNumerator", Numerator);
@@ -120,7 +120,7 @@ namespace {
             Archive.Serialize("Name", Track.mName);
 
             const auto WriteChannel{[&Archive](auto& Channel) {
-                Core::Uint32 Count{static_cast<Core::Uint32>(Channel.size())};
+                Uint32 Count{static_cast<Uint32>(Channel.size())};
 
                 Archive.BeginArray("Channel", Count);
 
@@ -219,19 +219,19 @@ namespace {
 
     void TestBlendSpaceIndices(Asset::UAnimSequence& Walk, Asset::UAnimSequence& Run) {
         auto Space{CoreUObject::NewObject<Asset::UBlendSpace1D>()};
-        const Core::Index_t WalkIndex{Space->AddSample(&Walk, {0.0f, 0.0f, 0.0f})};
-        const Core::Index_t RunIndex{Space->AddSample(&Run, {1.0f, 0.0f, 0.0f})};
-        constexpr Core::Index_t LargeIndex{Core::Index_t{std::numeric_limits<Core::Uint32>::max()} + 1};
+        const Index_t WalkIndex{Space->AddSample(&Walk, {0.0f, 0.0f, 0.0f})};
+        const Index_t RunIndex{Space->AddSample(&Run, {1.0f, 0.0f, 0.0f})};
+        constexpr Index_t LargeIndex{Index_t{std::numeric_limits<Uint32>::max()} + 1};
 
         Require(WalkIndex == 0 && RunIndex == 1, "BlendSpace returns container indices for added samples");
 
-        for (const Core::Index_t Index : {Space->GetSamples().size(), LargeIndex, Core::InvalidIndex}) {
+        for (const Index_t Index : {Space->GetSamples().size(), LargeIndex, InvalidIndex}) {
             Require(!Space->SetSampleAnimation(Index, &Run) && !Space->SetSampleValue(Index, {0.5f, 0.0f, 0.0f}) && !Space->RemoveSample(Index), "Invalid and 64-bit sample indices cannot wrap into existing samples");
         }
 
         Require(Space->GetSamples().size() == 2 && Space->GetSamples()[WalkIndex].mAnimation == &Walk && Near(Space->GetSamples()[WalkIndex].mSampleValue.x, 0.0f), "Rejected sample indices preserve the original samples");
 
-        Core::TArray<Asset::FBlendSampleWeight> Weights{{Core::InvalidIndex, 1.0f}, {LargeIndex, 1.0f}, {WalkIndex, 1.0f}};
+        Core::TArray<Asset::FBlendSampleWeight> Weights{{InvalidIndex, 1.0f}, {LargeIndex, 1.0f}, {WalkIndex, 1.0f}};
 
         Require(Space->GetBlendedPlayLength(Weights) == Walk.GetPlayLength(), "Blended play length ignores invalid and 64-bit out-of-range sample indices");
         Require(Space->SetSampleAnimation(RunIndex, &Walk) && Space->GetSamples()[RunIndex].mAnimation == &Walk, "Sample animation accepts a container index");
@@ -241,13 +241,13 @@ namespace {
         Require(Space->RemoveSample(WalkIndex), "Sample removal accepts a container index");
         Space->GetSamplesToBlend({}, Weights);
         Require(Weights.size() == 1 && Weights[0].mSampleIndex == 0 && Near(Weights[0].mWeight, 1.0f), "Sample removal rebuilds shifted indices");
-        Require(Space->AddSample(&Walk, {std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f}) == Core::InvalidIndex && Space->GetSamples().size() == 1, "Invalid sample positions return the unsigned invalid index");
+        Require(Space->AddSample(&Walk, {std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f}) == InvalidIndex && Space->GetSamples().size() == 1, "Invalid sample positions return the unsigned invalid index");
 
-        for (Core::Index_t Index{Space->GetSamples().size()}; Index < Asset::UBlendSpace::MaxSamples; ++Index) {
+        for (Index_t Index{Space->GetSamples().size()}; Index < Asset::UBlendSpace::MaxSamples; ++Index) {
             Space->AddSample(&Walk, {});
         }
 
-        Require(Space->AddSample(&Walk, {}) == Core::InvalidIndex && Space->GetSamples().size() == Asset::UBlendSpace::MaxSamples, "A full BlendSpace returns the unsigned invalid index without adding a sample");
+        Require(Space->AddSample(&Walk, {}) == InvalidIndex && Space->GetSamples().size() == Asset::UBlendSpace::MaxSamples, "A full BlendSpace returns the unsigned invalid index without adding a sample");
     }
 
     void TestBlending(Engine::USkeletalMeshComponent& Mesh, Asset::UAnimSequence& Walk, Asset::UAnimSequence& Run) {
@@ -284,16 +284,16 @@ namespace {
         Instance.UpdateAnimation(0.25f);
         Require(Near(Instance.ConsumeExtractedRootMotion().mLocation.x, 5.0f / 3.0f), "BlendSpace samples different clip lengths at the same phase");
 
-        Core::Index_t SampleVisits{};
+        Index_t SampleVisits{};
 
         for (const Engine::FAnimNodeVisit& Visit : Instance.GetDebugVisits()) {
-            if (Visit.mSampleIndex != Core::InvalidIndex) {
+            if (Visit.mSampleIndex != InvalidIndex) {
                 Require(Visit.mSampleIndex < Space->GetSamples().size() && Visit.mParentIndex >= 0, "BlendSpace debug visits retain valid sample indices and a parent visit");
                 ++SampleVisits;
             }
         }
 
-        Require(SampleVisits == 2 && Instance.GetDebugVisits().front().mSampleIndex == Core::InvalidIndex, "Debug visits distinguish pose nodes from the two BlendSpace samples");
+        Require(SampleVisits == 2 && Instance.GetDebugVisits().front().mSampleIndex == InvalidIndex, "Debug visits distinguish pose nodes from the two BlendSpace samples");
 
         Run.SetRootMotionEnabled(false);
         Player.Initialize(Instance);
@@ -303,11 +303,11 @@ namespace {
 
         auto Graph{CoreUObject::NewObject<Asset::UAnimGraph>()};
         Asset::FAnimStateMachineData Data{};
-        const Core::Int32 Source{Data.AddState("Walk", 0.0f, 0.0f, *Graph)};
-        const Core::Int32 Target{Data.AddState("Run", 100.0f, 0.0f, *Graph)};
-        const Core::Int32 Transition{Data.AddTransition(Source, Target)};
+        const Int32 Source{Data.AddState("Walk", 0.0f, 0.0f, *Graph)};
+        const Int32 Target{Data.AddState("Run", 100.0f, 0.0f, *Graph)};
+        const Int32 Transition{Data.AddTransition(Source, Target)};
         Asset::FAnimTransitionData* Rule{Data.FindTransition(Transition)};
-        const Core::Int32 Condition{Rule->mRule.AddNode(Asset::EAnimRuleNodeType::Bool, 0.0f, 0.0f)};
+        const Int32 Condition{Rule->mRule.AddNode(Asset::EAnimRuleNodeType::Bool, 0.0f, 0.0f)};
 
         Rule->mDuration = 1.0f;
         Rule->mRule.FindNode(Condition)->mBoolValue = true;

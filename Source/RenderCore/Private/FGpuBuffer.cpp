@@ -17,7 +17,7 @@ namespace RenderCore {
     /**
      * @brief GPU 자원이 없는 빈 버퍼를 생성합니다.
      */
-    RenderCore::FGpuBuffer::FGpuBuffer(Core::Uint32 Stride, RenderCore::EBufferUpdate Update)
+    RenderCore::FGpuBuffer::FGpuBuffer(Uint32 Stride, RenderCore::EBufferUpdate Update)
         : mStride{Stride},
           mUpdate{Update} {
     }
@@ -47,7 +47,7 @@ namespace RenderCore {
     /**
      * @brief 원소 수를 담을 용량과 뷰를 확보합니다.
      */
-    bool RenderCore::FGpuBuffer::Reserve(ID3D11Device* Device, Core::Uint64 Count, Core::FString& Error) {
+    bool RenderCore::FGpuBuffer::Reserve(ID3D11Device* Device, Uint64 Count, Core::FString& Error) {
         Error.clear();
 
         if (Device == nullptr || Count == 0 || Count > GetMaximumCount()) {
@@ -66,7 +66,7 @@ namespace RenderCore {
             return false;
         }
 
-        return CreateResource(Device, static_cast<Core::Uint32>(std::min(GetGrowthCapacity(Count), GetMaximumCount())), nullptr, Error);
+        return CreateResource(Device, static_cast<Uint32>(std::min(GetGrowthCapacity(Count), GetMaximumCount())), nullptr, Error);
     }
 
     /**
@@ -171,7 +171,7 @@ namespace RenderCore {
             return true;
         }
 
-        return CreateResource(Device, static_cast<Core::Uint32>(Data.size() / mStride), Data.data(), Error);
+        return CreateResource(Device, static_cast<Uint32>(Data.size() / mStride), Data.data(), Error);
     }
 
     /**
@@ -184,21 +184,21 @@ namespace RenderCore {
     /**
      * @brief 원소 하나의 바이트 수를 반환합니다.
      */
-    Core::Uint32 RenderCore::FGpuBuffer::GetStride() const {
+    Uint32 RenderCore::FGpuBuffer::GetStride() const {
         return mStride;
     }
 
     /**
      * @brief 이 버퍼가 담을 수 있는 최대 원소 수를 반환합니다.
      */
-    Core::Uint64 RenderCore::FGpuBuffer::GetMaximumCount() const {
-        return std::numeric_limits<Core::Uint32>::max() / mStride;
+    Uint64 RenderCore::FGpuBuffer::GetMaximumCount() const {
+        return std::numeric_limits<Uint32>::max() / mStride;
     }
 
     /**
      * @brief 재할당할 때 확보할 원소 수를 정합니다.
      */
-    Core::Uint64 RenderCore::FGpuBuffer::GetGrowthCapacity(Core::Uint64 Count) const {
+    Uint64 RenderCore::FGpuBuffer::GetGrowthCapacity(Uint64 Count) const {
         return std::bit_ceil(Count);
     }
 
@@ -218,7 +218,7 @@ namespace RenderCore {
     /**
      * @brief 버퍼와 뷰를 만든 뒤 기존 자원과 교체합니다.
      */
-    bool RenderCore::FGpuBuffer::CreateResource(ID3D11Device* Device, Core::Uint32 Capacity, const void* InitialData, Core::FString& Error) {
+    bool RenderCore::FGpuBuffer::CreateResource(ID3D11Device* Device, Uint32 Capacity, const void* InitialData, Core::FString& Error) {
         D3D11_BUFFER_DESC Description{};
         Description.ByteWidth = Capacity * mStride;
 

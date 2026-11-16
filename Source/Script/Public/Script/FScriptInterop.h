@@ -19,7 +19,7 @@ namespace Script {
     /**
      * @brief 프로퍼티 값의 종류입니다. Macaw.ScriptValueTag와 순서가 같아야 합니다.
      */
-    enum class EScriptValueTag : Core::Int32 {
+    enum class EScriptValueTag : Int32 {
         /**
          * @brief 해당 값이나 대상을 지정하지 않은 상태입니다.
          */
@@ -93,7 +93,7 @@ namespace Script {
         /**
          * @brief 값의 종류입니다.
          */
-        Core::Int32 mTag{};
+        Int32 mTag{};
 
         /**
          * @brief Float과 벡터 계열 값입니다. Transform은 위치 3, 회전 4, 스케일 3 순서입니다.
@@ -103,7 +103,7 @@ namespace Script {
         /**
          * @brief Bool과 정수 계열 값입니다.
          */
-        Core::Uint64 mInteger{};
+        Uint64 mInteger{};
 
         /**
          * @brief String 값이며 UTF-8입니다.

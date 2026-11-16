@@ -40,7 +40,7 @@ namespace Engine {
     class APlayerCameraManager;
     struct FWorldHit;
 
-    enum class EPrimitiveType : Core::Uint8;
+    enum class EPrimitiveType : Uint8;
 
     /**
      * @brief 영속 레벨, 렌더 장면과 프레임 말 컴포넌트 갱신을 관리합니다.
@@ -174,7 +174,7 @@ namespace Engine {
          * @brief 마지막 실행 시작 이후 수행한 게임 갱신 횟수를 반환합니다.
          * @return 실제 처리한 Tick과 Step의 총횟수입니다.
          */
-        Core::Uint64 GetTickCount() const;
+        Uint64 GetTickCount() const;
 
         /**
          * @brief 콜백 전달 또는 지연된 액터 정리를 처리 중인지 검사합니다.
@@ -502,12 +502,12 @@ namespace Engine {
         /**
          * @brief 기본 액터 이름 생성용 일련번호입니다.
          */
-        Core::Uint32 mSpawnSerial{};
+        Uint32 mSpawnSerial{};
 
         /**
          * @brief 중첩된 콜백 전달 범위의 깊이입니다.
          */
-        Core::Uint32 mDispatchDepth{};
+        Uint32 mDispatchDepth{};
 
         /**
          * @brief 지난 갱신에서 겹쳐 있던 충돌 도형 쌍입니다.
@@ -517,7 +517,7 @@ namespace Engine {
         /**
          * @brief 마지막 BeginPlay 이후 실제 처리한 게임 갱신 횟수입니다.
          */
-        Core::Uint64 mTickCount{};
+        Uint64 mTickCount{};
 
         /**
          * @brief 마지막 BeginPlay 이후 실제 진행한 게임 시간입니다.

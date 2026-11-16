@@ -29,7 +29,7 @@ namespace Engine {
          * @param[in] Index 엔진 컨텍스트 배열의 슬롯입니다.
          * @param[in] Generation 해당 슬롯에 발급된 월드 세대입니다.
          */
-        FWorldHandle(Core::Int32 Index, Core::Uint64 Generation);
+        FWorldHandle(Int32 Index, Uint64 Generation);
 
     public:
         /**
@@ -43,13 +43,13 @@ namespace Engine {
          * @brief 월드 컨텍스트의 슬롯을 반환합니다.
          * @return 엔진 컨텍스트 배열의 인덱스입니다.
          */
-        Core::Int32 GetIndex() const;
+        Int32 GetIndex() const;
 
         /**
          * @brief 월드 슬롯의 재사용을 구분하는 세대를 반환합니다.
          * @return 발급된 세대이며 기본 무효 핸들은 0입니다.
          */
-        Core::Uint64 GetGeneration() const;
+        Uint64 GetGeneration() const;
 
         /**
          * @brief 슬롯과 세대가 모두 같은지 비교합니다.
@@ -62,12 +62,12 @@ namespace Engine {
         /**
          * @brief 엔진의 월드 슬롯이며 최댓값은 무효 슬롯입니다.
          */
-        Core::Int32 mIndex{-1};
+        Int32 mIndex{-1};
 
         /**
          * @brief 월드 슬롯에 발급된 세대이며 0은 무효 세대입니다.
          */
-        Core::Uint64 mGeneration{};
+        Uint64 mGeneration{};
     };
 
 }

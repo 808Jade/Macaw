@@ -51,7 +51,7 @@ namespace Renderer {
         return mConstants.Create(Device, Error) && SUCCEEDED(Device->CreateDepthStencilState(&Test, mTestReceiver.GetAddressOf())) && SUCCEEDED(Device->CreateRasterizerState(&Rasterizer, mRasterizer.GetAddressOf())) && SUCCEEDED(Device->CreateSamplerState(&Sampler, mSampler.GetAddressOf())) && SUCCEEDED(Device->CreateBlendState(&Blend, mBlend.GetAddressOf()));
     }
 
-    bool Renderer::FDecalPass::CreateShaders(ID3D11Device* Device, std::span<const Core::Uint8> VertexCode, std::span<const Core::Uint8> PixelCode) {
+    bool Renderer::FDecalPass::CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode) {
         Microsoft::WRL::ComPtr<ID3D11VertexShader> Vertex{};
         Microsoft::WRL::ComPtr<ID3D11PixelShader> Pixel{};
 
@@ -65,7 +65,7 @@ namespace Renderer {
         return true;
     }
 
-    Core::Uint32 Renderer::FDecalPass::Render(ID3D11Device* Device, ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FDecalSceneProxy> Decals) {
+    Uint32 Renderer::FDecalPass::Render(ID3D11Device* Device, ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FDecalSceneProxy> Decals) {
         const Engine::FSceneView& View{Family.mView};
         FConstants Constants{};
 
@@ -73,8 +73,8 @@ namespace Renderer {
             return 0;
         }
 
-        const Core::Uint32 Width{Target.GetWidth()};
-        const Core::Uint32 Height{Target.GetHeight()};
+        const Uint32 Width{Target.GetWidth()};
+        const Uint32 Height{Target.GetHeight()};
         constexpr UINT NormalMapSlot{11};
         constexpr UINT HistorySlot{14};
         Constants.mScreenAndOpacity = {1.0f / static_cast<float>(Width), 1.0f / static_cast<float>(Height), 0.0f, 0.0f};
@@ -99,7 +99,7 @@ namespace Renderer {
         bool AllowNormals{Family.mViewMode == Engine::EViewMode::Lit_Phong || Family.mViewMode == Engine::EViewMode::Lit_Lambert || Family.mViewMode == Engine::EViewMode::WorldNormal};
         Asset::UTexture2D* ReceiverSource{};
         D3D11_RECT WrittenNormals{};
-        Core::Uint32 DrawCalls{};
+        Uint32 DrawCalls{};
 
         for (const Engine::FDecalSceneProxy& Decal : Decals) {
             const D3D11_RECT Scissor{GetScissor(Decal.mDecalToWorld * View.mViewProjection, Width, Height)};
@@ -193,7 +193,7 @@ namespace Renderer {
         return DrawCalls;
     }
 
-    D3D11_RECT Renderer::FDecalPass::GetScissor(const FMatrix& DecalToClip, Core::Uint32 Width, Core::Uint32 Height) {
+    D3D11_RECT Renderer::FDecalPass::GetScissor(const FMatrix& DecalToClip, Uint32 Width, Uint32 Height) {
         const float ScreenWidth{static_cast<float>(Width)};
         const float ScreenHeight{static_cast<float>(Height)};
         float Left{ScreenWidth};
@@ -201,7 +201,7 @@ namespace Renderer {
         float Right{};
         float Bottom{};
 
-        for (Core::Index_t Corner{}; Corner < 8; ++Corner) {
+        for (Index_t Corner{}; Corner < 8; ++Corner) {
             const FVector4 Local{(Corner & 1u) != 0 ? 1.0f : -1.0f, (Corner & 2u) != 0 ? 1.0f : -1.0f, (Corner & 4u) != 0 ? 1.0f : -1.0f, 1.0f};
             const FVector4 Clip{Local * DecalToClip};
 
