@@ -67,8 +67,6 @@ namespace {
      */
     const std::array<const char*, 5> ViewModeNames{"Lit - Gouraud", "Lit - Lambert", "Lit - Phong", "Unlit", "Wireframe"};
 
-
-
     /**
      * @brief 카메라 조작·표시·변환 스냅·통계 그룹 설정을 뷰포트별로 저장하거나 복원합니다.
      * @param[in,out] Archive 모드에 따라 값을 읽거나 쓸 아카이브입니다.
@@ -187,238 +185,404 @@ FEditorSettings::FEditorSettings(FEditorContext* Context, Platform::FWindowsAppl
 FEditorSettings::~FEditorSettings() = default;
 
 void FEditorSettings::InitializeWidgets() {
-    const auto Add{[this](std::unique_ptr<FEditorWidget> Widget) {
-        const Core::FString Id{Widget->GetId()};
-        mWidgets.emplace(Id, std::move(Widget));
-    }};
-    const auto AddSlider{[this, &Add](Core::FString Label, float Minimum, float Maximum, std::function<float()> Getter, std::function<void(float)> Setter, Core::FString Format, float DragSpeed = 0.0f) {
-        auto Widget{std::make_unique<FEditorSliderWidget>(Label, Label, Minimum, Maximum, std::move(Getter), [this, Setter = std::move(Setter)](float Value) {
-            Setter(Value);
-            MarkDirty();
-        }, std::move(Format))};
-        Widget->SetDragSpeed(DragSpeed);
-        Add(std::move(Widget));
-    }};
-    const auto AddCheckBox{[this, &Add](Core::FString Label, std::function<bool()> Getter, std::function<void(bool)> Setter) {
-        Add(std::make_unique<FEditorCheckBoxWidget>(Label, Label, std::move(Getter), [this, Setter = std::move(Setter)](bool Value) {
-            Setter(Value);
-            MarkDirty();
-        }));
-    }};
+    InitializeActionWidgets();
 
-    Add(std::make_unique<FEditorButtonWidget>("Save Settings", "Save Settings", [this]() {
-        SaveSettings();
-    }));
-    Add(std::make_unique<FEditorButtonWidget>("Reset to Defaults", "Reset to Defaults", [this]() {
-        ImGui::OpenPopup("Reset Settings?");
-    }));
-    Add(std::make_unique<FEditorButtonWidget>("Close", "Close", [this]() {
-        mSettingsOpen = false;
-    }));
-    Add(std::make_unique<FEditorButtonWidget>("Reset", "Reset", [this]() {
-        ResetSettings();
-        ImGui::CloseCurrentPopup();
-    }));
-    Add(std::make_unique<FEditorButtonWidget>("Cancel", "Cancel", [this]() {
-        ImGui::CloseCurrentPopup();
-    }));
-    Add(std::make_unique<FEditorButtonWidget>("Import ImThemes TOML...", "Import ImThemes TOML...", [this]() {
-        ImportTheme();
-    }));
-    Add(std::make_unique<FEditorButtonWidget>("Reload Changed Shaders", "Reload Changed Shaders", [this]() {
-        mSettingsStatus = mContext->GetRenderer()->ReloadChangedShaders() ? "Shaders reloaded" : "Shader reload failed; see Console";
-    }));
-    Add(std::make_unique<FEditorButtonWidget>("Open Shadow Atlas", "Open Shadow Atlas", [this]() {
-        mContext->SetShadowAtlasOpen(true);
-    }));
-    Add(std::make_unique<FEditorButtonWidget>("Save Startup Scene", "Save Startup Scene", [this]() {
-        Core::FString Error{};
-        mSettingsStatus = mContext->GetProject()->SetStartupScene(Core::FilePath::FromUtf8(mStartupScene.data()), Error) ? "Startup scene saved" : Error;
-    }));
+    InitializeInterfaceWidgets();
+    InitializeInputWidgets();
 
-    Add(std::make_unique<FEditorTextInputWidget>("Search", "Search", "Filter themes...", [this]() {
-        return Core::FString{mThemeFilter.data()};
-    }, [this](const Core::FString& Value) {
-        const Index_t Count{std::min(Value.size(), mThemeFilter.size() - 1)};
-        std::copy_n(Value.data(), Count, mThemeFilter.data());
-        mThemeFilter[Count] = '\0';
-    }, mThemeFilter.size()));
-    Add(std::make_unique<FEditorTextInputWidget>("Content Path", "Content Path", "", [this]() {
-        return Core::FString{mStartupScene.data()};
-    }, [this](const Core::FString& Value) {
-        const Index_t Count{std::min(Value.size(), mStartupScene.size() - 1)};
-        std::copy_n(Value.data(), Count, mStartupScene.data());
-        mStartupScene[Count] = '\0';
-    }, mStartupScene.size()));
-    AddCheckBox("Automatic UI Scale", [this]() {
-        return mUIScale.GetUserScale() == 0.0f;
-    }, [this](bool Value) {
-        mUIScale.SetUserScale(Value ? 0.0f : 1.0f);
-    });
-    AddSlider("UI Scale", 0.75f, 3.0f, [this]() {
-        return mUIScale.GetUserScale() == 0.0f ? 1.0f : mUIScale.GetUserScale();
-    }, [this](float Value) {
-        mUIScale.SetUserScale(Value);
-    }, "%.2fx");
-    mWidgets.at("UI Scale")->SetEnabledAttribute([this]() {
-        return mUIScale.GetUserScale() != 0.0f;
-    });
-    AddSlider("Font Size", 10.0f, 32.0f, [this]() {
-        return mFontSize;
-    }, [this](float Value) {
-        mFontSize = Value;
-        mAppearanceDirty = true;
-    }, "%.0f px");
-    AddCheckBox("Keyboard Navigation", [this]() {
-        return (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NavEnableKeyboard) != 0;
-    }, [this](bool Value) {
-        ImGuiIO& Input{ImGui::GetIO()};
-        Input.ConfigFlags = Value ? Input.ConfigFlags | ImGuiConfigFlags_NavEnableKeyboard : Input.ConfigFlags & ~ImGuiConfigFlags_NavEnableKeyboard;
-    });
-    AddCheckBox("Move Windows from Title Bar Only", [this]() {
-        return ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly;
-    }, [this](bool Value) {
-        ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = Value;
-    });
-    AddSlider("Double Click Time", 0.1f, 1.0f, [this]() {
-        return ImGui::GetIO().MouseDoubleClickTime;
-    }, [this](float Value) {
-        ImGui::GetIO().MouseDoubleClickTime = Value;
-    }, "%.2f s");
-    AddSlider("Mouse Drag Threshold", 1.0f, 20.0f, [this]() {
-        return ImGui::GetIO().MouseDragThreshold;
-    }, [this](float Value) {
-        ImGui::GetIO().MouseDragThreshold = Value;
-    }, "%.0f px");
-    AddSlider("Key Repeat Delay", 0.1f, 1.0f, [this]() {
-        return ImGui::GetIO().KeyRepeatDelay;
-    }, [this](float Value) {
-        ImGui::GetIO().KeyRepeatDelay = Value;
-    }, "%.2f s");
-    AddSlider("Key Repeat Rate", 0.02f, 0.3f, [this]() {
-        return ImGui::GetIO().KeyRepeatRate;
-    }, [this](float Value) {
-        ImGui::GetIO().KeyRepeatRate = Value;
-    }, "%.2f s");
-    AddSlider("Horizontal Split", 0.1f, 0.9f, [this]() {
-        return mViewportLayout.GetHorizontalRatio();
-    }, [this](float Value) {
-        mViewportLayout.SetSplitRatios(Value, mViewportLayout.GetVerticalRatio());
-    }, "%.2f");
-    AddSlider("Vertical Split", 0.1f, 0.9f, [this]() {
-        return mViewportLayout.GetVerticalRatio();
-    }, [this](float Value) {
-        mViewportLayout.SetSplitRatios(mViewportLayout.GetHorizontalRatio(), Value);
-    }, "%.2f");
-    AddSlider("Movement Speed", 0.1f, 128.0f, [this]() {
-        return GetSettingsClient().GetCameraSpeed();
-    }, [this](float Value) {
-        GetSettingsClient().SetCameraSpeed(Value);
-    }, "%.2f", 0.01f);
-    AddSlider("Mouse Sensitivity", 0.01f, 2.0f, [this]() {
-        return GetSettingsClient().GetCameraSensitivity();
-    }, [this](float Value) {
-        GetSettingsClient().SetCameraSensitivity(Value);
-    }, "%.3f", 0.001f);
-    AddSlider("Orthographic Width", 0.01f, 100000.0f, [this]() {
-        return GetSettingsClient().GetOrthographicWidth();
-    }, [this](float Value) {
-        GetSettingsClient().SetOrthographicWidth(Value);
-    }, "%.2f", 0.001f);
-    AddSlider("Grid Spacing", 0.01f, 1000.0f, [this]() {
-        return GetSettingsClient().GetGridSpacing();
-    }, [this](float Value) {
-        GetSettingsClient().SetGridSpacing(Value);
-    }, "%.2f", 0.001f);
-    AddSlider("Line Thickness", 0.5f, 10.0f, [this]() {
-        return GetSettingsClient().GetLineThickness();
-    }, [this](float Value) {
-        GetSettingsClient().SetLineThickness(Value);
-    }, "%.1f px", 0.05f);
-    AddSlider("Field of View", 1.0f, 179.0f, [this]() {
-        return GetSettingsClient().GetPerspectiveCamera().GetFieldOfView();
-    }, [this](float Value) {
-        Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
-        if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Value, Camera.GetNearClip(), Camera.GetFarClip())) {
-            GetSettingsClient().SetPerspectiveCamera(Camera);
-        }
-    }, "%.1f degrees");
-    AddSlider("Near Clip", 0.001f, 999999.0f, [this]() {
-        return GetSettingsClient().GetPerspectiveCamera().GetNearClip();
-    }, [this](float Value) {
-        Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
-        if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Camera.GetFieldOfView(), std::min(Value, Camera.GetFarClip() - 0.001f), Camera.GetFarClip())) {
-            GetSettingsClient().SetPerspectiveCamera(Camera);
-        }
-    }, "%.3f", 0.01f);
-    AddSlider("Far Clip", 0.002f, 1000000.0f, [this]() {
-        return GetSettingsClient().GetPerspectiveCamera().GetFarClip();
-    }, [this](float Value) {
-        Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
-        if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Camera.GetFieldOfView(), Camera.GetNearClip(), std::max(Value, Camera.GetNearClip() + 0.001f))) {
-            GetSettingsClient().SetPerspectiveCamera(Camera);
-        }
-    }, "%.1f", 10.0f);
-    AddSlider("Translation Step", 0.001f, 10000.0f, [this]() {
-        return GetSettingsClient().GetGizmoSettings()->mTranslationStep;
-    }, [this](float Value) {
-        GetSettingsClient().SetGizmoSetting(EGizmoSetting::TranslationStep, Value);
-    }, "%.3f", 0.01f);
-    AddSlider("Rotation Step", 0.001f, 360.0f, [this]() {
-        return GetSettingsClient().GetGizmoSettings()->mRotationStep;
-    }, [this](float Value) {
-        GetSettingsClient().SetGizmoSetting(EGizmoSetting::RotationStep, Value);
-    }, "%.3f degrees", 0.1f);
-    AddSlider("Scale Step", 0.001f, 100.0f, [this]() {
-        return GetSettingsClient().GetGizmoSettings()->mScaleStep;
-    }, [this](float Value) {
-        GetSettingsClient().SetGizmoSetting(EGizmoSetting::ScaleStep, Value);
-    }, "%.3f", 0.01f);
-    AddSlider("Gizmo Size", 0.5f, 2.0f, [this]() {
-        return GetSettingsClient().GetGizmoSettings()->mSize;
-    }, [this](float Value) {
-        GetSettingsClient().SetGizmoSetting(EGizmoSetting::Size, Value);
-    }, "%.2fx");
-    AddCheckBox("VSync", [this]() {
-        return !mContext->GetRenderer()->IsTearingAllowed();
-    }, [this](bool Value) {
-        mContext->GetRenderer()->SetAllowTearing(!Value);
-    });
-    AddCheckBox("Statistics Window", [this]() {
-        return mShowStatistics;
-    }, [this](bool Value) {
-        mShowStatistics = Value;
-    });
+    InitializeViewportWidgets();
+    InitializeGizmoWidgets();
+
+    InitializeRenderingWidgets();
+    InitializePanelWidgets();
+    InitializeProjectWidgets();
+}
+
+void FEditorSettings::InitializeActionWidgets() {
+    RegisterButton("Save Settings", &FEditorSettings::SaveSettingsAction);
+    RegisterButton("Reset to Defaults", &FEditorSettings::OpenResetSettingsPopup);
+    RegisterButton("Close", &FEditorSettings::CloseSettings);
+
+    RegisterButton("Reset", &FEditorSettings::ConfirmResetSettings);
+    RegisterButton("Cancel", &FEditorSettings::CloseSettingsPopup);
+}
+
+void FEditorSettings::InitializeInterfaceWidgets() {
+    RegisterTextInput("Search", "Filter themes...", &FEditorSettings::GetThemeFilter, &FEditorSettings::SetThemeFilter, mThemeFilter.size());
+    RegisterButton("Import ImThemes TOML...", &FEditorSettings::ImportTheme);
+
+    RegisterCheckBox("Automatic UI Scale", &FEditorSettings::IsAutomaticUIScale, &FEditorSettings::SetAutomaticUIScale);
+    RegisterSlider("UI Scale", 0.75f, 3.0f, &FEditorSettings::GetUserUIScale, &FEditorSettings::SetUserUIScale, "%.2fx");
+    mWidgets.at("UI Scale")->SetEnabledAttribute(std::bind_front(&FEditorSettings::IsManualUIScale, this));
+
+    RegisterSlider("Font Size", 10.0f, 32.0f, &FEditorSettings::GetFontSize, &FEditorSettings::SetFontSize, "%.0f px");
+}
+
+void FEditorSettings::InitializeInputWidgets() {
+    RegisterCheckBox("Keyboard Navigation", &FEditorSettings::IsKeyboardNavigationEnabled, &FEditorSettings::SetKeyboardNavigationEnabled);
+    RegisterCheckBox("Move Windows from Title Bar Only", &FEditorSettings::IsTitleBarMoveOnly, &FEditorSettings::SetTitleBarMoveOnly);
+
+    RegisterInputSlider("Double Click Time", &ImGuiIO::MouseDoubleClickTime, 0.1f, 1.0f, "%.2f s");
+    RegisterInputSlider("Mouse Drag Threshold", &ImGuiIO::MouseDragThreshold, 1.0f, 20.0f, "%.0f px");
+
+    RegisterInputSlider("Key Repeat Delay", &ImGuiIO::KeyRepeatDelay, 0.1f, 1.0f, "%.2f s");
+    RegisterInputSlider("Key Repeat Rate", &ImGuiIO::KeyRepeatRate, 0.02f, 0.3f, "%.2f s");
+}
+
+void FEditorSettings::InitializeViewportWidgets() {
+    RegisterSlider("Horizontal Split", 0.1f, 0.9f, &FEditorSettings::GetHorizontalSplit, &FEditorSettings::SetHorizontalSplit, "%.2f");
+    RegisterSlider("Vertical Split", 0.1f, 0.9f, &FEditorSettings::GetVerticalSplit, &FEditorSettings::SetVerticalSplit, "%.2f");
+
+    RegisterViewportSlider("Movement Speed", 0.1f, 128.0f, &FEditorViewportClient::GetCameraSpeed, &FEditorViewportClient::SetCameraSpeed, "%.2f", 0.01f);
+    RegisterViewportSlider("Mouse Sensitivity", 0.01f, 2.0f, &FEditorViewportClient::GetCameraSensitivity, &FEditorViewportClient::SetCameraSensitivity, "%.3f", 0.001f);
+    RegisterViewportSlider("Orthographic Width", 0.01f, 100000.0f, &FEditorViewportClient::GetOrthographicWidth, &FEditorViewportClient::SetOrthographicWidth, "%.2f", 0.001f);
+
+    RegisterSlider("Field of View", 1.0f, 179.0f, &FEditorSettings::GetFieldOfView, &FEditorSettings::SetFieldOfView, "%.1f degrees");
+    RegisterSlider("Near Clip", 0.001f, 999999.0f, &FEditorSettings::GetNearClip, &FEditorSettings::SetNearClip, "%.3f", 0.01f);
+    RegisterSlider("Far Clip", 0.002f, 1000000.0f, &FEditorSettings::GetFarClip, &FEditorSettings::SetFarClip, "%.1f", 10.0f);
+
+    RegisterViewportSlider("Grid Spacing", 0.01f, 1000.0f, &FEditorViewportClient::GetGridSpacing, &FEditorViewportClient::SetGridSpacing, "%.2f", 0.001f);
+    RegisterViewportSlider("Line Thickness", 0.5f, 10.0f, &FEditorViewportClient::GetLineThickness, &FEditorViewportClient::SetLineThickness, "%.1f px", 0.05f);
 
     for (const auto& [Name, Member] : ShowOptions) {
-        AddCheckBox(Name, [this, Member]() {
-            return GetSettingsClient().GetShowFlags().*Member;
-        }, [this, Member](bool Value) {
-            Engine::FEngineShowFlags Flags{GetSettingsClient().GetShowFlags()};
-            Flags.*Member = Value;
-            GetSettingsClient().SetShowFlags(Flags);
-        });
+        RegisterCheckBox(Name, Name, std::bind_front(&FEditorSettings::GetShowOption, this, Member), std::bind_front(&FEditorSettings::SetShowOption, this, Member));
+    }
+}
+
+void FEditorSettings::InitializeGizmoWidgets() {
+    for (const auto& [Label, Command] : {std::pair{"Translation Snap", EViewportCommand::ToggleTranslationSnap}, std::pair{"Rotation Snap", EViewportCommand::ToggleRotationSnap}, std::pair{"Scale Snap", EViewportCommand::ToggleScaleSnap}}) {
+        RegisterCheckBox(Label, Label, std::bind_front(&FEditorSettings::IsViewportCommandChecked, this, Command), std::bind_front(&FEditorSettings::SetViewportCommandChecked, this, Command));
     }
 
-    for (const auto& [Label, Command] : {std::pair{"Translation Snap", EViewportCommand::ToggleTranslationSnap}, std::pair{"Rotation Snap", EViewportCommand::ToggleRotationSnap}, std::pair{"Scale Snap", EViewportCommand::ToggleScaleSnap}}) {
-        AddCheckBox(Label, [this, Command]() {
-            return GetSettingsClient().IsCommandChecked(Command);
-        }, [this, Command](bool Value) {
-            if (GetSettingsClient().IsCommandChecked(Command) != Value) {
-                GetSettingsClient().ExecuteCommand(Command);
-            }
-        });
-    }
+    RegisterGizmoSlider("Translation Step", &FGizmoSettings::mTranslationStep, EGizmoSetting::TranslationStep, 0.001f, 10000.0f, "%.3f", 0.01f);
+    RegisterGizmoSlider("Rotation Step", &FGizmoSettings::mRotationStep, EGizmoSetting::RotationStep, 0.001f, 360.0f, "%.3f degrees", 0.1f);
+
+    RegisterGizmoSlider("Scale Step", &FGizmoSettings::mScaleStep, EGizmoSetting::ScaleStep, 0.001f, 100.0f, "%.3f", 0.01f);
+    RegisterGizmoSlider("Gizmo Size", &FGizmoSettings::mSize, EGizmoSetting::Size, 0.5f, 2.0f, "%.2fx");
+}
+
+void FEditorSettings::InitializeRenderingWidgets() {
+    RegisterCheckBox("VSync", &FEditorSettings::IsVSyncEnabled, &FEditorSettings::SetVSyncEnabled);
+
+    RegisterButton("Reload Changed Shaders", &FEditorSettings::ReloadChangedShaders);
+    RegisterButton("Open Shadow Atlas", &FEditorSettings::OpenShadowAtlas);
+}
+
+void FEditorSettings::InitializePanelWidgets() {
+    RegisterCheckBox("Statistics Window", &FEditorSettings::IsStatisticsWindowVisible, &FEditorSettings::SetStatisticsWindowVisible);
 
     for (const char* Id : {"PlaceActors", "Outliner", "Details"}) {
         const Core::FString TabId{Id};
-        mWidgets.emplace(TabId, std::make_unique<FEditorCheckBoxWidget>(TabId, mTabs.FindTab(TabId)->GetName(), [this, TabId]() {
-            return mTabs.IsVisible(TabId);
-        }, [this, TabId](bool Value) {
-            mTabs.SetVisible(TabId, Value);
-            MarkDirty();
-        }));
+        const Core::FString Label{mTabs.FindTab(TabId)->GetName()};
+
+        RegisterCheckBox(TabId, Label, std::bind_front(&FEditorSettings::IsTabVisible, this, TabId), std::bind_front(&FEditorSettings::SetTabVisible, this, TabId));
     }
+}
+
+void FEditorSettings::InitializeProjectWidgets() {
+    RegisterTextInput("Content Path", "", &FEditorSettings::GetStartupScene, &FEditorSettings::SetStartupScene, mStartupScene.size());
+
+    RegisterButton("Save Startup Scene", &FEditorSettings::SaveStartupScene);
+}
+
+void FEditorSettings::RegisterWidget(std::unique_ptr<FEditorWidget> Widget) {
+    const Core::FString Id{Widget->GetId()};
+
+    mWidgets.emplace(Id, std::move(Widget));
+}
+
+void FEditorSettings::RegisterButton(Core::FString Label, FAction Handler) {
+    RegisterWidget(std::make_unique<FEditorButtonWidget>(Label, Label, std::bind_front(Handler, this)));
+}
+
+void FEditorSettings::RegisterSlider(Core::FString Label, float Minimum, float Maximum, FFloatGetter Getter, FFloatSetter Setter, Core::FString Format, float DragSpeed) {
+    RegisterSlider(std::move(Label), Minimum, Maximum, std::bind_front(Getter, this), std::bind_front(Setter, this), std::move(Format), DragSpeed);
+}
+
+void FEditorSettings::RegisterSlider(Core::FString Label, float Minimum, float Maximum, std::function<float()> Getter, std::function<void(float)> Setter, Core::FString Format, float DragSpeed) {
+    auto Widget{std::make_unique<FEditorSliderWidget>(Label, Label, Minimum, Maximum, std::move(Getter), std::bind_front(&FEditorSettings::ApplyFloatChange, this, std::move(Setter)), std::move(Format))};
+
+    Widget->SetDragSpeed(DragSpeed);
+    RegisterWidget(std::move(Widget));
+}
+
+void FEditorSettings::RegisterCheckBox(Core::FString Label, FBoolGetter Getter, FBoolSetter Setter) {
+    RegisterCheckBox(Label, Label, std::bind_front(Getter, this), std::bind_front(Setter, this));
+}
+
+void FEditorSettings::RegisterCheckBox(Core::FString Id, Core::FString Label, std::function<bool()> Getter, std::function<void(bool)> Setter) {
+    RegisterWidget(std::make_unique<FEditorCheckBoxWidget>(std::move(Id), std::move(Label), std::move(Getter), std::bind_front(&FEditorSettings::ApplyBoolChange, this, std::move(Setter))));
+}
+
+void FEditorSettings::RegisterTextInput(Core::FString Label, Core::FString Hint, FTextGetter Getter, FTextSetter Setter, Index_t Capacity) {
+    RegisterWidget(std::make_unique<FEditorTextInputWidget>(Label, Label, std::move(Hint), std::bind_front(Getter, this), std::bind_front(Setter, this), Capacity));
+}
+
+void FEditorSettings::RegisterInputSlider(Core::FString Label, FInputFloat Member, float Minimum, float Maximum, Core::FString Format) {
+    RegisterSlider(std::move(Label), Minimum, Maximum, std::bind_front(&FEditorSettings::GetInputFloat, this, Member), std::bind_front(&FEditorSettings::SetInputFloat, this, Member), std::move(Format));
+}
+
+void FEditorSettings::RegisterViewportSlider(Core::FString Label, float Minimum, float Maximum, FViewportFloatGetter Getter, FViewportFloatSetter Setter, Core::FString Format, float DragSpeed) {
+    RegisterSlider(std::move(Label), Minimum, Maximum, std::bind_front(&FEditorSettings::GetViewportFloat, this, Getter), std::bind_front(&FEditorSettings::SetViewportFloat, this, Setter), std::move(Format), DragSpeed);
+}
+
+void FEditorSettings::RegisterGizmoSlider(Core::FString Label, FGizmoFloat Member, Editor::EGizmoSetting Setting, float Minimum, float Maximum, Core::FString Format, float DragSpeed) {
+    RegisterSlider(std::move(Label), Minimum, Maximum, std::bind_front(&FEditorSettings::GetGizmoFloat, this, Member), std::bind_front(&FEditorSettings::SetGizmoFloat, this, Setting), std::move(Format), DragSpeed);
+}
+
+void FEditorSettings::RegisterStatisticsWidget(const Core::FString& Group) {
+    const Core::FString Id{"Stat:" + Group};
+
+    if (mWidgets.contains(Id)) {
+        return;
+    }
+
+    RegisterWidget(std::make_unique<FEditorCheckBoxWidget>(Id, Group, std::bind_front(&FEditorSettings::IsStatisticEnabled, this, Group), std::bind_front(&FEditorSettings::SetStatisticEnabled, this, Group)));
+}
+
+void FEditorSettings::ApplyFloatChange(const std::function<void(float)>& Setter, float Value) {
+    Setter(Value);
+    MarkDirty();
+}
+
+void FEditorSettings::ApplyBoolChange(const std::function<void(bool)>& Setter, bool Value) {
+    Setter(Value);
+    MarkDirty();
+}
+
+void FEditorSettings::SaveSettingsAction() {
+    SaveSettings();
+}
+
+void FEditorSettings::OpenResetSettingsPopup() {
+    ImGui::OpenPopup("Reset Settings?");
+}
+
+void FEditorSettings::CloseSettings() {
+    mSettingsOpen = false;
+}
+
+void FEditorSettings::ConfirmResetSettings() {
+    ResetSettings();
+    CloseSettingsPopup();
+}
+
+void FEditorSettings::CloseSettingsPopup() {
+    ImGui::CloseCurrentPopup();
+}
+
+void FEditorSettings::ReloadChangedShaders() {
+    mSettingsStatus = mContext->GetRenderer()->ReloadChangedShaders() ? "Shaders reloaded" : "Shader reload failed; see Console";
+}
+
+void FEditorSettings::OpenShadowAtlas() {
+    mContext->SetShadowAtlasOpen(true);
+}
+
+void FEditorSettings::SaveStartupScene() {
+    Core::FString Error{};
+
+    mSettingsStatus = mContext->GetProject()->SetStartupScene(Core::FilePath::FromUtf8(mStartupScene.data()), Error) ? "Startup scene saved" : Error;
+}
+
+Core::FString FEditorSettings::GetThemeFilter() const {
+    return {mThemeFilter.data()};
+}
+
+void FEditorSettings::SetThemeFilter(const Core::FString& Value) {
+    const Index_t Count{std::min(Value.size(), mThemeFilter.size() - 1)};
+
+    std::copy_n(Value.data(), Count, mThemeFilter.data());
+    mThemeFilter[Count] = '\0';
+}
+
+Core::FString FEditorSettings::GetStartupScene() const {
+    return {mStartupScene.data()};
+}
+
+void FEditorSettings::SetStartupScene(const Core::FString& Value) {
+    const Index_t Count{std::min(Value.size(), mStartupScene.size() - 1)};
+
+    std::copy_n(Value.data(), Count, mStartupScene.data());
+    mStartupScene[Count] = '\0';
+}
+
+bool FEditorSettings::IsAutomaticUIScale() const {
+    return mUIScale.GetUserScale() == 0.0f;
+}
+
+void FEditorSettings::SetAutomaticUIScale(bool Automatic) {
+    mUIScale.SetUserScale(Automatic ? 0.0f : 1.0f);
+}
+
+bool FEditorSettings::IsManualUIScale() const {
+    return !IsAutomaticUIScale();
+}
+
+float FEditorSettings::GetUserUIScale() const {
+    return IsAutomaticUIScale() ? 1.0f : mUIScale.GetUserScale();
+}
+
+void FEditorSettings::SetUserUIScale(float Scale) {
+    mUIScale.SetUserScale(Scale);
+}
+
+float FEditorSettings::GetFontSize() const {
+    return mFontSize;
+}
+
+void FEditorSettings::SetFontSize(float Size) {
+    mFontSize = Size;
+    mAppearanceDirty = true;
+}
+
+bool FEditorSettings::IsKeyboardNavigationEnabled() const {
+    return (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NavEnableKeyboard) != 0;
+}
+
+void FEditorSettings::SetKeyboardNavigationEnabled(bool Enabled) {
+    ImGuiIO& Input{ImGui::GetIO()};
+
+    Input.ConfigFlags = Enabled ? Input.ConfigFlags | ImGuiConfigFlags_NavEnableKeyboard : Input.ConfigFlags & ~ImGuiConfigFlags_NavEnableKeyboard;
+}
+
+bool FEditorSettings::IsTitleBarMoveOnly() const {
+    return ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly;
+}
+
+void FEditorSettings::SetTitleBarMoveOnly(bool Enabled) {
+    ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = Enabled;
+}
+
+float FEditorSettings::GetInputFloat(FInputFloat Member) const {
+    return ImGui::GetIO().*Member;
+}
+
+void FEditorSettings::SetInputFloat(FInputFloat Member, float Value) {
+    ImGui::GetIO().*Member = Value;
+}
+
+float FEditorSettings::GetHorizontalSplit() const {
+    return mViewportLayout.GetHorizontalRatio();
+}
+
+void FEditorSettings::SetHorizontalSplit(float Value) {
+    mViewportLayout.SetSplitRatios(Value, mViewportLayout.GetVerticalRatio());
+}
+
+float FEditorSettings::GetVerticalSplit() const {
+    return mViewportLayout.GetVerticalRatio();
+}
+
+void FEditorSettings::SetVerticalSplit(float Value) {
+    mViewportLayout.SetSplitRatios(mViewportLayout.GetHorizontalRatio(), Value);
+}
+
+float FEditorSettings::GetViewportFloat(FViewportFloatGetter Getter) const {
+    return (GetSettingsClient().*Getter)();
+}
+
+void FEditorSettings::SetViewportFloat(FViewportFloatSetter Setter, float Value) {
+    (GetSettingsClient().*Setter)(Value);
+}
+
+float FEditorSettings::GetFieldOfView() const {
+    return GetSettingsClient().GetPerspectiveCamera().GetFieldOfView();
+}
+
+void FEditorSettings::SetFieldOfView(float Value) {
+    Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
+
+    if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Value, Camera.GetNearClip(), Camera.GetFarClip())) {
+        GetSettingsClient().SetPerspectiveCamera(Camera);
+    }
+}
+
+float FEditorSettings::GetNearClip() const {
+    return GetSettingsClient().GetPerspectiveCamera().GetNearClip();
+}
+
+void FEditorSettings::SetNearClip(float Value) {
+    Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
+
+    if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Camera.GetFieldOfView(), std::min(Value, Camera.GetFarClip() - 0.001f), Camera.GetFarClip())) {
+        GetSettingsClient().SetPerspectiveCamera(Camera);
+    }
+}
+
+float FEditorSettings::GetFarClip() const {
+    return GetSettingsClient().GetPerspectiveCamera().GetFarClip();
+}
+
+void FEditorSettings::SetFarClip(float Value) {
+    Engine::FEditorCameraState Camera{GetSettingsClient().GetPerspectiveCamera()};
+
+    if (Camera.Set(Camera.GetLocation(), Camera.GetRotation(), Camera.GetFieldOfView(), Camera.GetNearClip(), std::max(Value, Camera.GetNearClip() + 0.001f))) {
+        GetSettingsClient().SetPerspectiveCamera(Camera);
+    }
+}
+
+float FEditorSettings::GetGizmoFloat(FGizmoFloat Member) const {
+    return GetSettingsClient().GetGizmoSettings()->*Member;
+}
+
+void FEditorSettings::SetGizmoFloat(EGizmoSetting Setting, float Value) {
+    GetSettingsClient().SetGizmoSetting(Setting, Value);
+}
+
+bool FEditorSettings::GetShowOption(FShowFlag Member) const {
+    return GetSettingsClient().GetShowFlags().*Member;
+}
+
+void FEditorSettings::SetShowOption(FShowFlag Member, bool Value) {
+    Engine::FEngineShowFlags Flags{GetSettingsClient().GetShowFlags()};
+    Flags.*Member = Value;
+
+    GetSettingsClient().SetShowFlags(Flags);
+}
+
+bool FEditorSettings::IsViewportCommandChecked(EViewportCommand Command) const {
+    return GetSettingsClient().IsCommandChecked(Command);
+}
+
+void FEditorSettings::SetViewportCommandChecked(EViewportCommand Command, bool Enabled) {
+    if (IsViewportCommandChecked(Command) != Enabled) {
+        GetSettingsClient().ExecuteCommand(Command);
+    }
+}
+
+bool FEditorSettings::IsVSyncEnabled() const {
+    return !mContext->GetRenderer()->IsTearingAllowed();
+}
+
+void FEditorSettings::SetVSyncEnabled(bool Enabled) {
+    mContext->GetRenderer()->SetAllowTearing(!Enabled);
+}
+
+bool FEditorSettings::IsStatisticsWindowVisible() const {
+    return mShowStatistics;
+}
+
+void FEditorSettings::SetStatisticsWindowVisible(bool Visible) {
+    mShowStatistics = Visible;
+}
+
+bool FEditorSettings::IsTabVisible(const Core::FString& Id) const {
+    return mTabs.IsVisible(Id);
+}
+
+void FEditorSettings::SetTabVisible(const Core::FString& Id, bool Visible) {
+    mTabs.SetVisible(Id, Visible);
+}
+
+bool FEditorSettings::IsStatisticEnabled(const Core::FString& Group) const {
+    return mViewportLayout.GetViewport(mSettingsViewport)->GetStatistics()->IsEnabled(Group);
+}
+
+void FEditorSettings::SetStatisticEnabled(const Core::FString& Group, bool Enabled) {
+    Core::FString Output{};
+
+    mSettingsDirty |= mViewportLayout.GetViewport(mSettingsViewport)->GetStatistics()->ExecuteCommand("stat " + Group + (Enabled ? " on" : " off"), Output);
 }
 
 void FEditorSettings::DrawWidget(const char* Id) {
@@ -428,7 +592,6 @@ void FEditorSettings::DrawWidget(const char* Id) {
 FEditorViewportClient& FEditorSettings::GetSettingsClient() const {
     return *mViewportLayout.GetViewport(mSettingsViewport)->GetClient();
 }
-
 
 void FEditorSettings::MarkDirty() {
     mSettingsDirty = true;
@@ -971,14 +1134,7 @@ void FEditorSettings::DrawPanelSettings() {
     for (const Core::FString& Group : Core::FStats::Get().GetGroups()) {
         const Core::FString Id{"Stat:" + Group};
 
-        if (!mWidgets.contains(Id)) {
-            mWidgets.emplace(Id, std::make_unique<FEditorCheckBoxWidget>(Id, Group, [this, Group]() {
-                return mViewportLayout.GetViewport(mSettingsViewport)->GetStatistics()->IsEnabled(Group);
-            }, [this, Group](bool Value) {
-                Core::FString Output{};
-                mSettingsDirty |= mViewportLayout.GetViewport(mSettingsViewport)->GetStatistics()->ExecuteCommand("stat " + Group + (Value ? " on" : " off"), Output);
-            }));
-        }
+        RegisterStatisticsWidget(Group);
 
         DrawWidget(Id.c_str());
     }

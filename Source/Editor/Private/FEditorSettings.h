@@ -9,9 +9,14 @@
 #include "Core/Types.h"
 #include "FImGuiThemeCatalog.h"
 #include <array>
+#include <functional>
 #include <memory>
 #include <unordered_map>
 #include <filesystem>
+
+namespace Engine {
+    struct FEngineShowFlags;
+}
 
 namespace Platform {
     class FWindowsApplication;
@@ -22,6 +27,10 @@ namespace Serialization {
 }
 
 namespace Editor {
+    struct FGizmoSettings;
+    enum class EGizmoSetting;
+    enum class EViewportCommand;
+
     class FEditorContext;
     class FEditorWidget;
     class FEditorViewportClient;
@@ -39,6 +48,20 @@ namespace Editor {
      * @brief 에디터 설정의 표시·직렬화·지연 저장과 테마 적용을 관리합니다.
      */
     class FEditorSettings {
+    private:
+        using FAction = void (Editor::FEditorSettings::*)();
+        using FFloatGetter = float (Editor::FEditorSettings::*)() const;
+        using FFloatSetter = void (Editor::FEditorSettings::*)(float);
+        using FBoolGetter = bool (Editor::FEditorSettings::*)() const;
+        using FBoolSetter = void (Editor::FEditorSettings::*)(bool);
+        using FTextGetter = Core::FString (Editor::FEditorSettings::*)() const;
+        using FTextSetter = void (Editor::FEditorSettings::*)(const Core::FString&);
+
+        using FInputFloat = float ImGuiIO::*;
+        using FViewportFloatGetter = float (Editor::FEditorViewportClient::*)() const;
+        using FViewportFloatSetter = bool (Editor::FEditorViewportClient::*)(float);
+        using FGizmoFloat = float Editor::FGizmoSettings::*;
+        using FShowFlag = bool Engine::FEngineShowFlags::*;
 
     public:
         /**
@@ -111,13 +134,102 @@ namespace Editor {
         void OpenSettings(Index_t Section);
 
     private:
-        /**
-         * @brief 프로젝트의 에디터 설정 파일을 읽어 현재 상태에 반영합니다.
-         */
         void InitializeWidgets();
+        void InitializeActionWidgets();
+
+        void InitializeInterfaceWidgets();
+        void InitializeInputWidgets();
+
+        void InitializeViewportWidgets();
+        void InitializeGizmoWidgets();
+
+        void InitializeRenderingWidgets();
+        void InitializePanelWidgets();
+        void InitializeProjectWidgets();
+
+        void RegisterWidget(std::unique_ptr<Editor::FEditorWidget> Widget);
+        void RegisterButton(Core::FString Label, FAction Handler);
+        void RegisterTextInput(Core::FString Label, Core::FString Hint, FTextGetter Getter, FTextSetter Setter, Index_t Capacity);
+
+        void RegisterSlider(Core::FString Label, float Minimum, float Maximum, FFloatGetter Getter, FFloatSetter Setter, Core::FString Format, float DragSpeed = 0.0f);
+        void RegisterSlider(Core::FString Label, float Minimum, float Maximum, std::function<float()> Getter, std::function<void(float)> Setter, Core::FString Format, float DragSpeed = 0.0f);
+        void RegisterCheckBox(Core::FString Label, FBoolGetter Getter, FBoolSetter Setter);
+        void RegisterCheckBox(Core::FString Id, Core::FString Label, std::function<bool()> Getter, std::function<void(bool)> Setter);
+
+        void RegisterInputSlider(Core::FString Label, FInputFloat Member, float Minimum, float Maximum, Core::FString Format);
+        void RegisterViewportSlider(Core::FString Label, float Minimum, float Maximum, FViewportFloatGetter Getter, FViewportFloatSetter Setter, Core::FString Format, float DragSpeed);
+        void RegisterGizmoSlider(Core::FString Label, FGizmoFloat Member, Editor::EGizmoSetting Setting, float Minimum, float Maximum, Core::FString Format, float DragSpeed = 0.0f);
+        void RegisterStatisticsWidget(const Core::FString& Group);
+
+        void ApplyFloatChange(const std::function<void(float)>& Setter, float Value);
+        void ApplyBoolChange(const std::function<void(bool)>& Setter, bool Value);
+
+        void SaveSettingsAction();
+        void OpenResetSettingsPopup();
+        void CloseSettings();
+        void ConfirmResetSettings();
+        void CloseSettingsPopup();
+
+        void ReloadChangedShaders();
+        void OpenShadowAtlas();
+        void SaveStartupScene();
+
+        Core::FString GetThemeFilter() const;
+        void SetThemeFilter(const Core::FString& Value);
+        Core::FString GetStartupScene() const;
+        void SetStartupScene(const Core::FString& Value);
+
+        bool IsAutomaticUIScale() const;
+        void SetAutomaticUIScale(bool Automatic);
+        bool IsManualUIScale() const;
+        float GetUserUIScale() const;
+        void SetUserUIScale(float Scale);
+        float GetFontSize() const;
+        void SetFontSize(float Size);
+
+        bool IsKeyboardNavigationEnabled() const;
+        void SetKeyboardNavigationEnabled(bool Enabled);
+        bool IsTitleBarMoveOnly() const;
+        void SetTitleBarMoveOnly(bool Enabled);
+        float GetInputFloat(FInputFloat Member) const;
+        void SetInputFloat(FInputFloat Member, float Value);
+
+        float GetHorizontalSplit() const;
+        void SetHorizontalSplit(float Value);
+        float GetVerticalSplit() const;
+        void SetVerticalSplit(float Value);
+        float GetViewportFloat(FViewportFloatGetter Getter) const;
+        void SetViewportFloat(FViewportFloatSetter Setter, float Value);
+
+        float GetFieldOfView() const;
+        void SetFieldOfView(float Value);
+        float GetNearClip() const;
+        void SetNearClip(float Value);
+        float GetFarClip() const;
+        void SetFarClip(float Value);
+
+        float GetGizmoFloat(FGizmoFloat Member) const;
+        void SetGizmoFloat(Editor::EGizmoSetting Setting, float Value);
+        bool GetShowOption(FShowFlag Member) const;
+        void SetShowOption(FShowFlag Member, bool Value);
+        bool IsViewportCommandChecked(Editor::EViewportCommand Command) const;
+        void SetViewportCommandChecked(Editor::EViewportCommand Command, bool Enabled);
+
+        bool IsVSyncEnabled() const;
+        void SetVSyncEnabled(bool Enabled);
+        bool IsStatisticsWindowVisible() const;
+        void SetStatisticsWindowVisible(bool Visible);
+        bool IsTabVisible(const Core::FString& Id) const;
+        void SetTabVisible(const Core::FString& Id, bool Visible);
+        bool IsStatisticEnabled(const Core::FString& Group) const;
+        void SetStatisticEnabled(const Core::FString& Group, bool Enabled);
+
         void DrawWidget(const char* Id);
         Editor::FEditorViewportClient& GetSettingsClient() const;
 
+        /**
+         * @brief 프로젝트의 에디터 설정 파일을 읽어 현재 상태에 반영합니다.
+         */
         void LoadSettings();
 
         /**
@@ -167,10 +279,11 @@ namespace Editor {
         void ResetSettings();
 
     private:
+        std::unordered_map<Core::FString, std::unique_ptr<Editor::FEditorWidget>> mWidgets{};
+
         /**
          * @brief 편집 대상과 공유 서비스에 접근하는 에디터 컨텍스트의 비소유 주소입니다.
          */
-        std::unordered_map<Core::FString, std::unique_ptr<Editor::FEditorWidget>> mWidgets{};
         Editor::FEditorContext* mContext{};
 
         /**
