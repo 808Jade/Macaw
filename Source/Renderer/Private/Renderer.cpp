@@ -467,7 +467,7 @@ namespace Renderer {
         mContext->OMSetRenderTargets(1, &SceneTarget.mColor, SceneTarget.mDepth);
 
         if (Family.mShowFlags.mSky && !Family.mView.mOrthographic && Family.mViewMode != Engine::EViewMode::Wireframe && !Visualization) {
-            mStats.mDrawCalls += mSkyResources->Render(mContext.Get(), SceneTarget, Family.mView);
+            mStats.mDrawCalls += mSkyResources->Render(mContext.Get(), SceneTarget, Family.mView, Family.mPreviewSky);
         }
 
         // 빌보드와 아이콘이 그리드 위에 혼합되도록 반투명 패스보다 먼저 그립니다. SceneDepth는 후처리가 색상을 덮어쓰므로 후처리 뒤에 그립니다.
@@ -936,7 +936,9 @@ namespace Renderer {
             return false;
         }
 
-        if (!mSkyResources->Initialize(mDevice.Get(), FindTextContent(mShaderDirectory.parent_path(), "Sky/Epic_BlueSunset_EquiRect_flat.dds"))) {
+        const std::filesystem::path ContentRoot{mShaderDirectory.parent_path()};
+
+        if (!mSkyResources->Initialize(mDevice.Get(), FindTextContent(ContentRoot, "Sky/Epic_BlueSunset_EquiRect_flat.dds"), FindTextContent(ContentRoot, "Sky/PreviewCourtyard.dds", true))) {
             return false;
         }
 

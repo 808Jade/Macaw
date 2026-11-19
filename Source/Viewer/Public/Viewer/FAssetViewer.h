@@ -48,7 +48,7 @@ namespace Viewer {
          * @param Renderer 외부에서 소유하는 렌더러 서비스입니다.
          * @param Assets 외부에서 소유하는 에셋 관리자입니다.
          */
-        FAssetViewer(RenderCore::IRendererModule* Renderer, Asset::FAssetManager* Assets);
+        FAssetViewer(RenderCore::IRendererModule* Renderer, Asset::FAssetManager* Assets, bool ShowEnvironment = false);
 
         /**
          * @brief 객체의 수명을 끝내고 소유한 리소스를 정리합니다.
@@ -251,5 +251,7 @@ namespace Viewer {
          * @brief 2D 이미지 Fit에 적용할 여백 배율입니다.
          */
         float mImagePadding{1.0f};
+
+        bool mShowEnvironment{};
     };
 }

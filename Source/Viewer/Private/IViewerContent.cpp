@@ -12,6 +12,9 @@ using namespace Viewer;
 
 IViewerContent::~IViewerContent() = default;
 
+void IViewerContent::PrepareEnvironment(Engine::FSceneViewFamily&) {
+}
+
 Asset::UTexture2D* IViewerContent::GetTexture() const {
     return nullptr;
 }

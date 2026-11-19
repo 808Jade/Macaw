@@ -103,7 +103,7 @@ namespace Renderer {
     /**
      * @brief 상수 버퍼·샘플러·깊이·래스터라이저 상태를 생성하고 파노라마를 불러옵니다.
      */
-    bool Renderer::FSkyResources::Initialize(ID3D11Device* Device, const std::filesystem::path& PanoramaPath) {
+    bool Renderer::FSkyResources::Initialize(ID3D11Device* Device, const std::filesystem::path& PanoramaPath, const std::filesystem::path& PreviewPath) {
         D3D11_SAMPLER_DESC Sampler{};
         Sampler.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
         Sampler.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
@@ -126,8 +126,12 @@ namespace Renderer {
             return false;
         }
 
-        if (!LoadPanorama(Device, PanoramaPath)) {
+        if (!LoadPanorama(Device, PanoramaPath, mPanorama)) {
             Core::ErrorHandler::Report("Sky", "Cannot load the sky panorama: " + PanoramaPath.string(), Core::ErrorHandler::EErrorLevel::Warning);
+        }
+
+        if (!LoadPanorama(Device, PreviewPath, mPreviewPanorama)) {
+            Core::ErrorHandler::Report("Sky", "Cannot load the preview panorama: " + PreviewPath.string(), Core::ErrorHandler::EErrorLevel::Warning);
         }
 
         return true;
@@ -153,8 +157,10 @@ namespace Renderer {
     /**
      * @brief 불투명 패스의 깊이가 비어 있는 픽셀에만 하늘을 그립니다.
      */
-    Uint32 Renderer::FSkyResources::Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View) {
-        if (mPanorama == nullptr || mVertexShader == nullptr || mPixelShader == nullptr) {
+    Uint32 Renderer::FSkyResources::Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View, bool Preview) {
+        ID3D11ShaderResourceView* Panorama{Preview && mPreviewPanorama != nullptr ? mPreviewPanorama.Get() : mPanorama.Get()};
+
+        if (Panorama == nullptr || mVertexShader == nullptr || mPixelShader == nullptr) {
             return 0;
         }
 
@@ -183,7 +189,6 @@ namespace Renderer {
         Context->PSSetShader(mPixelShader.Get(), nullptr, 0);
 
         ID3D11SamplerState* Sampler{mSampler.Get()};
-        ID3D11ShaderResourceView* Panorama{mPanorama.Get()};
 
         mConstants.Bind(Context, RenderCore::EShaderStage::Pixel, 0);
         Context->PSSetSamplers(0, 1, &Sampler);
@@ -200,7 +205,7 @@ namespace Renderer {
     /**
      * @brief BC7 DDS를 CPU 변환 없이 밉 체인 그대로 GPU 텍스처로 생성합니다.
      */
-    bool Renderer::FSkyResources::LoadPanorama(ID3D11Device* Device, const std::filesystem::path& Path) {
+    bool Renderer::FSkyResources::LoadPanorama(ID3D11Device* Device, const std::filesystem::path& Path, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& Panorama) {
         std::error_code Code{};
         const auto Size{std::filesystem::file_size(Path, Code)};
         std::ifstream Input{Path, std::ios::binary};
@@ -262,7 +267,7 @@ namespace Renderer {
 
         Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture{};
 
-        return SUCCEEDED(Device->CreateTexture2D(&Description, InitialData.data(), Texture.GetAddressOf())) && SUCCEEDED(Device->CreateShaderResourceView(Texture.Get(), nullptr, mPanorama.ReleaseAndGetAddressOf()));
+        return SUCCEEDED(Device->CreateTexture2D(&Description, InitialData.data(), Texture.GetAddressOf())) && SUCCEEDED(Device->CreateShaderResourceView(Texture.Get(), nullptr, Panorama.ReleaseAndGetAddressOf()));
     }
 
 }

@@ -19,7 +19,7 @@
 using namespace Editor;
 
 FAnimSequenceViewportClient::FAnimSequenceViewportClient(RenderCore::IRendererModule* Renderer, std::unique_ptr<Viewer::FAnimationViewerContent> Scene)
-	: mViewer{Renderer, nullptr},
+	: mViewer{Renderer, nullptr, true},
 	  mScene{Scene.get()} {
     mViewer.SetContent(std::move(Scene));
 }

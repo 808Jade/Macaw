@@ -22,6 +22,10 @@ FSurfaceMaterial ReadSurfaceMaterial(FPixelInput Input) {
     Surface.mColor = BaseColor * Input.mColor * BaseColorTexture.Sample(MaterialSampler, Input.mUV);
     Surface.mNormal = SafeNormal(Input.mNormal);
 
+#if defined(MACAW_PREVIEW_FLOOR)
+    Surface.mColor.rgb *= PreviewFloorGrid(Input.mUV, Surface.mNormal.z);
+#endif
+
 #if defined(HAS_NORMAL_MAP)
     Surface.mNormal = MappedNormal(Surface.mNormal, Input.mTangent, NormalMapTexture.Sample(MaterialSampler, Input.mUV).xyz);
 #endif

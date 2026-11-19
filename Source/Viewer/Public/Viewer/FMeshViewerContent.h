@@ -81,6 +81,7 @@ namespace Viewer {
          * @return 콘텐츠 또는 월드가 소유하는 비소유 장면 포인터이며 없으면 nullptr입니다.
          */
         Engine::FSceneInterface* GetScene() const override;
+        void PrepareEnvironment(Engine::FSceneViewFamily& Family) override;
 
         /**
          * @brief 장면 렌더링 대신 직접 표시할 2D 텍스처를 조회합니다.

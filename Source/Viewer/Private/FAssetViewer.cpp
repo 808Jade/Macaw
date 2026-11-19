@@ -23,10 +23,12 @@
 
 using namespace Viewer;
 
-FAssetViewer::FAssetViewer(RenderCore::IRendererModule* Renderer, Asset::FAssetManager* Assets)
+FAssetViewer::FAssetViewer(RenderCore::IRendererModule* Renderer, Asset::FAssetManager* Assets, bool ShowEnvironment)
 	: mRenderer{Renderer},
-	  mAssets{Assets} {
-    mShowFlags.mSky = false;
+	  mAssets{Assets},
+	  mViewMode{ShowEnvironment ? Engine::EViewMode::Lit : Engine::EViewMode::Unlit},
+	  mShowEnvironment{ShowEnvironment} {
+    mShowFlags.mSky = ShowEnvironment;
     mShowFlags.mFog = false;
     mShowFlags.mLightIcons = false;
     mShowFlags.mFogIcons = false;
@@ -186,6 +188,11 @@ bool FAssetViewer::Render(const Engine::FPrimitiveDrawInterface* EditorElements,
 
     Engine::FSceneViewFamily Family{mContent->GetScene(), mTarget.get(), mCamera.CalcSceneView(mSize), EditorElements, mViewMode, mShowFlags, mGridSpacing};
     Family.mBackgroundOverlay = BackgroundOverlay != nullptr ? BackgroundOverlay : &ContentOverlay;
+
+    if (mShowEnvironment) {
+        mContent->PrepareEnvironment(Family);
+    }
+
     mRenderer->BeginRenderingViewFamily(Family);
 
     return true;

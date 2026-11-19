@@ -7,11 +7,16 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Guid.h"
+#include "Core/Math/FMatrix.h"
 
 #include <memory>
 
+struct FBox;
+
 namespace Asset {
     class FAssetManager;
+    class UMaterial;
 }
 
 namespace RenderCore {
@@ -22,6 +27,7 @@ namespace Engine {
     class FWorldContext;
     class UWorld;
     class FSceneInterface;
+    struct FSceneViewFamily;
 }
 
 namespace Viewer {
@@ -53,6 +59,7 @@ namespace Viewer {
          * @return 월드를 준비했으면 true이며 장면 생성 실패 시 Error에 원인을 기록합니다.
          */
         bool Initialize(Core::FString& Error);
+        void PrepareEnvironment(Engine::FSceneViewFamily& Family, const FBox& Bounds);
 
         /**
          * @brief 미리보기 월드의 프레임 말 변경을 렌더 장면에 반영합니다.
@@ -82,6 +89,10 @@ namespace Viewer {
          * @brief 외부에서 소유하는 에셋 관리자입니다.
          */
         Asset::FAssetManager* mAssets{};
+
+        std::unique_ptr<Asset::UMaterial> mFloorMaterial{};
+        Core::FGuid mFloorId{};
+        FMatrix mFloorTransform{};
 
         /**
          * @brief 독립 EditorPreview 월드의 수명을 소유하는 컨텍스트입니다.

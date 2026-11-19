@@ -138,6 +138,10 @@ Engine::FSceneInterface* FMeshViewerContent::GetScene() const {
     return mScene.GetScene();
 }
 
+void FMeshViewerContent::PrepareEnvironment(Engine::FSceneViewFamily& Family) {
+    mScene.PrepareEnvironment(Family, mMesh != nullptr ? mMesh->GetBounds() : mBounds);
+}
+
 Asset::UTexture2D* FMeshViewerContent::GetTexture() const {
     return mTexture;
 }

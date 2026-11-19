@@ -6,11 +6,21 @@
 
 #include "Viewer/FPreviewScene.h"
 
+#include "Asset/UMaterial.h"
+#include "Core/Math/FTransform.h"
+#include "CoreUObject/Reflection/NewObject.h"
 #include "Engine/FWorldContext.h"
 #include "Engine/UWorld.h"
 #include "Engine/FSceneInterface.h"
 #include "Engine/FLightSceneProxy.h"
+#include "Engine/FPrimitiveSceneProxy.h"
+#include "Engine/FSceneViewFamily.h"
+#include "Engine/PrimitiveMesh.h"
 #include "RenderCore/IRendererModule.h"
+#include "RenderCore/Shader/UShader.h"
+
+#include <algorithm>
+#include <cmath>
 
 using namespace Viewer;
 
@@ -47,12 +57,73 @@ bool FPreviewScene::Initialize(Core::FString& Error) {
         Directional.mType = Engine::ELightType::Directional;
         Directional.mDirection = FVector{0.35f, 0.6f, -1.0f}.Normalized();
         Directional.mIntensity = 0.8f;
+        Directional.mShadowBiasPreset = Engine::EShadowBiasPreset::Level10;
+        Directional.mShadowSlopeBiasPreset = Engine::EShadowBiasPreset::Level10;
         World->GetScene()->AddLight(Directional);
     }
 
     mWorldContext = std::move(Context);
 
     return true;
+}
+
+void FPreviewScene::PrepareEnvironment(Engine::FSceneViewFamily& Family, const FBox& Bounds) {
+    Engine::FSceneInterface* Scene{GetScene()};
+
+    if (Scene == nullptr) {
+        return;
+    }
+
+    Family.mPreviewSky = true;
+
+    const FVector Size{Bounds.mMaximum - Bounds.mMinimum};
+    const FVector Center{Bounds.mMinimum + Size * 0.5f};
+    const float AssetSize{std::max({Size.x, Size.y, Size.z, 0.02f})};
+    const float Width{AssetSize * 8.0f};
+    const float Thickness{AssetSize * 0.18f};
+
+    if (!Center.IsFinite() || !Size.IsFinite() || !std::isfinite(Width) || Size.x < 0.0f || Size.y < 0.0f || Size.z < 0.0f) {
+        return;
+    }
+
+    const float FloorTop{Bounds.mMinimum.z - AssetSize * 0.001f};
+    const FMatrix Transform{FTransform{{Center.x, Center.y, FloorTop - Thickness * 0.5f}, {}, {Width, Width, Thickness}}.ToMatrix()};
+
+    if (mFloorMaterial != nullptr && mFloorTransform == Transform) {
+        return;
+    }
+
+    const FBox FloorBounds{Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube).GetBounds().Transformed(Transform)};
+
+    if (mFloorMaterial == nullptr) {
+        static const auto Shader{[] {
+            auto FloorShader{CoreUObject::NewObject<RenderCore::UShader>()};
+            FloorShader->SetSourcePath("Shaders/PreviewFloor.hlsl");
+            FloorShader->SetWritesGBuffer(true);
+
+            return FloorShader;
+        }()};
+
+        mFloorMaterial = CoreUObject::NewObject<Asset::UMaterial>();
+        mFloorMaterial->SetShader(Shader.get());
+        mFloorMaterial->SetBaseColor({0.55f, 0.58f, 0.63f, 1.0f});
+        mFloorMaterial->SetSpecularStrength(0.0f);
+
+        Engine::FPrimitiveSceneProxy Floor{};
+        Floor.mId = mFloorId;
+        Floor.mPrimitive = Engine::EPrimitiveType::Cube;
+        Floor.mWorld = Transform;
+        Floor.mBounds = FloorBounds;
+        Floor.mMaterial = mFloorMaterial.get();
+        Floor.mCastShadow = false;
+        Floor.mReceiveShadow = true;
+        Floor.mReceivesDecals = false;
+        Scene->AddPrimitive(Floor);
+    } else {
+        Scene->UpdatePrimitiveTransform(mFloorId, Transform, FloorBounds);
+    }
+
+    mFloorTransform = Transform;
 }
 
 void FPreviewScene::Synchronize() {

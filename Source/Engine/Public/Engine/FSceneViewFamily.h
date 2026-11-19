@@ -63,6 +63,8 @@ namespace Engine {
          * @brief 깊이 테스트와 함께 배경에 그릴 외부 소유 오버레이입니다.
          */
         const Engine::FPrimitiveDrawInterface* mBackgroundOverlay{};
+
+        bool mPreviewSky{};
     };
 
 }

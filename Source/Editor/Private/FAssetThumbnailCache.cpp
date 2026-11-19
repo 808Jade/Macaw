@@ -45,7 +45,7 @@ FAssetThumbnailCache::FAssetThumbnailCache(Asset::FAssetManager* Assets, RenderC
 	  mDefaultMesh{CoreUObject::NewObject<Asset::UStaticMesh>()},
 	  mDefaultMaterial{CoreUObject::NewObject<Asset::UMaterial>()},
 	  mCaptureViewer{Renderer, Assets},
-	  mMaterialViewer{Renderer, Assets} {
+	  mMaterialViewer{Renderer, Assets, true} {
     mDefaultMesh->SetMeshData(Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube));
     LoadPreviewSettings();
 }

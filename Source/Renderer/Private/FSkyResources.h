@@ -47,7 +47,7 @@ namespace Renderer {
          * @return 고정 GPU 상태를 생성하면 true입니다.
          * @note 파노라마를 읽지 못하면 경고만 보고하고 true를 반환하며 Render는 아무것도 그리지 않습니다.
          */
-        bool Initialize(ID3D11Device* Device, const std::filesystem::path& PanoramaPath);
+        bool Initialize(ID3D11Device* Device, const std::filesystem::path& PanoramaPath, const std::filesystem::path& PreviewPath);
 
         /**
          * @brief 정점·픽셀 바이트 코드로 하늘 셰이더를 생성하고 둘 다 성공한 경우에만 교체합니다.
@@ -65,7 +65,7 @@ namespace Renderer {
          * @param[in] View 시선 방향을 복원할 카메라 뷰입니다.
          * @return 제출한 드로 수이며 파노라마가 없거나 역행렬을 구하지 못하면 0입니다.
          */
-        Uint32 Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View);
+        Uint32 Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View, bool Preview);
 
     private:
         /**
@@ -74,7 +74,7 @@ namespace Renderer {
          * @param[in] Path 읽을 DDS 파일 경로입니다.
          * @return 셰이더 리소스 뷰를 생성하면 true입니다.
          */
-        bool LoadPanorama(ID3D11Device* Device, const std::filesystem::path& Path);
+        bool LoadPanorama(ID3D11Device* Device, const std::filesystem::path& Path, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& Panorama);
 
     private:
         /**
@@ -111,6 +111,7 @@ namespace Renderer {
          * @brief 등장방형 파노라마의 셰이더 리소스 뷰이며 불러오지 못하면 비어 있습니다.
          */
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mPanorama{};
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mPreviewPanorama{};
     };
 
 }

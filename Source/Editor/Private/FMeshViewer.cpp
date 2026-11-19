@@ -45,7 +45,7 @@ namespace Editor {
      */
     Editor::FMeshViewer::FMeshViewer(RenderCore::IRendererModule* Renderer, Asset::FAssetManager* Assets)
 		: mAssets{Assets},
-		  mViewer{Renderer, Assets} {
+		  mViewer{Renderer, Assets, true} {
     }
 
     /**

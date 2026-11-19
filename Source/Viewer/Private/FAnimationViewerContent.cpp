@@ -296,6 +296,15 @@ Engine::FSceneInterface* FAnimationViewerContent::GetScene() const {
     return mScene != nullptr ? mScene->GetScene() : nullptr;
 }
 
+void FAnimationViewerContent::PrepareEnvironment(Engine::FSceneViewFamily& Family) {
+    const Engine::USkeletalMeshComponent* Component{GetComponent()};
+    const Asset::USkeletalMesh* Mesh{Component != nullptr ? Component->GetSkeletalMesh() : nullptr};
+
+    if (mScene != nullptr && Mesh != nullptr) {
+        mScene->PrepareEnvironment(Family, Mesh->GetBounds());
+    }
+}
+
 Viewer::EViewerPrepareResult FAnimationViewerContent::PrepareCapture(const Viewer::FViewerCaptureState& State, Core::FString& Error) {
     if (Viewer::IViewerContent::PrepareCapture(State, Error) != Viewer::EViewerPrepareResult::Ready) {
         return Viewer::EViewerPrepareResult::Failed;

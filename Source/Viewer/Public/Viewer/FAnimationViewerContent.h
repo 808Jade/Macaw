@@ -167,6 +167,7 @@ namespace Viewer {
          * @return 콘텐츠 또는 월드가 소유하는 비소유 장면 포인터이며 없으면 nullptr입니다.
          */
         Engine::FSceneInterface* GetScene() const override;
+        void PrepareEnvironment(Engine::FSceneViewFamily& Family) override;
 
         /**
          * @brief 촬영 상태를 검증하고 지정 시각으로 이동하여 포즈를 준비합니다.
