@@ -24,6 +24,29 @@
 
 using namespace Viewer;
 
+namespace {
+    void IncludeFloorInClipRange(Engine::FSceneView& View, const FBox& FloorBounds) {
+        const float DepthScale{View.mProjection(2, 2)};
+
+        if (View.mOrthographic || DepthScale <= 1.0f) {
+            return;
+        }
+
+        const FVector FarCorner{View.mForward.x >= 0.0f ? FloorBounds.mMaximum.x : FloorBounds.mMinimum.x, View.mForward.y >= 0.0f ? FloorBounds.mMaximum.y : FloorBounds.mMinimum.y, View.mForward.z >= 0.0f ? FloorBounds.mMaximum.z : FloorBounds.mMinimum.z};
+        const float FloorDepth{(FarCorner - View.mLocation).Dot(View.mForward)};
+        const float DepthOffset{-View.mProjection(3, 2)};
+        const float FarPlane{DepthOffset / (DepthScale - 1.0f)};
+
+        if (std::isfinite(FloorDepth) && FloorDepth >= FarPlane) {
+            const float NearPlane{DepthOffset / DepthScale};
+            const float Aspect{std::max(View.mSize.x, 1.0f) / std::max(View.mSize.y, 1.0f)};
+
+            View.mProjection = FMatrix::Perspective(View.mFieldOfView, Aspect, NearPlane, FloorDepth * 1.1f);
+            View.mViewProjection = View.mView * View.mProjection;
+        }
+    }
+}
+
 FPreviewScene::FPreviewScene(RenderCore::IRendererModule* Renderer, Asset::FAssetManager* Assets)
 	: mRenderer{Renderer},
 	  mAssets{Assets} {
@@ -88,12 +111,13 @@ void FPreviewScene::PrepareEnvironment(Engine::FSceneViewFamily& Family, const F
 
     const float FloorTop{Bounds.mMinimum.z - AssetSize * 0.001f};
     const FMatrix Transform{FTransform{{Center.x, Center.y, FloorTop - Thickness * 0.5f}, {}, {Width, Width, Thickness}}.ToMatrix()};
+    const FBox FloorBounds{Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube).GetBounds().Transformed(Transform)};
+
+    IncludeFloorInClipRange(Family.mView, FloorBounds);
 
     if (mFloorMaterial != nullptr && mFloorTransform == Transform) {
         return;
     }
-
-    const FBox FloorBounds{Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube).GetBounds().Transformed(Transform)};
 
     if (mFloorMaterial == nullptr) {
         static const auto Shader{[] {

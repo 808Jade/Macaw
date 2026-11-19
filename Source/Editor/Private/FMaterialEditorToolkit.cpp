@@ -12,12 +12,13 @@
 #include "Editor/FEditorAssetCatalog.h"
 #include "Editor/FAssetThumbnailCache.h"
 #include "Engine/FProject.h"
+#include "Engine/PrimitiveMesh.h"
 #include "Asset/UMaterial.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Renderer/Renderer.h"
 #include "Platform/Window.h"
+#include "Viewer/FMeshViewerContent.h"
 #include <imgui.h>
-#include <algorithm>
 
 using namespace Editor;
 
@@ -27,18 +28,26 @@ FMaterialEditorToolkit::FMaterialEditorToolkit(FEditorContext* Context, Platform
 	  mPlatform{Platform},
 	  mEditingMaterial{Material},
 	  mAssetCatalog{&Catalog},
-	  mThumbnails{&Thumbnails} {
+	  mThumbnails{&Thumbnails},
+	  mViewer{Context->GetRenderer(), Context->GetProject()->GetAssets(), true} {
     GetTab().SetIcon(EEditorIcon::Material, IM_COL32(64, 192, 64, 255));
-    GetToolkitHost().AddWidget("Preview", "Preview", [this](float) {
-        DrawPreview();
+    FEditorToolkitHost& Host{GetToolkitHost()};
+    Host.AddWidget("Preview", "Viewport", [this](float) {
+        DrawViewport();
     });
-    GetToolkitHost().AddWidget("Details", "Details", [this](float) {
+    Host.GetTabManager().FindTab("Preview")->SetWindowFlags(ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    Host.AddWidget("Details", "Details", [this](float) {
         DrawDetails();
     },
         EEditorDockRegion::Details);
+
     GetTab().SetCanCloseHandler([this]() {
         return ConfirmMaterialChange();
     });
+
+    if (!mViewer.SetAsset(Material, Asset::EAssetType::Material)) {
+        mViewportError = mViewer.GetError();
+    }
 }
 
 FMaterialEditorToolkit::~FMaterialEditorToolkit() = default;
@@ -48,10 +57,6 @@ bool FMaterialEditorToolkit::CanClose() {
 }
 
 void FMaterialEditorToolkit::UpdateEditor(float) {
-    if (mEditingMaterial != nullptr) {
-        mThumbnails->GetMaterialPreview(mEditingMaterial);
-    }
-
     GetTab().SetName(EditorStyle::TabIconPadding + Core::FilePath::ToUtf8(GetAssetPath().stem()) + (mMaterialDirty ? "*" : "") + "###MaterialEditor:" + Core::FilePath::ToGenericUtf8(GetAssetPath()));
 }
 
@@ -148,16 +153,94 @@ void FMaterialEditorToolkit::HandleCommands() {
     }
 }
 
-void FMaterialEditorToolkit::DrawPreview() {
-    if (mEditingMaterial == nullptr) {
+void FMaterialEditorToolkit::DrawViewport() {
+    if (!GetTab().IsVisible()) {
         return;
     }
 
-    if (void* Preview{mThumbnails->GetMaterialPreview(mEditingMaterial)}) {
-        const ImVec2 Available{ImGui::GetContentRegionAvail()};
-        const float Size{std::max(1.0f, std::min(Available.x, Available.y))};
-        ImGui::Image(ImTextureRef{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Preview))}, {Size, Size});
+    auto* Content{static_cast<Viewer::FMeshViewerContent*>(mViewer.GetContent())};
+
+    if (Content == nullptr || mEditingMaterial == nullptr) {
+        ImGui::TextWrapped("%s", mViewportError.empty() ? "The preview material is unavailable." : mViewportError.c_str());
+        return;
     }
+
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0f);
+
+    if (ImGui::BeginCombo("##PreviewMesh", Engine::PrimitiveName(mPreviewPrimitive).c_str())) {
+        for (const Engine::EPrimitiveType Primitive : {Engine::EPrimitiveType::Sphere, Engine::EPrimitiveType::Cube, Engine::EPrimitiveType::Plane}) {
+            const bool Selected{mPreviewPrimitive == Primitive};
+
+            if (ImGui::Selectable(Engine::PrimitiveName(Primitive).c_str(), Selected) && !Selected && Content->SetMaterialPreviewPrimitive(Primitive, mViewportError)) {
+                mPreviewPrimitive = Primitive;
+                mNeedsFrame = true;
+            }
+
+            if (Selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    ImGui::SameLine();
+
+    if (EditorStyle::Button("Reset View")) {
+        mNeedsFrame = true;
+    }
+
+    if (!mViewportError.empty()) {
+        ImGui::TextWrapped("%s", mViewportError.c_str());
+    }
+
+    const ImVec2 Size{ImGui::GetContentRegionAvail()};
+
+    if (Size.x < 1.0f || Size.y < 1.0f) {
+        return;
+    }
+
+    if (!mViewer.Resize(static_cast<Uint32>(Size.x), static_cast<Uint32>(Size.y))) {
+        ImGui::TextUnformatted("Cannot resize the material viewport.");
+        return;
+    }
+
+    ImGui::InvisibleButton("##MaterialViewport", Size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
+
+    const bool Hovered{ImGui::IsItemHovered()};
+    const ImGuiIO& Input{ImGui::GetIO()};
+    Viewer::FViewerCamera& Camera{mViewer.GetCamera()};
+
+    if (mNeedsFrame || (Hovered && !Input.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F))) {
+        Camera = Viewer::FViewerCamera{};
+        mNeedsFrame = !mViewer.Fit(1.15f);
+    }
+
+    if (ImGui::IsItemActive()) {
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f)) {
+            Camera.Pan({Input.MouseDelta.x, Input.MouseDelta.y}, Size.y);
+        } else if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f) || ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0f)) {
+            Camera.Orbit({Input.MouseDelta.x, Input.MouseDelta.y});
+        }
+    }
+
+    if (Hovered && Input.MouseWheel != 0.0f) {
+        Camera.Zoom(Input.MouseWheel);
+    }
+
+    const ImVec2 Origin{ImGui::GetItemRectMin()};
+    const ImVec2 End{ImGui::GetItemRectMax()};
+    ImDrawList* DrawList{ImGui::GetWindowDrawList()};
+
+    if (!mViewer.Render()) {
+        DrawList->AddText(Origin, ImGui::GetColorU32(ImGuiCol_Text), "Cannot render the material viewport.");
+        return;
+    }
+
+    const ImTextureRef Texture{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(mViewer.GetNativeTexture()))};
+    DrawList->AddImage(Texture, Origin, End);
+
+    ImGui::SetItemTooltip("Drag to orbit, middle drag to pan, wheel to zoom, F to reset.");
 }
 
 void FMaterialEditorToolkit::DrawDetails() {

@@ -19,6 +19,10 @@ namespace CoreUObject {
     class UObject;
 }
 
+namespace Engine {
+    enum class EPrimitiveType : Uint8;
+}
+
 namespace Asset {
     class FAssetManager;
     class UStaticMesh;
@@ -62,7 +66,7 @@ namespace Viewer {
          * @return 에셋을 표시할 콘텐츠를 구성했으면 true이며 실패 원인은 Error에 기록합니다.
          */
         bool SetAsset(CoreUObject::UObject* Object, Asset::EAssetType Type, Core::FString& Error);
-        
+        bool SetMaterialPreviewPrimitive(Engine::EPrimitiveType Type, Core::FString& Error);
 
         /**
          * @brief 콘텐츠가 렌더링 또는 촬영 준비에 사용할 수 있는 상태인지 확인합니다.
@@ -167,10 +171,10 @@ namespace Viewer {
         Viewer::FPreviewScene mScene;
 
         /**
-         * @brief 재질 미리보기에 사용할 구 메시의 소유 포인터입니다.
+         * @brief 재질 미리보기에 사용할 기본 메시의 소유 포인터입니다.
          */
         std::unique_ptr<Asset::UStaticMesh> mPrimitiveMesh{};
-        
+        FMatrix mMaterialPreviewTransform{};
 
         /**
          * @brief 외부에서 소유하는 정적 미리보기 메시입니다.

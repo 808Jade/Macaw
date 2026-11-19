@@ -44,8 +44,7 @@ FAssetThumbnailCache::FAssetThumbnailCache(Asset::FAssetManager* Assets, RenderC
 	  mRenderer{Renderer},
 	  mDefaultMesh{CoreUObject::NewObject<Asset::UStaticMesh>()},
 	  mDefaultMaterial{CoreUObject::NewObject<Asset::UMaterial>()},
-	  mCaptureViewer{Renderer, Assets},
-	  mMaterialViewer{Renderer, Assets, true} {
+	  mCaptureViewer{Renderer, Assets} {
     mDefaultMesh->SetMeshData(Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube));
     LoadPreviewSettings();
 }
@@ -173,37 +172,6 @@ void FAssetThumbnailCache::ProcessRequests() {
         mWorkerActive = false;
         mRequests.pop_front();
     }
-}
-
-void* FAssetThumbnailCache::GetMaterialPreview(Asset::UMaterial* Material) {
-    FThumbnail& Thumbnail{mThumbnails["@MaterialPreview"]};
-    Thumbnail.mLastUsed = mFrame;
-    const std::size_t Signature{MaterialSignature(Material) ^ mGeneration};
-
-    if (mRenderer != nullptr && (!Thumbnail.mHasSignature || Thumbnail.mSignature != Signature) && (!Thumbnail.mFailed || Thumbnail.mFailedSignature != Signature)) {
-        Core::FString Error{};
-        std::unique_ptr<Viewer::FViewerCapture> Capture{};
-
-        if (mMaterialViewer.SetAsset(Material != nullptr ? Material : mDefaultMaterial.get(), Asset::EAssetType::Material) && mMaterialViewer.Resize(256, 256) && mMaterialViewer.Fit()) {
-            Capture = mMaterialViewer.Capture(Error);
-        }
-
-        if (Capture != nullptr) {
-            if (Thumbnail.mCapture != nullptr) {
-                mRetiredCaptures.push_back(std::move(Thumbnail.mCapture));
-            }
-
-            Thumbnail.mCapture = std::move(Capture);
-            Thumbnail.mSignature = Signature;
-            Thumbnail.mHasSignature = true;
-            Thumbnail.mFailed = false;
-        } else {
-            Thumbnail.mFailedSignature = Signature;
-            Thumbnail.mFailed = true;
-        }
-    }
-
-    return Thumbnail.mCapture != nullptr ? Thumbnail.mCapture->GetNativeTexture() : nullptr;
 }
 
 bool FAssetThumbnailCache::SetAnimationPreview(const std::filesystem::path& Path, const Core::FString& MeshPath, const Core::FString& SkeletonPath, Core::FString& Error) {

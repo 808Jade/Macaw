@@ -9,6 +9,8 @@
 #include "FAssetEditorToolkit.h"
 #include "CoreUObject/TObjectRef.h"
 #include "Editor/FAssetPicker.h"
+#include "Engine/EPrimitiveType.h"
+#include "Viewer/FAssetViewer.h"
 
 namespace Asset {
     class UMaterial;
@@ -94,9 +96,9 @@ namespace Editor {
         void HandleCommands() override;
 
         /**
-         * @brief 에셋 또는 프로젝트의 미리 보기 이미지를 표시합니다.
+         * @brief 재질을 표시하고 뷰포트의 카메라 입력을 처리합니다.
          */
-        void DrawPreview();
+        void DrawViewport();
 
         /**
          * @brief 머티리얼의 편집 가능한 속성과 에셋 선택 UI를 표시합니다.
@@ -143,6 +145,11 @@ namespace Editor {
          * @brief 머티리얼의 텍스처·셰이더를 선택하는 에셋 선택기입니다.
          */
         Editor::FAssetPicker mAssetPicker{};
+
+        Viewer::FAssetViewer mViewer;
+        Engine::EPrimitiveType mPreviewPrimitive{Engine::EPrimitiveType::Sphere};
+        Core::FString mViewportError{};
+        bool mNeedsFrame{true};
     };
 
 }

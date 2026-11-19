@@ -14,6 +14,8 @@
 #include "Asset/UMaterial.h"
 #include "Asset/UTexture2D.h"
 #include "Core/FilePath.h"
+#include "Core/Math/FRotator.h"
+#include "Core/Math/FTransform.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Engine/FSceneInterface.h"
@@ -100,9 +102,7 @@ bool FMeshViewerContent::SetAsset(CoreUObject::UObject* Object, Asset::EAssetTyp
     }
 
     if (mMaterial != nullptr) {
-        mPrimitiveMesh = CoreUObject::NewObject<Asset::UStaticMesh>();
-        mPrimitiveMesh->SetMeshData(Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Sphere));
-        mMesh = mPrimitiveMesh.get();
+        return SetMaterialPreviewPrimitive(Engine::EPrimitiveType::Sphere, Error);
     }
 
     if (mMesh == nullptr || !mMesh->CreateResources(Device)) {
@@ -126,6 +126,31 @@ bool FMeshViewerContent::SetAsset(CoreUObject::UObject* Object, Asset::EAssetTyp
     return true;
 }
 
+bool FMeshViewerContent::SetMaterialPreviewPrimitive(Engine::EPrimitiveType Type, Core::FString& Error) {
+    Error.clear();
+
+    if (mMaterial == nullptr || mScene.GetScene() == nullptr || Type >= Engine::EPrimitiveType::Count) {
+        Error = "Cannot set the material preview mesh";
+        return false;
+    }
+
+    auto PrimitiveMesh{CoreUObject::NewObject<Asset::UStaticMesh>()};
+    auto* Device{static_cast<ID3D11Device*>(mRenderer->GetNativeDevice())};
+
+    if (!PrimitiveMesh->SetMeshData(Engine::GetPrimitiveMesh(Type)) || !PrimitiveMesh->CreateResources(Device)) {
+        Error = "Cannot create material preview mesh resources";
+        return false;
+    }
+
+    mMaterials.resize(PrimitiveMesh->GetMeshData().GetMaterialSlots().size());
+    mPrimitiveMesh = std::move(PrimitiveMesh);
+    mMesh = mPrimitiveMesh.get();
+    mMaterialPreviewTransform = Type == Engine::EPrimitiveType::Plane ? FTransform{{}, FRotator{90.0f, 0.0f, 0.0f}.Quaternion(), {1.0f, 1.0f, 1.0f}}.ToMatrix() : FMatrix{};
+    Refresh();
+
+    return true;
+}
+
 bool FMeshViewerContent::IsReady() const {
     return mTexture != nullptr || (mScene.GetScene() != nullptr && (mMesh != nullptr || mSkeleton != nullptr));
 }
@@ -139,7 +164,7 @@ Engine::FSceneInterface* FMeshViewerContent::GetScene() const {
 }
 
 void FMeshViewerContent::PrepareEnvironment(Engine::FSceneViewFamily& Family) {
-    mScene.PrepareEnvironment(Family, mMesh != nullptr ? mMesh->GetBounds() : mBounds);
+    mScene.PrepareEnvironment(Family, mMesh == nullptr || mMaterial != nullptr ? mBounds : mMesh->GetBounds());
 }
 
 Asset::UTexture2D* FMeshViewerContent::GetTexture() const {
@@ -186,6 +211,11 @@ void FMeshViewerContent::Synchronize() {
     Proxy.mBounds = mPose.GetRevision().IsValid() ? mPose.GetMeshData().GetBounds() : mMesh->GetBounds();
     Proxy.mMaterial = mMaterial;
     Proxy.mMaterials = mMaterials;
+
+    if (mMaterial != nullptr) {
+        Proxy.mWorld = mMaterialPreviewTransform;
+        Proxy.mBounds = Proxy.mBounds.Transformed(Proxy.mWorld);
+    }
 
     if (mPose.GetRevision().IsValid()) {
         Proxy.mSkeletalMesh = mSkeletalMesh;

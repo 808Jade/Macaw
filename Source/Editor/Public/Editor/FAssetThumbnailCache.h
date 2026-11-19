@@ -181,13 +181,6 @@ namespace Editor {
         void* GetThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type);
 
         /**
-         * @brief 재질을 전용 뷰어로 렌더링하여 UI 표시용 텍스처를 반환합니다.
-         * @param Material 외부에서 소유하는 미리보기 재질입니다.
-         * @return 비소유 네이티브 텍스처 핸들이며 준비되지 않으면 nullptr입니다.
-         */
-        void* GetMaterialPreview(Asset::UMaterial* Material);
-
-        /**
          * @brief 시퀀스의 미리보기 메시·스켈레톤 연결을 저장하고 관련 썸네일을 무효화합니다.
          * @param Path 처리할 에셋 또는 파일 경로입니다.
          * @param MeshPath 미리보기 메시의 에셋 경로입니다.
@@ -290,11 +283,6 @@ namespace Editor {
          * @brief 썸네일 요청을 순차적으로 촬영하는 공통 뷰어입니다.
          */
         Viewer::FAssetViewer mCaptureViewer;
-
-        /**
-         * @brief 재질 편집기의 실시간 미리보기용 공통 뷰어입니다.
-         */
-        Viewer::FAssetViewer mMaterialViewer;
 
         /**
          * @brief 에셋 키별 촬영 이미지와 요청 상태입니다.
