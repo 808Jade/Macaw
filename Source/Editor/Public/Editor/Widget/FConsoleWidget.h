@@ -46,7 +46,7 @@ namespace Editor {
 
     private:
         /**
-         * @brief ImTerm 콘솔 출력 상태의 소유 객체입니다.
+         * @brief 콘솔 출력 상태의 소유 객체입니다.
          */
         std::unique_ptr<Editor::FConsoleWidget::FOutput> mOutput{};
 
