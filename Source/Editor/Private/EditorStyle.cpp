@@ -16,22 +16,22 @@
 
 namespace Editor {
 
-    float EditorStyle::GetMajorTabHeight() {
+    float EditorStyle::GetTopLevelTabHeight() {
         const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
 
         return std::max(36.0f * Scale, ImGui::GetFontSize() + 16.0f * Scale);
     }
 
-    ImVec4 EditorStyle::GetMajorTabColor() {
+    ImVec4 EditorStyle::GetTopLevelTabColor() {
         return ImLerp(ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg), ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.06f);
     }
 
-    void EditorStyle::PushMajorTabStyle() {
+    void EditorStyle::PushTopLevelTabStyle() {
         const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
         const ImVec4 Background{ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg)};
-        const ImVec4 Selected{GetMajorTabColor()};
+        const ImVec4 Selected{GetTopLevelTabColor()};
 
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{12.0f * Scale, (GetMajorTabHeight() - ImGui::GetFontSize()) * 0.5f});
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{12.0f * Scale, (GetTopLevelTabHeight() - ImGui::GetFontSize()) * 0.5f});
         ImGui::PushStyleVar(ImGuiStyleVar_TabMinWidthBase, 220.0f * Scale);
         ImGui::PushStyleVar(ImGuiStyleVar_TabMinWidthShrink, 120.0f * Scale);
         ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 4.0f * Scale);
@@ -47,23 +47,23 @@ namespace Editor {
         ImGui::PushStyleColor(ImGuiCol_TabHovered, ImLerp(Selected, ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.04f));
     }
 
-    void EditorStyle::PopMajorTabStyle() {
+    void EditorStyle::PopTopLevelTabStyle() {
         ImGui::PopStyleColor(7);
         ImGui::PopStyleVar(7);
     }
 
     bool EditorStyle::BeginEditorWindow(const char* Name, bool* Open, ImGuiWindowFlags Flags) {
         const ImGuiNextWindowData& Next{ImGui::GetCurrentContext()->NextWindowData};
-        const bool Major{(Next.HasFlags & ImGuiNextWindowDataFlags_HasWindowClass) != 0 && Next.WindowClass.ClassId == MajorTabClassId};
+        const bool IsTopLevel{(Next.HasFlags & ImGuiNextWindowDataFlags_HasWindowClass) != 0 && Next.WindowClass.ClassId == TopLevelTabClassId};
 
-        if (Major) {
-            PushMajorTabStyle();
+        if (IsTopLevel) {
+            PushTopLevelTabStyle();
         }
 
         const bool Visible{ImGui::Begin(Name, Open, Flags)};
 
-        if (Major) {
-            PopMajorTabStyle();
+        if (IsTopLevel) {
+            PopTopLevelTabStyle();
         }
 
         return Visible;
@@ -179,7 +179,7 @@ namespace Editor {
             return;
         }
 
-        // 호스트 창이 이번 프레임에 그려지지 않으면(다른 메이저 탭이 선택된 동안의 패널 등) 드로 목록이 비어 있거나 ImGui가 메모리를 회수한 상태이므로 그리지 않습니다.
+        // 호스트 창이 이번 프레임에 그려지지 않으면(다른 최상위 탭이 선택된 동안의 패널 등) 드로 목록이 비어 있거나 ImGui가 메모리를 회수한 상태이므로 그리지 않습니다.
         const ImGuiWindow* Host{Window->DockNode->HostWindow};
 
         if (Host->LastFrameActive != ImGui::GetFrameCount() || Host->Hidden || Host->DrawList->CmdBuffer.Size == 0) {
@@ -203,7 +203,7 @@ namespace Editor {
 
         DrawList->PushClipRect(Tab.Min, Tab.Max, false);
         Editor::EditorStyle::DrawIcon(DrawList, Icon, ImVec2{Tab.Min.x + 9.0f * Scale, Tab.Min.y + (Tab.GetHeight() - Size) * 0.5f}, Size, ImGui::ColorConvertFloat4ToU32(Tint));
-        if (Window->WindowClass.ClassId != EditorStyle::MajorTabClassId) {
+        if (Window->WindowClass.ClassId != EditorStyle::TopLevelTabClassId) {
             DrawList->AddRectFilled({Tab.Min.x + 4.0f * Scale, Tab.Max.y - 2.0f * Scale}, {Tab.Min.x + 4.0f * Scale + std::max(0.0f, Tab.GetWidth() - 8.0f * Scale) * Emphasis, Tab.Max.y}, ImGui::GetColorU32(ImGuiCol_HeaderActive, Emphasis), Scale);
         }
         DrawList->PopClipRect();

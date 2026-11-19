@@ -1,46 +1,46 @@
 /**
- * @file FLuaIntellisence.h
- * @brief 텍스트 편집기에 Lua 자동 완성과 진단을 제공하는 인텔리센스를 선언합니다.
- * @ingroup Script
+ * @file FSourceIntellisense.h
+ * @brief 텍스트 편집기에 자동 완성과 진단을 제공하는 인텔리센스를 선언합니다.
+ * @ingroup NativeIDE
  */
 
 #pragma once
 
-#include "FLuaLanguageServer.h"
+#include "FLanguageServer.h"
+#include "NativeIDE/FIDEContent.h"
+#include "Script/FLuaCompiler.h"
 
 #include <ImGuiColorTextEdit/TextEditor.h>
 #include <rapidjson/fwd.h>
 #include <chrono>
 #include <cstdint>
 
-struct lua_State;
-
-namespace Script {
+namespace NativeIDE {
     /**
-     * @brief 편집 중인 Lua 문서를 lua-language-server와 동기화하고 자동 완성과 진단을 편집기에 표시합니다.
-     * @ingroup Script
-     * @note 서버를 사용할 수 없을 때에도 내장 Lua 파서로 구문 오류를 표시하고 키워드·엔진 바인딩 이름으로 자동 완성합니다.
+     * @brief 편집 중인 문서를 언어 서버와 동기화하고 자동 완성과 진단을 편집기에 표시합니다.
+     * @ingroup NativeIDE
+     * @note 서버를 사용할 수 없을 때는 언어별 키워드를 제안하며, Lua에서는 내장 파서와 엔진 바인딩 이름도 사용합니다.
      */
-    class FLuaIntellisence {
+    class FSourceIntellisense {
     public:
         /**
          * @brief 편집기에 자동 완성 콜백을 등록합니다.
          * @param[in,out] Editor 자동 완성과 진단을 표시할 편집기이며 이 객체보다 오래 유지되어야 합니다.
          */
-        explicit FLuaIntellisence(TextEditor& Editor);
+        FSourceIntellisense(TextEditor& Editor, NativeIDE::EIDELanguage Language, NativeIDE::FIDEContent::FValidator Validator);
 
         /**
          * @brief 편집기의 자동 완성 설정을 해제하고 구문 검사용 Lua 상태를 닫습니다.
          */
-        ~FLuaIntellisence();
+        ~FSourceIntellisense();
 
     public:
         /**
          * @brief 기존 문서를 닫고 새 문서를 열며, 작업 공간이 바뀌었거나 서버가 멈춰 있으면 서버를 다시 시작합니다.
          * @param[in] Path 편집할 스크립트 파일 경로이며 LSP 문서 URI로 사용합니다.
-         * @param[in] Workspace 서버의 작업 공간 루트이며 상위 폴더의 Saved/LuaLanguageServer에 서버 캐시를 둡니다.
+         * @param[in] Workspace 서버의 작업 공간 루트입니다.
          * @param[in] Source LF 줄 끝으로 정규화한 문서 내용입니다.
-         * @note 서버 시작에 실패해도 내장 구문 검사와 기본 자동 완성은 동작합니다.
+         * @note 서버 시작에 실패해도 기본 자동 완성과 내장 Lua 구문 검사는 동작합니다.
          */
         void Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace, std::string Source);
 
@@ -60,6 +60,7 @@ namespace Script {
          * @brief 최신 내용을 서버에 동기화하고 문서 저장을 알립니다.
          */
         void Save();
+        std::future<NativeIDE::FIDEContent::FBuildResult> StartBuild();
 
         /**
          * @brief 서버 메시지를 처리하고 예약 시각이 지났으면 구문 검사와 문서 동기화를 수행합니다.
@@ -68,6 +69,11 @@ namespace Script {
         void Update();
 
     private:
+        bool StartServer(const std::filesystem::path& Workspace);
+        std::string GetShaderSettings() const;
+        void UpdateValidation();
+        NativeIDE::FIDEContent::FBuildResult CompileLua();
+
         /**
          * @brief 편집기의 자동 완성 요청을 서버에 보내거나 서버가 없으면 기본 후보로 채웁니다.
          * @param[in,out] State 검색어를 읽고 후보 목록 또는 비동기 응답 약속을 기록할 자동 완성 상태입니다.
@@ -129,9 +135,13 @@ namespace Script {
         TextEditor& mEditor;
 
         /**
-         * @brief LSP 메시지를 주고받는 lua-language-server 연결입니다.
+         * @brief LSP 메시지를 주고받는 언어 서버 연결입니다.
          */
-        FLuaLanguageServer mServer{};
+        FLanguageServer mServer{};
+        NativeIDE::EIDELanguage mLanguage{};
+        NativeIDE::FIDEContent::FValidator mValidator{};
+        std::future<NativeIDE::FIDEContent::FBuildResult> mValidation{};
+        std::filesystem::path mPath{};
 
         /**
          * @brief 현재 서버를 시작한 작업 공간 루트입니다.
@@ -162,11 +172,12 @@ namespace Script {
          * @brief 마지막 자동 완성 요청을 보낸 커서 위치이며 응답이 아직 유효한지 판단합니다.
          */
         TextEditor::DocPos mCompletionPosition{};
+        std::string mCompletionPrefix{};
 
         /**
-         * @brief 구문 검사에 재사용하는 Lua 상태이며 처음 검사할 때 만듭니다.
+         * @brief 구문 검사용 Lua 컴파일러이며 내부 상태는 처음 검사할 때 만듭니다.
          */
-        lua_State* mSyntaxState{};
+        Script::FLuaCompiler mLuaCompiler{};
 
         /**
          * @brief 편집할 때마다 증가하는 문서 버전입니다.

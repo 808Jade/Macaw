@@ -38,8 +38,8 @@ FLevelEditorToolkit::FLevelEditorToolkit(FEditorContext* Context, FEditorViewpor
 	  mViewport{Viewport},
 	  mPlaySession{PlaySession},
 	  mViewportLayout{Context, Viewport, PlaySession},
-	  mMajorTab{"###LevelEditor", false, EEditorTabRole::Major},
-	  mTabs{mMajorTab.GetToolkitHost().GetTabManager()},
+	  mTopLevelTab{"###LevelEditor", false, EEditorTabRole::TopLevel},
+	  mTabs{mTopLevelTab.GetToolkitHost().GetTabManager()},
 	  mPlaceActorsWidget{Context},
 	  mOutlinerWidget{Context},
 	  mDetailsWidget{Context},
@@ -62,7 +62,7 @@ bool FLevelEditorToolkit::Initialize(RenderCore::IRendererModule* Renderer, Plat
 
     mAssetCatalog = std::make_unique<FEditorAssetCatalog>(mContext->GetProject()->GetAssets());
     mThumbnails = std::make_unique<FAssetThumbnailCache>(mContext->GetProject()->GetAssets(), Renderer);
-    mWorkspace = std::make_unique<FEditorWorkspace>(mContext, mMajorTab, mUIScale);
+    mWorkspace = std::make_unique<FEditorWorkspace>(mContext, mTopLevelTab, mUIScale);
     mCommands = std::make_unique<FEditorCommands>(mContext, mPlaySession, mViewportLayout, Platform);
     mAssetEditors = std::make_unique<FAssetEditorManager>(mContext, Platform, *mAssetCatalog, *mThumbnails, *mWorkspace, *mCommands);
     mImports = std::make_unique<FAssetImportController>(mContext, Platform);
@@ -94,8 +94,8 @@ bool FLevelEditorToolkit::Initialize(RenderCore::IRendererModule* Renderer, Plat
 }
 
 void FLevelEditorToolkit::RegisterTabs() {
-    mMajorTab.SetIcon(EEditorIcon::World, IM_COL32(255, 170, 60, 255));
-    mMajorTab.GetToolkitHost().AddWidget("Viewport", "Viewport", [this](float DeltaTime) {
+    mTopLevelTab.SetIcon(EEditorIcon::World, IM_COL32(255, 170, 60, 255));
+    mTopLevelTab.GetToolkitHost().AddWidget("Viewport", "Viewport", [this](float DeltaTime) {
         mViewportLayout.DrawContents(mPlatform->GetInput(), DeltaTime);
     },
         EEditorDockRegion::Center, false, mViewport->GetName());
@@ -212,7 +212,7 @@ void FLevelEditorToolkit::Draw(float DeltaTime) {
     mOutlinerWidget.SetEditorContext(Inspection);
     mDetailsWidget.SetEditorContext(Inspection);
     mAnimGraphWidget.SetEditorContext(Inspection);
-    mMajorTab.Draw(DeltaTime);
+    mTopLevelTab.Draw(DeltaTime);
     mDetailsWidget.FinishInactiveSceneEdit();
     FStatGraphs& Graphs{mContext->GetStatGraphs()};
     GetActiveViewport()->GetStatistics()->DrawPanel(mSettings->GetStatisticsVisibility(), Graphs);

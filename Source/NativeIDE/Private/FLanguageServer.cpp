@@ -1,4 +1,4 @@
-#include "FLuaLanguageServer.h"
+#include "FLanguageServer.h"
 
 #include <algorithm>
 #include <array>
@@ -8,7 +8,7 @@
 #include <string_view>
 #include <utility>
 
-using namespace Script;
+using namespace NativeIDE;
 
 namespace {
     struct FHandleCloser {
@@ -48,21 +48,22 @@ namespace {
     }
 }
 
-FLuaLanguageServer::~FLuaLanguageServer() {
+FLanguageServer::~FLanguageServer() {
     Stop();
 }
 
-bool FLuaLanguageServer::Start(const std::filesystem::path& Directory, const std::filesystem::path& Cache) {
+bool FLanguageServer::Start(const std::filesystem::path& Executable, const std::filesystem::path& Directory, std::wstring_view Arguments) {
     Stop();
 
-    const auto Executable{Directory / L"bin/lua-language-server.exe"};
     std::error_code Error{};
     if (!std::filesystem::is_regular_file(Executable, Error)) {
         return false;
     }
 
-    std::filesystem::create_directories(Cache, Error);
-    if (Error) {
+    FHandle Job{CreateJobObjectW(nullptr, nullptr)};
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION Limits{};
+    Limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if (Job == nullptr || !SetInformationJobObject(Job.get(), JobObjectExtendedLimitInformation, &Limits, sizeof(Limits))) {
         return false;
     }
 
@@ -82,14 +83,15 @@ bool FLuaLanguageServer::Start(const std::filesystem::path& Directory, const std
     const FHandle ChildError{ErrorHandle};
 
     SIZE_T AttributeSize{};
-    InitializeProcThreadAttributeList(nullptr, 1, 0, &AttributeSize);
+    InitializeProcThreadAttributeList(nullptr, 2, 0, &AttributeSize);
     const auto AttributeStorage{std::make_unique<std::byte[]>(AttributeSize)};
     auto* AttributeList{reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(AttributeStorage.get())};
-    if (!InitializeProcThreadAttributeList(AttributeList, 1, 0, &AttributeSize)) {
+    if (!InitializeProcThreadAttributeList(AttributeList, 2, 0, &AttributeSize)) {
         return false;
     }
 
     std::array<HANDLE, 3> Handles{ChildInput.get(), ChildOutput.get(), ChildError.get()};
+    HANDLE JobHandle{Job.get()};
     STARTUPINFOEXW Startup{};
     Startup.StartupInfo.cb = sizeof(Startup);
     Startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
@@ -98,8 +100,10 @@ bool FLuaLanguageServer::Start(const std::filesystem::path& Directory, const std
     Startup.StartupInfo.hStdError = ChildError.get();
     Startup.lpAttributeList = AttributeList;
     PROCESS_INFORMATION Process{};
-    std::wstring Command{L"\"" + Executable.wstring() + L"\" \"--logpath=" + (Cache / L"Log").wstring() + L"\" \"--metapath=" + (Cache / L"Meta").wstring() + L"\""};
-    const bool Started{UpdateProcThreadAttribute(AttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, Handles.data(), sizeof(Handles), nullptr, nullptr) && CreateProcessW(Executable.c_str(), Command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, nullptr, Directory.c_str(), &Startup.StartupInfo, &Process)};
+    std::wstring Command{L"\"" + Executable.wstring() + L"\" "};
+    Command += Arguments;
+    const bool AttributesSet{UpdateProcThreadAttribute(AttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, Handles.data(), sizeof(Handles), nullptr, nullptr) && UpdateProcThreadAttribute(AttributeList, 0, PROC_THREAD_ATTRIBUTE_JOB_LIST, &JobHandle, sizeof(JobHandle), nullptr, nullptr)};
+    const bool Started{AttributesSet && CreateProcessW(Executable.c_str(), Command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, nullptr, Directory.c_str(), &Startup.StartupInfo, &Process)};
     DeleteProcThreadAttributeList(AttributeList);
     if (!Started) {
         return false;
@@ -107,6 +111,7 @@ bool FLuaLanguageServer::Start(const std::filesystem::path& Directory, const std
 
     CloseHandle(Process.hThread);
     mProcess = Process.hProcess;
+    mJob = Job.release();
     mInput = ParentInput.release();
     mOutput = ParentOutput.release();
     mRunning = true;
@@ -124,7 +129,7 @@ bool FLuaLanguageServer::Start(const std::filesystem::path& Directory, const std
     return true;
 }
 
-void FLuaLanguageServer::Stop() {
+void FLanguageServer::Stop() {
     if (mProcess == nullptr) {
         return;
     }
@@ -132,7 +137,7 @@ void FLuaLanguageServer::Stop() {
     mRunning = false;
     mWriter.request_stop();
     mQueued.notify_all();
-    TerminateProcess(mProcess, 0);
+    CloseHandle(std::exchange(mJob, nullptr));
     if (mReader.joinable()) {
         mReader.join();
     }
@@ -142,16 +147,17 @@ void FLuaLanguageServer::Stop() {
 
     CloseHandle(std::exchange(mInput, nullptr));
     CloseHandle(std::exchange(mOutput, nullptr));
+    WaitForSingleObject(mProcess, INFINITE);
     CloseHandle(std::exchange(mProcess, nullptr));
     mIncoming.clear();
     mOutgoing.clear();
 }
 
-bool FLuaLanguageServer::IsRunning() const {
+bool FLanguageServer::IsRunning() const {
     return mRunning;
 }
 
-void FLuaLanguageServer::Send(std::string Message) {
+void FLanguageServer::Send(std::string Message) {
     if (mRunning) {
         const std::lock_guard Lock{mMutex};
         mOutgoing.push_back(std::move(Message));
@@ -159,12 +165,12 @@ void FLuaLanguageServer::Send(std::string Message) {
     }
 }
 
-std::vector<std::string> FLuaLanguageServer::TakeMessages() {
+std::vector<std::string> FLanguageServer::TakeMessages() {
     const std::lock_guard Lock{mMutex};
     return std::exchange(mIncoming, {});
 }
 
-void FLuaLanguageServer::Read() {
+void FLanguageServer::Read() {
     constexpr std::string_view ContentLength{"Content-Length: "};
     std::array<char, 8192> Bytes{};
     std::string Buffer{};
@@ -202,7 +208,7 @@ void FLuaLanguageServer::Read() {
     mQueued.notify_all();
 }
 
-void FLuaLanguageServer::Write(std::stop_token Stop) {
+void FLanguageServer::Write(std::stop_token Stop) {
     while (!Stop.stop_requested() && mRunning) {
         std::unique_lock Lock{mMutex};
         mQueued.wait(Lock, Stop, [this]() {

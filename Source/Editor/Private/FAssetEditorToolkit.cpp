@@ -1,6 +1,6 @@
 /**
  * @file FAssetEditorToolkit.cpp
- * @brief 에셋 경로와 주 탭을 보관하고 편집기의 갱신·명령·변경 통지를 연결합니다.
+ * @brief 에셋 경로와 최상위 탭을 보관하고 편집기의 갱신·명령·변경 통지를 연결합니다.
  * @ingroup Editor
  */
 
@@ -13,7 +13,7 @@ using namespace Editor;
 FAssetEditorToolkit::FAssetEditorToolkit(std::filesystem::path Path, Asset::EAssetType Type, Core::FString WindowName)
 	: mPath{std::move(Path)},
 	  mType{Type},
-	  mTab{std::move(WindowName), true, EEditorTabRole::Major} {
+	  mTab{std::move(WindowName), true, EEditorTabRole::TopLevel} {
     mTab.GetToolkitHost().SetFrameHandler([this]() {
         HandleCommands();
     });

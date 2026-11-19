@@ -171,12 +171,12 @@ namespace Editor {
         Editor::FImGuiUIScale mUIScale{};
 
         /**
-         * @brief 레벨 편집기 콘텐츠와 내부 도킹 공간을 담는 주 탭입니다.
+         * @brief 레벨 편집기 콘텐츠와 내부 도킹 공간을 담는 최상위 탭입니다.
          */
-        Editor::FEditorTab mMajorTab;
+        Editor::FEditorTab mTopLevelTab;
 
         /**
-         * @brief 위젯·주 탭을 등록하고 표시하는 탭 관리자입니다.
+         * @brief 위젯·최상위 탭을 등록하고 표시하는 탭 관리자입니다.
          */
         Editor::FEditorTabManager& mTabs;
 
@@ -221,7 +221,7 @@ namespace Editor {
         std::unique_ptr<Editor::FAssetThumbnailCache> mThumbnails{};
 
         /**
-         * @brief 주 탭과 레벨 패널의 도킹 배치·포커스를 관리하는 서비스입니다.
+         * @brief 최상위 탭과 레벨 패널의 도킹 배치·포커스를 관리하는 서비스입니다.
          */
         std::unique_ptr<Editor::FEditorWorkspace> mWorkspace{};
 

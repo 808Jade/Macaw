@@ -8,6 +8,8 @@
   "Serialization": "RapidJSON 기반 아카이브와 JSON 파일 입출력",
   "ImGui": "편집 UI와 Windows·Direct3D 11 백엔드",
   "Renderer": "Direct3D 11 장치, GPU 메시·상수 버퍼, 렌더 장면과 출력 타깃",
+  "Script": "LuaJIT 구문 컴파일, VM, 스크립트 실행과 코루틴",
+  "NativeIDE": "Lua와 HLSL 편집기 탭, 자동 완성, 언어 서버와 빌드 메시지",
   "Editor": "선택·프로퍼티 편집, 카메라·기즈모, ImGui 패널과 장면 파일 관리",
   "Platform": "Win32 창, 클라이언트 크기와 Windows 메시지 펌프",
   "Engine": "월드·레벨·액터·컴포넌트, 파티클 정의·실행·에셋 관리, 장면·뷰포트 인터페이스와 장면 직렬화"

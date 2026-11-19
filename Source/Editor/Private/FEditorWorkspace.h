@@ -1,6 +1,6 @@
 /**
  * @file FEditorWorkspace.h
- * @brief 주 탭과 레벨 편집기 내부 패널의 도킹 배치·포커스·배치 버전을 관리합니다.
+ * @brief 최상위 탭과 레벨 편집기 내부 패널의 도킹 배치·포커스·배치 버전을 관리합니다.
  * @ingroup Editor
  */
 
@@ -20,7 +20,7 @@ namespace Editor {
 namespace Editor {
 
     /**
-     * @brief 주 탭과 레벨 편집기 내부 패널의 도킹 배치·포커스·배치 버전을 관리합니다.
+     * @brief 최상위 탭과 레벨 편집기 내부 패널의 도킹 배치·포커스·배치 버전을 관리합니다.
      */
     class FEditorWorkspace {
 
@@ -28,7 +28,7 @@ namespace Editor {
         /**
          * @brief FEditorWorkspace의 초기 상태와 전달받은 의존성을 구성합니다.
          * @param[in] Context 편집 대상과 공유 서비스를 제공하는 에디터 컨텍스트의 비소유 주소입니다.
-         * @param[in] LevelTab 레벨 편집기를 포함하는 주 탭입니다.
+         * @param[in] LevelTab 레벨 편집기를 포함하는 최상위 탭입니다.
          * @param[in] UIScale DPI·글꼴에 따른 에디터 UI 배율 서비스입니다.
          */
         FEditorWorkspace(Editor::FEditorContext* Context, Editor::FEditorTab& LevelTab, Editor::FImGuiUIScale& UIScale);
@@ -64,19 +64,19 @@ namespace Editor {
         void SetLayoutVersion(Uint32 Version);
 
         /**
-         * @brief 주 탭 도킹 공간을 구성하고 이전 배치 버전을 필요에 따라 갱신합니다.
+         * @brief 최상위 탭 도킹 공간을 구성하고 이전 배치 버전을 필요에 따라 갱신합니다.
          */
         void BuildLayout();
 
         /**
-         * @brief 다음 주 탭 창에 도킹 클래스와 기본 도킹 위치를 지정합니다.
+         * @brief 다음 최상위 탭 창에 도킹 클래스와 기본 도킹 위치를 지정합니다.
          */
-        void BeginMajorTab();
+        void BeginTopLevelTab();
 
         /**
-         * @brief 주 탭 그리기 뒤 남아 있는 다음 창 설정을 해제합니다.
+         * @brief 최상위 탭 그리기 뒤 남아 있는 다음 창 설정을 해제합니다.
          */
-        void EndMajorTab();
+        void EndTopLevelTab();
 
         /**
          * @brief 콘텐츠 브라우저를 열고 필요한 레벨 편집기 포커스를 요청합니다.
@@ -84,12 +84,12 @@ namespace Editor {
         void FocusContentBrowser();
 
         /**
-         * @brief 레벨 편집기 주 탭을 열고 포커스를 요청합니다.
+         * @brief 레벨 편집기 최상위 탭을 열고 포커스를 요청합니다.
          */
         void FocusLevelEditor();
 
         /**
-         * @brief 레벨 편집기 주 탭 또는 내부 패널에 포커스가 있는지 검사합니다.
+         * @brief 레벨 편집기 최상위 탭 또는 내부 패널에 포커스가 있는지 검사합니다.
          * @return 레벨 편집기 영역에 포커스가 있으면 true입니다.
          */
         bool IsLevelEditorFocused() const;
@@ -115,12 +115,12 @@ namespace Editor {
         Editor::FEditorContext* mContext{};
 
         /**
-         * @brief 레벨 편집기의 주 탭 참조입니다.
+         * @brief 레벨 편집기의 최상위 탭 참조입니다.
          */
         Editor::FEditorTab& mLevelTab;
 
         /**
-         * @brief 위젯·주 탭을 등록하고 표시하는 탭 관리자입니다.
+         * @brief 위젯·최상위 탭을 등록하고 표시하는 탭 관리자입니다.
          */
         Editor::FEditorTabManager& mTabs;
 
@@ -135,7 +135,7 @@ namespace Editor {
         Uint32 mLayoutVersion{};
 
         /**
-         * @brief 주 탭을 배치하는 루트 도킹 공간 식별자입니다.
+         * @brief 최상위 탭을 배치하는 루트 도킹 공간 식별자입니다.
          */
         Uint32 mRootDock{};
 

@@ -126,7 +126,7 @@ void FEditorShell::DrawMenu() {
     FEditorToolkitHost* ActiveHost{mAssetEditors.GetActiveToolkitHost()};
     const float Scale{mUIScale.GetScale()};
     const float HeaderHeight{std::max(EditorStyle::MenuBarHeight * Scale, ImGui::GetFontSize() + 8.0f * Scale)};
-    const float TabBarHeight{EditorStyle::GetMajorTabHeight()};
+    const float TabBarHeight{EditorStyle::GetTopLevelTabHeight()};
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{ImGui::GetStyle().FramePadding.x, std::max(ImGui::GetStyle().FramePadding.y, (HeaderHeight - ImGui::GetFontSize()) * 0.5f)});
 
@@ -305,7 +305,7 @@ void FEditorShell::DrawMenu() {
     const Core::FInput& Input{mPlatform->GetInput()};
 
     if (Input.IsDown(EKey::Control)) {
-        if (Input.WasPressed(EKey::Space) && !mAssetEditors.IsScriptEditorFocused() && ImGui::GetTopMostPopupModal() == nullptr) {
+        if (Input.WasPressed(EKey::Space) && !mAssetEditors.IsSourceEditorFocused() && ImGui::GetTopMostPopupModal() == nullptr) {
             mDrawers.ToggleDrawer("Content");
         } else if (Input.WasPressed(EKey::Comma) && !ImGui::GetIO().WantTextInput) {
             mSettings.OpenSettings(0);
@@ -409,7 +409,7 @@ void FEditorShell::DrawEditorToolbar() {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{8.0f * Scale, 4.0f * Scale});
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, EditorStyle::GetMajorTabColor());
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, EditorStyle::GetTopLevelTabColor());
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{});
 
     const float Height{ImGui::GetFrameHeight() + ImGui::GetStyle().WindowPadding.y * 2.0f};

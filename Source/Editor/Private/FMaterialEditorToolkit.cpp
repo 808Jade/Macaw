@@ -239,8 +239,6 @@ void FMaterialEditorToolkit::DrawViewport() {
 
     const ImTextureRef Texture{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(mViewer.GetNativeTexture()))};
     DrawList->AddImage(Texture, Origin, End);
-
-    ImGui::SetItemTooltip("Drag to orbit, middle drag to pan, wheel to zoom, F to reset.");
 }
 
 void FMaterialEditorToolkit::DrawDetails() {

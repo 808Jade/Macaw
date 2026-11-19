@@ -82,6 +82,7 @@ namespace {
     constexpr FContentIcon ContentIcons[]{
         FileIcon,
         {"Lua Script", "Lua 스크립트", MacawContentLuaIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(164, 197, 255, 255)},
+        {"Shader Source", "셰이더 소스", MacawContentFileIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(120, 214, 236, 255)},
         {"Folder", "폴더", MacawContentFolderIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(255, 208, 111, 255)},
         {"Mesh", "메시", MacawContentMeshIconResource, Editor::EditorStyle::EIcon::Local},
         {"Skeletal Mesh", "스켈레탈 메시", MacawContentSkeletalMeshIconResource, Editor::EditorStyle::EIcon::Skeleton},
@@ -94,6 +95,12 @@ namespace {
         {"Anim Graph", "애니메이션 그래프", MacawContentAnimationSequenceIconResource, Editor::EditorStyle::EIcon::Sequence, IM_COL32(150, 165, 255, 255)},
         {"Particle System", "파티클 시스템", MacawContentFileIconResource, Editor::EditorStyle::EIcon::Sprite, IM_COL32(255, 190, 110, 255)},
         {"Scene", "씬", MacawContentSceneIconResource, Editor::EditorStyle::EIcon::World}};
+
+    bool IsShaderSource(const std::filesystem::path& Path) {
+        const auto Extension{Core::FilePath::ToLowerExtension(Path)};
+
+        return Extension == L".hlsl" || Extension == L".hlsli";
+    }
 
     const char* GetAssetKind(Asset::EAssetType Type) {
         switch (Type) {
@@ -441,8 +448,8 @@ Core::FString FContentBrowserWidget::FindContentActionBlocker(const std::filesys
         return "편집 중인 머티리얼입니다. 머티리얼 편집기를 닫은 뒤에 다시 시도하세요.";
     }
 
-    if (mAssetEditors.HasUnsavedScript(Contains)) {
-        return "Script IDE에서 Lua 스크립트의 변경 사항을 저장하거나 취소한 뒤 다시 시도하세요.";
+    if (mAssetEditors.HasUnsavedSource(Contains)) {
+        return "편집기에서 소스 파일의 변경 사항을 저장하거나 취소한 뒤 다시 시도하세요.";
     }
 
     return {};
@@ -859,7 +866,9 @@ void FContentBrowserWidget::DrawContentEntries() {
         const auto Relative{Path.lexically_relative(mContentDirectory)};
         const bool InFolder{Recursive ? mContentDirectory.empty() || (!Relative.empty() && *Relative.begin() != L"..") : Path.parent_path() == mContentDirectory};
 
-        if (!InFolder || (mContentFilter.has_value() && (Type == mAssetTypes.end() || Type->second != *mContentFilter)) || !Search.PassFilter(Core::FilePath::ToGenericUtf8(Path).c_str())) {
+        const bool MatchesFilter{!mContentFilter.has_value() || (Type != mAssetTypes.end() ? Type->second == *mContentFilter : *mContentFilter == Asset::EAssetType::Shader && IsShaderSource(Path))};
+
+        if (!InFolder || !MatchesFilter || !Search.PassFilter(Core::FilePath::ToGenericUtf8(Path).c_str())) {
             continue;
         }
 
@@ -914,11 +923,12 @@ void FContentBrowserWidget::DrawContentEntries() {
                     const auto& Path{Directory ? Folders[Index] : Assets[Index - Folders.size()]};
                     const auto Type{mAssetTypes.find(Path)};
                     const bool LuaScript{!Directory && Type == mAssetTypes.end() && Core::FilePath::ToLowerExtension(Path) == L".lua"};
+                    const bool ShaderSource{!Directory && Type == mAssetTypes.end() && IsShaderSource(Path)};
                     const bool HasThumbnail{!Directory && Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
                     void* Thumbnail{HasThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
-                    const char* Kind{Directory ? "Folder" : Type != mAssetTypes.end() ? GetAssetKind(Type->second) : LuaScript ? "Lua Script" : "File"};
+                    const char* Kind{Directory ? "Folder" : Type != mAssetTypes.end() ? GetAssetKind(Type->second) : LuaScript ? "Lua Script" : ShaderSource ? "Shader Source" : "File"};
                     const Core::FString Actual{Core::FilePath::ToGenericUtf8(Path)};
-                    const Core::FString Name{Core::FilePath::ToUtf8(Directory ? Path.filename() : Path.stem())};
+                    const Core::FString Name{Core::FilePath::ToUtf8(Directory || ShaderSource ? Path.filename() : Path.stem())};
                     const FContentIcon& Icon{GetContentIcon(Kind)};
                     const auto CachedIcon{mContentIcons.find(Icon.mKind)};
                     ID3D11ShaderResourceView* Resource{CachedIcon != mContentIcons.end() ? CachedIcon->second.Get() : nullptr};
@@ -936,6 +946,8 @@ void FContentBrowserWidget::DrawContentEntries() {
                                 Navigate = true;
                             } else if (LuaScript) {
                                 mAssetEditors.OpenLuaScript(Path);
+                            } else if (ShaderSource) {
+                                mAssetEditors.OpenShaderSource(Path);
                             } else if (Type != mAssetTypes.end() && mContext->CanEditWorld()) {
                                 mAssetEditors.OpenContentAsset(Path, Type->second);
                             }

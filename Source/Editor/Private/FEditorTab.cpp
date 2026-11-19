@@ -28,9 +28,9 @@ FEditorTab::~FEditorTab() {
 }
 
 void FEditorTab::ApplyFocus() {
-    if (mRole == EEditorTabRole::Major) {
+    if (mRole == EEditorTabRole::TopLevel) {
         ImGuiWindowClass WindowClass{};
-        WindowClass.ClassId = EditorStyle::MajorTabClassId;
+        WindowClass.ClassId = EditorStyle::TopLevelTabClassId;
         WindowClass.DockingAllowUnclassed = false;
         ImGui::SetNextWindowClass(&WindowClass);
     } else if (mDockClass != 0) {
@@ -186,7 +186,7 @@ FEditorWidget* FEditorTab::GetContent() const {
 }
 
 FEditorToolkitHost& FEditorTab::GetToolkitHost() {
-    assert(mRole == EEditorTabRole::Major);
+    assert(mRole == EEditorTabRole::TopLevel);
 
     if (mToolkitHost == nullptr) {
         mToolkitHost = std::make_unique<FEditorToolkitHost>(*this);

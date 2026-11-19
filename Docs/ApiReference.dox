@@ -229,6 +229,10 @@ JSON 문서와 파일 직렬화입니다.
 Direct3D 11 렌더러 구현입니다.
 \defgroup Platform Platform
 Windows 창과 메시지 처리입니다.
+\defgroup Script Script
+LuaJIT 컴파일, 실행 환경과 코루틴입니다.
+\defgroup NativeIDE NativeIDE
+Lua와 HLSL 소스 편집기, 언어 서버 연동과 빌드 메시지입니다.
 \defgroup Editor Editor
 에디터 엔진, 뷰포트, 기즈모와 패널입니다.
 \defgroup App App

@@ -1,0 +1,7 @@
+{
+  "name": "hlsl-language-server",
+  "version": "1.6.2",
+  "description": "HLSL language server for the Macaw editor",
+  "homepage": "https://github.com/antaalt/shader-sense",
+  "supports": "windows & x64"
+}

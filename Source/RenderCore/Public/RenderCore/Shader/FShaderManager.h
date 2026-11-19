@@ -91,6 +91,7 @@ namespace RenderCore {
          * @return 검사 조건을 만족하면 true, 그렇지 않으면 false입니다.
          */
         bool HasChanges(const RenderCore::UShader& Shader) const;
+        Core::TArray<RenderCore::FShaderDescription> GetSourceVariants(const std::filesystem::path& Path) const;
 
         /**
          * @brief 변경된 셰이더를 재컴파일하고 갱신에 성공한 셰이더를 모읍니다.

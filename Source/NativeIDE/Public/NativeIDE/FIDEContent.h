@@ -1,39 +1,64 @@
 /**
- * @file FIDETab.h
- * @brief Lua 스크립트 파일 하나를 열어 편집하고 저장하는 IDE 탭을 선언합니다.
- * @ingroup Script
+ * @file FIDEContent.h
+ * @brief 소스 파일 하나를 열어 편집하고 저장하는 소스 편집기 본문을 선언합니다.
+ * @ingroup NativeIDE
  */
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
+#include <functional>
+#include <future>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 struct ImFont;
 class TextEditor;
 
-namespace Script {
-    class FLuaIntellisence;
+namespace NativeIDE {
+    class FSourceIntellisense;
+
+    enum class EIDELanguage {
+        Lua,
+        Hlsl
+    };
 
     /**
-     * @brief Lua 스크립트 파일 하나를 텍스트 편집기로 표시하고 디스크와 동기화합니다.
-     * @ingroup Script
+     * @brief 소스 파일 하나를 텍스트 편집기로 표시하고 디스크와 동기화합니다.
+     * @ingroup NativeIDE
      * @note 원본의 UTF-8 BOM과 줄 끝 형식을 저장 시 보존하며, 보존할 수 없는 내용이 있으면 읽기 전용으로 엽니다.
      */
-    class FIDETab {
+    class FIDEContent {
+    public:
+        struct FDiagnostic {
+            std::size_t mLine{};
+            std::string mMessage{};
+            bool mWarning{};
+        };
+
+        struct FBuildResult {
+            bool mSucceeded{};
+            std::string mOutput{};
+            std::vector<FDiagnostic> mDiagnostics{};
+        };
+
+        using FValidator = std::function<std::future<FBuildResult>(const std::filesystem::path&, std::string_view)>;
+        using FBuildSavedHandler = std::function<std::string()>;
+
     public:
         /**
-         * @brief 텍스트 편집기, Lua 인텔리센스와 한글을 병합한 편집기 글꼴을 준비합니다.
+         * @brief 텍스트 편집기, 언어별 인텔리센스와 한글을 병합한 편집기 글꼴을 준비합니다.
          * @pre 활성 ImGui 컨텍스트가 있어야 하며 글꼴 아틀라스에 글꼴을 추가할 수 있어야 합니다.
          */
-        FIDETab();
+        explicit FIDEContent(NativeIDE::EIDELanguage Language = NativeIDE::EIDELanguage::Lua, NativeIDE::FIDEContent::FValidator Validator = {}, NativeIDE::FIDEContent::FBuildSavedHandler BuildSavedHandler = {});
 
         /**
          * @brief 편집기와 인텔리센스를 해제합니다.
          */
-        ~FIDETab();
+        ~FIDEContent();
 
     public:
         /**
@@ -51,6 +76,7 @@ namespace Script {
          * @note 열어 둔 이후 디스크의 파일이 바뀌었으면 덮어쓰지 않고 실패하며 오류 문장을 탭에 표시합니다.
          */
         bool Save();
+        void Build();
 
         /**
          * @brief 인텔리센스 문서를 닫고 저장하지 않은 변경을 버립니다.
@@ -68,6 +94,7 @@ namespace Script {
          * @return 편집기 내용이 마지막 저장 내용과 다르면 true입니다.
          */
         bool IsDirty() const;
+        bool HasUnbuiltChanges() const;
 
         /**
          * @brief 인텔리센스를 갱신하고 상태 문장과 편집기를 현재 ImGui 창에 그립니다.
@@ -76,6 +103,9 @@ namespace Script {
         void Draw();
 
     private:
+        void UpdateBuild();
+        void DrawBuildOutput(float Height);
+
         /**
          * @brief 편집기의 전체 내용을 LF 줄 끝 문자열로 반환합니다.
          * @return 편집기 전체 텍스트입니다.
@@ -94,9 +124,9 @@ namespace Script {
         std::unique_ptr<TextEditor> mEditor{};
 
         /**
-         * @brief mEditor에 자동 완성과 진단을 제공하는 Lua 인텔리센스입니다.
+         * @brief mEditor에 자동 완성과 진단을 제공하는 인텔리센스입니다.
          */
-        std::unique_ptr<Script::FLuaIntellisence> mIntellisence{};
+        std::unique_ptr<NativeIDE::FSourceIntellisense> mIntellisense{};
 
         /**
          * @brief 편집기에 사용하는 기본 글꼴이며 ImGui 글꼴 아틀라스가 소유합니다.
@@ -127,6 +157,15 @@ namespace Script {
          * @brief 마지막 저장 실패 이유이며 비어 있으면 표시하지 않습니다.
          */
         std::string mSaveError{};
+        std::string mBuiltText{};
+        std::string mBuildOutput{};
+        NativeIDE::FIDEContent::FBuildSavedHandler mBuildSavedHandler{};
+        float mBuildPanelRatio{0.30f};
+        std::future<NativeIDE::FIDEContent::FBuildResult> mBuild{};
+        std::uint64_t mRevision{};
+        std::uint64_t mBuildRevision{};
+        bool mCurrentBuild{};
+        bool mUnbuilt{};
 
         /**
          * @brief 저장하지 않은 변경이 있는지 나타냅니다.

@@ -11,11 +11,10 @@
 #include "CoreUObject/TObjectRef.h"
 #include "Engine/AActor.h"
 #include "Engine/Collision/FHitResult.h"
+#include "Script/FLuaVM.h"
 
-#include <lua.hpp>
-#include <sol/sol.hpp>
-
-#include <utility>
+#include <map>
+#include <vector>
 
 namespace Engine {
 
@@ -50,57 +49,6 @@ namespace Engine {
             Engine::FHitResult mHit{};
         };
 
-        /**
-         * @brief 스크립트 청크를 한 번 실행해 만든 전역 환경과 그 안에서 찾은 콜백입니다.
-         * @note 핫 리로드 시 새 실행을 모두 만든 뒤에 통째로 교체합니다. 정의되지 않은 콜백은 유효하지 않은 함수입니다.
-         */
-        struct FExecution {
-            /**
-             * @brief 스크립트 전용 전역 환경이며 Actor와 Tasks를 담고 없는 이름은 공용 전역에서 찾습니다.
-             */
-            sol::environment mEnvironment{};
-
-            /**
-             * @brief 스크립트가 등록한 코루틴 작업 목록입니다.
-             */
-            sol::table mTasks{};
-
-            /**
-             * @brief 실행을 시작할 때 호출할 BeginPlay 콜백입니다.
-             */
-            sol::protected_function mBeginPlay{};
-
-            /**
-             * @brief 매 프레임 호출할 Tick 콜백입니다.
-             */
-            sol::protected_function mTick{};
-
-            /**
-             * @brief 실행을 끝내거나 교체할 때 호출할 EndPlay 콜백입니다.
-             */
-            sol::protected_function mEndPlay{};
-
-            /**
-             * @brief 겹침 시작 시 호출할 OnOverlap 콜백입니다.
-             */
-            sol::protected_function mOverlap{};
-
-            /**
-             * @brief 겹침 종료 시 호출할 OnEndOverlap 콜백입니다.
-             */
-            sol::protected_function mEndOverlap{};
-
-            /**
-             * @brief 충돌 시 호출할 OnHit 콜백입니다.
-             */
-            sol::protected_function mHit{};
-
-            /**
-             * @brief mTasks의 코루틴을 경과 시간만큼 진행시키는 부트스트랩 함수입니다.
-             */
-            sol::protected_function mAdvanceTasks{};
-        };
-
     private:
         friend class FLuaRuntime;
 
@@ -133,7 +81,7 @@ namespace Engine {
         /**
          * @brief 현재 실행 환경과 콜백입니다.
          */
-        FExecution mExecution{};
+        Script::FLuaExecution mExecution{};
 
         /**
          * @brief 마지막 Tick 이후 수집한 충돌 이벤트입니다.
@@ -271,7 +219,7 @@ namespace Engine {
         /**
          * @brief 수학 타입, 충돌 결과, Actor, Component, World, Input 등 엔진 API를 Lua에 등록합니다.
          */
-        void RegisterBindings();
+        void RegisterBindings(sol::state_view Lua);
 
         /**
          * @brief 스크립트 파일을 읽어 UTF-8 BOM을 제거하고 텍스트 청크로 컴파일합니다.
@@ -288,7 +236,7 @@ namespace Engine {
          * @return 청크가 유효하고 초기화 중 오류가 없었으면 true입니다.
          * @note 청크가 함수를 반환하면 지원하지 않는 형식으로 보고 실패합니다.
          */
-        bool CreateExecution(const Engine::FLuaScriptInstance& Instance, const sol::protected_function& Chunk, Engine::FLuaScriptInstance::FExecution& Execution);
+        bool CreateExecution(const Engine::FLuaScriptInstance& Instance, const sol::protected_function& Chunk, Script::FLuaExecution& Execution);
 
         /**
          * @brief 파일을 다시 컴파일하고 그 파일을 쓰는 모든 인스턴스의 실행을 교체합니다.
@@ -297,27 +245,6 @@ namespace Engine {
          * @note 컴파일이나 어느 한 인스턴스의 초기화라도 실패하면 기존 실행을 그대로 유지합니다. 교체할 때는 기존 EndPlay와 새 BeginPlay를 차례로 호출합니다.
          */
         void Reload(const std::filesystem::path& Path, FSource& Source);
-
-        /**
-         * @brief 콜백이 정의되어 있으면 인수와 함께 호출하고 오류를 보고합니다.
-         * @tparam Args 콜백에 전달할 인수 형식입니다.
-         * @param[in] Instance 오류 보고에 사용할 인스턴스입니다.
-         * @param[in] Function 호출할 콜백이며 유효하지 않으면 호출하지 않습니다.
-         * @param[in] Event 오류 보고에 표시할 이벤트 이름입니다.
-         * @param[in] Arguments 콜백에 전달할 인수입니다.
-         * @return 콜백이 없거나 오류 없이 끝났으면 true입니다.
-         */
-        template <typename... Args>
-        static bool Invoke(const Engine::FLuaScriptInstance& Instance, const sol::protected_function& Function, const char* Event, Args&&... Arguments);
-
-        /**
-         * @brief 보호 호출 결과를 검사하고 오류이면 보고합니다.
-         * @param[in] Instance 오류 보고에 사용할 인스턴스입니다.
-         * @param[in] Event 오류 보고에 표시할 이벤트 이름입니다.
-         * @param[in] Result 검사할 호출 결과입니다.
-         * @return 호출이 오류 없이 끝났으면 true입니다.
-         */
-        static bool FinishCall(const Engine::FLuaScriptInstance& Instance, const char* Event, const sol::protected_function_result& Result);
 
         /**
          * @brief 스크립트 경로, 이벤트와 액터 이름을 붙여 Lua 경고를 보고합니다.
@@ -342,17 +269,7 @@ namespace Engine {
         /**
          * @brief 모든 스크립트가 공유하는 Lua 상태입니다.
          */
-        sol::state mLua{};
-
-        /**
-         * @brief 인스턴스별 코루틴 작업 목록과 진행 함수를 만드는 부트스트랩 함수입니다.
-         */
-        sol::protected_function mMakeTasks{};
-
-        /**
-         * @brief 스크립트 환경에서 수명 주기 콜백을 모아 테이블로 반환하는 부트스트랩 함수입니다.
-         */
-        sol::protected_function mCaptureCallbacks{};
+        Script::FLuaVM mLuaVM{};
 
         /**
          * @brief 스크립트 파일 경로별 컴파일 결과입니다.
@@ -369,10 +286,5 @@ namespace Engine {
          */
         Core::FPathTracker mPathTracker{};
     };
-
-    template <typename... Args>
-    bool Engine::FLuaRuntime::Invoke(const Engine::FLuaScriptInstance& Instance, const sol::protected_function& Function, const char* Event, Args&&... Arguments) {
-        return !Function.valid() || FinishCall(Instance, Event, Function(std::forward<Args>(Arguments)...));
-    }
 
 }

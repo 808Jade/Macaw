@@ -8,6 +8,7 @@
 
 #include "RenderCore/Shader/FShaderCompilation.h"
 #include "RenderCore/Shader/FShaderDescription.h"
+#include <string_view>
 
 namespace RenderCore {
 
@@ -44,7 +45,7 @@ namespace RenderCore {
          * @param[in] RootData 최상위 셰이더 소스 버퍼의 비소유 주소입니다.
          * @param[in] RootDependency 최상위 셰이더 소스 파일의 의존성 스냅샷입니다.
          */
-        FShaderIncludeHandler(const RenderCore::FShaderDescription& Description, const void* RootData, const RenderCore::FShaderDependency& RootDependency);
+        FShaderIncludeHandler(const RenderCore::FShaderDescription& Description, const void* RootData, const RenderCore::FShaderDependency& RootDependency, const std::filesystem::path& EditedPath = {}, std::string_view EditedSource = {});
 
     public:
         /**
@@ -110,6 +111,8 @@ namespace RenderCore {
          * @brief include 탐색 또는 파일 읽기 실패의 진단 문자열입니다.
          */
         Core::FString mDiagnostics{};
+        std::filesystem::path mEditedPath{};
+        std::string_view mEditedSource{};
     };
 
 }

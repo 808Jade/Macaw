@@ -21,7 +21,7 @@ namespace Editor {
      */
     namespace EditorStyle {
         /**
-         * @brief 주 탭 표시줄에서 브랜드 영역에 확보할 기준 너비입니다.
+         * @brief 최상위 탭 표시줄에서 브랜드 영역에 확보할 기준 너비입니다.
          */
         inline constexpr float BrandAreaWidth{72.0f};
 
@@ -31,34 +31,34 @@ namespace Editor {
         inline constexpr float MenuBarHeight{30.0f};
 
         /**
-         * @brief 에디터 주 탭끼리 도킹하도록 제한하는 창 클래스 식별자입니다.
+         * @brief 에디터 최상위 탭끼리 도킹하도록 제한하는 창 클래스 식별자입니다.
          */
-        inline constexpr ImGuiID MajorTabClassId{0x4D414A52};
+        inline constexpr ImGuiID TopLevelTabClassId{0x4D414A52};
 
         /**
-         * @brief 현재 글꼴과 배율에 맞는 주 탭 높이를 반환합니다.
-         * @return 주 탭의 표시 높이입니다.
+         * @brief 현재 글꼴과 배율에 맞는 최상위 탭 높이를 반환합니다.
+         * @return 최상위 탭의 표시 높이입니다.
          */
-        float GetMajorTabHeight();
+        float GetTopLevelTabHeight();
 
         /**
-         * @brief 현재 테마의 주 탭 배경색을 반환합니다.
-         * @return 주 탭에 사용할 색상입니다.
+         * @brief 현재 테마의 최상위 탭 배경색을 반환합니다.
+         * @return 최상위 탭에 사용할 색상입니다.
          */
-        ImVec4 GetMajorTabColor();
+        ImVec4 GetTopLevelTabColor();
 
         /**
-         * @brief 주 탭 표시줄에 필요한 ImGui 스타일을 스택에 넣습니다.
+         * @brief 최상위 탭 표시줄에 필요한 ImGui 스타일을 스택에 넣습니다.
          */
-        void PushMajorTabStyle();
+        void PushTopLevelTabStyle();
 
         /**
-         * @brief PushMajorTabStyle()이 넣은 ImGui 스타일을 복원합니다.
+         * @brief PushTopLevelTabStyle()이 넣은 ImGui 스타일을 복원합니다.
          */
-        void PopMajorTabStyle();
+        void PopTopLevelTabStyle();
 
         /**
-         * @brief 주 탭 여부에 맞는 스타일을 적용해 에디터 창을 시작합니다.
+         * @brief 최상위 탭 여부에 맞는 스타일을 적용해 에디터 창을 시작합니다.
          * @param[in] Name 표시 제목과 고유 ImGui 식별자를 담는 이름입니다.
          * @param[in] Open 창 표시 상태이며 nullptr이면 닫기 버튼을 제공하지 않습니다.
          * @param[in] Flags 적용할 ImGui 창 또는 선택 항목 플래그입니다.

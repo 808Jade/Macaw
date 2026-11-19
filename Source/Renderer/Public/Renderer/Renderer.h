@@ -255,6 +255,7 @@ namespace Renderer {
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
         bool ReloadChangedShaders() override;
+        Core::TArray<RenderCore::FShaderDescription> GetShaderValidationTargets(const std::filesystem::path& Path) const override;
 
         /**
          * @brief 폰트 메트릭으로 텍스트의 로컬 평면 경계를 계산합니다.

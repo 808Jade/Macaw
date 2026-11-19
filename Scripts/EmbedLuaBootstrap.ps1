@@ -10,7 +10,7 @@ $Header = [Text.StringBuilder]::new()
 
 [void]$Header.AppendLine('#pragma once')
 [void]$Header.AppendLine()
-[void]$Header.AppendLine('namespace Engine {')
+[void]$Header.AppendLine('namespace Script {')
 [void]$Header.AppendLine()
 [void]$Header.AppendLine('    inline constexpr unsigned char LuaBootstrapSource[]{')
 

@@ -19,6 +19,7 @@
         "win32-binding"
       ]
     },
+    "hlsl-language-server",
     "imanim",
     "imgui-color-text-edit",
     "imgui-neo-sequencer",

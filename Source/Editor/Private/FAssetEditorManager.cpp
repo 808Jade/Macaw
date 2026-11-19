@@ -25,10 +25,13 @@
 #include "Asset/UTexture2D.h"
 #include "Platform/Window.h"
 #include "RenderCore/IRendererModule.h"
+#include "RenderCore/Shader/FShaderCompiler.h"
+#include "RenderCore/Shader/UShader.h"
 #include "EditorStyle.h"
 #include <imgui_internal.h>
 #include <d3d11.h>
 #include <algorithm>
+#include <charconv>
 #include <variant>
 #include <type_traits>
 
@@ -38,6 +41,93 @@ using namespace Editor;
  * @brief FAssetEditorManager 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
  */
 namespace {
+    void AddShaderDiagnostic(std::string_view Line, const std::filesystem::path& SourcePath, std::vector<NativeIDE::FIDEContent::FDiagnostic>& Diagnostics) {
+        const auto Suffix{Line.find("): ")};
+        const auto Prefix{Suffix != std::string_view::npos ? Line.rfind('(', Suffix) : std::string_view::npos};
+        if (Prefix == std::string_view::npos) {
+            return;
+        }
+
+        const auto ReportedPath{Core::FilePath::ToLower(Core::FilePath::FromUtf8(Line.substr(0, Prefix)).lexically_normal())};
+        if (ReportedPath.is_absolute() ? ReportedPath != SourcePath : ReportedPath.filename() != SourcePath.filename()) {
+            return;
+        }
+
+        std::size_t Number{};
+        const auto Parsed{std::from_chars(Line.data() + Prefix + 1, Line.data() + Suffix, Number)};
+        if (Parsed.ec != std::errc{} || Number == 0) {
+            return;
+        }
+
+        auto Message{Line.substr(Suffix + 3)};
+        if (Message.ends_with('\r')) {
+            Message.remove_suffix(1);
+        }
+
+        const bool Warning{Message.starts_with("warning ")};
+        if (!Warning && !Message.starts_with("error ")) {
+            return;
+        }
+
+        const auto Existing{std::ranges::find_if(Diagnostics, [Number, Warning](const auto& Diagnostic) {
+            return Diagnostic.mLine == Number - 1 && Diagnostic.mWarning == Warning;
+        })};
+        if (Existing == Diagnostics.end()) {
+            Diagnostics.push_back({Number - 1, std::string{Message}, Warning});
+        } else if (Existing->mMessage.find(Message) == std::string::npos) {
+            Existing->mMessage += '\n';
+            Existing->mMessage += Message;
+        }
+    }
+
+    std::future<NativeIDE::FIDEContent::FBuildResult> ValidateShaderSource(FEditorContext& Context, const std::filesystem::path& Path, std::string_view Source) {
+        const auto* Renderer{Context.GetRenderer()};
+        if (Renderer == nullptr) {
+            return {};
+        }
+
+        auto Targets{Renderer->GetShaderValidationTargets(Path)};
+        if (Targets.empty()) {
+            return {};
+        }
+
+        return std::async(std::launch::async, [Targets = std::move(Targets), Path, Source = std::string{Source}]() {
+            const RenderCore::FShaderCompiler Compiler{};
+            const auto SourcePath{Core::FilePath::ToLower(Path)};
+            NativeIDE::FIDEContent::FBuildResult Build{};
+            Build.mSucceeded = true;
+
+            for (const auto& Target : Targets) {
+                Core::FString Message{};
+                const bool Passed{Compiler.ValidateSource(Target, Path, Source, Message)};
+                Build.mSucceeded &= Passed;
+                Build.mOutput += Target.mEntryPoint + " [" + Target.mTargetProfile + ']';
+                for (const auto& Macro : Target.mMacros) {
+                    Build.mOutput += " " + Macro.mName + '=' + Macro.mValue;
+                }
+                Build.mOutput += Passed ? " passed\n" : " failed\n";
+                if (!Message.empty()) {
+                    Build.mOutput += Message;
+                    if (!Message.ends_with('\n')) {
+                        Build.mOutput += '\n';
+                    }
+                }
+
+                std::string_view Remaining{Message};
+
+                while (!Remaining.empty()) {
+                    const auto End{Remaining.find('\n')};
+                    AddShaderDiagnostic(Remaining.substr(0, End), SourcePath, Build.mDiagnostics);
+                    Remaining.remove_prefix(End == std::string_view::npos ? Remaining.size() : End + 1);
+                }
+            }
+
+            std::ranges::sort(Build.mDiagnostics, std::ranges::greater{}, &NativeIDE::FIDEContent::FDiagnostic::mWarning);
+
+            return Build;
+        });
+    }
+
     /**
      * @brief 메시·애니메이션 편집기를 공통 에셋 툴킷 인터페이스에 연결합니다.
      */
@@ -190,6 +280,167 @@ namespace {
     }
 }
 
+FAssetEditorManager::FSourceEditor::FSourceEditor(NativeIDE::EIDELanguage Language, const char* Title, const char* Id, Platform::FWindowsApplication* Platform, NativeIDE::FIDEContent::FValidator Validator, NativeIDE::FIDEContent::FBuildSavedHandler BuildSavedHandler)
+	: mIDE{Language, std::move(Validator), std::move(BuildSavedHandler)},
+	  mContent{Id, [this](float) {
+          mIDE.Draw();
+
+          if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::GetTopMostPopupModal() == nullptr) {
+              if (ImGui::IsKeyPressed(ImGuiKey_F5, false)) {
+                  mIDE.Build();
+              } else if (ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S)) {
+                  mIDE.Save();
+              }
+          }
+
+          DrawClosePrompt();
+      }},
+	  mTab{Core::FString{Title} + "###" + Id, true, EEditorTabRole::TopLevel},
+	  mTitle{Title},
+	  mId{Id},
+	  mPlatform{Platform} {
+    mTab.SetContent(&mContent);
+    mTab.SetContentPadding({});
+    mTab.SetVisible(false);
+    mTab.SetCanCloseHandler([this]() {
+        return RequestTabClose();
+    });
+    mTab.SetClosedHandler([this]() {
+        mIDE.Close();
+    });
+}
+
+bool FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
+    if (mTab.IsVisible() && (mIDE.IsDirty() || mIDE.HasUnbuiltChanges()) && Core::FilePath::ToLower(Path) == Core::FilePath::ToLower(mIDE.GetPath())) {
+        mTab.Open();
+
+        return true;
+    }
+
+    if (!CanClose()) {
+        return true;
+    }
+
+    if (!mIDE.Open(Path, Workspace)) {
+        return false;
+    }
+
+    mTab.SetName(Core::FString{mTitle} + " - " + Core::FilePath::ToUtf8(Path.filename()) + "###" + Core::FString{mId});
+    mTab.Open();
+
+    return true;
+}
+
+void FAssetEditorManager::FSourceEditor::Draw(float DeltaTime, FEditorWorkspace& Workspace) {
+    if (!mTab.IsVisible()) {
+        return;
+    }
+
+    constexpr ImGuiWindowFlags Flags{ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse};
+    const bool PendingChanges{mIDE.IsDirty() || mIDE.HasUnbuiltChanges()};
+    mTab.SetWindowFlags(Flags | (PendingChanges ? ImGuiWindowFlags_UnsavedDocument : ImGuiWindowFlags_None));
+    Workspace.BeginTopLevelTab();
+    mTab.Draw(DeltaTime);
+    Workspace.EndTopLevelTab();
+
+    if (mAllowTabClose) {
+        mTab.SetVisible(false);
+        mAllowTabClose = false;
+    }
+}
+
+bool FAssetEditorManager::FSourceEditor::RequestTabClose() {
+    if (mAllowTabClose || (!mIDE.IsDirty() && !mIDE.HasUnbuiltChanges())) {
+        return true;
+    }
+
+    mClosePrompt = true;
+    mTab.Open();
+
+    return false;
+}
+
+void FAssetEditorManager::FSourceEditor::DrawClosePrompt() {
+    const Core::FString Popup{"Close Source File###" + Core::FString{mId} + "Close"};
+    if (std::exchange(mClosePrompt, false)) {
+        ImGui::OpenPopup(Popup.c_str());
+    }
+
+    if (!ImGui::BeginPopupModal(Popup.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        return;
+    }
+
+    if (!mIDE.IsDirty() && !mIDE.HasUnbuiltChanges()) {
+        mAllowTabClose = true;
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+
+        return;
+    }
+
+    const auto Filename{Core::FilePath::ToUtf8(mIDE.GetPath().filename())};
+    ImGui::TextUnformatted(Filename.c_str());
+    if (mIDE.HasUnbuiltChanges()) {
+        ImGui::TextUnformatted("This file has unbuilt changes. Press F5 in the editor to build and save.");
+    }
+    if (mIDE.IsDirty()) {
+        ImGui::TextUnformatted("Closing the tab discards unsaved edits.");
+    }
+
+    const bool KeepEditing{ImGui::Button("Keep Editing")};
+    ImGui::SetItemDefaultFocus();
+    ImGui::SameLine();
+    if (ImGui::Button("Close Tab")) {
+        mAllowTabClose = true;
+        ImGui::CloseCurrentPopup();
+    } else if (KeepEditing || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+}
+
+void FAssetEditorManager::FSourceEditor::CloseRetired(const std::filesystem::path& Absolute) {
+    if (!mTab.IsVisible()) {
+        return;
+    }
+
+    const auto Relative{Core::FilePath::ToLower(mIDE.GetPath()).lexically_relative(Core::FilePath::ToLower(Absolute))};
+    if (!Relative.empty() && *Relative.begin() != L"..") {
+        mTab.SetVisible(false);
+    }
+}
+
+bool FAssetEditorManager::FSourceEditor::CanClose() {
+    if (!mTab.IsVisible() || !mIDE.IsDirty()) {
+        return true;
+    }
+
+    const std::wstring Message{L"Save changes to " + mIDE.GetPath().filename().wstring() + L"?"};
+    const std::wstring Title{Core::FilePath::FromUtf8(mTitle).wstring()};
+    const Int32 Choice{MessageBoxW(mPlatform->GetWindowHandle(), Message.c_str(), Title.c_str(), MB_YESNOCANCEL | MB_ICONQUESTION)};
+
+    if (Choice != IDYES) {
+        return Choice == IDNO;
+    }
+
+    if (!mIDE.Save()) {
+        mTab.Open();
+
+        return false;
+    }
+
+    return true;
+}
+
+bool FAssetEditorManager::FSourceEditor::IsFocused() const {
+    return mTab.IsVisible() && mTab.IsFocused();
+}
+
+bool FAssetEditorManager::FSourceEditor::HasUnsavedSource(const std::function<bool(const std::filesystem::path&)>& Predicate) const {
+    return mTab.IsVisible() && mIDE.IsDirty() && Predicate(mIDE.GetPath());
+}
+
 FAssetEditorManager::FAssetEditorManager(FEditorContext* Context, Platform::FWindowsApplication* Platform, FEditorAssetCatalog& Catalog, FAssetThumbnailCache& Thumbnails, FEditorWorkspace& Workspace, FEditorCommands& Commands)
 	: mContext{Context},
 	  mPlatform{Platform},
@@ -197,21 +448,14 @@ FAssetEditorManager::FAssetEditorManager(FEditorContext* Context, Platform::FWin
 	  mThumbnails{Thumbnails},
 	  mWorkspace{Workspace},
 	  mCommands{Commands},
-	  mScriptContent{"ScriptIDE", [this](float) {
-          mScriptIDE.Draw();
-          if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::GetTopMostPopupModal() == nullptr && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S)) {
-              mScriptIDE.Save();
-          }
+	  mLuaEditor{NativeIDE::EIDELanguage::Lua, "Script IDE", "ScriptIDE", Platform},
+	  mShaderEditor{NativeIDE::EIDELanguage::Hlsl, "Shader IDE", "ShaderIDE", Platform, [Context](const std::filesystem::path& Path, std::string_view Source) {
+          return ValidateShaderSource(*Context, Path, Source);
+      }, [Context]() {
+          auto* Renderer{Context->GetRenderer()};
+
+          return Renderer != nullptr && Renderer->ReloadChangedShaders() ? "Shaders reloaded in the viewport." : "Shader reload failed. See the Console.";
       }} {
-    mScriptTab.SetContent(&mScriptContent);
-    mScriptTab.SetContentPadding({});
-    mScriptTab.SetVisible(false);
-    mScriptTab.SetCanCloseHandler([this]() {
-        return ConfirmScriptChange();
-    });
-    mScriptTab.SetClosedHandler([this]() {
-        mScriptIDE.Close();
-    });
 }
 
 FAssetEditorManager::~FAssetEditorManager() = default;
@@ -261,53 +505,29 @@ bool FAssetEditorManager::HasOpenMaterial(const std::function<bool(const std::fi
     });
 }
 
-bool FAssetEditorManager::HasUnsavedScript(const std::function<bool(const std::filesystem::path&)>& Predicate) const {
-    return mScriptTab.IsVisible() && mScriptIDE.IsDirty() && Predicate(mScriptIDE.GetPath());
+bool FAssetEditorManager::HasUnsavedSource(const std::function<bool(const std::filesystem::path&)>& Predicate) const {
+    return mLuaEditor.HasUnsavedSource(Predicate) || mShaderEditor.HasUnsavedSource(Predicate);
 }
 
 bool FAssetEditorManager::IsFocused() const {
-    return IsScriptEditorFocused() || std::any_of(mEditors.begin(), mEditors.end(), [](const auto& Editor) {
+    return IsSourceEditorFocused() || std::any_of(mEditors.begin(), mEditors.end(), [](const auto& Editor) {
         return Editor->GetTab().IsFocused();
     });
 }
 
-bool FAssetEditorManager::IsScriptEditorFocused() const {
-    return mScriptTab.IsVisible() && mScriptTab.IsFocused();
+bool FAssetEditorManager::IsSourceEditorFocused() const {
+    return mLuaEditor.IsFocused() || mShaderEditor.IsFocused();
 }
 
 bool FAssetEditorManager::CanClose() {
-    return ConfirmScriptChange() && std::all_of(mEditors.begin(), mEditors.end(), [](const auto& Editor) {
+    return mLuaEditor.CanClose() && mShaderEditor.CanClose() && std::all_of(mEditors.begin(), mEditors.end(), [](const auto& Editor) {
         return Editor->CanClose();
     });
 }
 
-bool FAssetEditorManager::ConfirmScriptChange() {
-    if (!mScriptTab.IsVisible() || !mScriptIDE.IsDirty()) {
-        return true;
-    }
-
-    const std::wstring Message{L"Save changes to " + mScriptIDE.GetPath().filename().wstring() + L"?"};
-    const Int32 Choice{MessageBoxW(mPlatform->GetWindowHandle(), Message.c_str(), L"Script IDE", MB_YESNOCANCEL | MB_ICONQUESTION)};
-
-    if (Choice != IDYES) {
-        return Choice == IDNO;
-    }
-
-    if (!mScriptIDE.Save()) {
-        mScriptTab.Open();
-        return false;
-    }
-
-    return true;
-}
-
 void FAssetEditorManager::CloseRetired(const std::filesystem::path& Absolute) {
-    if (mScriptTab.IsVisible()) {
-        const auto Relative{Core::FilePath::ToLower(mScriptIDE.GetPath()).lexically_relative(Core::FilePath::ToLower(Absolute))};
-        if (!Relative.empty() && *Relative.begin() != L"..") {
-            mScriptTab.SetVisible(false);
-        }
-    }
+    mLuaEditor.CloseRetired(Absolute);
+    mShaderEditor.CloseRetired(Absolute);
 
     for (auto& Editor : mEditors) {
         Editor->CloseRetired(Absolute);
@@ -321,15 +541,10 @@ Core::FString FAssetEditorManager::GetTabId(const FAssetEditorToolkit& Toolkit) 
 void FAssetEditorManager::Draw(float DeltaTime) {
     mTabs.Draw(DeltaTime);
 
-    if (mScriptTab.IsVisible()) {
-        constexpr ImGuiWindowFlags Flags{ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse};
-        mScriptTab.SetWindowFlags(Flags | (mScriptIDE.IsDirty() ? ImGuiWindowFlags_UnsavedDocument : ImGuiWindowFlags_None));
-        mWorkspace.BeginMajorTab();
-        mScriptTab.Draw(DeltaTime);
-        mWorkspace.EndMajorTab();
-    }
+    mLuaEditor.Draw(DeltaTime, mWorkspace);
+    mShaderEditor.Draw(DeltaTime, mWorkspace);
 
-    if (mWorkspace.IsLevelEditorFocused() || IsScriptEditorFocused()) {
+    if (mWorkspace.IsLevelEditorFocused() || IsSourceEditorFocused()) {
         mActiveEditor = nullptr;
     }
 
@@ -354,31 +569,27 @@ void FAssetEditorManager::Draw(float DeltaTime) {
 }
 
 void FAssetEditorManager::OpenLuaScript(const std::filesystem::path& Path) {
+    OpenSource(Path, mLuaEditor);
+}
+
+void FAssetEditorManager::OpenShaderSource(const std::filesystem::path& Path) {
+    OpenSource(Path, mShaderEditor);
+}
+
+void FAssetEditorManager::OpenSource(const std::filesystem::path& Path, FSourceEditor& Editor) {
     Core::FString Error{};
     const auto* Assets{mContext->GetProject()->GetAssets()};
     const auto Absolute{Assets->ResolvePath(Path, Error)};
 
     if (Absolute.empty()) {
-        mContext->AddLog("Could not open Lua script " + Core::FilePath::ToGenericUtf8(Path) + (Error.empty() ? "" : ": " + Error));
+        mContext->AddLog("Could not open source file " + Core::FilePath::ToGenericUtf8(Path) + (Error.empty() ? "" : ": " + Error));
+
         return;
     }
 
-    if (mScriptIDE.IsDirty() && Core::FilePath::ToLower(Absolute) == Core::FilePath::ToLower(mScriptIDE.GetPath())) {
-        mScriptTab.Open();
-        return;
+    if (!Editor.Open(Absolute, Assets->GetContentRoot())) {
+        mContext->AddLog("Could not read source file " + Core::FilePath::ToGenericUtf8(Path));
     }
-
-    if (!ConfirmScriptChange()) {
-        return;
-    }
-
-    if (!mScriptIDE.Open(Absolute, Assets->GetContentRoot())) {
-        mContext->AddLog("Could not read Lua script " + Core::FilePath::ToGenericUtf8(Path));
-        return;
-    }
-
-    mScriptTab.SetName("Script IDE - " + Core::FilePath::ToUtf8(Path.filename()) + "###ScriptIDE");
-    mScriptTab.Open();
 }
 
 void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, Asset::EAssetType Type) {
@@ -398,6 +609,16 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
 
     Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
     Core::FString Error{};
+    if (Type == Asset::EAssetType::Shader) {
+        if (const auto* Shader{Assets->LoadShader(Path, Error)}) {
+            OpenShaderSource(Core::FilePath::FromUtf8(Shader->GetSourcePath()));
+        } else if (!Error.empty()) {
+            mContext->AddLog(Error);
+        }
+
+        return;
+    }
+
     const Core::FString Key{Core::FilePath::ToGenericUtf8(Path)};
     std::unique_ptr<FAssetEditorToolkit> Toolkit{};
     if (Type == Asset::EAssetType::Material) {
@@ -455,9 +676,9 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         FAssetEditorToolkit* Opened{Toolkit.get()};
         mTabs.RegisterTab(GetTabId(*Toolkit), Core::FilePath::ToUtf8(Path.stem()), Toolkit->GetTab(), [this, Opened](float DeltaTime) {
             Opened->Tick(DeltaTime);
-            mWorkspace.BeginMajorTab();
+            mWorkspace.BeginTopLevelTab();
             Opened->Draw(DeltaTime);
-            mWorkspace.EndMajorTab();
+            mWorkspace.EndTopLevelTab();
         });
         mEditors.push_back(std::move(Toolkit));
     } else if (!Error.empty()) {

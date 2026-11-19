@@ -65,7 +65,7 @@ namespace Renderer {
          * @brief 프로젝트 또는 실행 파일의 기본 콘텐츠에서 우선순위에 맞는 경로를 반환합니다.
          * @param[in] ContentRoot 프로젝트 Content 루트입니다.
          * @param[in] RelativePath Content 기준 파일 경로입니다.
-         * @param[in] EngineFirst true이면 GPU 입력 형식과 함께 배포한 엔진 셰이더를 우선 사용합니다.
+         * @param[in] EngineFirst true이면 실행 파일과 함께 배포한 콘텐츠를 우선 사용합니다.
          * @return 계산하거나 조회한 값입니다.
          */
         std::filesystem::path FindTextContent(const std::filesystem::path& ContentRoot, const std::filesystem::path& RelativePath, bool EngineFirst = false) {
@@ -738,6 +738,10 @@ namespace Renderer {
         return Success && (!mShadersDirty || CreateShaders()) && PipelinesReady;
     }
 
+    Core::TArray<RenderCore::FShaderDescription> Renderer::FRenderer::GetShaderValidationTargets(const std::filesystem::path& Path) const {
+        return mShaderManager.GetSourceVariants(Path);
+    }
+
     /**
      * @brief 폰트 메트릭으로 텍스트의 로컬 평면 경계를 계산합니다.
      */
@@ -746,13 +750,11 @@ namespace Renderer {
     }
 
     /**
-     * @brief 내장 HLSL 소스를 지정한 진입점과 프로파일로 컴파일합니다.
+     * @brief 프로젝트 HLSL 소스를 지정한 진입점과 프로파일로 컴파일합니다.
      */
     bool Renderer::FRenderer::Compile(const char* Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code) {
         RenderCore::FShaderDescription Description{};
-        const bool EngineFirst{std::string_view{Source} == LineShader || std::string_view{Source} == GizmoShader || std::string_view{Source} == "Sprite.hlsl" || std::string_view{Source} == "PostProcess.hlsl" || std::string_view{Source} == "Decal.hlsl" || std::string_view{Source} == "DeferredLighting.hlsl" || std::string_view{Source} == "Sky.hlsl" || std::string_view{Source} == "Grid.hlsl" || std::string_view{Source} == "TileLightCulling.hlsl" || std::string_view{Source} == "Depth.hlsl"};
-
-        Description.mSourcePath = FindTextContent(mShaderDirectory.parent_path(), std::filesystem::path{"Shaders"} / Source, EngineFirst);
+        Description.mSourcePath = mShaderDirectory / Source;
         Description.mIncludeDirectories = {mShaderDirectory};
         Description.mEntryPoint = Entry;
         Description.mTargetProfile = Target;
@@ -1241,11 +1243,10 @@ namespace Renderer {
             return nullptr;
         }
 
-        const std::filesystem::path VertexSource{FindTextContent(mShaderDirectory.parent_path(), Skinned ? "Shaders/SkinnedMesh.vs.hlsl" : "Shaders/StaticMesh.vs.hlsl", true)};
-        const bool Builtin{Shader->IsBuiltin()};
+        const std::filesystem::path VertexSource{mShaderDirectory / (Skinned ? "SkinnedMesh.vs.hlsl" : "StaticMesh.vs.hlsl")};
         const bool OverridePixel{Mode == Engine::EViewMode::Unlit || Mode == Engine::EViewMode::WorldNormal};
         const bool WritesGBuffer{!Translucent && (Shader->WritesGBuffer() || OverridePixel)};
-        const std::filesystem::path PixelSource{FindTextContent(mShaderDirectory.parent_path(), OverridePixel ? std::filesystem::path{"Shaders/Lit.hlsl"} : RelativePath, Builtin || OverridePixel)};
+        const std::filesystem::path PixelSource{OverridePixel ? mShaderDirectory / "Lit.hlsl" : mShaderDirectory.parent_path() / RelativePath};
         RenderCore::FShaderDescription VertexDescription{};
         VertexDescription.mSourcePath = VertexSource;
         VertexDescription.mIncludeDirectories = {VertexSource.parent_path(), mShaderDirectory};
@@ -1341,7 +1342,7 @@ namespace Renderer {
         }
 
         RenderCore::FShaderDescription Description{};
-        Description.mSourcePath = FindTextContent(mShaderDirectory.parent_path(), "Shaders/Depth.hlsl", true);
+        Description.mSourcePath = mShaderDirectory / "Depth.hlsl";
         Description.mIncludeDirectories = {Description.mSourcePath.parent_path(), mShaderDirectory};
         Description.mMacros.push_back({Skinned ? "MacawSkinned" : "MacawInstanced", "1"});
         Description.mEntryPoint = "VertexMain";

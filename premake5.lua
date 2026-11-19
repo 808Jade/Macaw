@@ -138,30 +138,38 @@ for _, Name in ipairs(ModuleNames) do
     end
 
     if Name == "Engine" then
-        local Bootstrap = "Source/Engine/Private/Lua/Bootstrap.lua"
-        local BootstrapDirectory = "$(IntDir)Lua"
-        local BootstrapHeader = BootstrapDirectory .. "/LuaBootstrap.generated.h"
-        files { Bootstrap }
-        includedirs { "vcpkg_installed/x64-windows/include/luajit", BootstrapDirectory }
+        includedirs { "vcpkg_installed/x64-windows/include/luajit" }
         defines { "SOL_ALL_SAFETIES_ON=1" }
-
-        filter ("files:" .. Bootstrap)
-            buildmessage "Embedding Lua runtime bootstrap"
-            buildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/EmbedLuaBootstrap.ps1" -SourcePath "%{file.abspath}" -HeaderPath "' .. BootstrapHeader .. '"' }
-            buildinputs { "Scripts/EmbedLuaBootstrap.ps1" }
-            buildoutputs { BootstrapHeader }
-        filter {}
     end
 end
 
 Configure("Script", "StaticLib")
-    files { "Source/Script/Public/**.h", "Source/Script/Private/**.cpp" }
+    local Bootstrap = "Source/Script/Private/Lua/Bootstrap.lua"
+    local BootstrapDirectory = "$(IntDir)Lua"
+    local BootstrapHeader = BootstrapDirectory .. "/LuaBootstrap.generated.h"
+    files { "Source/Script/Public/**.h", "Source/Script/Private/**.cpp", Bootstrap }
     AddIncludes("Script", {})
     for _, Dependency in ipairs(Modules.Script.Private) do
         AddIncludes(Dependency, {})
     end
     links(Modules.Script.Private)
-    includedirs { "vcpkg_installed/x64-windows/include/luajit" }
+    includedirs { "vcpkg_installed/x64-windows/include/luajit", BootstrapDirectory }
+    defines { "SOL_ALL_SAFETIES_ON=1" }
+
+    filter ("files:" .. Bootstrap)
+        buildmessage "Embedding Lua runtime bootstrap"
+        buildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/EmbedLuaBootstrap.ps1" -SourcePath "%{file.abspath}" -HeaderPath "' .. BootstrapHeader .. '"' }
+        buildinputs { "Scripts/EmbedLuaBootstrap.ps1" }
+        buildoutputs { BootstrapHeader }
+    filter {}
+
+Configure("NativeIDE", "StaticLib")
+    files { "Source/NativeIDE/Public/**.h", "Source/NativeIDE/Private/**.h", "Source/NativeIDE/Private/**.cpp" }
+    AddIncludes("NativeIDE", {})
+    for _, Dependency in ipairs(Modules.NativeIDE.Private) do
+        AddIncludes(Dependency, {})
+    end
+    links(Modules.NativeIDE.Private)
 
 Configure("Shaders", "Utility")
     files { "Templates/Project/Content/Shaders/**.hlsl", "Templates/Project/Content/Shaders/**.hlsli" }
@@ -213,4 +221,4 @@ ConfigureRuntimeExecutable("Macaw", "WindowedApp", "Source/App")
     files { "Source/App/**.rc", "Resources/Editor.rc", "Macaw.ico" }
     resincludedirs { "." }
     postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageProjectTemplates.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}."' }
-    postbuildcommands { '{COPYDIR} "%{wks.location}/vcpkg_installed/x64-windows/tools/lua-language-server" "%{cfg.targetdir}/LuaLanguageServer"', '{COPYFILE} "%{wks.location}/Resources/Lua/Macaw.d.lua" "%{cfg.targetdir}/LuaLanguageServer/Macaw.d.lua"' }
+    postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageLanguageServers.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}."' }

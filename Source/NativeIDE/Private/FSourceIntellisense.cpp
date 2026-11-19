@@ -1,7 +1,6 @@
-#include "FLuaIntellisence.h"
+#include "FSourceIntellisense.h"
 #include "Core/FilePath.h"
 
-#include <lua.hpp>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -11,24 +10,26 @@
 #include <string_view>
 #include <utility>
 
-using namespace Script;
+using namespace NativeIDE;
 
 namespace {
     constexpr size_t SyntaxDiagnostic{1};
     constexpr size_t ServerDiagnostic{2};
 
-    std::filesystem::path GetServerDirectory() {
+    std::filesystem::path GetProgramDirectory() {
         std::array<wchar_t, 32768> Executable{};
         const DWORD Count{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
-        return Count > 0 && Count < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / L"LuaLanguageServer" : std::filesystem::path{};
+        return Count > 0 && Count < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() : std::filesystem::path{};
     }
 
-    std::string FileUri(const std::filesystem::path& Path) {
+    std::string FileUri(const std::filesystem::path& Path, EIDELanguage Language) {
         constexpr char Hex[]{"0123456789ABCDEF"};
         const std::string Name{Core::FilePath::ToGenericUtf8(Path)};
         std::string Uri{Name.starts_with("//") ? "file:" : "file:///"};
-        for (const unsigned char Byte : Name) {
-            if ((Byte >= 'A' && Byte <= 'Z') || (Byte >= 'a' && Byte <= 'z') || (Byte >= '0' && Byte <= '9') || std::string_view{"/-_.~"}.find(Byte) != std::string_view::npos) {
+        for (std::size_t Index{}; Index < Name.size(); ++Index) {
+            const auto Byte{static_cast<unsigned char>(Name[Index])};
+            const bool KeepDriveColon{Language == EIDELanguage::Hlsl && Index == 1 && Byte == ':'};
+            if ((Byte >= 'A' && Byte <= 'Z') || (Byte >= 'a' && Byte <= 'z') || (Byte >= '0' && Byte <= '9') || std::string_view{"/-_.~"}.find(Byte) != std::string_view::npos || KeepDriveColon) {
                 Uri += static_cast<char>(Byte);
             } else {
                 Uri += '%';
@@ -73,26 +74,26 @@ namespace {
     }
 }
 
-FLuaIntellisence::FLuaIntellisence(TextEditor& Editor)
-	: mEditor{Editor} {
+FSourceIntellisense::FSourceIntellisense(TextEditor& Editor, EIDELanguage Language, FIDEContent::FValidator Validator)
+	: mEditor{Editor},
+	  mLanguage{Language},
+	  mValidator{std::move(Validator)} {
     TextEditor::AutoCompleteConfig Config{};
-    Config.triggerCharacters = ".:";
+    Config.triggerCharacters = mLanguage == EIDELanguage::Lua ? ".:" : ".";
     Config.callback = [this](TextEditor::AutoCompleteState& State) {
         Complete(State);
     };
     mEditor.SetAutoCompleteConfig(&Config);
 }
 
-FLuaIntellisence::~FLuaIntellisence() {
+FSourceIntellisense::~FSourceIntellisense() {
     mEditor.SetAutoCompleteConfig(nullptr);
-    if (mSyntaxState != nullptr) {
-        lua_close(mSyntaxState);
-    }
 }
 
-void FLuaIntellisence::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace, std::string Source) {
+void FSourceIntellisense::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace, std::string Source) {
     Close();
-    mUri = FileUri(Path);
+    mPath = Path;
+    mUri = FileUri(Path, mLanguage);
     Edit(std::move(Source));
     mCheckAt = std::chrono::steady_clock::now();
 
@@ -103,23 +104,54 @@ void FLuaIntellisence::Open(const std::filesystem::path& Path, const std::filesy
     mWorkspace = Workspace;
     mReady = false;
     mInitializeRequest = 0;
-    const auto Directory{GetServerDirectory()};
-    if (Directory.empty() || !mServer.Start(Directory, Workspace.parent_path() / L"Saved/LuaLanguageServer")) {
+    if (!StartServer(Workspace)) {
         return;
     }
 
-    mLibraryPath = Core::FilePath::ToGenericUtf8(Directory / L"Macaw.d.lua");
     mInitializeRequest = ++mNextRequest;
-    mServer.Send(R"({"jsonrpc":"2.0","method":"initialize","id":)" + std::to_string(mInitializeRequest) + R"(,"params":{"processId":)" + std::to_string(GetCurrentProcessId()) + R"(,"rootUri":)" + QuoteJson(FileUri(Workspace)) + R"(,"capabilities":{"general":{"positionEncodings":["utf-16"]},"workspace":{"configuration":true},"textDocument":{"publishDiagnostics":{"versionSupport":true}}}}})");
+    mServer.Send(R"({"jsonrpc":"2.0","method":"initialize","id":)" + std::to_string(mInitializeRequest) + R"(,"params":{"processId":)" + std::to_string(GetCurrentProcessId()) + R"(,"rootUri":)" + QuoteJson(FileUri(Workspace, mLanguage)) + R"(,"capabilities":{"general":{"positionEncodings":["utf-16"]},"workspace":{"configuration":true},"textDocument":{"publishDiagnostics":{"versionSupport":true}}}}})");
 }
 
-void FLuaIntellisence::Close() {
+bool FSourceIntellisense::StartServer(const std::filesystem::path& Workspace) {
+    const auto ProgramDirectory{GetProgramDirectory()};
+    if (ProgramDirectory.empty()) {
+        return false;
+    }
+
+    if (mLanguage == EIDELanguage::Lua) {
+        const auto Directory{ProgramDirectory / L"LuaLanguageServer"};
+        const auto Cache{Workspace.parent_path() / L"Saved/LuaLanguageServer"};
+        std::error_code Error{};
+        std::filesystem::create_directories(Cache, Error);
+        if (Error) {
+            return false;
+        }
+
+        mLibraryPath = Core::FilePath::ToGenericUtf8(Directory / L"Macaw.d.lua");
+        const std::wstring Arguments{L"\"--logpath=" + (Cache / L"Log").wstring() + L"\" \"--metapath=" + (Cache / L"Meta").wstring() + L"\""};
+
+        return mServer.Start(Directory / L"bin/lua-language-server.exe", Directory, Arguments);
+    }
+
+    const auto Directory{ProgramDirectory / L"HlslLanguageServer"};
+
+    return mServer.Start(Directory / L"shader-language-server.exe", Directory, L"--hlsl --stdio");
+}
+
+std::string FSourceIntellisense::GetShaderSettings() const {
+    const auto ProjectShaders{Core::FilePath::ToGenericUtf8(mWorkspace / L"Shaders")};
+
+    return R"({"validate":false,"includes":[)" + QuoteJson(ProjectShaders) + "]}";
+}
+
+void FSourceIntellisense::Close() {
     CancelCompletion();
     if (mSentVersion != 0) {
         Notify("textDocument/didClose", R"({"textDocument":{"uri":)" + QuoteJson(mUri) + "}}");
     }
 
     mUri.clear();
+    mPath.clear();
     mSource.clear();
     mSentVersion = 0;
     mEditor.SetAutoCompleteSuggestions({});
@@ -127,21 +159,33 @@ void FLuaIntellisence::Close() {
     mEditor.ClearSquiggles();
 }
 
-void FLuaIntellisence::Edit(std::string Source) {
+void FSourceIntellisense::Edit(std::string Source) {
     CancelCompletion();
     mSource = std::move(Source);
     ++mVersion;
     mCheckAt = std::chrono::steady_clock::now() + std::chrono::milliseconds{200};
 }
 
-void FLuaIntellisence::Save() {
+void FSourceIntellisense::Save() {
     if (mReady && mServer.IsRunning() && !mUri.empty()) {
         SyncDocument();
-        Notify("textDocument/didSave", R"({"textDocument":{"uri":)" + QuoteJson(mUri) + "}}");
+        const std::string Document{R"({"textDocument":{"uri":)" + QuoteJson(mUri) + '}'};
+        Notify("textDocument/didSave", mLanguage == EIDELanguage::Lua ? Document + '}' : Document + R"(,"text":)" + QuoteJson(mSource) + '}');
     }
 }
 
-void FLuaIntellisence::Update() {
+std::future<FIDEContent::FBuildResult> FSourceIntellisense::StartBuild() {
+    if (mLanguage == EIDELanguage::Lua) {
+        std::promise<FIDEContent::FBuildResult> Build{};
+        Build.set_value(CompileLua());
+
+        return Build.get_future();
+    }
+
+    return mValidator ? mValidator(mPath, mSource) : std::future<FIDEContent::FBuildResult>{};
+}
+
+void FSourceIntellisense::Update() {
     if (mDisplayedVersion != mVersion) {
         mEditor.ClearSquiggles();
         mEditor.ClearMarkers();
@@ -158,7 +202,10 @@ void FLuaIntellisence::Update() {
 
     if (!mServer.IsRunning() && mReady) {
         mReady = false;
-        mCheckedVersion = 0;
+        if (mLanguage == EIDELanguage::Lua) {
+            mCheckedVersion = 0;
+        }
+
         mEditor.ClearSquiggles(ServerDiagnostic);
         if (mCompletionRequest != 0) {
             mEditor.SetAutoCompleteSuggestions({});
@@ -166,8 +213,10 @@ void FLuaIntellisence::Update() {
         }
     }
 
+    UpdateValidation();
+
     if (!mUri.empty() && std::chrono::steady_clock::now() >= mCheckAt) {
-        if (mCheckedVersion != mVersion) {
+        if (mLanguage == EIDELanguage::Lua && mCheckedVersion != mVersion) {
             CheckSyntax();
         }
         if (mReady) {
@@ -176,7 +225,32 @@ void FLuaIntellisence::Update() {
     }
 }
 
-void FLuaIntellisence::Complete(TextEditor::AutoCompleteState& State) {
+void FSourceIntellisense::UpdateValidation() {
+    if (mValidation.valid()) {
+        if (mValidation.wait_for(std::chrono::seconds{0}) != std::future_status::ready) {
+            return;
+        }
+
+        const auto Result{mValidation.get()};
+        if (!mPath.empty() && mCheckedVersion == mVersion) {
+            for (const auto& Diagnostic : Result.mDiagnostics) {
+                if (Diagnostic.mLine >= mEditor.GetLineCount()) {
+                    continue;
+                }
+
+                const ImU32 Color{Diagnostic.mWarning ? IM_COL32(230, 174, 67, 255) : IM_COL32(242, 90, 90, 255)};
+                mEditor.AddMarker(Diagnostic.mLine, Color, 0, Diagnostic.mMessage, Diagnostic.mMessage);
+            }
+        }
+    }
+
+    if (mValidator && !mPath.empty() && mCheckedVersion != mVersion && std::chrono::steady_clock::now() >= mCheckAt) {
+        mValidation = mValidator(mPath, mSource);
+        mCheckedVersion = mVersion;
+    }
+}
+
+void FSourceIntellisense::Complete(TextEditor::AutoCompleteState& State) {
     State.suggestions.clear();
     if (mUri.empty()) {
         return;
@@ -188,6 +262,7 @@ void FLuaIntellisence::Complete(TextEditor::AutoCompleteState& State) {
         mCompletionRequest = ++mNextRequest;
         mCompletionVersion = mVersion;
         mCompletionPosition = mEditor.GetCurrentCursorPosition();
+        mCompletionPrefix = State.searchTerm;
         mServer.Send(R"({"jsonrpc":"2.0","method":"textDocument/completion","id":)" + std::to_string(mCompletionRequest) + R"(,"params":{"textDocument":{"uri":)" + QuoteJson(mUri) + R"(},"position":{"line":)" + std::to_string(mCompletionPosition.line) + R"(,"character":)" + std::to_string(mCompletionPosition.index) + "}}}");
         State.suggestionsPromise = true;
         return;
@@ -203,30 +278,36 @@ void FLuaIntellisence::Complete(TextEditor::AutoCompleteState& State) {
         std::ranges::for_each(State.language->keywords, Add);
         std::ranges::for_each(State.language->identifiers, Add);
     }
-    std::ranges::for_each(Bindings, Add);
+    if (mLanguage == EIDELanguage::Lua) {
+        std::ranges::for_each(Bindings, Add);
+    }
     std::ranges::sort(State.suggestions);
     State.suggestions.erase(std::unique(State.suggestions.begin(), State.suggestions.end()), State.suggestions.end());
 }
 
-void FLuaIntellisence::CancelCompletion() {
+void FSourceIntellisense::CancelCompletion() {
     const auto Request{std::exchange(mCompletionRequest, 0)};
     if (Request != 0) {
         Notify("$/cancelRequest", R"({"id":)" + std::to_string(Request) + '}');
     }
 }
 
-void FLuaIntellisence::HandleMessage(const rapidjson::Value& Message) {
+void FSourceIntellisense::HandleMessage(const rapidjson::Value& Message) {
     const auto Method{String(Get(Message, "method"))};
     const auto& Id{Get(Message, "id")};
     if (!Method.empty() && !Id.IsNull()) {
         HandleRequest(Message);
-    } else if (Method == "textDocument/publishDiagnostics") {
+    } else if (Method == "textDocument/publishDiagnostics" && mLanguage == EIDELanguage::Lua) {
         ApplyDiagnostics(Get(Message, "params"));
     } else if (Id.IsUint64() && Id.GetUint64() == mInitializeRequest) {
         mInitializeRequest = 0;
         mReady = Get(Message, "result").IsObject();
         if (mReady) {
             Notify("initialized", "{}");
+
+            if (mLanguage == EIDELanguage::Hlsl) {
+                Notify("workspace/didChangeConfiguration", R"({"settings":)" + GetShaderSettings() + '}');
+            }
         }
     } else if (Id.IsUint64() && Id.GetUint64() == mCompletionRequest) {
         mCompletionRequest = 0;
@@ -236,7 +317,7 @@ void FLuaIntellisence::HandleMessage(const rapidjson::Value& Message) {
     }
 }
 
-void FLuaIntellisence::HandleRequest(const rapidjson::Value& Message) {
+void FSourceIntellisense::HandleRequest(const rapidjson::Value& Message) {
     rapidjson::StringBuffer Buffer{};
     rapidjson::Writer<rapidjson::StringBuffer> Writer{Buffer};
     Get(Message, "id").Accept(Writer);
@@ -251,7 +332,13 @@ void FLuaIntellisence::HandleRequest(const rapidjson::Value& Message) {
                     Reply += ',';
                 }
                 const auto Section{String(Get(Items[Index], "section"))};
-                Reply += Section == "Lua" ? R"({"runtime":{"version":"LuaJIT","enableLuaJITExtensions":true},"workspace":{"checkThirdParty":false,"library":[)" + QuoteJson(mLibraryPath) + R"(]},"diagnostics":{"workspaceEvent":"None","severity":{"undefined-global":"Error","undefined-field":"Error"}}})" : "null";
+                if (mLanguage == EIDELanguage::Lua && Section == "Lua") {
+                    Reply += R"({"runtime":{"version":"LuaJIT","enableLuaJITExtensions":true},"workspace":{"checkThirdParty":false,"library":[)" + QuoteJson(mLibraryPath) + R"(]},"diagnostics":{"workspaceEvent":"None","severity":{"undefined-global":"Error","undefined-field":"Error"}}})";
+                } else if (mLanguage == EIDELanguage::Hlsl && Section == "shader-validator") {
+                    Reply += GetShaderSettings();
+                } else {
+                    Reply += "null";
+                }
             }
         }
         Reply += "]}";
@@ -263,7 +350,7 @@ void FLuaIntellisence::HandleRequest(const rapidjson::Value& Message) {
     mServer.Send(std::move(Reply));
 }
 
-void FLuaIntellisence::ApplyCompletions(const rapidjson::Value& Result) {
+void FSourceIntellisense::ApplyCompletions(const rapidjson::Value& Result) {
     const auto& Items{Result.IsArray() ? Result : Get(Result, "items")};
     std::vector<std::string> Suggestions{};
     std::vector<std::string> Labels{};
@@ -282,6 +369,10 @@ void FLuaIntellisence::ApplyCompletions(const rapidjson::Value& Result) {
             if (Insert.empty()) {
                 Insert = Label;
             }
+            if (mLanguage == EIDELanguage::Hlsl && (!Insert.starts_with(mCompletionPrefix) || Insert == mCompletionPrefix)) {
+                continue;
+            }
+
             if (!Insert.empty() && std::ranges::find(Suggestions, Insert) == Suggestions.end()) {
                 Suggestions.emplace_back(Insert);
                 Labels.emplace_back(Label.empty() ? Insert : Label);
@@ -291,7 +382,7 @@ void FLuaIntellisence::ApplyCompletions(const rapidjson::Value& Result) {
     mEditor.SetAutoCompleteSuggestions(Suggestions, Labels);
 }
 
-void FLuaIntellisence::ApplyDiagnostics(const rapidjson::Value& Parameters) {
+void FSourceIntellisense::ApplyDiagnostics(const rapidjson::Value& Parameters) {
     const auto& Version{Get(Parameters, "version")};
     const auto& Diagnostics{Get(Parameters, "diagnostics")};
     const auto& Uri{Get(Parameters, "uri")};
@@ -306,7 +397,8 @@ void FLuaIntellisence::ApplyDiagnostics(const rapidjson::Value& Parameters) {
         const auto& Range{Get(Diagnostic, "range")};
         TextEditor::DocPos Start{};
         TextEditor::DocPos End{};
-        const auto Message{String(Get(Diagnostic, "message"))};
+        const auto RawMessage{String(Get(Diagnostic, "message"))};
+        const auto Message{RawMessage.substr(0, RawMessage.find('\0'))};
         const auto& Severity{Get(Diagnostic, "severity")};
         if ((Severity.IsInt() && Severity.GetInt() > 2) || Message.empty() || !ReadPosition(Get(Range, "start"), Start) || !ReadPosition(Get(Range, "end"), End) || Start.line >= mEditor.GetLineCount()) {
             continue;
@@ -321,20 +413,23 @@ void FLuaIntellisence::ApplyDiagnostics(const rapidjson::Value& Parameters) {
     }
 }
 
-void FLuaIntellisence::CheckSyntax() {
+FIDEContent::FBuildResult FSourceIntellisense::CompileLua() {
+    FIDEContent::FBuildResult Build{};
+    Build.mSucceeded = mLuaCompiler.CheckSyntax(mPath, mSource, Build.mOutput);
+    if (Build.mSucceeded) {
+        Build.mOutput = "LuaJIT syntax check passed.";
+    }
+
+    return Build;
+}
+
+void FSourceIntellisense::CheckSyntax() {
     mCheckedVersion = mVersion;
     mEditor.ClearMarkers();
     mEditor.ClearSquiggles(SyntaxDiagnostic);
-    if (mSyntaxState == nullptr) {
-        mSyntaxState = luaL_newstate();
-    }
-    if (mSyntaxState == nullptr) {
-        return;
-    }
-
-    const int Result{luaL_loadbufferx(mSyntaxState, mSource.data(), mSource.size(), "@script", "t")};
-    if (Result == LUA_ERRSYNTAX) {
-        const std::string_view Error{lua_tostring(mSyntaxState, -1)};
+    const auto Build{CompileLua()};
+    if (!Build.mSucceeded) {
+        const std::string_view Error{Build.mOutput};
         const auto First{Error.find(':')};
         const auto Last{First == std::string_view::npos ? First : Error.find(':', First + 1)};
         size_t Line{};
@@ -349,23 +444,23 @@ void FLuaIntellisence::CheckSyntax() {
             }
         }
     }
-    lua_pop(mSyntaxState, 1);
 }
 
-void FLuaIntellisence::SyncDocument() {
+void FSourceIntellisense::SyncDocument() {
     if (mUri.empty() || mSentVersion == mVersion) {
         return;
     }
 
     const std::string Document{R"({"textDocument":{"uri":)" + QuoteJson(mUri) + R"(,"version":)" + std::to_string(mVersion)};
     if (mSentVersion == 0) {
-        Notify("textDocument/didOpen", Document + R"(,"languageId":"lua","text":)" + QuoteJson(mSource) + "}}");
+        const std::string_view LanguageId{mLanguage == EIDELanguage::Lua ? "lua" : "hlsl"};
+        Notify("textDocument/didOpen", Document + R"(,"languageId":)" + QuoteJson(LanguageId) + R"(,"text":)" + QuoteJson(mSource) + "}}");
     } else {
         Notify("textDocument/didChange", Document + R"(},"contentChanges":[{"text":)" + QuoteJson(mSource) + "}]}");
     }
     mSentVersion = mVersion;
 }
 
-void FLuaIntellisence::Notify(std::string_view Method, std::string Parameters) {
+void FSourceIntellisense::Notify(std::string_view Method, std::string Parameters) {
     mServer.Send(R"({"jsonrpc":"2.0","method":)" + QuoteJson(Method) + R"(,"params":)" + Parameters + '}');
 }

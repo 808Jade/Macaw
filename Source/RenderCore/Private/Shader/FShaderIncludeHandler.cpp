@@ -16,10 +16,12 @@ namespace RenderCore {
     /**
      * @brief 전달받은 설정과 의존성으로 FShaderIncludeHandler의 초기 상태를 구성합니다.
      */
-    RenderCore::FShaderIncludeHandler::FShaderIncludeHandler(const RenderCore::FShaderDescription& Description, const void* RootData, const RenderCore::FShaderDependency& RootDependency)
+    RenderCore::FShaderIncludeHandler::FShaderIncludeHandler(const RenderCore::FShaderDescription& Description, const void* RootData, const RenderCore::FShaderDependency& RootDependency, const std::filesystem::path& EditedPath, std::string_view EditedSource)
 		: mDescription{&Description},
 		  mRootData{RootData},
-		  mDependencies{RootDependency} {
+		  mDependencies{RootDependency},
+		  mEditedPath{Core::FilePath::ToLower(EditedPath)},
+		  mEditedSource{EditedSource} {
     }
 
     /**
@@ -60,26 +62,33 @@ namespace RenderCore {
 
         for (const std::filesystem::path& Candidate : Candidates) {
             const std::filesystem::path Path{Candidate.lexically_normal()};
-            RenderCore::FShaderDependency Dependency{};
-
-            if (!RenderCore::ShaderFile::Inspect(Path, Dependency)) {
-                mDiagnostics = "Cannot inspect shader include: " + Core::FilePath::ToGenericUtf8(Path);
-
-                return E_FAIL;
-            }
-
-            if (!Dependency.mExists) {
-                if (!TrackDependency(Dependency)) {
-                    return E_FAIL;
-                }
-
-                continue;
-            }
-
             FOpenFile File{};
             File.mPath = Path;
 
-            if (!RenderCore::ShaderFile::Read(Path, File.mData, Dependency, mDiagnostics) || !TrackDependency(Dependency) || File.mData.size() > std::numeric_limits<UINT>::max()) {
+            if (!mEditedPath.empty() && Core::FilePath::ToLower(Path) == mEditedPath) {
+                File.mData.assign(mEditedSource.begin(), mEditedSource.end());
+            } else {
+                RenderCore::FShaderDependency Dependency{};
+                if (!RenderCore::ShaderFile::Inspect(Path, Dependency)) {
+                    mDiagnostics = "Cannot inspect shader include: " + Core::FilePath::ToGenericUtf8(Path);
+
+                    return E_FAIL;
+                }
+
+                if (!Dependency.mExists) {
+                    if (!TrackDependency(Dependency)) {
+                        return E_FAIL;
+                    }
+
+                    continue;
+                }
+
+                if (!RenderCore::ShaderFile::Read(Path, File.mData, Dependency, mDiagnostics) || !TrackDependency(Dependency)) {
+                    return E_FAIL;
+                }
+            }
+
+            if (File.mData.size() > std::numeric_limits<UINT>::max()) {
                 return E_FAIL;
             }
 

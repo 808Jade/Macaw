@@ -20,7 +20,7 @@ namespace Editor {
     class FEditorToolkitHost;
 
     /**
-     * @brief 에디터 창을 일반 패널·주 탭·드로어로 구분합니다.
+     * @brief 에디터 창을 일반 패널·최상위 탭·드로어로 구분합니다.
      */
     enum class EEditorTabRole {
         /**
@@ -29,9 +29,9 @@ namespace Editor {
         Panel,
 
         /**
-         * @brief 독립된 내부 도킹 공간을 가질 수 있는 주 편집기 탭입니다.
+         * @brief 독립된 내부 도킹 공간을 가질 수 있는 최상위 편집기 탭입니다.
          */
-        Major,
+        TopLevel,
 
         /**
          * @brief 하단에서 임시로 펼쳐지는 드로어 탭입니다.
@@ -48,7 +48,7 @@ namespace Editor {
          * @brief FEditorTab의 초기 상태와 전달받은 의존성을 구성합니다.
          * @param[in] Name 표시 제목과 고유 ImGui 식별자를 담는 이름입니다.
          * @param[in] Closable 사용자가 탭을 닫을 수 있는지 지정합니다.
-         * @param[in] Role 등록할 탭의 패널·주 탭·드로어 역할입니다.
+         * @param[in] Role 등록할 탭의 패널·최상위 탭·드로어 역할입니다.
          */
         FEditorTab(Core::FString Name, bool Closable, Editor::EEditorTabRole Role = Editor::EEditorTabRole::Panel);
 
@@ -123,14 +123,14 @@ namespace Editor {
         void SetIcon(Editor::EEditorIcon Icon, Uint32 Color = 0xffffffffu);
 
         /**
-         * @brief 탭의 패널·주 탭·드로어 역할을 변경합니다.
-         * @param[in] Role 등록할 탭의 패널·주 탭·드로어 역할입니다.
+         * @brief 탭의 패널·최상위 탭·드로어 역할을 변경합니다.
+         * @param[in] Role 등록할 탭의 패널·최상위 탭·드로어 역할입니다.
          */
         void SetRole(Editor::EEditorTabRole Role);
 
         /**
          * @brief 탭의 현재 역할을 반환합니다.
-         * @return 패널·주 탭·드로어 중 현재 역할입니다.
+         * @return 패널·최상위 탭·드로어 중 현재 역할입니다.
          */
         Editor::EEditorTabRole GetRole() const;
 
@@ -147,7 +147,7 @@ namespace Editor {
         Editor::FEditorWidget* GetContent() const;
 
         /**
-         * @brief 주 탭 내부의 툴킷 호스트를 조회하거나 생성합니다. 주 탭 역할이어야 합니다.
+         * @brief 최상위 탭 내부의 툴킷 호스트를 조회하거나 생성합니다. 최상위 탭 역할이어야 합니다.
          * @return 탭이 소유하는 호스트의 참조입니다.
          */
         Editor::FEditorToolkitHost& GetToolkitHost();
@@ -232,7 +232,7 @@ namespace Editor {
         bool mOpenBeforeBegin{};
 
         /**
-         * @brief 탭을 패널·주 탭·드로어 중 어느 방식으로 다룰지 나타냅니다.
+         * @brief 탭을 패널·최상위 탭·드로어 중 어느 방식으로 다룰지 나타냅니다.
          */
         Editor::EEditorTabRole mRole{};
 
@@ -263,7 +263,7 @@ namespace Editor {
         std::weak_ptr<void> mContentLifetime{};
 
         /**
-         * @brief 주 탭 내부 패널과 도킹 공간을 소유하는 선택적 호스트입니다.
+         * @brief 최상위 탭 내부 패널과 도킹 공간을 소유하는 선택적 호스트입니다.
          */
         std::unique_ptr<Editor::FEditorToolkitHost> mToolkitHost{};
 

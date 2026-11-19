@@ -1,6 +1,6 @@
 /**
  * @file FEditorWorkspace.cpp
- * @brief 주 탭과 레벨 편집기 내부 패널의 도킹 배치·포커스·배치 버전을 관리합니다.
+ * @brief 최상위 탭과 레벨 편집기 내부 패널의 도킹 배치·포커스·배치 버전을 관리합니다.
  * @ingroup Editor
  */
 
@@ -53,18 +53,18 @@ void FEditorWorkspace::BuildLayout() {
     const float Scale{mUIScale.GetScale()};
     const bool Upgrade{mLayoutVersion < CurrentLayout};
 
-    // 언리얼의 메이저 탭: 루트 도킹 영역에는 레벨 에디터와 에셋 에디터만 탭으로 붙고, 패널은 레벨 에디터 안쪽 도킹 영역에 붙습니다.
-    ImGuiWindowClass MajorTabs{};
+    // 루트 도킹 영역에는 최상위 탭이 붙고, 레벨 패널은 레벨 에디터 안쪽 도킹 영역에 붙습니다.
+    ImGuiWindowClass TopLevelTabs{};
 
-    MajorTabs.ClassId = EditorStyle::MajorTabClassId;
-    MajorTabs.DockingAllowUnclassed = false;
+    TopLevelTabs.ClassId = EditorStyle::TopLevelTabClassId;
+    TopLevelTabs.DockingAllowUnclassed = false;
 
     // 언리얼의 탭처럼 닫기·메뉴 버튼이 없는 넉넉한 높이의 탭 표시줄을 사용합니다.
     constexpr ImGuiDockNodeFlags TabBarFlags{ImGuiDockNodeFlags_NoCloseButton | ImGuiDockNodeFlags_NoWindowMenuButton};
 
-    EditorStyle::PushMajorTabStyle();
+    EditorStyle::PushTopLevelTabStyle();
 
-    const ImGuiID Root{ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), TabBarFlags, &MajorTabs)};
+    const ImGuiID Root{ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), TabBarFlags, &TopLevelTabs)};
     ImGuiDockNode* RootNode{ImGui::DockBuilderGetNode(Root)};
 
     if (RootNode != nullptr && ImGui::DockNodeBeginAmendTabBar(RootNode)) {
@@ -73,7 +73,7 @@ void FEditorWorkspace::BuildLayout() {
         ImGui::DockNodeEndAmendTabBar();
     }
 
-    EditorStyle::PopMajorTabStyle();
+    EditorStyle::PopTopLevelTabStyle();
 
     mRootDock = Root;
 
@@ -111,17 +111,17 @@ void FEditorWorkspace::BuildLevelLayout(Uint32 DockSpace) {
     mTabs.ApplyLayout(Left, Outliner, Details, mBottomDock, Center);
 }
 
-void FEditorWorkspace::BeginMajorTab() {
-    ImGuiWindowClass MajorTabs{};
+void FEditorWorkspace::BeginTopLevelTab() {
+    ImGuiWindowClass TopLevelTabs{};
 
-    MajorTabs.ClassId = EditorStyle::MajorTabClassId;
-    MajorTabs.DockingAllowUnclassed = false;
+    TopLevelTabs.ClassId = EditorStyle::TopLevelTabClassId;
+    TopLevelTabs.DockingAllowUnclassed = false;
 
-    ImGui::SetNextWindowClass(&MajorTabs);
+    ImGui::SetNextWindowClass(&TopLevelTabs);
     ImGui::SetNextWindowDockID(mRootDock, ImGuiCond_Appearing);
 }
 
-void FEditorWorkspace::EndMajorTab() {
+void FEditorWorkspace::EndTopLevelTab() {
     // 에디터가 닫혀 있어 창을 만들지 않았다면 남은 예약이 다음 창에 적용되지 않도록 지웁니다.
     ImGui::GetCurrentContext()->NextWindowData.ClearFlags();
 }

@@ -4,10 +4,11 @@
   "Serialization": { "Public": ["Core"], "Private": ["CoreUObject"] },
   "RenderCore": { "Public": ["Core", "CoreUObject"], "Private": [] },
   "Asset": { "Public": ["CoreUObject", "RenderCore"], "Private": ["Serialization"] },
-  "Engine": { "Public": ["CoreUObject", "Asset", "RenderCore"], "Private": ["Serialization"] },
+  "Engine": { "Public": ["CoreUObject", "Asset", "RenderCore"], "Private": ["Serialization", "Script"] },
   "Renderer": { "Public": ["Engine"], "Private": [] },
   "Platform": { "Public": ["Core"], "Private": ["CoreUObject"] },
   "Viewer": { "Public": ["Engine"], "Private": [] },
   "Script": { "Public": [], "Private": ["Core"] },
-  "Editor": { "Public": ["Engine", "Platform", "Viewer"], "Private": ["Serialization", "Renderer", "Script"] }
+  "NativeIDE": { "Public": [], "Private": ["Core", "Script"] },
+  "Editor": { "Public": ["Engine", "Platform", "Viewer"], "Private": ["Serialization", "Renderer", "NativeIDE"] }
 }

@@ -544,7 +544,7 @@ namespace Editor {
         ImDrawList* DrawList{ImGui::GetWindowDrawList()};
 
         ImGui::Dummy({Width, Height});
-        DrawList->AddRectFilled(Start, End, ImGui::GetColorU32(Editor::EditorStyle::GetMajorTabColor()));
+        DrawList->AddRectFilled(Start, End, ImGui::GetColorU32(Editor::EditorStyle::GetTopLevelTabColor()));
         DrawList->AddLine({Start.x, End.y - 1.0f}, {End.x, End.y - 1.0f}, ImGui::GetColorU32(ImGuiCol_Separator));
 
         if (Width > 2.0f * Padding) {

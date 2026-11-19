@@ -5,10 +5,12 @@
  */
 
 #include "RenderCore/Shader/FShaderManager.h"
+#include "Core/FilePath.h"
 #include "Core/LoadingStatus.h"
 #include "CoreUObject/Reflection/NewObject.h"
 
 #include <algorithm>
+#include <unordered_set>
 
 #include <utility>
 
@@ -123,6 +125,30 @@ namespace RenderCore {
         return std::any_of(Shader.mCompiledVariants.begin(), Shader.mCompiledVariants.end(), [this](const auto& Entry) {
             return !mCache.IsCurrent(*Entry.second.mCompilation);
         });
+    }
+
+    Core::TArray<RenderCore::FShaderDescription> RenderCore::FShaderManager::GetSourceVariants(const std::filesystem::path& Path) const {
+        const auto Key{Core::FilePath::ToLower(Path.lexically_normal())};
+        std::unordered_set<Core::FString> VariantKeys{};
+        Core::TArray<RenderCore::FShaderDescription> Variants{};
+
+        for (const auto& Pair : mShaders) {
+            const auto& Entry{Pair.second};
+            const auto* Shader{Entry.mShader.Get()};
+            const auto Compilation{Shader != nullptr ? Shader->GetCompilation(Entry.mVariantKey) : nullptr};
+            if (Compilation == nullptr || VariantKeys.contains(Entry.mVariantKey)) {
+                continue;
+            }
+
+            if (std::ranges::any_of(Compilation->mDependencies, [&Key](const RenderCore::FShaderDependency& Dependency) {
+                return Dependency.mExists && Core::FilePath::ToLower(Dependency.mPath) == Key;
+            })) {
+                VariantKeys.insert(Entry.mVariantKey);
+                Variants.push_back(Shader->GetDescription(Entry.mVariantKey));
+            }
+        }
+
+        return Variants;
     }
 
     /**

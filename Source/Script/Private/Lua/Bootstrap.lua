@@ -43,9 +43,7 @@ local function MakeTasks()
     return Context, Context.Advance
 end
 
-local EventNames = { "BeginPlay", "Tick", "EndPlay", "OnOverlap", "OnEndOverlap", "OnHit" }
-
-local function CaptureCallbacks(Environment)
+local function CaptureCallbacks(Environment, EventNames)
     local Callbacks = {}
     for _, Name in ipairs(EventNames) do
         local Callback = rawget(Environment, Name)

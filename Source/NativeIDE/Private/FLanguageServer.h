@@ -1,7 +1,7 @@
 /**
- * @file FLuaLanguageServer.h
- * @brief lua-language-server 자식 프로세스와 LSP 메시지를 주고받는 연결을 선언합니다.
- * @ingroup Script
+ * @file FLanguageServer.h
+ * @brief 언어 서버 자식 프로세스와 LSP 메시지를 주고받는 연결을 선언합니다.
+ * @ingroup NativeIDE
  */
 
 #pragma once
@@ -11,37 +11,39 @@
 #include <filesystem>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 #include <Windows.h>
 
-namespace Script {
+namespace NativeIDE {
     /**
-     * @brief lua-language-server 프로세스를 실행하고 표준 입출력 파이프로 LSP 메시지 본문을 주고받습니다.
-     * @ingroup Script
+     * @brief 언어 서버 프로세스를 실행하고 표준 입출력 파이프로 LSP 메시지 본문을 주고받습니다.
+     * @ingroup NativeIDE
      * @note 읽기와 쓰기는 전용 스레드에서 수행하며 Content-Length 헤더는 이 클래스가 붙이고 제거합니다.
      */
-    class FLuaLanguageServer {
+    class FLanguageServer {
     public:
         /**
          * @brief 실행 중이 아닌 상태로 만듭니다.
          */
-        FLuaLanguageServer() = default;
+        FLanguageServer() = default;
 
         /**
          * @brief 실행 중인 서버 프로세스를 종료하고 스레드와 핸들을 정리합니다.
          */
-        ~FLuaLanguageServer();
+        ~FLanguageServer();
 
     public:
         /**
          * @brief 기존 서버를 멈추고 새 서버 프로세스와 입출력 스레드를 시작합니다.
-         * @param[in] Directory bin/lua-language-server.exe를 포함하는 서버 설치 폴더이며 작업 폴더로도 사용합니다.
-         * @param[in] Cache 서버 로그와 메타 파일을 기록할 폴더이며 없으면 만듭니다.
+         * @param[in] Executable 실행할 서버 파일 경로입니다.
+         * @param[in] Directory 서버의 작업 폴더입니다.
+         * @param[in] Arguments 실행 파일 이름 뒤에 붙일 명령줄 인자입니다.
          * @return 프로세스와 스레드를 모두 시작했으면 true입니다.
          * @note 서버의 표준 오류 출력은 버립니다.
          */
-        bool Start(const std::filesystem::path& Directory, const std::filesystem::path& Cache);
+        bool Start(const std::filesystem::path& Executable, const std::filesystem::path& Directory, std::wstring_view Arguments);
 
         /**
          * @brief 서버 프로세스를 강제로 종료하고 스레드, 핸들과 대기 중인 메시지를 정리합니다.
@@ -87,6 +89,7 @@ namespace Script {
          * @brief 서버 프로세스 핸들입니다.
          */
         HANDLE mProcess{};
+        HANDLE mJob{};
 
         /**
          * @brief 서버 표준 입력에 연결된 파이프의 쓰기 핸들입니다.

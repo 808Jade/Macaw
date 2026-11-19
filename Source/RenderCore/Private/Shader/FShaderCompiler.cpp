@@ -13,23 +13,31 @@
 
 #include <utility>
 
-namespace RenderCore {
+using namespace RenderCore;
 
-    /**
-     * @brief 정규화한 설명으로 HLSL을 컴파일하고 바이트코드와 의존성을 수집합니다.
-     */
-    bool RenderCore::FShaderCompiler::Compile(const RenderCore::FShaderDescription& Description, RenderCore::FShaderCompilation& Compilation, Core::FString& Diagnostics) const {
-        RenderCore::FShaderDescription Normalized{Description};
-
+namespace {
+    bool CompileSource(const FShaderDescription& Description, const std::filesystem::path& EditedPath, std::string_view EditedSource, FShaderCompilation* Compilation, Core::FString& Diagnostics) {
+        FShaderDescription Normalized{Description};
         if (!Normalized.Normalize(Diagnostics)) {
             return false;
         }
 
-        Core::TArray<Uint8> Source{};
-        RenderCore::FShaderDependency RootDependency{};
-
-        if (!RenderCore::ShaderFile::Read(Normalized.mSourcePath, Source, RootDependency, Diagnostics)) {
+        std::filesystem::path OverridePath{};
+        if (!EditedPath.empty() && !ShaderFile::NormalizePath(EditedPath, OverridePath, Diagnostics)) {
             return false;
+        }
+
+        Core::TArray<Uint8> DiskSource{};
+        FShaderDependency RootDependency{};
+        std::string_view Source{EditedSource};
+        if (!OverridePath.empty() && Core::FilePath::ToLower(Normalized.mSourcePath) == Core::FilePath::ToLower(OverridePath)) {
+            RootDependency.mPath = Normalized.mSourcePath;
+        } else {
+            if (!ShaderFile::Read(Normalized.mSourcePath, DiskSource, RootDependency, Diagnostics)) {
+                return false;
+            }
+
+            Source = {reinterpret_cast<const char*>(DiskSource.data()), DiskSource.size()};
         }
 
         if (Source.empty()) {
@@ -47,7 +55,7 @@ namespace RenderCore {
 
         Macros.push_back({nullptr, nullptr});
 
-        RenderCore::FShaderIncludeHandler Includes{Normalized, Source.data(), RootDependency};
+        FShaderIncludeHandler Includes{Normalized, Source.data(), RootDependency, OverridePath, EditedSource};
         Microsoft::WRL::ComPtr<ID3DBlob> Code{};
         Microsoft::WRL::ComPtr<ID3DBlob> Errors{};
         const Core::FString SourceName{Core::FilePath::ToGenericUtf8(Normalized.mSourcePath)};
@@ -73,6 +81,10 @@ namespace RenderCore {
             return false;
         }
 
+        if (Compilation == nullptr) {
+            return true;
+        }
+
         const auto BuildTime{std::filesystem::file_time_type::clock::now()};
 
         if (!RenderCore::ShaderFile::IsSnapshotCurrent(Includes.GetDependencies())) {
@@ -87,9 +99,19 @@ namespace RenderCore {
         Candidate.mByteCode.assign(Begin, Begin + Code->GetBufferSize());
         Candidate.mDependencies = Includes.GetDependencies();
         Candidate.mBuildTime = BuildTime;
-        Compilation = std::move(Candidate);
+        *Compilation = std::move(Candidate);
 
         return true;
     }
+}
 
+/**
+ * @brief 정규화한 설명으로 HLSL을 컴파일하고 바이트코드와 의존성을 수집합니다.
+ */
+bool FShaderCompiler::Compile(const FShaderDescription& Description, FShaderCompilation& Compilation, Core::FString& Diagnostics) const {
+    return CompileSource(Description, {}, {}, &Compilation, Diagnostics);
+}
+
+bool FShaderCompiler::ValidateSource(const FShaderDescription& Description, const std::filesystem::path& EditedPath, std::string_view EditedSource, Core::FString& Diagnostics) const {
+    return CompileSource(Description, EditedPath, EditedSource, nullptr, Diagnostics);
 }
