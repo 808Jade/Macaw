@@ -52,7 +52,6 @@ namespace Engine {
          * @brief 현재 뷰 타깃을 반환합니다. 블렌드 중이면 전환할 대상을 반환합니다.
          * @return 뷰 타깃의 비소유 주소이며, 없으면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::AActor* GetViewTarget() const;
 
         /**
@@ -60,7 +59,6 @@ namespace Engine {
          * @param[in] Target 새 뷰 타깃이며 nullptr이면 뷰 타깃을 해제합니다.
          * @return 같은 월드의 액터이거나 nullptr이어서 바꿨으면 true입니다.
          */
-        UFUNCTION()
         bool SetViewTarget(Engine::AActor* Target);
 
         /**
@@ -70,35 +68,30 @@ namespace Engine {
          * @param[in] Function 블렌드 곡선입니다.
          * @return 블렌드를 시작했거나 바로 바꿨으면 true입니다.
          */
-        UFUNCTION()
         bool SetViewTargetWithBlend(Engine::AActor* Target, float BlendTime, Engine::EViewTargetBlendFunction Function);
 
         /**
          * @brief 뷰 타깃 블렌드가 진행 중인지 검사합니다.
          * @return 블렌드 중이면 true입니다.
          */
-        UFUNCTION()
         bool IsBlending() const;
 
         /**
          * @brief 마지막으로 계산한 카메라 위치를 반환합니다.
          * @return 월드 위치이며 캐시가 없으면 원점입니다.
          */
-        UFUNCTION()
         FVector GetCameraLocation() const;
 
         /**
          * @brief 마지막으로 계산한 카메라 회전을 반환합니다.
          * @return 월드 회전이며 캐시가 없으면 단위 회전입니다.
          */
-        UFUNCTION()
         FQuat GetCameraRotation() const;
 
         /**
          * @brief 마지막으로 계산한 수직 시야각을 반환합니다.
          * @return 도 단위 시야각입니다.
          */
-        UFUNCTION()
         float GetFieldOfView() const;
 
         /**
@@ -145,7 +138,6 @@ namespace Engine {
          * @return 목록에 있어서 뺐으면 true입니다.
          * @note ModifyCamera 안에서 불러도 되며, 그 경우 이번 갱신이 끝난 뒤에 해제합니다.
          */
-        UFUNCTION()
         bool RemoveCameraModifier(Engine::UCameraModifier* Modifier);
 
         /**
@@ -159,7 +151,6 @@ namespace Engine {
          * @brief 기본으로 추가되는 카메라 셰이크 모디파이어를 반환합니다.
          * @return 모디파이어의 비소유 주소이며, 제거했으면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::UCameraShakeModifier* GetCameraShakeModifier() const;
 
     private:

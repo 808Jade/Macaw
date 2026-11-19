@@ -37,7 +37,6 @@ FLevelEditorToolkit::FLevelEditorToolkit(FEditorContext* Context, FEditorViewpor
 	: mContext{Context},
 	  mViewport{Viewport},
 	  mPlaySession{PlaySession},
-	  mScriptBuilds{Context},
 	  mViewportLayout{Context, Viewport, PlaySession},
 	  mMajorTab{"###LevelEditor", false, EEditorTabRole::Major},
 	  mTabs{mMajorTab.GetToolkitHost().GetTabManager()},
@@ -64,7 +63,7 @@ bool FLevelEditorToolkit::Initialize(RenderCore::IRendererModule* Renderer, Plat
     mAssetCatalog = std::make_unique<FEditorAssetCatalog>(mContext->GetProject()->GetAssets());
     mThumbnails = std::make_unique<FAssetThumbnailCache>(mContext->GetProject()->GetAssets(), Renderer);
     mWorkspace = std::make_unique<FEditorWorkspace>(mContext, mMajorTab, mUIScale);
-    mCommands = std::make_unique<FEditorCommands>(mContext, mPlaySession, mViewportLayout, Platform, mScriptBuilds);
+    mCommands = std::make_unique<FEditorCommands>(mContext, mPlaySession, mViewportLayout, Platform);
     mAssetEditors = std::make_unique<FAssetEditorManager>(mContext, Platform, *mAssetCatalog, *mThumbnails, *mWorkspace, *mCommands);
     mImports = std::make_unique<FAssetImportController>(mContext, Platform);
     RegisterTabs();
@@ -72,7 +71,7 @@ bool FLevelEditorToolkit::Initialize(RenderCore::IRendererModule* Renderer, Plat
     mDrawers->RegisterDrawer("Content", "Content Drawer", 380.0f);
     mDrawers->RegisterDrawer("Console", "Output Log", 300.0f);
     mSettings = std::make_unique<FEditorSettings>(mContext, Platform, mPlaySession, mViewportLayout, *mWorkspace, mTabs, *mDrawers, mUIScale, IniPath);
-    mShell = std::make_unique<FEditorShell>(mContext, mViewport, mPlaySession, Platform, mScriptBuilds, mViewportLayout, mTabs, *mWorkspace, *mSettings, *mCommands, *mImports, *mAssetEditors, *mDrawers, mUIScale);
+    mShell = std::make_unique<FEditorShell>(mContext, mViewport, mPlaySession, Platform, mViewportLayout, mTabs, *mWorkspace, *mSettings, *mCommands, *mImports, *mAssetEditors, *mDrawers, mUIScale);
     ConnectServices();
     mSettings->InitializeSettings();
     InstallEditorIcons();
@@ -112,7 +111,7 @@ void FLevelEditorToolkit::RegisterTabs() {
     mTabs.RegisterWidget("Sequencer", "Sequencer", mSequencerWidget);
     mTabs.RegisterWidget("AnimGraph", "Anim Graph", mAnimGraphWidget);
     mTabs.RegisterTabSpawner("Content", "Content Browser", [this]() {
-        return std::make_unique<FContentBrowserWidget>(mContext, mPlatform, mScriptBuilds, *mAssetCatalog, *mThumbnails, mUIScale, *mWorkspace, *mImports, *mAssetEditors);
+        return std::make_unique<FContentBrowserWidget>(mContext, mPlatform, *mAssetCatalog, *mThumbnails, mUIScale, *mWorkspace, *mImports, *mAssetEditors);
     },
         EEditorTabRole::Drawer, true, "Content Browser###Content");
     mBrowser = static_cast<FContentBrowserWidget*>(mTabs.SpawnTab("Content"));
@@ -174,7 +173,6 @@ void FLevelEditorToolkit::ConnectServices() {
         mBrowser->OnImported(Path, Count, Error);
     });
     mDetailsWidget.SetAssetServices(mAssetCatalog.get(), mThumbnails.get());
-    mDetailsWidget.SetScriptBuildService(&mScriptBuilds);
     mDetailsWidget.SetAssetNavigation([this]() {
         return mBrowser->GetSelectedPath();
     },
@@ -199,8 +197,6 @@ void FLevelEditorToolkit::Tick(float DeltaTime) {
     mDetailsWidget.FinishInactiveSceneEdit();
     mThumbnails->BeginFrame();
     mImports->BeginFrame();
-    mScriptBuilds.Update(!mPlaySession->IsActive());
-    mCommands->UpdatePendingPlay();
     mBrowser->Tick();
     mSettings->Tick(DeltaTime);
 }
@@ -241,10 +237,6 @@ void FLevelEditorToolkit::QueueFileDrop(void* Handle) {
     }
 }
 
-void FLevelEditorToolkit::NotifyFocusGained() {
-    mScriptBuilds.NotifyFocusGained();
-}
-
 bool FLevelEditorToolkit::WantsExit() const {
     return mCommands == nullptr || mCommands->WantsExit();
 }
@@ -264,7 +256,6 @@ void FLevelEditorToolkit::Shutdown() {
     mDetailsWidget.SetAnimGraphOpener({});
     mDetailsWidget.SetAssetServices(nullptr, nullptr);
     mDetailsWidget.SetAssetNavigation({}, {});
-    mDetailsWidget.SetScriptBuildService(nullptr);
     if (mPlatform != nullptr && mPlatform->GetWindowHandle() != nullptr) {
         DragAcceptFiles(mPlatform->GetWindowHandle(), FALSE);
         MSG Message{};

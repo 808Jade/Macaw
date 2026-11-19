@@ -21,12 +21,12 @@ namespace HeaderTool {
         /**
          * @brief 허용하는 리플렉션 표시 이름입니다.
          */
-        constexpr std::string_view sAnnotations[]{"UCLASS", "USTRUCT", "UENUM", "UPROPERTY", "UFUNCTION", "GENERATED_BODY"};
+        constexpr std::string_view sAnnotations[]{"UCLASS", "USTRUCT", "UENUM", "UPROPERTY", "GENERATED_BODY"};
 
         /**
          * @brief 교체해야 하는 이전 리플렉션 매크로 이름입니다.
          */
-        constexpr std::string_view sLegacyAnnotations[]{"ReflectTypes", "ReflectClass", "ReflectRootClass", "ReflectStruct", "ReflectMembers", "ReflectProperty", "ReflectAccessor", "ReflectSetter", "ReflectReadOnlyProperty", "ReflectReadOnlyAccessor", "ReflectArray", "ReflectArrayAccessor", "ReflectFunction", "ReflectEnum", "ReflectScriptEnum"};
+        constexpr std::string_view sLegacyAnnotations[]{"ReflectTypes", "ReflectClass", "ReflectRootClass", "ReflectStruct", "ReflectMembers", "ReflectProperty", "ReflectAccessor", "ReflectSetter", "ReflectReadOnlyProperty", "ReflectReadOnlyAccessor", "ReflectArray", "ReflectArrayAccessor", "ReflectEnum"};
 
         /**
          * @brief 허용하는 프로퍼티 플래그 이름입니다.
@@ -173,71 +173,6 @@ namespace HeaderTool {
         }
 
         /**
-         * @brief 타입의 const·마지막 참조 기호를 제거하고 공백을 정리합니다.
-         * @param[in] Text 해석·변환·탐색할 원문 문자열입니다.
-         * @return 해석·변환한 문자열입니다.
-         */
-        std::string NormalizeType(std::string_view Text) {
-            std::string Type{Trim(RemoveWord(Text, "const"))};
-
-            if (!Type.empty() && Type.back() == '&') {
-                Type.pop_back();
-            }
-
-            return Trim(Type);
-        }
-
-        /**
-         * @brief 텍스트에서 블록·줄 주석을 제거합니다.
-         * @param[in] Text 해석·변환·탐색할 원문 문자열입니다.
-         * @return 해석·변환한 문자열입니다.
-         */
-        std::string StripComments(std::string Text) {
-            std::size_t Position{};
-
-            while ((Position = Text.find("/*", Position)) != std::string::npos) {
-                const std::size_t Finish{Text.find("*/", Position + 2)};
-
-                Text.erase(Position, Finish == std::string::npos ? std::string::npos : Finish + 2 - Position);
-            }
-
-            Position = 0;
-
-            while ((Position = Text.find("//", Position)) != std::string::npos) {
-                Text.erase(Position, Text.find('\n', Position) - Position);
-            }
-
-            return Text;
-        }
-
-        /**
-         * @brief 열거형 값에 붙은 UMETA 표시와 인자를 제거합니다.
-         * @param[in] Text 해석·변환·탐색할 원문 문자열입니다.
-         * @return 해석·변환한 문자열입니다.
-         */
-        std::string StripMeta(std::string Text) {
-            std::size_t Position{};
-
-            while ((Position = Text.find("UMETA", Position)) != std::string::npos) {
-                Index_t Last{static_cast<Index_t>(Text.find('(', Position))};
-                int Depth{};
-
-                while (Last < Text.size()) {
-                    Depth += Text[Last] == '(' ? 1 : (Text[Last] == ')' ? -1 : 0);
-                    ++Last;
-
-                    if (Depth == 0) {
-                        break;
-                    }
-                }
-
-                Text.erase(Position, Last - Position);
-            }
-
-            return Trim(Text);
-        }
-
-        /**
          * @brief 식별자에 사용할 수 없는 문자를 밑줄로 바꿉니다.
          * @param[in] Text 해석·변환·탐색할 원문 문자열입니다.
          * @return 해석·변환한 문자열입니다.
@@ -292,8 +227,6 @@ namespace HeaderTool {
                         ReadGeneratedBody(Annotation);
                     } else if (Annotation.Name == "UPROPERTY") {
                         ReadProperty(Annotation);
-                    } else if (Annotation.Name == "UFUNCTION") {
-                        ReadFunction(Annotation);
                     } else {
                         ReadEnum(Annotation);
                     }
@@ -309,9 +242,7 @@ namespace HeaderTool {
                     }
                 }
 
-                for (const FEnum& Enum : mHeader.Enums) {
-                    mHeader.NeedsGeneratedHeader = mHeader.NeedsGeneratedHeader || Enum.Reflect;
-                }
+                mHeader.NeedsGeneratedHeader = mHeader.NeedsGeneratedHeader || !mHeader.Enums.empty();
 
                 const std::string Stem{std::filesystem::path{mSource.Path}.stem().string()};
 
@@ -503,7 +434,7 @@ namespace HeaderTool {
                     }
 
                     if (Contains(sLegacyAnnotations, Token.Text)) {
-                        mSource.Fail(Index, Token.Text + " is no longer supported; use UCLASS, USTRUCT, UENUM, UPROPERTY, UFUNCTION and GENERATED_BODY");
+                        mSource.Fail(Index, Token.Text + " is no longer supported; use UCLASS, USTRUCT, UENUM, UPROPERTY and GENERATED_BODY");
                     }
 
                     if (Contains(sAnnotations, Token.Text)) {
@@ -691,96 +622,7 @@ namespace HeaderTool {
             }
 
             /**
-             * @brief 노출 함수의 타입·매개변수·지정자를 읽고 바인딩 제약을 검사합니다.
-             * @param[in] Annotation 해석할 리플렉션 표시·토큰 범위입니다.
-             */
-            void ReadFunction(const FAnnotation& Annotation) {
-                const FType* Owner{OwnerAt(Annotation.Token)};
-
-                if (Owner == nullptr) {
-                    mSource.Fail(Annotation.Token, "UFUNCTION() must be inside a class or struct");
-                }
-
-                if (Owner->Template) {
-                    mSource.Fail(Annotation.Token, "Template types cannot use reflection");
-                }
-
-                const Index_t First{static_cast<Index_t>(Annotation.Closing + 1)};
-                Index_t Opening{First};
-                int Angles{};
-
-                for (; Opening < mSource.Tokens.size(); ++Opening) {
-                    const std::string& Text{mSource.Tokens[Opening].Text};
-
-                    Angles += Text == "<" ? 1 : (Text == ">" ? -1 : 0);
-
-                    if (Angles == 0 && Text == "(") {
-                        break;
-                    }
-
-                    if (Text == ";" || Text == "{" || Text == "}" || Contains(sAnnotations, Text)) {
-                        mSource.Fail(Annotation.Token, "UFUNCTION() must be followed by a member function declaration");
-                    }
-                }
-
-                if (Opening == First || !IsIdentifier(mSource, Opening - 1) || mSource.Is(Opening - 1, "operator")) {
-                    mSource.Fail(Annotation.Token, "UFUNCTION() must be followed by a member function declaration");
-                }
-
-                FFunction Function;
-                Function.Name = mSource.Tokens[Opening - 1].Text;
-                Function.Owner = Owner;
-                Function.File = mSource.Path;
-                Function.Label = "UFUNCTION " + Function.Name;
-
-                for (const std::string& Argument : Annotation.Arguments) {
-                    if (Argument != "Internal") {
-                        mSource.Fail(Annotation.Token, "Unknown UFUNCTION specifier " + Quote(Argument));
-                    }
-
-                    Function.Internal = true;
-                }
-
-                std::string Return{mSource.MaskBetween(First, Opening - 1)};
-
-                Function.Static = ContainsWord(Return, "static");
-
-                for (std::string_view Keyword : {"static", "virtual", "inline", "explicit"}) {
-                    Return = RemoveWord(Return, Keyword);
-                }
-
-                Function.Return = NormalizeType(Return);
-
-                const Index_t Closing{static_cast<Index_t>(mSource.FindClosing(Opening))};
-                const std::size_t Begin{mSource.Tokens[Opening].Offset + 1};
-                const std::string Parameters{mSource.Mask.substr(Begin, mSource.Tokens[Closing].Offset - Begin)};
-
-                for (const std::string& Part : SplitTopLevel(Parameters)) {
-                    const std::string Parameter{Trim(std::string_view{Part}.substr(0, Part.find('=')))};
-                    std::size_t NameStart{Parameter.size()};
-
-                    while (NameStart > 0 && IsIdentifierCharacter(Parameter[NameStart - 1])) {
-                        --NameStart;
-                    }
-
-                    std::size_t TypeEnd{NameStart};
-
-                    while (TypeEnd > 0 && std::isspace(static_cast<unsigned char>(Parameter[TypeEnd - 1]))) {
-                        --TypeEnd;
-                    }
-
-                    if (NameStart == Parameter.size() || std::isdigit(static_cast<unsigned char>(Parameter[NameStart])) || TypeEnd == NameStart || TypeEnd == 0) {
-                        mSource.Fail(Annotation.Token, Function.Label + ": Unnamed parameter " + Trim(Part));
-                    }
-
-                    Function.Parameters.push_back({NormalizeType(std::string_view{Parameter}.substr(0, TypeEnd)), Parameter.substr(NameStart)});
-                }
-
-                mHeader.Functions.push_back(std::move(Function));
-            }
-
-            /**
-             * @brief 열거형 표시와 값을 읽어 네이티브·C# 노출 정보를 구성합니다.
+             * @brief 열거형 표시와 값을 읽어 리플렉션 정보를 구성합니다.
              * @param[in] Annotation 해석할 리플렉션 표시·토큰 범위입니다.
              */
             void ReadEnum(const FAnnotation& Annotation) {
@@ -792,20 +634,11 @@ namespace HeaderTool {
                 Enum.File = mSource.Path;
                 Enum.Namespace = NamespaceAt(Annotation.Token);
 
-                if (Annotation.Arguments.empty()) {
-                    Enum.Reflect = true;
-                } else if (Annotation.Arguments.size() == 1 && Annotation.Arguments[0] == "Script") {
-                    Enum.Reflect = true;
-                    Enum.Script = true;
-                } else if (Annotation.Arguments.size() == 1 && Annotation.Arguments[0] == "ScriptOnly") {
-                    Enum.Script = true;
-                } else {
-                    mSource.Fail(Annotation.Token, "UENUM() accepts only Script or ScriptOnly");
+                if (!Annotation.Arguments.empty()) {
+                    mSource.Fail(Annotation.Token, "UENUM() does not accept arguments");
                 }
 
-                if (Enum.Reflect) {
-                    NoteReflected(Annotation);
-                }
+                NoteReflected(Annotation);
 
                 Index_t Index{static_cast<Index_t>(Annotation.Closing + 1)};
 
@@ -837,7 +670,7 @@ namespace HeaderTool {
                     mSource.Fail(Annotation.Token, "UENUM() must be followed by an enum definition");
                 }
 
-                if (Enum.Reflect && !Enum.Scoped && Enum.Base.empty()) {
+                if (!Enum.Scoped && Enum.Base.empty()) {
                     mSource.Fail(Annotation.Token, "Reflected unscoped enums need an underlying type so they can be forward declared");
                 }
 
@@ -888,13 +721,6 @@ namespace HeaderTool {
                     }
 
                     First = Entry + 1;
-                }
-
-                const std::size_t Begin{mSource.Tokens[Opening].Offset + 1};
-                const std::string Body{StripComments(mSource.Text.substr(Begin, mSource.Tokens[Closing].Offset - Begin))};
-
-                for (const std::string& Part : SplitTopLevel(Body)) {
-                    Enum.ScriptValues.push_back(StripMeta(Trim(Part)));
                 }
 
                 mHeader.Enums.push_back(std::move(Enum));

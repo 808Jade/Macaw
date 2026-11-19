@@ -1,6 +1,6 @@
 /**
  * @file CodeGenerator.h
- * @brief 파싱한 헤더로 generated.h, 모듈 리플렉션 등록 코드와 C# 바인딩을 만듭니다.
+ * @brief 파싱한 헤더로 generated.h와 모듈 리플렉션 등록 코드을 만듭니다.
  */
 
 #pragma once
@@ -55,12 +55,6 @@ namespace HeaderTool {
      * @param[in] Module 등록 모듈 이름입니다.
      */
     void WriteModuleReflection(const FWorkspace& Workspace, const std::string& Module);
-
-    /**
-     * @brief Script 모듈의 네이티브 썽크와 Macaw.Engine의 C# 래퍼를 씁니다.
-     * @param[in] Workspace 파싱한 작업 공간입니다.
-     */
-    void WriteBindings(const FWorkspace& Workspace);
 
     /**
      * @brief 내용이 바뀐 경우에만 CRLF 줄바꿈으로 파일을 씁니다.

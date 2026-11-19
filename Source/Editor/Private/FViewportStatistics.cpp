@@ -354,7 +354,7 @@ namespace Editor {
             return false;
         }
 
-        const std::array<Core::FString, 10> Names{"fps", "scene", "memory", "render", "shadow", "unit", "game", "world", "script", "assets"};
+        const std::array<Core::FString, 9> Names{"fps", "scene", "memory", "render", "shadow", "unit", "game", "world", "assets"};
 
         for (Index_t Index{}; Index < Names.size(); ++Index) {
             if ((Mask & (1u << Index)) != 0 && !IsEnabled(Names[Index])) {

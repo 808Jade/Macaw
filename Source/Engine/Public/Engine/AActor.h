@@ -49,7 +49,6 @@ namespace Engine {
          * @brief 현재 소속되거나 관리하는 월드의 비소유 주소를 반환합니다.
          * @return 조회한 값의 비소유 주소이며, 해당 값이 없으면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::UWorld* GetWorld() const;
 
         /**
@@ -69,7 +68,6 @@ namespace Engine {
          * @brief 액터 변환을 제공하는 루트 컴포넌트의 비소유 주소를 반환합니다.
          * @return 조회한 값의 비소유 주소이며, 해당 값이 없으면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::USceneComponent* GetRootComponent() const;
 
         /**
@@ -84,38 +82,19 @@ namespace Engine {
          * @param[in] Transform 적용할 위치, 회전과 스케일입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        UFUNCTION()
         bool SetActorTransform(const FTransform& Transform);
 
         /**
          * @brief 루트 컴포넌트의 변환을 반환합니다.
          * @return 루트 컴포넌트의 변환이며, 루트가 없으면 기본 변환입니다.
          */
-        UFUNCTION()
         FTransform GetActorTransform() const;
 
         /**
          * @brief 월드에서 이 액터를 제거합니다. 실행 전달 중이면 안전한 시점까지 미룹니다.
          * @return 제거를 수락하면 true입니다.
          */
-        UFUNCTION()
         bool Destroy();
-
-        /**
-         * @brief 지정한 클래스의 첫 소유 컴포넌트를 찾습니다.
-         * @param[in] ClassName 파생 클래스를 포함해 찾을 리플렉션 클래스 이름입니다.
-         * @return 찾은 컴포넌트의 비소유 주소이며, 없으면 nullptr입니다.
-         */
-        UFUNCTION(Internal)
-        Engine::UActorComponent* FindComponentByClassName(const Core::FString& ClassName) const;
-
-        /**
-         * @brief 지정한 클래스의 소유 컴포넌트를 모두 찾습니다.
-         * @param[in] ClassName 파생 클래스를 포함해 찾을 리플렉션 클래스 이름입니다.
-         * @return 찾은 컴포넌트의 비소유 주소 목록입니다.
-         */
-        UFUNCTION(Internal)
-        Core::TArray<Engine::UActorComponent*> GetComponentsByClassName(const Core::FString& ClassName) const;
 
         /**
          * @brief 액터의 기본 컴포넌트를 생성하고 루트 컴포넌트를 정합니다.
@@ -175,7 +154,6 @@ namespace Engine {
          * @brief 액터의 표시 여부를 반환합니다.
          * @return 액터와 소유 컴포넌트를 표시하도록 설정했으면 true입니다.
          */
-        UFUNCTION()
         bool IsVisible() const;
 
         /**
@@ -183,7 +161,6 @@ namespace Engine {
          * @param[in] Visible 액터를 표시하려면 true입니다.
          * @note 렌더링과 에디터 피킹에만 영향을 주며 Tick과 충돌은 그대로 동작합니다.
          */
-        UFUNCTION()
         void SetVisible(bool Visible);
 
     private:

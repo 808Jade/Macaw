@@ -9,7 +9,6 @@
 #include "Editor/FEditorToolkit.h"
 #include "Editor/FEditorTabManager.h"
 #include "Editor/FImGuiUIScale.h"
-#include "Editor/FScriptBuildService.h"
 #include "Editor/Widget/FOutlinerWidget.h"
 #include "Editor/Widget/FDetailsWidget.h"
 #include "Editor/Widget/FConsoleWidget.h"
@@ -83,7 +82,7 @@ namespace Editor {
         void ApplyAppearance();
 
         /**
-         * @brief 스크립트 빌드·실행 요청·콘텐츠·설정·드로어 상태를 갱신합니다.
+         * @brief 콘텐츠·설정·드로어 상태를 갱신합니다.
          * @param[in] DeltaTime 이전 프레임 이후 경과한 시간이며 단위는 초입니다.
          */
         void Tick(float DeltaTime) override;
@@ -111,11 +110,6 @@ namespace Editor {
          * @param[in] Handle Win32 파일 드롭 핸들입니다.
          */
         void QueueFileDrop(void* Handle);
-
-        /**
-         * @brief 주 창이 포커스를 얻었을 때 갱신할 에디터 상태를 알립니다.
-         */
-        void NotifyFocusGained();
 
         /**
          * @brief 에디터 종료가 요청되었는지 검사합니다.
@@ -165,11 +159,6 @@ namespace Editor {
          * @brief Win32 창·입력·파일 선택을 제공하는 플랫폼 애플리케이션입니다.
          */
         Platform::FWindowsApplication* mPlatform{};
-
-        /**
-         * @brief 스크립트 생성·빌드·상태 조회를 제공하는 서비스입니다.
-         */
-        Editor::FScriptBuildService mScriptBuilds;
 
         /**
          * @brief 뷰포트 분할·입력·최대화 배치를 관리하는 서비스입니다.

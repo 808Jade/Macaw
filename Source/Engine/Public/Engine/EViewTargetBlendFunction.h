@@ -17,7 +17,7 @@ namespace Engine {
      * @brief 뷰 타깃을 전환할 때 사용하는 블렌드 곡선입니다.
      * @ingroup Engine
      */
-    UENUM(Script)
+    UENUM()
     enum class EViewTargetBlendFunction : Uint8 {
         /**
          * @brief 일정한 속도로 보간합니다.

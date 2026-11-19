@@ -1,6 +1,6 @@
 /**
  * @file HeaderParser.h
- * @brief UCLASS, USTRUCT, UENUM, UPROPERTY, UFUNCTION과 GENERATED_BODY를 읽는 헤더 파서입니다.
+ * @brief UCLASS, USTRUCT, UENUM, UPROPERTY와 GENERATED_BODY를 읽는 헤더 파서입니다.
  */
 
 #pragma once
@@ -152,16 +152,6 @@ namespace HeaderTool {
          * @brief 정의된 파일의 Source 아래 디렉터리 이름입니다.
          */
         std::string SourceModule;
-
-        /**
-         * @brief C# 래퍼 클래스 이름입니다. 래퍼가 없으면 비어 있습니다.
-         */
-        std::string ScriptName;
-
-        /**
-         * @brief C# 래퍼의 부모 클래스 이름입니다.
-         */
-        std::string ScriptSuper;
     };
 
     /**
@@ -189,89 +179,14 @@ namespace HeaderTool {
         bool Scoped{};
 
         /**
-         * @brief 네이티브 리플렉션을 만들면 true입니다.
-         */
-        bool Reflect{};
-
-        /**
-         * @brief C# 열거형을 만들면 true입니다.
-         */
-        bool Script{};
-
-        /**
          * @brief 리플렉션할 값 이름입니다. UMETA(Hidden) 값은 제외합니다.
          */
         std::vector<std::string> Values;
 
         /**
-         * @brief C#에 그대로 적을 값 항목입니다. 초기화식을 포함합니다.
-         */
-        std::vector<std::string> ScriptValues;
-
-        /**
          * @brief 정의된 파일 경로입니다.
          */
         std::string File;
-    };
-
-    /**
-     * @brief UFUNCTION 매개변수입니다.
-     */
-    struct FParameter {
-        /**
-         * @brief const와 참조를 지운 타입입니다.
-         */
-        std::string Type;
-
-        /**
-         * @brief 매개변수 이름입니다.
-         */
-        std::string Name;
-    };
-
-    /**
-     * @brief UFUNCTION으로 표시한 멤버 함수입니다.
-     */
-    struct FFunction {
-        /**
-         * @brief 함수 이름입니다.
-         */
-        std::string Name;
-
-        /**
-         * @brief 함수를 가진 타입입니다. 소유 헤더가 살아 있는 동안 유효합니다.
-         */
-        const FType* Owner{};
-
-        /**
-         * @brief 선언된 파일 경로입니다.
-         */
-        std::string File;
-
-        /**
-         * @brief 정적 함수이면 true입니다.
-         */
-        bool Static{};
-
-        /**
-         * @brief C# 쪽을 internal로 만들면 true입니다.
-         */
-        bool Internal{};
-
-        /**
-         * @brief const와 참조를 지운 반환 타입입니다.
-         */
-        std::string Return;
-
-        /**
-         * @brief 매개변수입니다.
-         */
-        std::vector<FParameter> Parameters;
-
-        /**
-         * @brief 오류 메시지에 쓸 위치 설명입니다.
-         */
-        std::string Label;
     };
 
     /**
@@ -292,11 +207,6 @@ namespace HeaderTool {
          * @brief 선언 순서의 UENUM입니다.
          */
         std::vector<FEnum> Enums;
-
-        /**
-         * @brief 선언 순서의 UFUNCTION입니다.
-         */
-        std::vector<FFunction> Functions;
 
         /**
          * @brief generated.h가 필요하면 true입니다.

@@ -22,10 +22,6 @@ namespace CoreUObject {
     class UObject;
 }
 
-namespace Script {
-    class UScriptComponent;
-}
-
 namespace Engine {
     class AActor;
     class ULightComponent;
@@ -37,7 +33,6 @@ namespace Editor {
 
     class FEditorAssetCatalog;
     class FAssetThumbnailCache;
-    class FScriptBuildService;
 
     /**
      * @brief 선택한 객체의 리플렉션 프로퍼티를 표시하고 편집합니다.
@@ -106,12 +101,6 @@ namespace Editor {
          * @param Browse 지정한 에셋을 브라우저에 표시하는 콜백입니다.
          */
         void SetAssetNavigation(std::function<std::filesystem::path()> Selection, std::function<void(const std::filesystem::path&)> Browse);
-
-        /**
-         * @brief C# 프로젝트 생성과 빌드 상태를 제공할 서비스를 연결합니다.
-         * @param Builds 스크립트 빌드 서비스입니다.
-         */
-        void SetScriptBuildService(Editor::FScriptBuildService* Builds);
 
         /**
          * @brief Anim Instance 항목의 "Anim Graph 열기" 버튼이 호출할 함수를 연결합니다.
@@ -212,20 +201,6 @@ namespace Editor {
          * @param Light 그림자 맵을 표시할 조명 컴포넌트입니다.
          */
         void DrawShadowMaps(const Engine::ULightComponent* Light);
-
-        /**
-         * @brief C# 프로젝트 상태와 스크립트의 [Field] 필드를 표시합니다.
-         * @param Component 표시할 스크립트 컴포넌트입니다.
-         */
-        void DrawScriptFields(Script::UScriptComponent* Component);
-
-        /**
-         * @brief 스크립트 클래스를 고르는 콤보를 표시합니다.
-         * @param Label 위젯 이름입니다.
-         * @param ClassName 선택한 클래스 이름입니다.
-         * @return 선택이 바뀌면 true입니다.
-         */
-        bool DrawScriptClassPicker(const char* Label, Core::FString& ClassName);
 
         /**
          * @brief 스켈레탈 메시 컴포넌트가 가진 AnimClass 인스턴스의 설정을 표시하고 편집합니다.
@@ -340,11 +315,6 @@ namespace Editor {
          * @brief 브라우저와 동일한 썸네일 캐시입니다.
          */
         Editor::FAssetThumbnailCache* mThumbnails{};
-
-        /**
-         * @brief C# 프로젝트 생성과 빌드 상태를 제공하는 서비스의 비소유 주소입니다.
-         */
-        Editor::FScriptBuildService* mScriptBuilds{};
 
         /**
          * @brief 썸네일과 드롭다운을 표시하는 선택기입니다.

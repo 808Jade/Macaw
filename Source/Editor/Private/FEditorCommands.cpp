@@ -6,7 +6,6 @@
 
 #include "FEditorCommands.h"
 #include "FEditorViewportLayout.h"
-#include "Editor/FScriptBuildService.h"
 #include "Editor/FEditorContext.h"
 #include "Editor/FEditorViewport.h"
 #include "Editor/FPlayInEditorSession.h"
@@ -22,12 +21,11 @@
 
 using namespace Editor;
 
-FEditorCommands::FEditorCommands(FEditorContext* Context, FPlayInEditorSession* PlaySession, FEditorViewportLayout& ViewportLayout, Platform::FWindowsApplication* Platform, FScriptBuildService& ScriptBuilds)
+FEditorCommands::FEditorCommands(FEditorContext* Context, FPlayInEditorSession* PlaySession, FEditorViewportLayout& ViewportLayout, Platform::FWindowsApplication* Platform)
 	: mContext{Context},
 	  mPlaySession{PlaySession},
 	  mViewportLayout{ViewportLayout},
-	  mPlatform{Platform},
-	  mScriptBuilds{ScriptBuilds} {
+	  mPlatform{Platform} {
 }
 
 FEditorCommands::~FEditorCommands() = default;
@@ -38,14 +36,6 @@ void FEditorCommands::SetContentChanged(std::function<void()> Handler) {
 
 void FEditorCommands::SetCanCloseAssets(std::function<bool()> Handler) {
     mCanCloseAssets = std::move(Handler);
-}
-
-bool FEditorCommands::IsPlayPending() const {
-    return mPlayPending;
-}
-
-void FEditorCommands::CancelPendingPlay() {
-    mPlayPending = false;
 }
 
 bool FEditorCommands::WantsExit() const {
@@ -112,22 +102,7 @@ void FEditorCommands::RequestPlay() {
         return;
     }
 
-    mScriptBuilds.BuildIfChanged();
-    mPlayPending = true;
-
-    UpdatePendingPlay();
-}
-
-void FEditorCommands::UpdatePendingPlay() {
-    if (!mPlayPending || mScriptBuilds.IsBuilding()) {
-        return;
-    }
-
-    mPlayPending = false;
-
-    if (mScriptBuilds.HasCompileErrors()) {
-        mContext->AddLog("PIE canceled: fix the C# compile errors first");
-    } else if (mViewportLayout.CanChangeLayout()) {
+    if (mViewportLayout.CanChangeLayout()) {
         mPlaySession->Start(&mPlatform->GetInput());
     }
 }
@@ -153,7 +128,7 @@ void FEditorCommands::ExportGame() {
     } else {
         const auto Runtime{std::filesystem::path{Executable.data()}.parent_path() / "GameRuntime"};
 
-        Exported = Editor::FGameExporter::Export(*mContext->GetProject(), Runtime, Destination, &mScriptBuilds, Error);
+        Exported = Editor::FGameExporter::Export(*mContext->GetProject(), Runtime, Destination, Error);
     }
 
     const Core::FString Message{Exported ? "Exported game to " + Core::FilePath::ToUtf8(Destination) : Error};

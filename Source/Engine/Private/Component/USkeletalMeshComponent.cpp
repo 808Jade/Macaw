@@ -584,20 +584,6 @@ namespace Engine {
         }
     }
 
-    Int32 USkeletalMeshComponent::GetRootMotionModeValue() const {
-        return static_cast<Int32>(GetRootMotionMode());
-    }
-
-    bool USkeletalMeshComponent::SetRootMotionModeValue(Int32 Mode) {
-        if (Mode < static_cast<Int32>(Engine::ERootMotionMode::NoRootMotionExtraction) || Mode > static_cast<Int32>(Engine::ERootMotionMode::RootMotionFromEverything)) {
-            return false;
-        }
-
-        SetRootMotionMode(static_cast<Engine::ERootMotionMode>(Mode));
-
-        return true;
-    }
-
     void USkeletalMeshComponent::SetApplyRootMotionToActor(bool Apply) {
         if (mApplyRootMotionToActor != Apply) {
             mApplyRootMotionToActor = Apply;

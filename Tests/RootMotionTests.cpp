@@ -444,7 +444,6 @@ int main() {
         Mesh->SetApplyRootMotionToActor(false);
         Context.GetWorld()->Tick(0.25f);
         Require(Near(Actor->GetActorTransform().mLocation.x, 1.0f) && Near(Mesh->ConsumeRootMotion().mLocation.x, 1.0f) && Identity(Mesh->ConsumeRootMotion()), "Manual application exposes movement once without moving the actor");
-        Require(!Mesh->SetRootMotionModeValue(3) && Mesh->GetRootMotionModeValue() == 2, "Script mode bridge rejects unsupported Montage modes");
 
         Require(Mesh->SetAnimClass("UAnimGraphInstance"), "Configure an AnimInstance class for scene serialization");
         Mesh->SetRootMotionMode(Engine::ERootMotionMode::RootMotionFromEverything);

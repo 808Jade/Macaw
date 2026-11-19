@@ -1922,7 +1922,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   const CoreGroupings = [
     [&quot;핵심 모듈&quot;, [&quot;Editor&quot;]],
-    [&quot;&quot;, [&quot;Renderer&quot;, &quot;Engine&quot;, &quot;Script&quot;]],
+    [&quot;&quot;, [&quot;Renderer&quot;, &quot;Engine&quot;]],
     [&quot;&quot;, [&quot;Asset&quot;]]
   ];
 
@@ -1931,7 +1931,7 @@ html&gt;body{padding:0}&lt;/style&gt;
     [&quot;실행&quot;, [&quot;Macaw&quot;, &quot;MacawGame&quot;]],
     [&quot;플랫폼·렌더 자원·저장&quot;, [&quot;Platform&quot;, &quot;RenderCore&quot;, &quot;Serialization&quot;]],
     [&quot;공통 기반&quot;, [&quot;CoreUObject&quot;, &quot;Core&quot;]],
-    [&quot;관리 코드 및 빌드&quot;, [&quot;Macaw.Engine&quot;, &quot;MacawHeaderTool&quot;, &quot;Shaders&quot;]]
+    [&quot;빌드&quot;, [&quot;MacawHeaderTool&quot;, &quot;Shaders&quot;]]
   ];
 
   const Dependencies = {
@@ -1941,21 +1941,18 @@ html&gt;body{padding:0}&lt;/style&gt;
     RenderCore: [[&quot;Core&quot;], [&quot;CoreUObject&quot;]],
     Asset: [[&quot;CoreUObject&quot;, &quot;RenderCore&quot;], [&quot;Serialization&quot;]],
     Engine: [[&quot;CoreUObject&quot;, &quot;Asset&quot;, &quot;RenderCore&quot;], [&quot;Serialization&quot;]],
-    Script: [[&quot;CoreUObject&quot;, &quot;Engine&quot;], []],
     Renderer: [[&quot;Engine&quot;], []],
     Platform: [[&quot;Core&quot;], [&quot;CoreUObject&quot;]],
-    Editor: [[&quot;Engine&quot;, &quot;Platform&quot;], [&quot;Serialization&quot;, &quot;Renderer&quot;, &quot;Script&quot;]]
+    Editor: [[&quot;Engine&quot;, &quot;Platform&quot;], [&quot;Serialization&quot;, &quot;Renderer&quot;]]
   };
 
-  const RuntimeLibraries = [&quot;Script&quot;, &quot;Engine&quot;, &quot;Renderer&quot;, &quot;Platform&quot;, &quot;Asset&quot;, &quot;Serialization&quot;, &quot;RenderCore&quot;, &quot;CoreUObject&quot;, &quot;Core&quot;];
+  const RuntimeLibraries = [&quot;Engine&quot;, &quot;Renderer&quot;, &quot;Platform&quot;, &quot;Asset&quot;, &quot;Serialization&quot;, &quot;RenderCore&quot;, &quot;CoreUObject&quot;, &quot;Core&quot;];
   const BuildEdges = [
     ...[...RuntimeLibraries, &quot;Editor&quot;].map((Name) =&gt; [&quot;Macaw&quot;, Name, &quot;Link&quot;]),
     ...RuntimeLibraries.map((Name) =&gt; [&quot;MacawGame&quot;, Name, &quot;Link&quot;]),
     [&quot;Macaw&quot;, &quot;MacawGame&quot;, &quot;Build&quot;],
-    [&quot;Macaw&quot;, &quot;Macaw.Engine&quot;, &quot;Build&quot;],
     [&quot;Macaw&quot;, &quot;MacawHeaderTool&quot;, &quot;Build&quot;],
     [&quot;MacawGame&quot;, &quot;MacawHeaderTool&quot;, &quot;Build&quot;],
-    [&quot;Macaw.Engine&quot;, &quot;Script&quot;, &quot;Build&quot;],
     ...Object.keys(Dependencies).map((Name) =&gt; [Name, &quot;MacawHeaderTool&quot;, &quot;Build&quot;])
   ];
 
@@ -1995,7 +1992,7 @@ html&gt;body{padding:0}&lt;/style&gt;
         [&quot;UEngine|월드 실행|Engine&quot;, &quot;FRenderer|렌더링·출력|Renderer&quot;, &quot;FWindowsApplication|Win32 입력과 창|Platform&quot;],
         [&quot;FSceneViewport|뷰포트|Engine&quot;, &quot;FGameViewportClient|게임 입력과 카메라|Engine&quot;, &quot;FProject|게임 프로젝트|Engine&quot;]
       ], [[&quot;FGameApplication&quot;, &quot;UEngine&quot;, &quot;Own&quot;], [&quot;FGameApplication&quot;, &quot;FRenderer&quot;, &quot;Own&quot;], [&quot;FGameApplication&quot;, &quot;FWindowsApplication&quot;, &quot;Own&quot;], [&quot;FGameApplication&quot;, &quot;FSceneViewport&quot;, &quot;Own&quot;], [&quot;FGameApplication&quot;, &quot;FGameViewportClient&quot;, &quot;Own&quot;], [&quot;FGameApplication&quot;, &quot;FProject&quot;, &quot;Own&quot;], [&quot;FSceneViewport&quot;, &quot;FGameViewportClient&quot;, &quot;Use&quot;]]]],
-      Related: [&quot;Engine&quot;, &quot;Renderer&quot;, &quot;Script&quot;],
+      Related: [&quot;Engine&quot;, &quot;Renderer&quot;],
       Flows: [&quot;Game&quot;, &quot;Scene&quot;, &quot;SceneChange&quot;],
       Sources: [&quot;Source/Game/FGameApplication.h&quot;, &quot;Source/Game/FGameApplication.cpp&quot;]
     },
@@ -2006,7 +2003,7 @@ html&gt;body{padding:0}&lt;/style&gt;
         [&quot;FEditorContext|선택·편집 월드&quot;, &quot;FEditorUI|ImGui 패널&quot;, &quot;FPlayInEditorSession|플레이 월드 전환&quot;],
         [&quot;FEditorViewport|편집 뷰포트&quot;, &quot;FEditorViewportClient|카메라·피킹·기즈모&quot;]
       ], [[&quot;UEditorEngine&quot;, &quot;UEngine&quot;, &quot;Is&quot;], [&quot;UEditorEngine&quot;, &quot;FEditorContext&quot;, &quot;Own&quot;], [&quot;UEditorEngine&quot;, &quot;FEditorUI&quot;, &quot;Own&quot;], [&quot;UEditorEngine&quot;, &quot;FPlayInEditorSession&quot;, &quot;Own&quot;], [&quot;UEditorEngine&quot;, &quot;FEditorViewport&quot;, &quot;Own&quot;], [&quot;FEditorViewport&quot;, &quot;FEditorViewportClient&quot;, &quot;Own&quot;], [&quot;FEditorViewportClient&quot;, &quot;FEditorContext&quot;, &quot;Use&quot;]]]],
-      Related: [&quot;Engine&quot;, &quot;Renderer&quot;, &quot;Script&quot;],
+      Related: [&quot;Engine&quot;, &quot;Renderer&quot;],
       Flows: [&quot;Frame&quot;, &quot;PIE&quot;, &quot;Scene&quot;],
       Sources: [&quot;Source/Editor/Public/Editor/EditorEngine.h&quot;, &quot;Source/Editor/Public/Editor/FEditorViewport.h&quot;, &quot;Source/Editor/Private/FPlayInEditorSession.cpp&quot;]
     },
@@ -2027,17 +2024,6 @@ html&gt;body{padding:0}&lt;/style&gt;
       Related: [&quot;RenderCore&quot;, &quot;Engine&quot;, &quot;Shaders&quot;],
       Flows: [&quot;Render&quot;, &quot;Frame&quot;],
       Sources: [&quot;Source/Renderer/Public/Renderer/Renderer.h&quot;, &quot;Source/Renderer/Private/FScene.h&quot;, &quot;Source/Engine/Private/Component/UPrimitiveComponent.cpp&quot;]
-    },
-    Script: {
-      Role: &quot;C# 런타임 브리지&quot;,
-      Graphs: [[&quot;네이티브 컴포넌트와 CoreCLR 사이&quot;, [
-        [&quot;UActorComponent|네이티브 컴포넌트 기반|Components&quot;, &quot;UScriptComponent|스크립트 생명주기와 인스턴스 핸들&quot;],
-        [&quot;FScriptRuntime|CoreCLR 호스팅·인스턴스 호출&quot;],
-        [&quot;FScriptRuntime::FState|런타임 내부 상태&quot;, &quot;Host|관리 API 진입점|Macaw.Engine&quot;]
-      ], [[&quot;UScriptComponent&quot;, &quot;UActorComponent&quot;, &quot;Is&quot;], [&quot;UScriptComponent&quot;, &quot;FScriptRuntime&quot;, &quot;Use&quot;], [&quot;FScriptRuntime&quot;, &quot;FScriptRuntime::FState&quot;, &quot;Own&quot;], [&quot;FScriptRuntime&quot;, &quot;Host&quot;, &quot;Use&quot;]]]],
-      Related: [&quot;Components&quot;, &quot;Macaw.Engine&quot;, &quot;MacawHeaderTool&quot;],
-      Flows: [&quot;ScriptTick&quot;, &quot;Bindings&quot;],
-      Sources: [&quot;Source/Script/Public/Script/UScriptComponent.h&quot;, &quot;Source/Script/Public/Script/FScriptRuntime.h&quot;, &quot;Source/Script/Private/FScriptRuntime.cpp&quot;]
     },
     Platform: {
       Role: &quot;Win32 창·입력&quot;,
@@ -2071,8 +2057,8 @@ html&gt;body{padding:0}&lt;/style&gt;
         [&quot;UMeshComponent|머티리얼을 갖는 렌더 컴포넌트&quot;],
         [&quot;UStaticMeshComponent|정적 메시&quot;, &quot;USkeletalMeshComponent|스켈레탈 메시|Animation&quot;]
       ], [[&quot;AActor&quot;, &quot;UActorComponent&quot;, &quot;Own&quot;], [&quot;AActor&quot;, &quot;USceneComponent&quot;, &quot;Use&quot;], [&quot;USceneComponent&quot;, &quot;UActorComponent&quot;, &quot;Is&quot;], [&quot;UPrimitiveComponent&quot;, &quot;USceneComponent&quot;, &quot;Is&quot;], [&quot;UCameraComponent&quot;, &quot;USceneComponent&quot;, &quot;Is&quot;], [&quot;UMeshComponent&quot;, &quot;UPrimitiveComponent&quot;, &quot;Is&quot;], [&quot;UStaticMeshComponent&quot;, &quot;UMeshComponent&quot;, &quot;Is&quot;], [&quot;USkeletalMeshComponent&quot;, &quot;UMeshComponent&quot;, &quot;Is&quot;]]]],
-      Related: [&quot;Engine&quot;, &quot;Gameplay&quot;, &quot;Animation&quot;, &quot;Script&quot;, &quot;Renderer&quot;],
-      Flows: [&quot;Render&quot;, &quot;ScriptTick&quot;],
+      Related: [&quot;Engine&quot;, &quot;Gameplay&quot;, &quot;Animation&quot;, &quot;Renderer&quot;],
+      Flows: [&quot;Render&quot;],
       Sources: [&quot;Source/Engine/Public/Engine/AActor.h&quot;, &quot;Source/Engine/Public/Engine/Component/USceneComponent.h&quot;, &quot;Source/Engine/Public/Engine/Component/UCameraComponent.h&quot;, &quot;Source/Engine/Public/Engine/Component/UMeshComponent.h&quot;]
     },
     Gameplay: {
@@ -2170,7 +2156,7 @@ html&gt;body{padding:0}&lt;/style&gt;
         ], [[&quot;FReflectionRegistry&quot;, &quot;UClass&quot;, &quot;Use&quot;], [&quot;UClass&quot;, &quot;UStruct&quot;, &quot;Is&quot;], [&quot;UStruct&quot;, &quot;FProperty&quot;, &quot;Use&quot;]]]
       ],
       Related: [&quot;Core&quot;, &quot;Serialization&quot;, &quot;MacawHeaderTool&quot;],
-      Flows: [&quot;Scene&quot;, &quot;Bindings&quot;],
+      Flows: [&quot;Scene&quot;, &quot;Reflection&quot;],
       Sources: [&quot;Source/CoreUObject/Public/CoreUObject/UObject.h&quot;, &quot;Source/CoreUObject/Public/CoreUObject/FObjectRegistry.h&quot;, &quot;Source/CoreUObject/Public/CoreUObject/Reflection/UStruct.h&quot;]
     },
     Core: {
@@ -2183,26 +2169,15 @@ html&gt;body{padding:0}&lt;/style&gt;
       Flows: [&quot;Frame&quot;, &quot;Game&quot;],
       Sources: [&quot;Source/Core/Public/Core/Math/FTransform.h&quot;, &quot;Source/Core/Public/Core/Archive.h&quot;]
     },
-    &quot;Macaw.Engine&quot;: {
-      Role: &quot;관리 API 어셈블리&quot;,
-      Graphs: [[&quot;C# 스크립트 인스턴스에서 네이티브 객체까지&quot;, [
-        [&quot;Host|관리 진입점·인스턴스 생성&quot;, &quot;ScriptComponent|사용자 스크립트 기반&quot;],
-        [&quot;Actor|스크립트의 Owner 객체 래퍼&quot;, &quot;EngineObject|네이티브 핸들 래퍼&quot;],
-        [&quot;Bindings|생성된 네이티브 API 래퍼&quot;]
-      ], [[&quot;Host&quot;, &quot;ScriptComponent&quot;, &quot;Use&quot;], [&quot;ScriptComponent&quot;, &quot;Actor&quot;, &quot;Use&quot;], [&quot;Actor&quot;, &quot;EngineObject&quot;, &quot;Is&quot;], [&quot;Actor&quot;, &quot;Bindings&quot;, &quot;Use&quot;]]]],
-      Related: [&quot;Script&quot;, &quot;MacawHeaderTool&quot;, &quot;Components&quot;],
-      Flows: [&quot;ScriptTick&quot;, &quot;Bindings&quot;],
-      Sources: [&quot;Source/Managed/Macaw.Engine/Host.cs&quot;, &quot;Source/Managed/Macaw.Engine/ScriptComponent.cs&quot;, &quot;Source/Managed/Macaw.Engine/EngineObject.cs&quot;, &quot;Intermediate/Script/Generated/ScriptBindings.g.cs&quot;]
-    },
     MacawHeaderTool: {
-      Role: &quot;리플렉션·바인딩 생성&quot;,
+      Role: &quot;리플렉션 코드 생성&quot;,
       Graphs: [[&quot;헤더를 빌드 산출물로 변환&quot;, [
         [&quot;Generate|워크스페이스 단위 생성 진입점&quot;],
-          [&quot;FHeaderParser|리플렉션 선언 파싱&quot;, &quot;WriteGeneratedHeaders|.generated.h 출력&quot;, &quot;WriteBindings|네이티브·C# 바인딩 출력&quot;]
-      ], [[&quot;Generate&quot;, &quot;FHeaderParser&quot;, &quot;Use&quot;], [&quot;Generate&quot;, &quot;WriteGeneratedHeaders&quot;, &quot;Use&quot;], [&quot;Generate&quot;, &quot;WriteBindings&quot;, &quot;Use&quot;]]]],
-      Related: [&quot;CoreUObject&quot;, &quot;Script&quot;, &quot;Macaw.Engine&quot;],
-      Flows: [&quot;Bindings&quot;],
-      Sources: [&quot;Source/Programs/MacawHeaderTool/Main.cpp&quot;, &quot;Source/Programs/MacawHeaderTool/HeaderParser.cpp&quot;, &quot;Source/Programs/MacawHeaderTool/BindingGenerator.cpp&quot;, &quot;premake5.lua&quot;]
+          [&quot;FHeaderParser|리플렉션 선언 파싱&quot;, &quot;WriteGeneratedHeaders|.generated.h 출력&quot;, &quot;WriteModuleReflection|모듈 등록 소스 출력&quot;]
+      ], [[&quot;Generate&quot;, &quot;FHeaderParser&quot;, &quot;Use&quot;], [&quot;Generate&quot;, &quot;WriteGeneratedHeaders&quot;, &quot;Use&quot;], [&quot;Generate&quot;, &quot;WriteModuleReflection&quot;, &quot;Use&quot;]]]],
+      Related: [&quot;CoreUObject&quot;],
+      Flows: [&quot;Reflection&quot;],
+      Sources: [&quot;Source/Programs/MacawHeaderTool/Main.cpp&quot;, &quot;Source/Programs/MacawHeaderTool/HeaderParser.cpp&quot;, &quot;Source/Programs/MacawHeaderTool/CodeGenerator.cpp&quot;, &quot;premake5.lua&quot;]
     },
     Shaders: {
       Role: &quot;HLSL 소스 대상&quot;,
@@ -2267,7 +2242,7 @@ html&gt;body{padding:0}&lt;/style&gt;
         [&quot;UEngine&quot;, &quot;UEngine&quot;, &quot;RegisterWorld() → DestroyWorld()&quot;, &quot;대상 월드를 등록한 뒤 이전 월드를 정리합니다.&quot;],
         [&quot;UEngine&quot;, &quot;새 UWorld&quot;, &quot;BeginPlay()&quot;, &quot;새 월드의 플레이를 시작하고 뷰포트에서 교체된 월드를 사용합니다.&quot;]
       ],
-      Related: [&quot;Engine&quot;, &quot;Script&quot;, &quot;Editor&quot;, &quot;MacawGame&quot;],
+      Related: [&quot;Engine&quot;, &quot;Editor&quot;, &quot;MacawGame&quot;],
       Sources: [&quot;Source/Engine/Private/UWorld.cpp&quot;, &quot;Source/Engine/Private/Engine.cpp&quot;, &quot;Source/Editor/Private/FPlayInEditorSession.cpp&quot;, &quot;Source/Game/FGameApplication.cpp&quot;]
     },
     PIE: {
@@ -2280,7 +2255,7 @@ html&gt;body{padding:0}&lt;/style&gt;
         [&quot;FPlayInEditorSession&quot;, &quot;UWorld&quot;, &quot;BeginPlay()&quot;, &quot;플레이 월드의 실행을 시작합니다.&quot;],
         [&quot;UWorld&quot;, &quot;AActor&quot;, &quot;DispatchBeginPlay()&quot;, &quot;플레이 월드의 액터와 컴포넌트에 시작 이벤트를 전달합니다.&quot;]
       ],
-      Related: [&quot;Editor&quot;, &quot;Engine&quot;, &quot;Components&quot;, &quot;Script&quot;],
+      Related: [&quot;Editor&quot;, &quot;Engine&quot;, &quot;Components&quot;],
       Sources: [&quot;Source/Editor/Private/FPlayInEditorSession.cpp&quot;, &quot;Source/Engine/Private/Engine.cpp&quot;, &quot;Source/Engine/Private/UWorld.cpp&quot;]
     },
     Render: {
@@ -2296,19 +2271,6 @@ html&gt;body{padding:0}&lt;/style&gt;
       Related: [&quot;Engine&quot;, &quot;Components&quot;, &quot;RenderCore&quot;, &quot;Renderer&quot;, &quot;Shaders&quot;],
       Sources: [&quot;Source/Engine/Private/Engine.cpp&quot;, &quot;Source/Engine/Private/Component/UPrimitiveComponent.cpp&quot;, &quot;Source/Renderer/Private/Renderer.cpp&quot;]
     },
-    ScriptTick: {
-      Title: &quot;C# 스크립트 Tick&quot;,
-      Steps: [
-        [&quot;UWorld&quot;, &quot;AActor&quot;, &quot;DispatchTick(Δt, …)&quot;, &quot;틱 대상 액터를 실행합니다.&quot;],
-        [&quot;AActor&quot;, &quot;UScriptComponent&quot;, &quot;DispatchTick() → Tick(Δt)&quot;, &quot;등록된 스크립트 컴포넌트의 네이티브 틱으로 진입합니다.&quot;],
-        [&quot;UScriptComponent&quot;, &quot;FScriptRuntime&quot;, &quot;TickInstance(Handle, Δt)&quot;, &quot;관리 인스턴스 핸들과 델타 시간을 전달합니다.&quot;],
-        [&quot;FScriptRuntime&quot;, &quot;Host&quot;, &quot;ManagedApi.Tick(Handle, Δt)&quot;, &quot;CoreCLR에 등록된 함수 포인터를 호출합니다.&quot;],
-        [&quot;Host&quot;, &quot;ScriptComponent&quot;, &quot;Instance.Tick(Δt)&quot;, &quot;관리 객체를 찾아 사용자 스크립트의 오버라이드를 실행합니다.&quot;],
-        [&quot;사용자 스크립트&quot;, &quot;네이티브 객체&quot;, &quot;C# 래퍼 → 생성 C++ thunk&quot;, &quot;엔진 API를 호출하면 래퍼와 핸들 해석을 거쳐 C++ 메서드에 도달합니다.&quot;]
-      ],
-      Related: [&quot;Components&quot;, &quot;Script&quot;, &quot;Macaw.Engine&quot;, &quot;MacawHeaderTool&quot;],
-      Sources: [&quot;Source/Engine/Private/AActor.cpp&quot;, &quot;Source/Script/Private/UScriptComponent.cpp&quot;, &quot;Source/Script/Private/FScriptRuntime.cpp&quot;, &quot;Source/Managed/Macaw.Engine/Host.cs&quot;]
-    },
     Import: {
       Title: &quot;FBX 애니메이션 임포트&quot;,
       Steps: [
@@ -2321,17 +2283,15 @@ html&gt;body{padding:0}&lt;/style&gt;
       Related: [&quot;Editor&quot;, &quot;Asset&quot;, &quot;Animation&quot;],
       Sources: [&quot;Source/Asset/Private/FAssetManager.cpp&quot;, &quot;Source/Asset/Private/Import/FFBXImporter.cpp&quot;]
     },
-    Bindings: {
-      Title: &quot;리플렉션과 C# 바인딩 생성&quot;,
+    Reflection: {
+      Title: &quot;리플렉션 코드 생성&quot;,
       Steps: [
         [&quot;Premake 빌드&quot;, &quot;MacawHeaderTool&quot;, &quot;모듈 프리빌드&quot;, &quot;워크스페이스와 대상 모듈을 도구에 전달합니다.&quot;],
-        [&quot;MacawHeaderTool&quot;, &quot;FHeaderParser&quot;, &quot;ParseHeader()&quot;, &quot;리플렉션과 내보내기 선언을 파싱합니다.&quot;],
-        [&quot;MacawHeaderTool&quot;, &quot;리플렉션 산출물&quot;, &quot;WriteGeneratedHeaders() / 등록 소스 생성&quot;, &quot;생성 헤더와 모듈별 등록 코드를 준비합니다.&quot;],
-        [&quot;MacawHeaderTool&quot;, &quot;Script 바인딩 산출물&quot;, &quot;ScriptBindings.cpp + ScriptBindings.g.cs&quot;, &quot;네이티브 thunk와 관리 래퍼를 같은 선언에서 생성합니다.&quot;],
-        [&quot;빌드&quot;, &quot;Script / Macaw.Engine&quot;, &quot;생성 소스 컴파일&quot;, &quot;각각 C++ 브리지와 C# API 어셈블리로 빌드합니다.&quot;]
+        [&quot;MacawHeaderTool&quot;, &quot;FHeaderParser&quot;, &quot;ParseHeader()&quot;, &quot;리플렉션 선언을 파싱합니다.&quot;],
+        [&quot;MacawHeaderTool&quot;, &quot;리플렉션 산출물&quot;, &quot;WriteGeneratedHeaders() / 등록 소스 생성&quot;, &quot;생성 헤더와 모듈별 등록 코드를 준비합니다.&quot;]
       ],
-      Related: [&quot;MacawHeaderTool&quot;, &quot;CoreUObject&quot;, &quot;Script&quot;, &quot;Macaw.Engine&quot;],
-      Sources: [&quot;premake5.lua&quot;, &quot;Source/Programs/MacawHeaderTool/Main.cpp&quot;, &quot;Source/Programs/MacawHeaderTool/BindingGenerator.cpp&quot;, &quot;Source/Managed/Macaw.Engine/Macaw.Engine.csproj&quot;]
+      Related: [&quot;MacawHeaderTool&quot;, &quot;CoreUObject&quot;],
+      Sources: [&quot;premake5.lua&quot;, &quot;Source/Programs/MacawHeaderTool/Main.cpp&quot;, &quot;Source/Programs/MacawHeaderTool/CodeGenerator.cpp&quot;]
     }
   };
 

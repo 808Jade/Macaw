@@ -126,7 +126,6 @@ namespace Engine {
          * @param ScenePath 열도록 예약할 장면 파일 경로입니다.
          * @return 장면 전환 요청을 접수했으면 true입니다.
          */
-        UFUNCTION()
         bool OpenScene(const Core::FString& ScenePath);
 
         /**
@@ -167,7 +166,6 @@ namespace Engine {
          * @brief 마지막 실행 시작 이후 누적 게임 시간을 반환합니다.
          * @return Tick과 Step이 실제 진행한 초 단위 시간입니다.
          */
-        UFUNCTION()
         float GetTimeSeconds() const;
 
         /**
@@ -187,14 +185,12 @@ namespace Engine {
          * @param[in] Camera 활성화할 이 월드 소속 카메라이며 nullptr이면 선택을 해제합니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        UFUNCTION()
         bool SetActiveCamera(Engine::UCameraComponent* Camera);
 
         /**
          * @brief 월드에 등록된 활성 카메라를 핸들로 검증하여 조회합니다.
          * @return 대상의 비소유 주소이며, 없거나 유효하지 않으면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::UCameraComponent* GetActiveCamera() const;
 
         /**
@@ -223,7 +219,6 @@ namespace Engine {
          * @return 카메라 관리자의 비소유 주소이며, 실행 중이 아니면 nullptr입니다.
          * @note Game·PIE 월드의 BeginPlay에서 만들고 EndPlay에서 해제합니다.
          */
-        UFUNCTION()
         Engine::APlayerCameraManager* GetPlayerCameraManager() const;
 
         /**
@@ -284,7 +279,6 @@ namespace Engine {
          * @param[in] Type 기본 프리미티브 종류입니다.
          * @return 조회한 값의 비소유 주소이며, 해당 값이 없으면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::AStaticMeshActor* SpawnPrimitive(Engine::EPrimitiveType Type);
 
         /**
@@ -322,7 +316,6 @@ namespace Engine {
          * @param[in] Ignored 건너뛸 액터이며 nullptr이면 모두 검사합니다.
          * @return 찾은 결과이며, 맞은 것이 없으면 액터 핸들이 유효하지 않습니다.
          */
-        UFUNCTION()
         Engine::FWorldHit Raycast(const FVector& Origin, const FVector& Direction, const Engine::AActor* Ignored) const;
 
         /**
@@ -330,16 +323,7 @@ namespace Engine {
          * @param[in] Name 아웃라이너에 보이는 액터 이름입니다.
          * @return 찾은 액터의 비소유 주소이며, 없으면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::AActor* FindActor(const Core::FString& Name) const;
-
-        /**
-         * @brief 지정한 클래스의 살아 있는 액터를 모두 찾습니다.
-         * @param[in] ClassName 파생 클래스를 포함해 찾을 리플렉션 클래스 이름입니다.
-         * @return 찾은 액터의 비소유 주소 목록입니다.
-         */
-        UFUNCTION(Internal)
-        Core::TArray<Engine::AActor*> GetActorsByClassName(const Core::FString& ClassName) const;
 
         /**
          * @brief 종속 객체를 역순으로 정리하고 여러 번 호출해도 안전한 종료 상태로 만듭니다.

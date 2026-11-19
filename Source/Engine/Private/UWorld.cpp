@@ -37,7 +37,6 @@
 #include "Engine/PrimitiveMesh.h"
 
 #include "CoreUObject/FObjectRegistry.h"
-#include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "CoreUObject/Reflection/UClass.h"
 
 #include <algorithm>
@@ -382,24 +381,6 @@ namespace Engine {
     }
 
     /**
-     * @brief 지정한 클래스의 살아 있는 액터를 모두 찾습니다.
-     */
-    Core::TArray<Engine::AActor*> Engine::UWorld::GetActorsByClassName(const Core::FString& ClassName) const {
-        const CoreUObject::UClass* Class{CoreUObject::FReflectionRegistry::FindClass(ClassName)};
-        Core::TArray<Engine::AActor*> Actors{};
-
-        if (mPersistentLevel != nullptr && Class != nullptr) {
-            for (const auto& Actor : mPersistentLevel->GetActors()) {
-                if (!Actor->IsPendingDestroy() && Actor->IsA(Class)) {
-                    Actors.push_back(Actor.get());
-                }
-            }
-        }
-
-        return Actors;
-    }
-
-    /**
      * @brief 종속 객체를 역순으로 정리하고 여러 번 호출해도 안전한 종료 상태로 만듭니다.
      */
     void Engine::UWorld::Shutdown() {
@@ -482,7 +463,7 @@ namespace Engine {
         mTimeSeconds = 0.0f;
         mTickCount = 0;
 
-        // 스크립트가 BeginPlay에서 카메라 관리자를 찾을 수 있도록 액터보다 먼저 만듭니다.
+        // 액터의 BeginPlay에서 카메라 관리자를 조회할 수 있도록 먼저 만듭니다.
         if (auto CameraManager{CoreUObject::NewObject<Engine::APlayerCameraManager>()}; CameraManager != nullptr && CameraManager->InitializeDefaultComponents() && mPersistentLevel != nullptr) {
             CameraManager->SetName("PlayerCameraManager");
 
@@ -505,7 +486,7 @@ namespace Engine {
             }
         }
 
-        // 스크립트가 BeginPlay에서 뷰 타깃을 정하지 않았으면 편집기에서 지정한 활성 카메라를 씁니다.
+        // BeginPlay에서 뷰 타깃을 정하지 않았으면 편집기에서 지정한 활성 카메라를 씁니다.
         if (Engine::APlayerCameraManager* CameraManager{GetPlayerCameraManager()}) {
             if (CameraManager->GetViewTarget() == nullptr) {
                 if (const Engine::UCameraComponent* Camera{GetActiveCamera()}) {

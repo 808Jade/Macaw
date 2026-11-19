@@ -34,7 +34,7 @@ try {
     $CompilerOptions = @('/nologo', '/std:c++20', '/EHsc', '/utf-8', '/DNOMINMAX', '/DWIN32_LEAN_AND_MEAN', '/Zc:preprocessor')
     $CompilerOptions += if ($Configuration -eq 'Debug') { @('/MDd', '/D_DEBUG') } else { @('/MD', '/DNDEBUG') }
 
-    foreach ($Module in @('Core', 'CoreUObject', 'Serialization', 'RenderCore', 'Platform', 'Asset', 'Engine', 'Script')) {
+    foreach ($Module in @('Core', 'CoreUObject', 'Serialization', 'RenderCore', 'Platform', 'Asset', 'Engine')) {
         $CompilerOptions += '/I"' + (Join-Path $WorkspaceRoot "Source/$Module/Public") + '"'
         $CompilerOptions += '/I"' + (Join-Path $WorkspaceRoot "Intermediate/$Module/Generated") + '"'
     }
@@ -44,7 +44,7 @@ try {
     $CompilerOptions += '/Fo"' + (Join-Path $BuildDirectory 'RootMotionTests.obj') + '"'
     $CompilerOptions += '/Fe"' + $Executable + '"'
     $CompilerOptions += @('/link', ('/LIBPATH:"' + $BinaryDirectory + '"'), ('/LIBPATH:"' + $DependencyDirectory + '"'))
-    $CompilerOptions += @('Engine.lib', 'Asset.lib', 'RenderCore.lib', 'Platform.lib', 'Script.lib', 'Serialization.lib', 'CoreUObject.lib', 'Core.lib', 'DirectXTex.lib', 'libfbxsdk.lib', 'd3d11.lib', 'dxgi.lib', 'd3dcompiler.lib', 'bcrypt.lib', 'user32.lib', 'gdi32.lib', 'dwmapi.lib', 'imm32.lib', 'ole32.lib', 'windowscodecs.lib', 'comdlg32.lib', 'shell32.lib', 'oleaut32.lib', '/IGNORE:4099')
+    $CompilerOptions += @('Engine.lib', 'Asset.lib', 'RenderCore.lib', 'Platform.lib', 'Serialization.lib', 'CoreUObject.lib', 'Core.lib', 'DirectXTex.lib', 'libfbxsdk.lib', 'd3d11.lib', 'dxgi.lib', 'd3dcompiler.lib', 'bcrypt.lib', 'user32.lib', 'gdi32.lib', 'dwmapi.lib', 'imm32.lib', 'ole32.lib', 'windowscodecs.lib', 'comdlg32.lib', 'shell32.lib', 'oleaut32.lib', '/IGNORE:4099')
     $CompilerOptions += if ($Configuration -eq 'Debug') { 'assimp-vc145-mtd.lib' } else { 'assimp-vc145-mt.lib' }
     Set-Content -LiteralPath $ResponseFile -Value ($CompilerOptions -join ' ') -Encoding utf8
 

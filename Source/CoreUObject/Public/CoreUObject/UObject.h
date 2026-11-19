@@ -98,7 +98,6 @@ namespace CoreUObject {
          * @brief 객체 이름을 반환합니다.
          * @return 소유 객체가 유지하는 값의 참조입니다.
          */
-        UFUNCTION()
         const Core::FString& GetName() const;
 
         /**

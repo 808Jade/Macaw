@@ -96,7 +96,7 @@ namespace Engine {
      * @brief 현재 엔진이 지원하는 프로젝트 설정 파일의 버전을 반환합니다.
      */
     Uint32 Engine::FProject::GetCurrentVersion() {
-        return 2;
+        return 4;
     }
 
     /**
@@ -135,14 +135,6 @@ namespace Engine {
 
             std::filesystem::copy(Layer / "Content", File.parent_path() / "Content", std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing, Code);
 
-            if (!Code && std::filesystem::exists(Layer / "Scripts", Code)) {
-                std::filesystem::create_directories(File.parent_path() / "Scripts", Code);
-
-                if (!Code) {
-                    std::filesystem::copy(Layer / "Scripts", File.parent_path() / "Scripts", std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing, Code);
-                }
-            }
-
             for (const char* Name : {"README.md", ".gitignore"}) {
                 if (!Code && std::filesystem::exists(Layer / Name, Code)) {
                     std::filesystem::copy_file(Layer / Name, File.parent_path() / Name, std::filesystem::copy_options::overwrite_existing, Code);
@@ -150,7 +142,6 @@ namespace Engine {
             }
         }
 
-        // C# 스크립트는 Content 밖의 Scripts 폴더에 두므로 Content에는 스크립트 폴더를 만들지 않습니다.
         for (const char* Folder : {"Maps", "Meshes", "Textures", "Materials"}) {
             if (!Code) {
                 std::filesystem::create_directories(File.parent_path() / "Content" / Folder, Code);
@@ -212,7 +203,7 @@ namespace Engine {
         const Uint32 CurrentVersion{GetCurrentVersion()};
 
         if (Version != CurrentVersion) {
-            Error = "Unsupported project version " + std::to_string(Version) + "; expected " + std::to_string(CurrentVersion);
+            Error = "Unsupported project version " + std::to_string(Version) + ". This engine requires version " + std::to_string(CurrentVersion) + ".";
 
             return false;
         }

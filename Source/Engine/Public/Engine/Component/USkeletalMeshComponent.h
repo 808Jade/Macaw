@@ -219,7 +219,6 @@ namespace Engine {
          * @param Value 표시·비교하거나 적용할 값입니다.
          * @return 지정한 변수를 설정했으면 true입니다.
          */
-        UFUNCTION()
         bool SetAnimGraphFloat(const Core::FString& Name, float Value);
 
         /**
@@ -228,7 +227,6 @@ namespace Engine {
          * @param Value 표시·비교하거나 적용할 값입니다.
          * @return 지정한 변수를 설정했으면 true입니다.
          */
-        UFUNCTION()
         bool SetAnimGraphBool(const Core::FString& Name, bool Value);
 
         /**
@@ -236,7 +234,6 @@ namespace Engine {
          * @param Name 실행 그래프에서 찾을 에셋 플레이어 이름입니다.
          * @return 플레이어를 찾아 다시 시작했으면 true입니다.
          */
-        UFUNCTION()
         bool RestartAnimGraphPlayer(const Core::FString& Name);
 
         /**
@@ -244,7 +241,6 @@ namespace Engine {
          * @param Name 실행 그래프에서 찾을 에셋 플레이어 이름입니다.
          * @return 플레이어가 존재하고 재생을 마쳤으면 true입니다.
          */
-        UFUNCTION()
         bool IsAnimGraphPlayerFinished(const Core::FString& Name) const;
 
         /**
@@ -323,39 +319,21 @@ namespace Engine {
         void SetRootMotionMode(Engine::ERootMotionMode Mode);
 
         /**
-         * @brief 스크립트·리플렉션용 정수 루트 모션 모드를 반환합니다.
-         * @return 현재 ERootMotionMode의 정수 값입니다.
-         */
-        UFUNCTION()
-        Int32 GetRootMotionModeValue() const;
-
-        /**
-         * @brief 정수 모드 값을 검증하여 루트 모션 설정에 반영합니다.
-         * @param Mode 설정할 동작 또는 표시 모드입니다.
-         * @return 유효한 ERootMotionMode 값이면 true입니다.
-         */
-        UFUNCTION()
-        bool SetRootMotionModeValue(Int32 Mode);
-
-        /**
          * @brief 추출한 루트 모션을 액터에 자동 적용하는지 확인합니다.
          * @return 자동 적용을 사용하면 true입니다.
          */
-        UFUNCTION()
         bool IsRootMotionAppliedToActor() const;
 
         /**
          * @brief 소비한 루트 모션을 액터 변환에 자동 적용할지 설정합니다.
          * @param Apply 루트 모션을 액터에 자동 적용할지 여부입니다.
          */
-        UFUNCTION()
         void SetApplyRootMotionToActor(bool Apply);
 
         /**
          * @brief 애니메이션 인스턴스에 누적된 루트 모션을 소비합니다.
          * @return 소비한 증분이며 사용 가능한 인스턴스가 없으면 항등 변환입니다.
          */
-        UFUNCTION()
         FTransform ConsumeRootMotion();
 
         /**

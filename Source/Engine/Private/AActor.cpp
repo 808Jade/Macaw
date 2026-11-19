@@ -12,7 +12,6 @@
 #include "Core/Math/FTransform.h"
 #include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/Reflection/Cast.h"
-#include "CoreUObject/Reflection/FReflectionRegistry.h"
 
 #include <algorithm>
 #include <utility>
@@ -180,37 +179,6 @@ namespace Engine {
      */
     bool Engine::AActor::Destroy() {
         return mWorld != nullptr && mWorld->DestroyActor(CoreUObject::MakeObjectRef(this));
-    }
-
-    /**
-     * @brief 지정한 클래스의 첫 소유 컴포넌트를 찾습니다.
-     */
-    Engine::UActorComponent* Engine::AActor::FindComponentByClassName(const Core::FString& ClassName) const {
-        const CoreUObject::UClass* Class{CoreUObject::FReflectionRegistry::FindClass(ClassName)};
-
-        for (const auto& Component : mComponents) {
-            if (Class != nullptr && Component->IsA(Class)) {
-                return Component.get();
-            }
-        }
-
-        return nullptr;
-    }
-
-    /**
-     * @brief 지정한 클래스의 소유 컴포넌트를 모두 찾습니다.
-     */
-    Core::TArray<Engine::UActorComponent*> Engine::AActor::GetComponentsByClassName(const Core::FString& ClassName) const {
-        const CoreUObject::UClass* Class{CoreUObject::FReflectionRegistry::FindClass(ClassName)};
-        Core::TArray<Engine::UActorComponent*> Components{};
-
-        for (const auto& Component : mComponents) {
-            if (Class != nullptr && Component->IsA(Class)) {
-                Components.push_back(Component.get());
-            }
-        }
-
-        return Components;
     }
 
     /**

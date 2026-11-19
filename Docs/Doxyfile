@@ -28,7 +28,7 @@ SHOW_NAMESPACES = YES
 ENABLE_PREPROCESSING = YES
 MACRO_EXPANSION = YES
 EXPAND_ONLY_PREDEF = YES
-PREDEFINED = _WIN32 _WIN64 WIN32 NOMINMAX __cplusplus=202002L "__declspec(...)= " "__vectorcall= " "WINAPI= " "CALLBACK= " "IMGUI_IMPL_API= " "UCLASS(...)= " "USTRUCT(...)= " "UENUM(...)= " "UMETA(...)= " "UPROPERTY(...)= " "UFUNCTION(...)= " "GENERATED_BODY(...)= " "ImplementReflection(...)= " "ImplementRootReflection(...)= " "ImplementStructReflection(...)= " "ImplementEnumReflection(...)= "
+PREDEFINED = _WIN32 _WIN64 WIN32 NOMINMAX __cplusplus=202002L "__declspec(...)= " "__vectorcall= " "WINAPI= " "CALLBACK= " "IMGUI_IMPL_API= " "UCLASS(...)= " "USTRUCT(...)= " "UENUM(...)= " "UMETA(...)= " "UPROPERTY(...)= " "GENERATED_BODY(...)= " "ImplementReflection(...)= " "ImplementRootReflection(...)= " "ImplementStructReflection(...)= " "ImplementEnumReflection(...)= "
 SKIP_FUNCTION_MACROS = YES
 EXPAND_AS_DEFINED = ReflectEnum
 GENERATE_HTML = YES

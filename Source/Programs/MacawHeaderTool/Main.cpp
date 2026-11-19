@@ -16,15 +16,15 @@
  */
 namespace {
 
-    // 헤더 툴 자신과 C# 소스는 엔진 헤더가 아닙니다.
+    // 헤더 툴 자신은 엔진 헤더 생성 대상에서 제외합니다.
 
     /**
-     * @brief 헤더 툴·관리 코드를 제외한 검사 대상 경로인지 판정합니다.
+     * @brief 헤더 툴를 제외한 검사 대상 경로인지 판정합니다.
      * @param[in] Path 작업에 사용할 파일 또는 프로젝트 상대 에셋 경로입니다.
-     * @return 헤더 툴·관리 코드 경로가 아닌 검사 대상이면 true입니다.
+     * @return 헤더 툴 경로가 아닌 검사 대상이면 true입니다.
      */
     bool IsScanned(const std::string& Path) {
-        return !Path.starts_with("Source/Programs/") && !Path.starts_with("Source/Managed/");
+        return !Path.starts_with("Source/Programs/");
     }
 
     /**
@@ -55,7 +55,7 @@ namespace {
     }
 
     /**
-     * @brief 모든 헤더를 파싱하고 요청 모듈의 리플렉션 코드·바인딩을 생성합니다.
+     * @brief 모든 헤더를 파싱하고 요청 모듈의 리플렉션 코드를 생성합니다.
      * @param[in] Workspace 원본 헤더와 루트 경로를 가진 작업 공간입니다.
      * @param[in] Module 생성할 모듈 이름이며 비어 있으면 전체입니다.
      */
@@ -88,17 +88,13 @@ namespace {
             if (HeaderTool::GetRegistrationModule(Name) == Name) {
                 HeaderTool::WriteModuleReflection(Workspace, Name);
             }
-
-            if (Name == "Script") {
-                HeaderTool::WriteBindings(Workspace);
-            }
         }
     }
 
 }
 
 /**
- * @brief 작업 공간의 리플렉션 코드와 C# 바인딩을 생성하고 오류를 빌드 진단으로 출력합니다.
+ * @brief 작업 공간의 리플렉션 코드를 생성하고 오류를 빌드 진단으로 출력합니다.
  * @param[in] ArgumentCount 실행 파일 이름을 포함한 명령줄 인자 수입니다.
  * @param[in] Arguments 실행 파일·작업 공간·선택적 모듈 이름의 명령줄 배열입니다.
  * @return 생성 성공이면 0, 사용법 오류이면 2, 파싱·파일 오류이면 1입니다.

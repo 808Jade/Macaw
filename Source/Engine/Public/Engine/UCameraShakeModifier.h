@@ -58,7 +58,6 @@ namespace Engine {
          * @param[in] BlendOutTime 끝날 때 세기가 0이 되기까지의 초 단위 시간입니다.
          * @return 셰이크 식별 번호이며 인자가 유효하지 않으면 0입니다.
          */
-        UFUNCTION()
         Int32 StartShake(float Duration, float Frequency, const FVector& LocationAmplitude, const FVector& RotationAmplitude, float FieldOfViewAmplitude, float BlendInTime, float BlendOutTime);
 
         /**
@@ -67,21 +66,18 @@ namespace Engine {
          * @param[in] Immediate true이면 바로 멈추고, false이면 BlendOutTime 동안 줄인 뒤 멈춥니다.
          * @return 재생 중인 셰이크를 찾았으면 true입니다.
          */
-        UFUNCTION()
         bool StopShake(Int32 Id, bool Immediate);
 
         /**
          * @brief 재생 중인 셰이크를 모두 멈춥니다.
          * @param[in] Immediate true이면 바로 멈추고, false이면 각자의 BlendOutTime 동안 줄인 뒤 멈춥니다.
          */
-        UFUNCTION()
         void StopAllShakes(bool Immediate);
 
         /**
          * @brief 재생 중인 셰이크 수를 반환합니다.
          * @return 끝나는 중인 셰이크를 포함한 수입니다.
          */
-        UFUNCTION()
         Int32 GetActiveShakeCount() const;
 
     private:

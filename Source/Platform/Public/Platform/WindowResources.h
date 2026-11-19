@@ -42,11 +42,6 @@
 #define MacawContentFolderIconResource 302
 
 /**
- * @brief 스크립트 콘텐츠 아이콘의 Windows 리소스 ID입니다.
- */
-#define MacawContentScriptIconResource 303
-
-/**
  * @brief 정적 메시 콘텐츠 아이콘의 Windows 리소스 ID입니다.
  */
 #define MacawContentMeshIconResource 304

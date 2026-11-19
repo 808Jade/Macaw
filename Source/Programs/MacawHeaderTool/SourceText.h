@@ -171,26 +171,11 @@ namespace HeaderTool {
     bool IsIdentifierCharacter(char Character);
 
     /**
-     * @brief 단어 경계에 있는 단어를 모두 지웁니다.
-     * @param[in] Text 원본 문자열입니다.
-     * @param[in] Word 지울 단어입니다.
-     * @return 단어를 지운 문자열입니다.
-     */
-    std::string RemoveWord(std::string_view Text, std::string_view Word);
-
-    /**
      * @brief 단어 경계에 있는 단어가 있는지 검사합니다.
      * @param[in] Text 검사할 문자열입니다.
      * @param[in] Word 찾을 단어입니다.
      * @return 있으면 true입니다.
      */
     bool ContainsWord(std::string_view Text, std::string_view Word);
-
-    /**
-     * @brief 꺾쇠와 소괄호 깊이가 0인 쉼표로 나눕니다. 마지막 조각은 공백만 있으면 버립니다.
-     * @param[in] Text 나눌 문자열입니다.
-     * @return 나눈 조각입니다. 공백은 제거하지 않습니다.
-     */
-    std::vector<std::string> SplitTopLevel(std::string_view Text);
 
 }

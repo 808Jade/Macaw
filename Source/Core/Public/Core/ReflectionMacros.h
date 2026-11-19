@@ -57,7 +57,6 @@ namespace CoreUObject {
 
 /**
  * @brief 다음 열거형을 표시합니다. 네임스페이스 범위에 있어야 합니다.
- * @param ... 비우면 리플렉션만, Script는 리플렉션과 C# 열거형, ScriptOnly는 C# 열거형만 만듭니다.
  */
 #define UENUM(...)
 
@@ -73,12 +72,6 @@ namespace CoreUObject {
  * TArray 멤버는 Array를 적지 않아도 배열 프로퍼티가 됩니다.
  */
 #define UPROPERTY(...)
-
-/**
- * @brief 다음 멤버 함수를 C#에 노출합니다.
- * @param ... Internal을 넘기면 C# 쪽 접근 수준이 internal이 됩니다.
- */
-#define UFUNCTION(...)
 
 /**
  * @brief 파일 ID·줄 번호·접미어 토큰을 생성 본문 식별자로 붙입니다.

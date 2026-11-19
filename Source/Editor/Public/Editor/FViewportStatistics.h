@@ -120,17 +120,13 @@ namespace Editor {
              */
             World = 128,
             /**
-             * @brief Lua 실행·코루틴 통계 그룹입니다.
-             */
-            Script = 256,
-            /**
              * @brief 에셋 로드·임포트·캐시 통계 그룹입니다.
              */
-            Assets = 512,
+            Assets = 256,
             /**
              * @brief 지원하는 모든 통계 그룹의 비트 조합입니다.
              */
-            All = 1023
+            All = 511
         };
 
     public:

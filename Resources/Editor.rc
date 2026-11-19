@@ -7,7 +7,6 @@ MacawBrandResource RCDATA "Resources/Branding/Macaw.png"
 
 MacawContentFileIconResource RCDATA "Resources/UE5ContentIcons/AssetIcons/Default_64x.png"
 MacawContentFolderIconResource RCDATA "Resources/UE5ContentIcons/Folders/Folder_Base_256x.png"
-MacawContentScriptIconResource RCDATA "Resources/UE5ContentIcons/AssetIcons/Class_64x.png"
 MacawContentMeshIconResource RCDATA "Resources/UE5ContentIcons/AssetIcons/StaticMesh_64x.png"
 MacawContentSkeletalMeshIconResource RCDATA "Resources/UE5ContentIcons/AssetIcons/SkeletalMesh_64x.png"
 MacawContentSkeletonIconResource RCDATA "Resources/UE5ContentIcons/AssetIcons/Skeleton_64x.png"

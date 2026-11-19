@@ -116,9 +116,7 @@ namespace HeaderTool {
                 }
 
                 for (const FEnum& Enum : Header->Enums) {
-                    if (Enum.Reflect) {
-                        Entries.push_back({Header.get(), nullptr, &Enum});
-                    }
+                    Entries.push_back({Header.get(), nullptr, &Enum});
                 }
             }
 
@@ -238,7 +236,7 @@ namespace HeaderTool {
             Written.insert(Header->GeneratedName);
 
             std::vector<std::string> Lines{"// MacawHeaderTool이 " + Header->Source.Path + "에서 생성한 파일입니다. 직접 수정하지 마세요.", "#pragma once", "", "#include \"Core/ReflectionMacros.h\""};
-            const bool HasEnums{std::any_of(Header->Enums.begin(), Header->Enums.end(), [](const FEnum& Enum) { return Enum.Reflect; })};
+            const bool HasEnums{!Header->Enums.empty()};
             const bool HasTypes{std::any_of(Header->Types.begin(), Header->Types.end(), [](const FType& Type) { return Type.Kind != ETypeKind::None; })};
 
             if (HasEnums) {
@@ -258,10 +256,6 @@ namespace HeaderTool {
             }
 
             for (const FEnum& Enum : Header->Enums) {
-                if (!Enum.Reflect) {
-                    continue;
-                }
-
                 Lines.push_back("");
                 Lines.push_back("namespace " + Enum.Namespace + " {");
                 Lines.push_back(std::string{"    enum "} + (Enum.Scoped ? "class " : "") + Enum.Name + (Enum.Base.empty() ? "" : " : " + Enum.Base) + ";");
@@ -369,7 +363,7 @@ namespace HeaderTool {
 
             for (const auto& Candidate : Workspace.Headers) {
                 const FHeader& Each{*Candidate};
-                const bool Reflected{std::any_of(Each.Types.begin(), Each.Types.end(), [](const FType& Type) { return Type.Kind != ETypeKind::None; }) || std::any_of(Each.Enums.begin(), Each.Enums.end(), [](const FEnum& Enum) { return Enum.Reflect; })};
+                const bool Reflected{std::any_of(Each.Types.begin(), Each.Types.end(), [](const FType& Type) { return Type.Kind != ETypeKind::None; }) || !Each.Enums.empty()};
 
                 if (Reflected) {
                     Names.insert(GetRegistrationModule(Each.Source.Module));

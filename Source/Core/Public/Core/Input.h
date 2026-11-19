@@ -7,7 +7,6 @@
 #pragma once
 
 #include "Core/Math/FVector2.h"
-#include "Core/ReflectionMacros.h"
 #include "Core/Types.h"
 
 #include <bitset>
@@ -17,7 +16,6 @@ namespace Core {
     /**
      * @brief Win32 가상 키 값과 일치하는 키보드·마우스 버튼 식별자입니다.
      */
-    UENUM(ScriptOnly)
     enum class EKey : Int32 {
         /**
          * @brief 유효한 키가 없는 상태입니다.

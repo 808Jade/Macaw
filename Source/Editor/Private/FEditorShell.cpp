@@ -16,7 +16,6 @@
 #include "Editor/FEditorTab.h"
 #include "Editor/FEditorToolkitHost.h"
 #include "Editor/FImGuiUIScale.h"
-#include "Editor/FScriptBuildService.h"
 #include "Editor/FEditorContext.h"
 #include "Editor/FEditorViewport.h"
 #include "Editor/FPlayInEditorSession.h"
@@ -38,12 +37,11 @@
 
 using namespace Editor;
 
-FEditorShell::FEditorShell(FEditorContext* Context, FEditorViewport* Viewport, FPlayInEditorSession* PlaySession, Platform::FWindowsApplication* Platform, FScriptBuildService& ScriptBuilds, FEditorViewportLayout& ViewportLayout, FEditorTabManager& Tabs, FEditorWorkspace& Workspace, FEditorSettings& Settings, FEditorCommands& Commands, FAssetImportController& Imports, FAssetEditorManager& AssetEditors, FEditorDrawerManager& Drawers, FImGuiUIScale& UIScale)
+FEditorShell::FEditorShell(FEditorContext* Context, FEditorViewport* Viewport, FPlayInEditorSession* PlaySession, Platform::FWindowsApplication* Platform, FEditorViewportLayout& ViewportLayout, FEditorTabManager& Tabs, FEditorWorkspace& Workspace, FEditorSettings& Settings, FEditorCommands& Commands, FAssetImportController& Imports, FAssetEditorManager& AssetEditors, FEditorDrawerManager& Drawers, FImGuiUIScale& UIScale)
 	: mContext{Context},
 	  mViewport{Viewport},
 	  mPlaySession{PlaySession},
 	  mPlatform{Platform},
-	  mScriptBuilds{ScriptBuilds},
 	  mViewportLayout{ViewportLayout},
 	  mTabs{Tabs},
 	  mWorkspace{Workspace},
@@ -69,8 +67,6 @@ FEditorShell::FEditorShell(FEditorContext* Context, FEditorViewport* Viewport, F
 	  mPlayButton{"Play", {}, [this]() {
           if (mPlaySession->IsPaused()) {
               mPlaySession->SetPaused(false);
-          } else if (mCommands.IsPlayPending()) {
-              mCommands.CancelPendingPlay();
           } else {
               mCommands.RequestPlay();
           }
@@ -286,23 +282,6 @@ void FEditorShell::DrawMenu() {
                 ImGui::EndMenu();
             }
 
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Tools", mContext->GetProject() != nullptr)) {
-            ImGui::SeparatorText("Programming");
-
-            if (ImGui::MenuItem("Open C# Project")) {
-                mScriptBuilds.OpenProject();
-            }
-
-            if (ImGui::MenuItem("Compile Scripts", nullptr, false, mScriptBuilds.HasProject() && !mScriptBuilds.IsBuilding())) {
-                mScriptBuilds.Rebuild();
-            }
-
-            ImGui::Separator();
-            ImGui::TextDisabled("C# 디버깅: Visual Studio의 프로세스에 연결에서");
-            ImGui::TextDisabled("Macaw.exe를 고르고 코드 형식을 Managed(.NET Core)로 지정합니다.");
             ImGui::EndMenu();
         }
 
@@ -590,23 +569,11 @@ void FEditorShell::DrawStatusBar() {
         mStatusCommand.Draw("StatusCommand", 300.0f * Scale);
 
         const bool Dirty{mContext->IsSceneDirty()};
-        const bool BuildFailed{!mScriptBuilds.IsBuilding() && mScriptBuilds.HasCompileErrors()};
-        const char* Build{mScriptBuilds.IsBuilding() ? "C# 빌드 중..." : BuildFailed ? "C# 컴파일 오류: 출력 로그를 확인하세요" : ""};
         const char* Saved{Dirty ? "1 Unsaved" : "All Saved"};
-        const float RightWidth{ImGui::CalcTextSize(Saved).x + (Build[0] != '\0' ? ImGui::CalcTextSize(Build).x + 16.0f * Scale : 0.0f)};
+        const float RightWidth{ImGui::CalcTextSize(Saved).x};
 
         ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowWidth() - RightWidth - ImGui::GetStyle().WindowPadding.x - 4.0f * Scale));
         ImGui::AlignTextToFramePadding();
-
-        if (Build[0] != '\0') {
-            if (BuildFailed) {
-                ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "%s", Build);
-            } else {
-                ImGui::TextDisabled("%s", Build);
-            }
-
-            ImGui::SameLine(0.0f, 16.0f * Scale);
-        }
 
         if (Dirty) {
             ImGui::TextColored({1.0f, 0.72f, 0.0f, 1.0f}, "%s", Saved);
@@ -645,10 +612,9 @@ void FEditorShell::DrawPlayControls() {
     if (Active && !Paused) {
         mPauseButton.Draw(0.0f);
     } else {
-        const char* PlayTooltip{Paused ? "PIE 재개" : mCommands.IsPlayPending() ? "C# 빌드를 기다리는 중 (클릭하면 취소)" : CanStart ? "PIE 실행 (Alt+P)" : "PIE를 실행하려면 활성 월드 카메라가 있고 에디터가 다른 작업 중이 아니어야 합니다"};
+        const char* PlayTooltip{Paused ? "PIE 재개" : CanStart ? "PIE 실행 (Alt+P)" : "PIE를 실행하려면 활성 월드 카메라가 있고 에디터가 다른 작업 중이 아니어야 합니다"};
 
-        mPlayButton.SetSelected(mCommands.IsPlayPending());
-        mPlayButton.SetEnabled(Paused || CanStart || mCommands.IsPlayPending());
+        mPlayButton.SetEnabled(Paused || CanStart);
         mPlayButton.SetToolTip(PlayTooltip);
         mPlayButton.Draw(0.0f);
     }
@@ -690,7 +656,7 @@ void FEditorShell::DrawPlayOptions() {
     FPlayInEditorSession::FOptions Options{mPlaySession->GetOptions()};
     bool Changed{};
 
-    ImGui::BeginDisabled(mPlaySession->IsActive() || mCommands.IsPlayPending());
+    ImGui::BeginDisabled(mPlaySession->IsActive());
     ImGui::SeparatorText("Play Mode");
 
     if (ImGui::MenuItem("Editor Viewport", nullptr, !Options.mNewWindow)) {

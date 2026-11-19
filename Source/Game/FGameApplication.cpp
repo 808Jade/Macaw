@@ -6,26 +6,22 @@
 
 #include "FGameApplication.h"
 #include "GameReflection.h"
-#include "ScriptReflection.h"
 #include "Core/Base/ErrorHandler.h"
 #include "Core/FilePath.h"
 #include "Core/Stats.h"
 #include "Engine/FWorldContext.h"
 #include "Engine/SceneSerializer.h"
 #include "Engine/UWorld.h"
-#include "Script/FScriptInput.h"
-#include "Script/FScriptRuntime.h"
 
 #include <algorithm>
 
 namespace Game {
 
     /**
-     * @brief Game과 Script 모듈의 리플렉션 타입을 등록합니다.
+     * @brief Game 모듈의 리플렉션 타입을 등록합니다.
      */
     Game::FGameApplication::FGameApplication() {
         Game::ReflectionModules::RegisterGameTypes();
-        Script::ReflectionModules::RegisterScriptTypes();
     }
 
     /**
@@ -152,9 +148,6 @@ namespace Game {
             return false;
         }
 
-        // 내보낸 게임은 스크립트를 다시 빌드하지 않으므로 복사본 없이 바로 로드합니다.
-        Script::FScriptRuntime::Get()->BeginSession(mProject.GetRootPath(), false);
-        Script::FScriptInput::SetSource(&mPlatform.GetInput());
 
         if (!mEngine.ReplaceWorld(std::move(Context)) || !mGameClient.SetWorld(mEngine.GetWorldHandle()) || !mEngine.GetWorld()->BeginPlay()) {
             Error = "Cannot start the game world";
@@ -186,8 +179,6 @@ namespace Game {
         mViewport.reset();
         mGameClient.SetWorld({});
         mEngine.Shutdown();
-        Script::FScriptInput::SetSource(nullptr);
-        Script::FScriptRuntime::Get()->EndSession();
         mEngine.SetProject(nullptr);
         mRenderer.Shutdown();
         mPlatform.Shutdown();

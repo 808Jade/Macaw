@@ -17,7 +17,7 @@ namespace Engine {
      * @brief 기본 생성 및 렌더링에 지원하는 프리미티브 메시 종류입니다.
      * @ingroup Engine
      */
-    UENUM(Script)
+    UENUM()
     enum class EPrimitiveType : Uint8 {
         /**
          * @brief 기본 평면 메시입니다.

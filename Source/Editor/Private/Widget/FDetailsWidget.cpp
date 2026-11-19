@@ -33,10 +33,6 @@
 #include "CoreUObject/Reflection/Cast.h"
 #include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "CoreUObject/Reflection/NativeReflection.h"
-#include "Editor/FScriptBuildService.h"
-#include "Script/FScriptField.h"
-#include "Script/FScriptRuntime.h"
-#include "Script/UScriptComponent.h"
 #include "Serialization/JsonArchive.h"
 #include "EditorStyle.h"
 #include "Widget/ObjectRow.h"
@@ -46,7 +42,6 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <charconv>
 #include <format>
 #include <string>
 #include <string_view>
@@ -311,97 +306,6 @@ namespace Editor {
             return Core::FString{"##"} + Label;
         }
 
-        // 숫자 변환은 Macaw.Engine의 ScriptFields와 같은 형식이어야 하므로 로캘과 무관한 charconv를 씁니다.
-
-        /**
-         * @brief 스크립트 프로퍼티의 편집 문자열을 실수로 해석합니다.
-         * @param[in] Text 해석·변환·탐색할 원문 문자열입니다.
-         * @return 문자열에서 해석한 실수입니다.
-         */
-        float ParseScriptFloat(std::string_view Text) {
-            float Value{};
-
-            std::from_chars(Text.data(), Text.data() + Text.size(), Value);
-
-            return Value;
-        }
-
-        /**
-         * @brief 스크립트 프로퍼티 실수를 편집 가능한 문자열로 변환합니다.
-         * @param[in] Value 검사·변환·저장할 값입니다.
-         * @return 편집할 수 있는 실수 문자열입니다.
-         */
-        Core::FString FormatScriptFloat(float Value) {
-            std::array<char, 64> Buffer{};
-            const auto Result{std::to_chars(Buffer.data(), Buffer.data() + Buffer.size(), Value)};
-
-            return Core::FString{Buffer.data(), Result.ptr};
-        }
-
-        /**
-         * @brief 타입 태그에 맞는 위젯으로 C# 필드 값을 표시합니다.
-         * @param[in] Info 필드 정보입니다.
-         * @param[in,out] Value 문자열로 변환된 값입니다.
-         * @param Label 필드 입력 위젯의 ImGui 이름입니다.
-         * @return 값이 바뀌면 true입니다.
-         */
-        bool DrawScriptFieldValue(const Script::FScriptFieldInfo& Info, const char* Label, Core::FString& Value) {
-            if (Info.mType == "Bool") {
-                bool Current{Value == "true"};
-
-                if (ImGui::Checkbox(Label, &Current)) {
-                    Value = Current ? "true" : "false";
-
-                    return true;
-                }
-            } else if (Info.mType == "Int") {
-                int Current{};
-
-                std::from_chars(Value.data(), Value.data() + Value.size(), Current);
-
-                if (ImGui::InputInt(Label, &Current)) {
-                    Value = std::to_string(Current);
-
-                    return true;
-                }
-            } else if (Info.mType == "Float") {
-                float Current{ParseScriptFloat(Value)};
-
-                if (ImGui::DragFloat(Label, &Current, 0.025f)) {
-                    Value = FormatScriptFloat(Current);
-
-                    return true;
-                }
-            } else if (Info.mType == "Vector3") {
-                std::array<float, 3> Current{};
-                std::string_view Rest{Value};
-
-                for (float& Component : Current) {
-                    const std::size_t Space{Rest.find(' ')};
-
-                    Component = ParseScriptFloat(Rest.substr(0, Space));
-                    Rest = Space != std::string_view::npos ? Rest.substr(Space + 1) : std::string_view{};
-                }
-
-                if (ImGui::DragFloat3(Label, Current.data(), 0.025f)) {
-                    Value = FormatScriptFloat(Current[0]) + " " + FormatScriptFloat(Current[1]) + " " + FormatScriptFloat(Current[2]);
-
-                    return true;
-                }
-            } else if (Info.mType == "String") {
-                std::array<char, 512> Buffer{};
-
-                std::copy_n(Value.begin(), std::min(Value.size(), Buffer.size() - 1), Buffer.begin());
-
-                if (ImGui::InputText(Label, Buffer.data(), Buffer.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
-                    Value = Buffer.data();
-
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 
     /**
@@ -427,39 +331,6 @@ namespace Editor {
     void Editor::FDetailsWidget::SetAssetNavigation(std::function<std::filesystem::path()> Selection, std::function<void(const std::filesystem::path&)> Browse) {
         mGetSelectedAsset = std::move(Selection);
         mBrowseAsset = std::move(Browse);
-    }
-
-    /**
-     * @brief C# 프로젝트 생성과 빌드 상태를 제공할 서비스를 연결합니다.
-     */
-    void Editor::FDetailsWidget::SetScriptBuildService(Editor::FScriptBuildService* Builds) {
-        mScriptBuilds = Builds;
-    }
-
-    /**
-     * @brief 스크립트 클래스를 고르는 콤보를 표시합니다.
-     */
-    bool Editor::FDetailsWidget::DrawScriptClassPicker(const char* Label, Core::FString& ClassName) {
-        bool Changed{};
-
-        if (ImGui::BeginCombo(Label, ClassName.empty() ? "None" : ClassName.c_str())) {
-            if (ImGui::Selectable("None", ClassName.empty())) {
-                ClassName.clear();
-
-                Changed = true;
-            }
-
-            for (const Script::FScriptClassInfo& Class : Script::FScriptRuntime::Get()->GetCatalog()) {
-                if (ImGui::Selectable(Class.mName.c_str(), Class.mName == ClassName)) {
-                    ClassName = Class.mName;
-                    Changed = true;
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-
-        return Changed;
     }
 
     void Editor::FDetailsWidget::SetAnimGraphOpener(std::function<void()> Opener) {
@@ -497,132 +368,6 @@ namespace Editor {
                 mAnimGraphOpener();
             }
         }
-    }
-
-    /**
-     * @brief C# 프로젝트 상태와 스크립트의 [Field] 필드를 표시합니다.
-     */
-    void Editor::FDetailsWidget::DrawScriptFields(Script::UScriptComponent* Component) {
-        Editor::FEditorContext* Context{GetEditorContext()};
-        const CoreUObject::TObjectRef<CoreUObject::UObject> Handle{CoreUObject::MakeObjectRef(Component)};
-
-        if (mScriptBuilds != nullptr && !mScriptBuilds->HasProject()) {
-            ImGui::TextWrapped("이 프로젝트에는 C# 프로젝트가 없습니다. Scripts 메뉴의 \"C# 프로젝트 열기\"로 만들 수 있으며, .NET 10 SDK가 필요합니다. 만든 스크립트는 콘텐츠 브라우저의 Scripts 폴더에서 더블클릭해 엽니다.");
-
-            return;
-        }
-
-        const Core::FString& ClassName{Component->GetScriptClass()};
-
-        if (ClassName.empty()) {
-            return;
-        }
-
-        const Script::FScriptClassInfo* Class{Script::FScriptRuntime::Get()->FindClass(ClassName)};
-
-        if (Class == nullptr) {
-            ImGui::TextColored({1.0f, 0.75f, 0.3f, 1.0f}, "빌드된 스크립트에 %s 클래스가 없습니다.", ClassName.c_str());
-        }
-
-        // 그리는 도중 값이 바뀔 수 있으므로 저장된 필드는 복사해서 순회합니다.
-        const Core::TArray<Script::FScriptField> Saved{Component->GetFields()};
-        const auto FindSaved{[&Saved](const Script::FScriptFieldInfo& Info) -> const Script::FScriptField* {
-            const auto Position{std::find_if(Saved.begin(), Saved.end(), [&Info](const Script::FScriptField& Field) {
-                return Field.mName == Info.mName && Field.mType == Info.mType;
-            })};
-
-            return Position != Saved.end() ? &*Position : nullptr;
-        }};
-
-        ImGui::BeginDisabled(!Context->CanEditWorld());
-
-        if (Class != nullptr) {
-            for (const Script::FScriptFieldInfo& Info : Class->mFields) {
-                const Script::FScriptField* Field{FindSaved(Info)};
-
-                if (!MatchesSearch("C# Script", Info.mName, Info.mType) || (mOnlyModified && Field == nullptr)) {
-                    continue;
-                }
-
-                Core::FString Value{Field != nullptr ? Field->mValue : Info.mDefault};
-
-                ImGui::PushID(Info.mName.c_str());
-
-                if (Info.mType == "Actor") {
-                    const CoreUObject::UObject* Target{Field != nullptr ? Field->mObject.Get() : nullptr};
-
-                    if (ImGui::BeginCombo(DrawFieldLabel(Info.mName.c_str()).c_str(), Target != nullptr ? Target->GetName().c_str() : "(없음)")) {
-                        if (ImGui::Selectable("(없음)", Target == nullptr)) {
-                            Context->RemoveScriptField(Handle, Info.mName);
-                        }
-
-                        for (const CoreUObject::TObjectRef<Engine::AActor> ActorHandle : Context->GetActorRefs()) {
-                            const CoreUObject::UObject* Actor{Context->ResolveObject(ActorHandle)};
-
-                            if (Actor != nullptr && ImGui::Selectable(Actor->GetName().c_str(), Actor == Target)) {
-                                Script::FScriptField Selected{Info.mName, Info.mType};
-                                Selected.mObject = ActorHandle;
-
-                                Context->SetScriptField(Handle, Selected);
-                            }
-                        }
-
-                        ImGui::EndCombo();
-                    }
-
-                    ImGui::PopID();
-
-                    continue;
-                }
-
-                const ImGuiStyle& Style{ImGui::GetStyle()};
-                const float ResetWidth{Field != nullptr ? ImGui::GetFrameHeight() + Style.ItemSpacing.x : 0.0f};
-                const Core::FString InputLabel{DrawFieldLabel(Info.mName.c_str(), ResetWidth)};
-
-                if (DrawScriptFieldValue(Info, InputLabel.c_str(), Value)) {
-                    BeginItemSceneEdit();
-
-                    if (Value == Info.mDefault) {
-                        Context->RemoveScriptField(Handle, Info.mName);
-                    } else {
-                        Context->SetScriptField(Handle, {Info.mName, Info.mType, Value});
-                    }
-                }
-
-                if (Field != nullptr) {
-                    ImGui::SameLine();
-
-                    if (DrawResetButton()) {
-                        Context->RemoveScriptField(Handle, Info.mName);
-                    }
-                }
-
-                ImGui::PopID();
-            }
-        }
-
-        // 스크립트에서 이름이나 타입이 바뀐 값은 지우기 전까지 보존합니다.
-        for (const Script::FScriptField& Field : Saved) {
-            const bool Known{Class != nullptr && std::any_of(Class->mFields.begin(), Class->mFields.end(), [&Field](const Script::FScriptFieldInfo& Info) {
-                return Info.mName == Field.mName && Info.mType == Field.mType;
-            })};
-
-            if (Known || !MatchesSearch("C# Script", Field.mName, Field.mType)) {
-                continue;
-            }
-
-            ImGui::PushID(Field.mName.c_str());
-            ImGui::TextColored({1.0f, 0.75f, 0.3f, 1.0f}, "%s (%s) = %s", Field.mName.c_str(), Field.mType.c_str(), Field.mValue.c_str());
-            ImGui::SameLine();
-
-            if (ImGui::SmallButton("지우기")) {
-                Context->RemoveScriptField(Handle, Field.mName);
-            }
-
-            ImGui::PopID();
-        }
-
-        ImGui::EndDisabled();
     }
 
     /**
@@ -1108,10 +853,6 @@ namespace Editor {
 
             if (const auto* Light{CoreUObject::Cast<Engine::ULightComponent>(Object)}; Light != nullptr && !mOnlyModified && MatchesSearch("Rendering", "Shadow Depth Maps") && BeginCategory("Shadow Depth Maps", false)) {
                 DrawShadowMaps(Light);
-            }
-
-            if (auto* ScriptComponent{CoreUObject::Cast<Script::UScriptComponent>(Object)}; ScriptComponent != nullptr && BeginCategory("C# Script")) {
-                DrawScriptFields(ScriptComponent);
             }
         }
     }
@@ -1620,10 +1361,6 @@ namespace Editor {
             }
         } else if (auto* String{std::get_if<Core::FString>(&Value)}) {
             const std::string_view Name{Property->GetName()};
-
-            if (Name == "ScriptClass") {
-                return DrawScriptClassPicker(Label, *String);
-            }
 
             if (Name == "SkeletalMesh") {
                 return DrawAssetPicker(Label, *String, Asset::EAssetType::SkeletalMesh, "None");

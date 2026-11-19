@@ -37,7 +37,6 @@ namespace Engine {
          * @brief 컴포넌트의 위치·회전·스케일을 반환합니다.
          * @return 소유 객체가 유지하는 값의 참조입니다.
          */
-        UFUNCTION()
         const FTransform& GetTransform() const;
 
         /**
@@ -45,7 +44,6 @@ namespace Engine {
          * @param[in] Transform 적용할 위치, 회전과 스케일입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
          */
-        UFUNCTION()
         virtual bool SetTransform(const FTransform& Transform);
 
         /**

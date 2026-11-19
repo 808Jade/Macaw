@@ -61,11 +61,6 @@ namespace Editor {
             std::unique_ptr<Asset::UTexture2D> mPreview{};
 
             /**
-             * @brief 템플릿 사용에 스크립트 프로젝트가 필요한지 여부입니다.
-             */
-            bool mRequiresScripts{};
-
-            /**
              * @brief 미리보기 텍스처 로드를 이미 시도했는지 여부입니다.
              */
             bool mPreviewAttempted{};
@@ -149,12 +144,6 @@ namespace Editor {
          * @return 선택 템플릿 설명입니다.
          */
         const Core::FString& GetSelectedDescription() const;
-
-        /**
-         * @brief 선택한 템플릿에 스크립트 빌드가 필요한지 검사합니다.
-         * @return 스크립트가 필요한 템플릿이면 true입니다.
-         */
-        bool SelectedRequiresScripts() const;
 
         /**
          * @brief 캐시한 템플릿 미리 보기 리소스를 해제합니다.

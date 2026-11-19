@@ -39,7 +39,6 @@ namespace Engine {
          * @brief 컴포넌트를 소유한 액터를 반환합니다.
          * @return 조회한 값의 비소유 주소이며, 해당 값이 없으면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::AActor* GetOwner() const;
 
         /**

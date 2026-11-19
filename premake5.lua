@@ -112,7 +112,7 @@ Configure("MacawHeaderTool", "ConsoleApp")
 @var ModuleNames
 @brief 정적 라이브러리와 리플렉션 코드를 생성할 모듈 목록입니다.
 ]]
-local ModuleNames = { "Core", "CoreUObject", "Serialization", "Asset", "RenderCore", "Engine", "Script", "Renderer", "Platform", "Viewer", "Editor" }
+local ModuleNames = { "Core", "CoreUObject", "Serialization", "Asset", "RenderCore", "Engine", "Renderer", "Platform", "Viewer", "Editor" }
 
 for _, Name in ipairs(ModuleNames) do
     Configure(Name, "StaticLib")
@@ -138,18 +138,6 @@ for _, Name in ipairs(ModuleNames) do
     end
 end
 
-project "Script"
-    files { GetGeneratedDirectory("Script") .. "/ScriptBindings.cpp" }
-
--- C# 엔진 API는 솔루션의 C# 프로젝트로 빌드합니다. 생성 바인딩을 쓰므로 Script의 프리빌드 뒤에 빌드합니다.
-externalproject "Macaw.Engine"
-    location "Source/Managed/Macaw.Engine"
-    uuid "6D3F4A52-8B1C-4E7A-9F21-3C5B7D9E1A40"
-    kind "SharedLib"
-    language "C#"
-    dependson { "Script" }
-    configmap { ["x64"] = "x64", ["ObjViewerDebug"] = "Debug", ["ObjViewerRelease"] = "Release" }
-
 Configure("Shaders", "Utility")
     files { "Templates/Project/Content/Shaders/**.hlsl", "Templates/Project/Content/Shaders/**.hlsli" }
     vpaths { ["*"] = "Templates/Project/Content/Shaders" }
@@ -158,7 +146,7 @@ Configure("Shaders", "Utility")
     filter {}
 
 --[[!
-@brief 런타임 실행 파일에 엔진·렌더러·스크립트 모듈의 헤더와 링크 의존성을 연결합니다.
+@brief 런타임 실행 파일에 엔진·렌더러 모듈의 헤더와 링크 의존성을 연결합니다.
 @param[in] Name 실행 파일 프로젝트 이름입니다.
 @param[in] Kind Premake 실행 파일 종류입니다.
 @param[in] Directory 실행 파일의 원본 소스 폴더입니다.
@@ -168,11 +156,11 @@ local function ConfigureRuntimeExecutable(Name, Kind, Directory)
     files { Directory .. "/**.h", Directory .. "/**.cpp" }
     includedirs { Directory }
 
-    for _, Module in ipairs({ "Engine", "Renderer", "Platform", "Script" }) do
+    for _, Module in ipairs({ "Engine", "Renderer", "Platform" }) do
         AddIncludes(Module, {})
     end
 
-    links { "Script", "Engine", "Renderer", "Platform", "Asset", "Serialization", "RenderCore", "CoreUObject", "Core", "d3d11", "dxgi", "d3dcompiler", "bcrypt", "user32", "gdi32", "dwmapi", "imm32", "ole32", "windowscodecs", "comdlg32", "shell32" }
+    links { "Engine", "Renderer", "Platform", "Asset", "Serialization", "RenderCore", "CoreUObject", "Core", "d3d11", "dxgi", "d3dcompiler", "bcrypt", "user32", "gdi32", "dwmapi", "imm32", "ole32", "windowscodecs", "comdlg32", "shell32" }
     debugdir "%{wks.location}"
 end
 
@@ -196,10 +184,7 @@ ConfigureRuntimeExecutable("Macaw", "WindowedApp", "Source/App")
     includedirs { GetGeneratedDirectory("App") }
     UseHeaderTool("App")
     links { "Editor", "oleaut32" }
-    dependson { "MacawGame", "Macaw.Engine" }
+    dependson { "MacawGame" }
     files { "Source/App/**.rc", "Resources/Editor.rc", "Macaw.ico" }
     resincludedirs { "." }
     postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageProjectTemplates.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}."' }
-    filter "configurations:not ObjViewer*"
-        postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageManagedRuntime.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}." -Configuration "%{cfg.buildcfg}"' }
-    filter {}

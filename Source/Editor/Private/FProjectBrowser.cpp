@@ -539,13 +539,8 @@ namespace Editor {
         ImGui::TextUnformatted(mTemplatePicker.GetSelectedDescription().c_str());
         ImGui::PopTextWrapPos();
         ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::TextDisabled("INCLUDED");
-        ImGui::TextWrapped("%s", mTemplatePicker.SelectedRequiresScripts() ? "Third-person character, animation, movement, jumping and follow camera." : "A clean scene, a camera and a cube. A small starting point for your own world.");
-        ImGui::Spacing();
-        ImGui::SetCursorPosY(std::max(ImGui::GetCursorPosY(), ImGui::GetWindowHeight() - 140.0f * Scale));
+        ImGui::SetCursorPosY(std::max(ImGui::GetCursorPosY(), ImGui::GetWindowHeight() - 112.0f * Scale));
         ImGui::SeparatorText("Project Defaults");
-        DrawProperty("Gameplay", mTemplatePicker.SelectedRequiresScripts() ? "C# scripts" : "Native scene", Scale);
         DrawProperty("Target Platform", "Windows Desktop", Scale);
         DrawProperty("Renderer", "Direct3D 11", Scale);
         ImGui::EndChild();

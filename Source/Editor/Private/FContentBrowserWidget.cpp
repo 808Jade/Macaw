@@ -1,6 +1,6 @@
 /**
  * @file FContentBrowserWidget.cpp
- * @brief 콘텐츠·스크립트 탐색과 에셋 생성·가져오기·이름 변경·삭제를 제공합니다.
+ * @brief 콘텐츠 탐색과 에셋 생성·가져오기·이름 변경·삭제를 제공합니다.
  * @ingroup Editor
  */
 
@@ -8,7 +8,6 @@
 #include "FEditorWorkspace.h"
 #include "FAssetImportController.h"
 #include "FAssetEditorManager.h"
-#include "Editor/FScriptBuildService.h"
 #include "Editor/FImGuiUIScale.h"
 #include "Editor/FEditorContext.h"
 #include "Editor/FEditorAssetCatalog.h"
@@ -31,7 +30,6 @@
 #include <algorithm>
 #include <format>
 #include <fstream>
-#include <regex>
 #include <span>
 
 using namespace Editor;
@@ -84,7 +82,6 @@ namespace {
     constexpr FContentIcon ContentIcons[]{
         FileIcon,
         {"Folder", "폴더", MacawContentFolderIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(255, 208, 111, 255)},
-        {"C# Script", "C# 스크립트", MacawContentScriptIconResource, Editor::EditorStyle::EIcon::Tools, IM_COL32(216, 179, 255, 255)},
         {"Mesh", "메시", MacawContentMeshIconResource, Editor::EditorStyle::EIcon::Local},
         {"Skeletal Mesh", "스켈레탈 메시", MacawContentSkeletalMeshIconResource, Editor::EditorStyle::EIcon::Skeleton},
         {"Skeleton", "스켈레톤", MacawContentSkeletonIconResource, Editor::EditorStyle::EIcon::Skeleton},
@@ -145,11 +142,10 @@ namespace {
     }
 }
 
-FContentBrowserWidget::FContentBrowserWidget(FEditorContext* Context, Platform::FWindowsApplication* Platform, FScriptBuildService& ScriptBuilds, FEditorAssetCatalog& AssetCatalog, FAssetThumbnailCache& Thumbnails, FImGuiUIScale& UIScale, FEditorWorkspace& Workspace, FAssetImportController& Imports, FAssetEditorManager& AssetEditors)
+FContentBrowserWidget::FContentBrowserWidget(FEditorContext* Context, Platform::FWindowsApplication* Platform, FEditorAssetCatalog& AssetCatalog, FAssetThumbnailCache& Thumbnails, FImGuiUIScale& UIScale, FEditorWorkspace& Workspace, FAssetImportController& Imports, FAssetEditorManager& AssetEditors)
 	: FEditorContextWidget{Context, "ContentBrowser"},
 	  mContext{Context},
 	  mPlatform{Platform},
-	  mScriptBuilds{ScriptBuilds},
 	  mAssetCatalog{&AssetCatalog},
 	  mThumbnails{&Thumbnails},
 	  mUIScale{UIScale},
@@ -289,20 +285,6 @@ void FContentBrowserWidget::DrawContent() {
         ImGui::BeginChild("Content Folders", ImVec2{0.0f, Height});
         DrawContentTree({});
 
-        // C# 스크립트는 Content 밖의 Scripts 폴더에 있으므로 별도 루트로 보여 줍니다.
-        if (mScriptBuilds.HasProject()) {
-            const ImGuiTreeNodeFlags ScriptFlags{ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen | (mBrowsingScripts ? ImGuiTreeNodeFlags_Selected : 0)};
-
-            ImGui::TreeNodeEx("Scripts##ContentScripts", ScriptFlags);
-
-            if (ImGui::IsItemClicked()) {
-                mBrowsingScripts = true;
-                mSelectedContentPath.clear();
-            }
-        } else {
-            mBrowsingScripts = false;
-        }
-
         mRevealContentDirectory = false;
 
         if (ImGui::BeginPopupContextWindow("ContentFolderMenu")) {
@@ -332,18 +314,16 @@ void FContentBrowserWidget::DrawContent() {
         ImGui::EndTable();
     }
 
-    DrawNewScriptPopup();
     DrawContentActionPopup();
 }
 
 std::filesystem::path FContentBrowserWidget::GetContentActionPath(const std::filesystem::path& Path) const {
-    return mBrowsingScripts ? Path : mContext->GetProject()->GetAssets()->GetContentRoot() / Path;
+    return mContext->GetProject()->GetAssets()->GetContentRoot() / Path;
 }
 
 void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
     mContentAction = Action;
     mContentActionTarget = mSelectedContentPath;
-    mContentActionScript = mBrowsingScripts;
     mContentActionError.clear();
     mContentActionReferences.clear();
     mOpenContentAction = true;
@@ -351,21 +331,13 @@ void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
     const std::filesystem::path Absolute{GetContentActionPath(mContentActionTarget)};
     std::error_code Code{};
     const bool Directory{std::filesystem::is_directory(Absolute, Code)};
-    const Core::FString Name{Core::FilePath::ToUtf8(Directory || mContentActionScript ? mContentActionTarget.filename() : mContentActionTarget.stem())};
+    const Core::FString Name{Core::FilePath::ToUtf8(Directory ? mContentActionTarget.filename() : mContentActionTarget.stem())};
 
     mContentActionName.fill('\0');
     std::copy_n(Name.begin(), std::min(Name.size(), mContentActionName.size() - 1), mContentActionName.begin());
 
-    // 에셋은 다른 에셋에 상대 경로 문자열로 저장되고, 스크립트는 씬에 클래스 이름으로 저장됩니다.
-    Core::FString Needle{};
-    std::regex ScriptClass{};
-
-    if (mContentActionScript) {
-        ScriptClass = std::regex{"\"ScriptClass\":\\s*\"([A-Za-z0-9_.]*\\.)?" + Core::FilePath::ToUtf8(mContentActionTarget.stem()) + "\""};
-    } else {
-        Needle = Core::FilePath::ToGenericUtf8(mContentActionTarget) + (Directory ? "/" : "\"");
-        Needle = Directory ? "\"" + Needle : "\"" + Needle;
-    }
+    // 에셋은 다른 에셋에 상대 경로 문자열로 저장됩니다.
+    const Core::FString Needle{'"' + Core::FilePath::ToGenericUtf8(mContentActionTarget) + (Directory ? '/' : '"')};
 
     const std::filesystem::path Root{mContext->GetProject()->GetAssets()->GetContentRoot()};
     std::filesystem::recursive_directory_iterator Iterator{Root, std::filesystem::directory_options::skip_permission_denied, Code};
@@ -375,14 +347,14 @@ void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
         const std::filesystem::path Relative{Iterator->path().lexically_relative(Root)};
         const auto Inside{Relative.lexically_relative(mContentActionTarget)};
 
-        if (!Iterator->is_regular_file(Code) || Core::FilePath::ToLowerExtension(Relative) != L".masset" || (!mContentActionScript && (Relative == mContentActionTarget || (!Inside.empty() && *Inside.begin() != L"..")))) {
+        if (!Iterator->is_regular_file(Code) || Core::FilePath::ToLowerExtension(Relative) != L".masset" || Relative == mContentActionTarget || (!Inside.empty() && *Inside.begin() != L"..")) {
             continue;
         }
 
         std::ifstream Input{Iterator->path(), std::ios::binary};
         const std::string Text{std::istreambuf_iterator<char>{Input}, std::istreambuf_iterator<char>{}};
 
-        if (mContentActionScript ? std::regex_search(Text, ScriptClass) : Text.find(Needle) != std::string::npos) {
+        if (Text.find(Needle) != std::string::npos) {
             mContentActionReferences.push_back(Relative);
         }
     }
@@ -403,7 +375,7 @@ Core::FString FContentBrowserWidget::FindContentActionBlocker(const std::filesys
         return !Resolved.empty() && !Relative.empty() && *Relative.begin() != L"..";
     }};
 
-    if (!mContext->CanEditWorld() || !mContext->CanEditWorld()) {
+    if (!mContext->CanEditWorld()) {
         return "PIE 중에는 바꿀 수 없습니다.";
     }
 
@@ -436,7 +408,7 @@ void FContentBrowserWidget::DrawContentActionPopup() {
     const std::filesystem::path Absolute{GetContentActionPath(mContentActionTarget)};
     std::error_code Code{};
     const bool Directory{std::filesystem::is_directory(Absolute, Code)};
-    const Core::FString Display{mContentActionScript ? Core::FilePath::ToUtf8(mContentActionTarget.filename()) : Core::FilePath::ToGenericUtf8(mContentActionTarget)};
+    const Core::FString Display{Core::FilePath::ToGenericUtf8(mContentActionTarget)};
     bool Confirmed{};
 
     if (mContentAction == EContentAction::Rename) {
@@ -447,17 +419,13 @@ void FContentBrowserWidget::DrawContentActionPopup() {
         }
 
         Confirmed = ImGui::InputText("##ContentRename", mContentActionName.data(), mContentActionName.size(), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
-
-        if (mContentActionScript) {
-            ImGui::TextDisabled("파일 안의 클래스 이름도 함께 바꿉니다.");
-        }
     } else {
         ImGui::Text("%s%s을(를) 휴지통으로 옮길까요?", Display.c_str(), Directory ? " 폴더와 그 안의 모든 파일" : "");
     }
 
     if (!mContentActionReferences.empty()) {
         ImGui::Spacing();
-        ImGui::TextColored({1.0f, 0.75f, 0.3f, 1.0f}, mContentActionScript ? "다음 씬이 이 스크립트 클래스를 씁니다. 연결이 끊어집니다." : "다음 에셋이 이 경로를 참조합니다. 참조가 끊어집니다.");
+        ImGui::TextColored({1.0f, 0.75f, 0.3f, 1.0f}, "다음 에셋이 이 경로를 참조합니다. 참조가 끊어집니다.");
 
         for (Index_t Index{}; Index < std::min<std::size_t>(mContentActionReferences.size(), 6); ++Index) {
             ImGui::BulletText("%s", Core::FilePath::ToGenericUtf8(mContentActionReferences[Index]).c_str());
@@ -505,17 +473,8 @@ bool FContentBrowserWidget::RenameContent() {
         return false;
     }
 
-    // 스크립트는 클래스 이름과 파일 이름이 같아야 하므로 확장자를 떼고 식별자 규칙을 따릅니다.
-    const std::filesystem::path NewFile{mContentActionScript ? std::filesystem::path{Core::FilePath::FromUtf8(NewName.c_str())}.replace_extension(".cs") : Directory ? std::filesystem::path{Core::FilePath::FromUtf8(NewName.c_str())} : std::filesystem::path{Core::FilePath::FromUtf8(NewName.c_str())} += mContentActionTarget.extension()};
+    const std::filesystem::path NewFile{Directory ? std::filesystem::path{Core::FilePath::FromUtf8(NewName.c_str())} : std::filesystem::path{Core::FilePath::FromUtf8(NewName.c_str())} += mContentActionTarget.extension()};
     const std::filesystem::path Destination{Absolute.parent_path() / NewFile};
-    const Core::FString ClassName{Core::FilePath::ToUtf8(NewFile.stem())};
-
-    if (mContentActionScript && !std::regex_match(ClassName, std::regex{"[A-Za-z_][A-Za-z0-9_]*"})) {
-        mContentActionError = "클래스 이름은 영문자나 _로 시작하고 영문자, 숫자, _만 쓸 수 있습니다.";
-
-        return false;
-    }
-
     if (Destination == Absolute) {
         return true;
     }
@@ -535,33 +494,16 @@ bool FContentBrowserWidget::RenameContent() {
         return false;
     }
 
-    if (mContentActionScript) {
-        std::ifstream Input{Destination, std::ios::binary};
-        const std::string Text{std::istreambuf_iterator<char>{Input}, std::istreambuf_iterator<char>{}};
+    // 옛 경로의 캐시 객체는 바뀌지 않으므로 은퇴시켜, 나중에 같은 경로를 다시 쓸 때 새로 로드하게 합니다.
+    mContext->GetProject()->GetParticleSystems()->RetireAssets(Absolute);
+    mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
 
-        Input.close();
+    mAssetEditors.CloseRetired(Absolute);
+    mSelectedContentPath = mContentActionTarget.parent_path() / NewFile;
+    mRefreshContent = true;
 
-        const std::regex Declaration{"\\b(class|struct)(\\s+)" + Core::FilePath::ToUtf8(mContentActionTarget.stem()) + "\\b"};
-        const std::string Renamed{std::regex_replace(Text, Declaration, "$1$2" + ClassName, std::regex_constants::format_first_only)};
-
-        if (Renamed != Text) {
-            std::ofstream{Destination, std::ios::binary} << Renamed;
-        }
-
-        mScriptBuilds.RefreshScriptFiles();
-        mSelectedContentPath = Destination;
-    } else {
-        // 옛 경로의 캐시 객체는 바뀌지 않으므로 은퇴시켜, 나중에 같은 경로를 다시 쓸 때 새로 로드하게 합니다.
-        mContext->GetProject()->GetParticleSystems()->RetireAssets(Absolute);
-        mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
-
-        mAssetEditors.CloseRetired(Absolute);
-        mSelectedContentPath = mContentActionTarget.parent_path() / NewFile;
-        mRefreshContent = true;
-
-        if (mContentDirectory == mContentActionTarget) {
-            mContentDirectory = mSelectedContentPath;
-        }
+    if (mContentDirectory == mContentActionTarget) {
+        mContentDirectory = mSelectedContentPath;
     }
 
     mContext->AddLog("Renamed " + Core::FilePath::ToGenericUtf8(mContentActionTarget) + " to " + Core::FilePath::ToUtf8(NewFile));
@@ -594,16 +536,12 @@ bool FContentBrowserWidget::DeleteContent() {
 
     mSelectedContentPath.clear();
 
-    if (mContentActionScript) {
-        mScriptBuilds.RefreshScriptFiles();
-    } else {
-        // 지운 에셋을 참조하던 객체는 살려 두고, 같은 경로에 다시 임포트하면 새 객체를 로드하게 합니다.
-        mContext->GetProject()->GetParticleSystems()->RetireAssets(Absolute);
-        mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
+    // 지운 에셋을 참조하던 객체는 살려 두고, 같은 경로에 다시 임포트하면 새 객체를 로드하게 합니다.
+    mContext->GetProject()->GetParticleSystems()->RetireAssets(Absolute);
+    mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
 
-        mAssetEditors.CloseRetired(Absolute);
-        mRefreshContent = true;
-    }
+    mAssetEditors.CloseRetired(Absolute);
+    mRefreshContent = true;
 
     mContext->AddLog("Moved " + Core::FilePath::ToGenericUtf8(mContentActionTarget) + " to the Recycle Bin");
 
@@ -613,33 +551,24 @@ bool FContentBrowserWidget::DeleteContent() {
 void FContentBrowserWidget::DrawContentContextMenu() {
     const bool CanEdit{mContext->CanEditWorld()};
 
-    // 스크립트 폴더에는 엔진 에셋을 만들 수 없으므로 에셋 항목을 감춥니다.
-    if (!mBrowsingScripts) {
-        if (ImGui::MenuItem("New Folder", nullptr, false, CanEdit)) {
-            CreateContentFolder();
-        }
-
-        if (ImGui::MenuItem("New Material", nullptr, false, CanEdit)) {
-            CreateMaterial();
-        }
-
-        if (ImGui::MenuItem("New Blend Space 1D", nullptr, false, CanEdit)) {
-            CreateBlendSpace();
-        }
-
-        if (ImGui::MenuItem("New Anim Graph", nullptr, false, CanEdit)) {
-            CreateAnimGraph();
-        }
-
-        if (ImGui::MenuItem("New Particle System", nullptr, false, CanEdit)) {
-            CreateParticleSystem();
-        }
+    if (ImGui::MenuItem("New Folder", nullptr, false, CanEdit)) {
+        CreateContentFolder();
     }
 
-    if (ImGui::MenuItem("New C# Script...")) {
-        mNewScriptName.fill('\0');
-        mNewScriptError.clear();
-        mOpenNewScript = true;
+    if (ImGui::MenuItem("New Material", nullptr, false, CanEdit)) {
+        CreateMaterial();
+    }
+
+    if (ImGui::MenuItem("New Blend Space 1D", nullptr, false, CanEdit)) {
+        CreateBlendSpace();
+    }
+
+    if (ImGui::MenuItem("New Anim Graph", nullptr, false, CanEdit)) {
+        CreateAnimGraph();
+    }
+
+    if (ImGui::MenuItem("New Particle System", nullptr, false, CanEdit)) {
+        CreateParticleSystem();
     }
 
     if (!mSelectedContentPath.empty()) {
@@ -654,12 +583,10 @@ void FContentBrowserWidget::DrawContentContextMenu() {
         }
     }
 
-    if (!mBrowsingScripts) {
-        ImGui::Separator();
+    ImGui::Separator();
 
-        if (ImGui::MenuItem("Import...", nullptr, false, CanEdit)) {
-            mImports.ImportAsset();
-        }
+    if (ImGui::MenuItem("Import...", nullptr, false, CanEdit)) {
+        mImports.ImportAsset();
     }
 
     ImGui::Separator();
@@ -693,14 +620,7 @@ void FContentBrowserWidget::CreateContentFolder() {
 }
 
 void FContentBrowserWidget::ShowContentInExplorer() const {
-    std::filesystem::path Target{};
-
-    if (mBrowsingScripts) {
-        Target = !mSelectedContentPath.empty() ? mSelectedContentPath : mContext->GetProject()->GetRootPath() / "Scripts";
-    } else {
-        Target = mContext->GetProject()->GetAssets()->GetContentRoot() / (!mSelectedContentPath.empty() ? mSelectedContentPath : mContentDirectory);
-    }
-
+    std::filesystem::path Target{mContext->GetProject()->GetAssets()->GetContentRoot() / (!mSelectedContentPath.empty() ? mSelectedContentPath : mContentDirectory)};
     std::error_code Code{};
 
     Target = std::filesystem::weakly_canonical(Target, Code).make_preferred();
@@ -709,48 +629,6 @@ void FContentBrowserWidget::ShowContentInExplorer() const {
     const std::wstring Arguments{std::filesystem::is_directory(Target, Code) ? L"\"" + Target.native() + L"\"" : L"/select,\"" + Target.native() + L"\""};
 
     ShellExecuteW(nullptr, L"open", L"explorer.exe", Arguments.c_str(), nullptr, SW_SHOWNORMAL);
-}
-
-void FContentBrowserWidget::DrawNewScriptPopup() {
-    constexpr const char* PopupName{"New C# Script"};
-
-    if (mOpenNewScript) {
-        ImGui::OpenPopup(PopupName);
-
-        mOpenNewScript = false;
-    }
-
-    if (!ImGui::BeginPopupModal(PopupName, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        return;
-    }
-
-    if (ImGui::IsWindowAppearing()) {
-        ImGui::SetKeyboardFocusHere();
-    }
-
-    const bool Submitted{ImGui::InputTextWithHint("Class Name", "PlayerController", mNewScriptName.data(), mNewScriptName.size(), ImGuiInputTextFlags_EnterReturnsTrue)};
-
-    ImGui::TextDisabled("Scripts/<Class Name>.cs 파일을 만들고 Visual Studio에서 엽니다.");
-
-    if (!mNewScriptError.empty()) {
-        ImGui::TextColored({1.0f, 0.45f, 0.4f, 1.0f}, "%s", mNewScriptError.c_str());
-    }
-
-    if (EditorStyle::Button("Create") || Submitted) {
-        if (mScriptBuilds.CreateScript(mNewScriptName.data(), mNewScriptError)) {
-            mBrowsingScripts = true;
-
-            ImGui::CloseCurrentPopup();
-        }
-    }
-
-    ImGui::SameLine();
-
-    if (EditorStyle::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-        ImGui::CloseCurrentPopup();
-    }
-
-    ImGui::EndPopup();
 }
 
 void FContentBrowserWidget::RefreshContent() {
@@ -799,7 +677,6 @@ void FContentBrowserWidget::RefreshContent() {
 
 void FContentBrowserWidget::NavigateContent(const std::filesystem::path& Directory) {
     if (mContentFolders.contains(Directory)) {
-        mBrowsingScripts = false;
         mContentDirectory = Directory;
         mSelectedContentPath.clear();
         mRevealContentDirectory = true;
@@ -817,7 +694,7 @@ void FContentBrowserWidget::DrawContentTree(const std::filesystem::path& Directo
     const Core::FString Id{Core::FilePath::ToUtf8(Directory)};
     ImGuiTreeNodeFlags Flags{ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth};
 
-    if (Directory == mContentDirectory && !mBrowsingScripts) {
+    if (Directory == mContentDirectory) {
         Flags |= ImGuiTreeNodeFlags_Selected;
     }
 
@@ -860,20 +737,6 @@ void FContentBrowserWidget::DrawContentTree(const std::filesystem::path& Directo
 
 void FContentBrowserWidget::DrawContentBreadcrumbs() {
     ImGui::PushID("Content Path");
-
-    if (mBrowsingScripts) {
-        if (EditorStyle::SmallButton("Content")) {
-            NavigateContent({});
-        }
-
-        ImGui::SameLine();
-        ImGui::TextUnformatted("|");
-        ImGui::SameLine();
-        ImGui::TextUnformatted("Scripts");
-        ImGui::PopID();
-
-        return;
-    }
 
     ImGui::BeginDisabled(mContentDirectory.empty());
 
@@ -925,24 +788,11 @@ void FContentBrowserWidget::DrawContentEntries() {
     Core::TArray<std::filesystem::path> Assets{};
     const auto Folder{mContentFolders.find(mContentDirectory)};
 
-    if (!Recursive && Folder != mContentFolders.end() && !mBrowsingScripts) {
+    if (!Recursive && Folder != mContentFolders.end()) {
         Folders = Folder->second;
     }
 
-    // 스크립트 폴더는 하위 폴더 없이 모든 C# 파일을 한 번에 보여 줍니다.
-    if (mBrowsingScripts) {
-        for (const auto& Path : mScriptBuilds.GetScriptFiles()) {
-            if (Search.PassFilter(Core::FilePath::ToGenericUtf8(Path.filename()).c_str())) {
-                Assets.push_back(Path);
-            }
-        }
-    }
-
     for (const auto& Path : mAssetPaths) {
-        if (mBrowsingScripts) {
-            break;
-        }
-
         const auto Type{mAssetTypes.find(Path)};
         const auto Relative{Path.lexically_relative(mContentDirectory)};
         const bool InFolder{Recursive ? mContentDirectory.empty() || (!Relative.empty() && *Relative.begin() != L"..") : Path.parent_path() == mContentDirectory};
@@ -957,7 +807,7 @@ void FContentBrowserWidget::DrawContentEntries() {
     const int Count{static_cast<int>(Folders.size() + Assets.size())};
 
     if (Count == 0) {
-        ImGui::TextDisabled(mBrowsingScripts ? "No C# scripts match this search." : "No assets match this folder or search.");
+        ImGui::TextDisabled("No assets match this folder or search.");
 
         return;
     }
@@ -1003,8 +853,7 @@ void FContentBrowserWidget::DrawContentEntries() {
                     const auto Type{mAssetTypes.find(Path)};
                     const bool HasThumbnail{!Directory && Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
                     void* Thumbnail{HasThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
-                    const bool ScriptFile{mBrowsingScripts && !Directory};
-                    const char* Kind{ScriptFile ? "C# Script" : Directory                                       ? "Folder" : Type == mAssetTypes.end() ? "File" : Type->second == Asset::EAssetType::Mesh ? "Mesh" : Type->second == Asset::EAssetType::SkeletalMesh ? "Skeletal Mesh" : Type->second == Asset::EAssetType::Skeleton ? "Skeleton" : Type->second == Asset::EAssetType::Shader ? "Shader" : Type->second == Asset::EAssetType::Material ? "Material" : Type->second == Asset::EAssetType::Texture ? "Texture" : Type->second == Asset::EAssetType::Sequence ? "Sequence" : Type->second == Asset::EAssetType::AnimSequence ? "Animation Sequence" : Type->second == Asset::EAssetType::BlendSpace ? "Blend Space" : Type->second == Asset::EAssetType::AnimGraph ? "Anim Graph" : Type->second == Asset::EAssetType::ParticleSystem ? "Particle System" : "Scene"};
+                    const char* Kind{Directory ? "Folder" : Type == mAssetTypes.end() ? "File" : Type->second == Asset::EAssetType::Mesh ? "Mesh" : Type->second == Asset::EAssetType::SkeletalMesh ? "Skeletal Mesh" : Type->second == Asset::EAssetType::Skeleton ? "Skeleton" : Type->second == Asset::EAssetType::Shader ? "Shader" : Type->second == Asset::EAssetType::Material ? "Material" : Type->second == Asset::EAssetType::Texture ? "Texture" : Type->second == Asset::EAssetType::Sequence ? "Sequence" : Type->second == Asset::EAssetType::AnimSequence ? "Animation Sequence" : Type->second == Asset::EAssetType::BlendSpace ? "Blend Space" : Type->second == Asset::EAssetType::AnimGraph ? "Anim Graph" : Type->second == Asset::EAssetType::ParticleSystem ? "Particle System" : "Scene"};
                     const Core::FString Actual{Core::FilePath::ToGenericUtf8(Path)};
                     const Core::FString Name{Core::FilePath::ToUtf8(Directory ? Path.filename() : Path.stem())};
                     const FContentIcon& Icon{GetContentIcon(Kind)};
@@ -1022,8 +871,6 @@ void FContentBrowserWidget::DrawContentEntries() {
                             if (Directory) {
                                 Requested = Path;
                                 Navigate = true;
-                            } else if (ScriptFile) {
-                                mScriptBuilds.OpenScriptFile(Path);
                             } else if (Type != mAssetTypes.end() && mContext->CanEditWorld()) {
                                 mAssetEditors.OpenContentAsset(Path, Type->second);
                             }

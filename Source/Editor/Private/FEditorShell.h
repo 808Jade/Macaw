@@ -23,7 +23,6 @@ namespace Editor {
     class FEditorContext;
     class FEditorViewport;
     class FPlayInEditorSession;
-    class FScriptBuildService;
     class FEditorViewportLayout;
     class FEditorTabManager;
     class FEditorWorkspace;
@@ -49,7 +48,6 @@ namespace Editor {
          * @param[in] Viewport 레벨 편집기 주 뷰포트의 비소유 주소입니다.
          * @param[in] PlaySession PIE 실행과 입력 상태를 제공하는 세션입니다.
          * @param[in] Platform 창·입력·파일 대화상자를 제공하는 플랫폼 애플리케이션입니다.
-         * @param[in] ScriptBuilds 스크립트 생성·빌드와 결과 조회 서비스입니다.
          * @param[in] ViewportLayout 뷰포트 분할과 입력을 관리하는 서비스입니다.
          * @param[in] Tabs 탭 등록과 표시 상태를 관리하는 서비스입니다.
          * @param[in] Workspace 주 탭·레벨 패널의 도킹 배치와 포커스 서비스입니다.
@@ -60,7 +58,7 @@ namespace Editor {
          * @param[in] Drawers 드로어의 열기·닫기·도킹을 관리하는 서비스입니다.
          * @param[in] UIScale DPI·글꼴에 따른 에디터 UI 배율 서비스입니다.
          */
-        FEditorShell(Editor::FEditorContext* Context, Editor::FEditorViewport* Viewport, Editor::FPlayInEditorSession* PlaySession, Platform::FWindowsApplication* Platform, Editor::FScriptBuildService& ScriptBuilds, Editor::FEditorViewportLayout& ViewportLayout, Editor::FEditorTabManager& Tabs, Editor::FEditorWorkspace& Workspace, Editor::FEditorSettings& Settings, Editor::FEditorCommands& Commands, Editor::FAssetImportController& Imports, Editor::FAssetEditorManager& AssetEditors, Editor::FEditorDrawerManager& Drawers, Editor::FImGuiUIScale& UIScale);
+        FEditorShell(Editor::FEditorContext* Context, Editor::FEditorViewport* Viewport, Editor::FPlayInEditorSession* PlaySession, Platform::FWindowsApplication* Platform, Editor::FEditorViewportLayout& ViewportLayout, Editor::FEditorTabManager& Tabs, Editor::FEditorWorkspace& Workspace, Editor::FEditorSettings& Settings, Editor::FEditorCommands& Commands, Editor::FAssetImportController& Imports, Editor::FAssetEditorManager& AssetEditors, Editor::FEditorDrawerManager& Drawers, Editor::FImGuiUIScale& UIScale);
 
         /**
          * @brief 객체를 소멸하고 소유 멤버와 연결 상태를 정리합니다.
@@ -135,11 +133,6 @@ namespace Editor {
          * @brief Win32 창·입력·파일 선택을 제공하는 플랫폼 애플리케이션입니다.
          */
         Platform::FWindowsApplication* mPlatform{};
-
-        /**
-         * @brief 스크립트 생성·빌드·상태 조회를 제공하는 서비스입니다.
-         */
-        Editor::FScriptBuildService& mScriptBuilds;
 
         /**
          * @brief 뷰포트 분할·입력·최대화 배치를 관리하는 서비스입니다.

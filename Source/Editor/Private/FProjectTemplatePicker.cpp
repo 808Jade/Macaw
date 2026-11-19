@@ -97,10 +97,6 @@ namespace Editor {
             Archive.Serialize("Name", Template.mName);
             Archive.Serialize("Description", Template.mDescription);
 
-            if (Archive.HasField("RequiresScripts")) {
-                Archive.Serialize("RequiresScripts", Template.mRequiresScripts);
-            }
-
             if (Archive.HasField("Preview")) {
                 Archive.Serialize("Preview", Preview);
             }
@@ -246,7 +242,6 @@ namespace Editor {
             LoadPreview(Template, Device);
             DrawTemplateImage(Draw, Template.mPreview.get(), {Min.x + 2.0f, Min.y + 2.0f}, {Max.x - 2.0f, Min.y + Width - 2.0f});
             Draw->AddText(ImGui::GetFont(), 15.0f * Scale, {Min.x + 10.0f * Scale, Min.y + Width + 8.0f * Scale}, IM_COL32(242, 243, 246, 255), Template.mName.c_str());
-            Draw->AddText(ImGui::GetFont(), 11.0f * Scale, {Min.x + 10.0f * Scale, Max.y - 16.0f * Scale}, Selected ? IM_COL32(210, 233, 255, 255) : IM_COL32(155, 159, 166, 255), Template.mRequiresScripts ? "C# GAMEPLAY" : "NATIVE SCENE");
             Draw->AddRect(Min, Max, Selected ? IM_COL32(0, 145, 246, 255) : Hovered ? IM_COL32(126, 134, 143, 255) : IM_COL32(60, 60, 63, 255), 2.0f, 0, Selected ? 2.0f : 1.0f);
             ImGui::PopID();
         }
@@ -276,10 +271,6 @@ namespace Editor {
         static const Core::FString Empty{};
 
         return mSelectedIndex < mTemplates.size() ? mTemplates[mSelectedIndex].mDescription : Empty;
-    }
-
-    bool FProjectTemplatePicker::SelectedRequiresScripts() const {
-        return mSelectedIndex < mTemplates.size() && mTemplates[mSelectedIndex].mRequiresScripts;
     }
 
     void FProjectTemplatePicker::ReleasePreviews() {

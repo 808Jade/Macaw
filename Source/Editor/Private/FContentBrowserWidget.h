@@ -1,6 +1,6 @@
 /**
  * @file FContentBrowserWidget.h
- * @brief 콘텐츠·스크립트 탐색과 에셋 생성·가져오기·이름 변경·삭제를 제공합니다.
+ * @brief 콘텐츠 탐색과 에셋 생성·가져오기·이름 변경·삭제를 제공합니다.
  * @ingroup Editor
  */
 
@@ -25,7 +25,6 @@ namespace RenderCore {
 }
 
 namespace Editor {
-    class FScriptBuildService;
     class FEditorAssetCatalog;
     class FAssetThumbnailCache;
     class FImGuiUIScale;
@@ -37,7 +36,7 @@ namespace Editor {
 namespace Editor {
 
     /**
-     * @brief 콘텐츠·스크립트 탐색과 에셋 생성·가져오기·이름 변경·삭제를 제공합니다.
+     * @brief 콘텐츠 탐색과 에셋 생성·가져오기·이름 변경·삭제를 제공합니다.
      */
     class FContentBrowserWidget : public Editor::FEditorContextWidget {
     private:
@@ -61,7 +60,6 @@ namespace Editor {
          * @brief FContentBrowserWidget의 초기 상태와 전달받은 의존성을 구성합니다.
          * @param[in] Context 편집 대상과 공유 서비스를 제공하는 에디터 컨텍스트의 비소유 주소입니다.
          * @param[in] Platform 창·입력·파일 대화상자를 제공하는 플랫폼 애플리케이션입니다.
-         * @param[in] ScriptBuilds 스크립트 생성·빌드와 결과 조회 서비스입니다.
          * @param[in] AssetCatalog 에셋 검색과 메타데이터를 제공하는 카탈로그입니다.
          * @param[in] Thumbnails 에셋 썸네일과 애니메이션 미리 보기 캐시입니다.
          * @param[in] UIScale DPI·글꼴에 따른 에디터 UI 배율 서비스입니다.
@@ -69,7 +67,7 @@ namespace Editor {
          * @param[in] Imports 에셋 가져오기와 파일 드롭 서비스입니다.
          * @param[in] AssetEditors 에셋 편집기 열기와 수명을 관리하는 서비스입니다.
          */
-        FContentBrowserWidget(Editor::FEditorContext* Context, Platform::FWindowsApplication* Platform, Editor::FScriptBuildService& ScriptBuilds, Editor::FEditorAssetCatalog& AssetCatalog, Editor::FAssetThumbnailCache& Thumbnails, Editor::FImGuiUIScale& UIScale, Editor::FEditorWorkspace& Workspace, Editor::FAssetImportController& Imports, Editor::FAssetEditorManager& AssetEditors);
+        FContentBrowserWidget(Editor::FEditorContext* Context, Platform::FWindowsApplication* Platform, Editor::FEditorAssetCatalog& AssetCatalog, Editor::FAssetThumbnailCache& Thumbnails, Editor::FImGuiUIScale& UIScale, Editor::FEditorWorkspace& Workspace, Editor::FAssetImportController& Imports, Editor::FAssetEditorManager& AssetEditors);
 
         /**
          * @brief 객체를 소멸하고 소유 멤버와 연결 상태를 정리합니다.
@@ -201,11 +199,6 @@ namespace Editor {
         void ShowContentInExplorer() const;
 
         /**
-         * @brief 새 스크립트 이름 입력과 생성 결과를 표시합니다.
-         */
-        void DrawNewScriptPopup();
-
-        /**
          * @brief 콘텐츠 디렉터리와 하위 폴더의 탐색 트리를 그립니다.
          * @param[in] Directory 탐색 또는 에셋 생성·가져오기 대상 디렉터리입니다.
          */
@@ -251,11 +244,6 @@ namespace Editor {
          * @brief Win32 창·입력·파일 선택을 제공하는 플랫폼 애플리케이션입니다.
          */
         Platform::FWindowsApplication* mPlatform{};
-
-        /**
-         * @brief 스크립트 생성·빌드·상태 조회를 제공하는 서비스입니다.
-         */
-        Editor::FScriptBuildService& mScriptBuilds;
 
         /**
          * @brief 에셋 검색과 선택에 사용하는 공유 카탈로그입니다.
@@ -328,26 +316,6 @@ namespace Editor {
         bool mRevealContentDirectory{true};
 
         /**
-         * @brief 현재 스크립트 디렉터리를 탐색하는지 나타냅니다.
-         */
-        bool mBrowsingScripts{};
-
-        /**
-         * @brief 새 스크립트 생성 팝업을 열지 나타냅니다.
-         */
-        bool mOpenNewScript{};
-
-        /**
-         * @brief 새 스크립트 이름 입력 버퍼입니다.
-         */
-        std::array<char, 64> mNewScriptName{};
-
-        /**
-         * @brief 새 스크립트 생성 오류입니다.
-         */
-        Core::FString mNewScriptError{};
-
-        /**
          * @brief 대기 중인 콘텐츠 이름 변경 또는 삭제 작업입니다.
          */
         EContentAction mContentAction{};
@@ -356,11 +324,6 @@ namespace Editor {
          * @brief 콘텐츠 작업 확인 팝업을 열지 나타냅니다.
          */
         bool mOpenContentAction{};
-
-        /**
-         * @brief 콘텐츠 작업 대상이 스크립트인지 나타냅니다.
-         */
-        bool mContentActionScript{};
 
         /**
          * @brief 콘텐츠 작업 대상의 파일 시스템 경로입니다.

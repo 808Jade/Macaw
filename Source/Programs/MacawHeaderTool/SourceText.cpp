@@ -323,56 +323,10 @@ namespace HeaderTool {
     }
 
     /**
-     * @brief 단어 경계에 있는 단어를 모두 지웁니다.
-     */
-    std::string RemoveWord(std::string_view Text, std::string_view Word) {
-        std::string Result;
-        std::size_t Position{};
-        std::size_t Found{};
-
-        while ((Found = FindWord(Text, Word, Position)) != std::string_view::npos) {
-            Result.append(Text.substr(Position, Found - Position));
-
-            Position = Found + Word.size();
-        }
-
-        Result.append(Text.substr(Position));
-
-        return Result;
-    }
-
-    /**
      * @brief 단어 경계에 있는 단어가 있는지 검사합니다.
      */
     bool ContainsWord(std::string_view Text, std::string_view Word) {
         return FindWord(Text, Word, 0) != std::string_view::npos;
-    }
-
-    /**
-     * @brief 꺾쇠와 소괄호 깊이가 0인 쉼표로 나눕니다. 마지막 조각은 공백만 있으면 버립니다.
-     */
-    std::vector<std::string> SplitTopLevel(std::string_view Text) {
-        std::vector<std::string> Parts;
-        int Depth{};
-        Index_t First{};
-
-        for (std::size_t Position{}; Position < Text.size(); ++Position) {
-            const char Character{Text[Position]};
-
-            Depth += (Character == '<' || Character == '(') ? 1 : ((Character == '>' || Character == ')') ? -1 : 0);
-
-            if (Character == ',' && Depth == 0) {
-                Parts.emplace_back(Text.substr(First, Position - First));
-
-                First = Position + 1;
-            }
-        }
-
-        if (!Trim(Text.substr(First)).empty()) {
-            Parts.emplace_back(Text.substr(First));
-        }
-
-        return Parts;
     }
 
 }

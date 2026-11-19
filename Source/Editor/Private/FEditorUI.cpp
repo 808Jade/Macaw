@@ -98,10 +98,6 @@ bool FEditorUI::Initialize(RenderCore::IRendererModule* Renderer, Platform::FWin
             return true;
         }
 
-        if (Message == WM_SETFOCUS) {
-            mToolkit->NotifyFocusGained();
-        }
-
         return ImGui_ImplWin32_WndProcHandler(Window, Message, WParam, LParam) != 0;
     });
     Platform->SetCustomTitleBar(true);

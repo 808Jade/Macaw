@@ -86,7 +86,7 @@ UEngine::SynchronizeWorld()가 갱신을 반영하고, 렌더러는 복사된 FP
 \section ApiReflection 리플렉션과 직렬화
 
 `MacawHeaderTool`(`Source/Programs/MacawHeaderTool`)은 헤더의 `UCLASS`, `USTRUCT`, `UENUM`, `UPROPERTY`,
-`UFUNCTION`, `GENERATED_BODY` 표시를 읽어 헤더마다 `<헤더 이름>.generated.h`를, 모듈마다 등록 코드를
+`GENERATED_BODY` 표시를 읽어 헤더마다 `<헤더 이름>.generated.h`를, 모듈마다 등록 코드를
 `Intermediate/<모듈>/Generated/`에 생성합니다. 앱 등록 코드는 `Intermediate/Macaw/Generated/`에 생성합니다.
 리플렉션 타입이 있는 헤더는 첫 리플렉션 타입 앞의 마지막 `#include`로 자기 generated.h를 포함해야 합니다.
 생성은 각 모듈의 prebuild 단계에서 실행하므로 헤더를 고친 뒤 Premake를 다시 실행할 필요가 없습니다.
@@ -235,10 +235,8 @@ Windows 창과 메시지 처리입니다.
 실행 진입점과 애플리케이션 수명입니다.
 \defgroup Game Game
 에디터 없이 프로젝트의 시작 장면을 실행하는 게임 런타임입니다.
-\defgroup Script Script
-CoreCLR 호스팅, C# 스크립트 수명과 네이티브 바인딩입니다.
 \defgroup HeaderTool HeaderTool
-리플렉션 헤더 분석과 C++·C# 바인딩 코드 생성입니다.
+리플렉션 헤더 분석과 등록 코드 생성입니다.
 */
 
 /**
@@ -304,11 +302,6 @@ CoreCLR 호스팅, C# 스크립트 수명과 네이티브 바인딩입니다.
 /**
  * @namespace ax::NodeEditor
  * @brief ImGui 노드 편집기의 컨텍스트와 노드·핀·링크 식별자를 참조합니다.
- */
-
-/**
- * @namespace Script
- * @brief .NET 런타임 호스팅과 C# 스크립트를 액터에 연결하는 컴포넌트를 제공합니다.
  */
 
 /**

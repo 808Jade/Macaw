@@ -1,8 +1,7 @@
 {
   "Id": "ThirdPerson",
   "Name": "Third Person",
-  "Description": "A third-person character with movement, jumping and a follow camera in a simple blockout level.",
-  "RequiresScripts": true,
+  "Description": "A character, camera, and animation assets in a simple blockout level.",
   "Preview": "Preview.png",
   "BaseTemplate": "Project"
 }

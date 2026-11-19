@@ -16,8 +16,6 @@
 #include "Engine/Component/UCameraComponent.h"
 #include "CoreUObject/FObjectDuplicationContext.h"
 #include "CoreUObject/Reflection/Cast.h"
-#include "Script/FScriptInput.h"
-#include "Script/FScriptRuntime.h"
 #include <cmath>
 
 namespace Editor {
@@ -157,15 +155,6 @@ namespace Editor {
                 }
             }
 
-            if (Ready && mEngine->GetProject() != nullptr) {
-                Script::FScriptRuntime* Runtime{Script::FScriptRuntime::Get()};
-                Runtime->SetLogFunction([this](const Core::FString& Message) {
-                    mContext->AddLog("[C#] " + Message);
-                });
-                Runtime->BeginSession(mEngine->GetProject()->GetRootPath());
-                Script::FScriptInput::SetSource(Input);
-            }
-
             Ready = Ready && mEngine->SetCurrentWorld(mPlayWorld) && World->BeginPlay() && World->GetPlayState() == Engine::EWorldPlayState::Playing && World->GetActiveCamera() != nullptr && !mStopRequested;
 
             if (Ready && mOptions.mStartPaused) {
@@ -237,10 +226,6 @@ namespace Editor {
             mEngine->DestroyWorld(mPlayWorld);
         }
 
-        // 월드와 함께 C# 인스턴스가 해제된 뒤에 언로드해야 수집됩니다.
-        Script::FScriptInput::SetSource(nullptr);
-        Script::FScriptRuntime::Get()->EndSession();
-        Script::FScriptRuntime::Get()->SetLogFunction({});
         mPlayWindow.reset();
 
         const Engine::FWorldHandle Restore{mEngine->GetWorld(mPreviousWorld) != nullptr ? mPreviousWorld : mContext->GetWorldHandle()};

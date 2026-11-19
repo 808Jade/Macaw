@@ -67,76 +67,65 @@ namespace Engine {
          * @brief 이 모디파이어를 소유한 카메라 관리자를 반환합니다.
          * @return 카메라 관리자의 비소유 주소이며, 추가되기 전이면 nullptr입니다.
          */
-        UFUNCTION()
         Engine::APlayerCameraManager* GetCameraOwner() const;
 
         /**
          * @brief 적용 순서를 반환합니다.
          * @return 작을수록 먼저 적용되는 값입니다.
          */
-        UFUNCTION()
         Int32 GetPriority() const;
 
         /**
          * @brief 적용 순서를 지정합니다.
          * @param[in] Priority 작을수록 먼저 적용되며 0부터 255까지로 고정합니다.
          */
-        UFUNCTION()
         void SetPriority(Int32 Priority);
 
         /**
          * @brief 켜질 때 Alpha가 1이 되기까지의 시간을 반환합니다.
          * @return 초 단위 시간입니다.
          */
-        UFUNCTION()
         float GetAlphaInTime() const;
 
         /**
          * @brief 켜질 때 Alpha가 1이 되기까지의 시간을 지정합니다.
          * @param[in] Time 초 단위 시간이며 0 이하이면 바로 1이 됩니다.
          */
-        UFUNCTION()
         void SetAlphaInTime(float Time);
 
         /**
          * @brief 끌 때 Alpha가 0이 되기까지의 시간을 반환합니다.
          * @return 초 단위 시간입니다.
          */
-        UFUNCTION()
         float GetAlphaOutTime() const;
 
         /**
          * @brief 끌 때 Alpha가 0이 되기까지의 시간을 지정합니다.
          * @param[in] Time 초 단위 시간이며 0 이하이면 바로 0이 됩니다.
          */
-        UFUNCTION()
         void SetAlphaOutTime(float Time);
 
         /**
          * @brief 현재 효과의 세기를 반환합니다.
          * @return 0부터 1까지의 값입니다.
          */
-        UFUNCTION()
         float GetAlpha() const;
 
         /**
          * @brief 꺼진 상태인지 검사합니다.
          * @return 꺼졌으면 true이며, AlphaOutTime 동안 끄는 중이면 false입니다.
          */
-        UFUNCTION()
         bool IsDisabled() const;
 
         /**
          * @brief 모디파이어를 켜고 Alpha를 AlphaInTime 동안 1로 올립니다.
          */
-        UFUNCTION()
         void EnableModifier();
 
         /**
          * @brief 모디파이어를 끕니다.
          * @param[in] Immediate true이면 바로 끄고, false이면 AlphaOutTime 동안 Alpha를 0으로 내린 뒤 끕니다.
          */
-        UFUNCTION()
         void DisableModifier(bool Immediate);
 
     private:

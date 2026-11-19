@@ -10,7 +10,6 @@
 #include "Core/FilePath.h"
 #include "Engine/FProject.h"
 #include "Engine/Component/UMeshComponent.h"
-#include "Script/UScriptComponent.h"
 #include "Engine/Component/UStaticMeshComponent.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
 #include "Engine/ASkeletalMeshActor.h"
@@ -1116,40 +1115,6 @@ namespace Editor {
             return false;
         }
 
-        NoteSceneEdit();
-
-        return true;
-    }
-
-    /**
-     * @brief C# 스크립트 필드 값을 저장하고 장면을 수정 상태로 표시합니다.
-     */
-    bool Editor::FEditorContext::SetScriptField(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, const Script::FScriptField& Field) {
-        auto* Component{CoreUObject::Cast<Script::UScriptComponent>(ResolveObject(Handle))};
-
-        if (!CanModifyScene() || Component == nullptr) {
-            return false;
-        }
-
-        FSceneEditScope Edit{*this};
-        Component->SetField(Field);
-        NoteSceneEdit();
-
-        return true;
-    }
-
-    /**
-     * @brief 저장된 C# 스크립트 필드를 지우고 장면을 수정 상태로 표시합니다.
-     */
-    bool Editor::FEditorContext::RemoveScriptField(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, const Core::FString& Name) {
-        auto* Component{CoreUObject::Cast<Script::UScriptComponent>(ResolveObject(Handle))};
-
-        if (!CanModifyScene() || Component == nullptr) {
-            return false;
-        }
-
-        FSceneEditScope Edit{*this};
-        Component->RemoveField(Name);
         NoteSceneEdit();
 
         return true;
