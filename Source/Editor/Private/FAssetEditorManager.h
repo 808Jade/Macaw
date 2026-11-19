@@ -58,6 +58,12 @@ namespace Editor {
          * @param[in] Type 편집할 에셋의 종류입니다.
          */
         void OpenContentAsset(const std::filesystem::path& Path, Asset::EAssetType Type);
+
+        /**
+         * @brief Lua 스크립트를 스크립트 IDE 탭에 열고 탭을 표시합니다.
+         * @param[in] Path 프로젝트 에셋 기준으로 해석할 스크립트 경로입니다.
+         * @note 같은 파일을 수정 중이면 다시 읽지 않고 탭만 표시합니다. 다른 파일에 저장하지 않은 변경이 있으면 저장 여부를 먼저 묻고 취소하면 열지 않습니다.
+         */
         void OpenLuaScript(const std::filesystem::path& Path);
 
         /**
@@ -82,6 +88,11 @@ namespace Editor {
          * @return 해당 편집기 영역에 포커스가 있으면 true입니다.
          */
         bool IsFocused() const;
+
+        /**
+         * @brief Lua 스크립트 편집기 탭이 표시 중이며 입력 포커스를 가졌는지 검사합니다.
+         * @return 스크립트 편집기 탭에 포커스가 있으면 true입니다.
+         */
         bool IsScriptEditorFocused() const;
 
         /**
@@ -102,6 +113,12 @@ namespace Editor {
          * @return 조건에 맞는 열린 머티리얼이 있으면 true입니다.
          */
         bool HasOpenMaterial(const std::function<bool(const std::filesystem::path&)>& Predicate) const;
+
+        /**
+         * @brief 스크립트 IDE에 조건에 맞는 저장하지 않은 스크립트가 열려 있는지 검사합니다.
+         * @param[in] Predicate 열린 스크립트의 절대 경로를 판정할 조건입니다.
+         * @return 스크립트 탭이 표시 중이고 변경 내용이 있으며 경로가 조건에 맞으면 true입니다.
+         */
         bool HasUnsavedScript(const std::function<bool(const std::filesystem::path&)>& Predicate) const;
 
         /**
@@ -111,6 +128,11 @@ namespace Editor {
         void SetChangedHandler(std::function<void()> Handler);
 
     private:
+        /**
+         * @brief 스크립트 IDE에 저장하지 않은 변경이 있으면 저장, 버리기 또는 취소를 묻습니다.
+         * @return 변경이 없거나, 저장에 성공했거나, 버리기를 선택했으면 true입니다. 취소했거나 저장에 실패하면 false입니다.
+         * @note 저장에 실패하면 오류를 볼 수 있도록 스크립트 탭을 다시 엽니다.
+         */
         bool ConfirmScriptChange();
 
         /**
@@ -162,8 +184,19 @@ namespace Editor {
          */
         Editor::FEditorTabManager mTabs{};
 
+        /**
+         * @brief Lua 스크립트 하나를 편집하는 IDE 탭 내용입니다.
+         */
         Script::FIDETab mScriptIDE{};
+
+        /**
+         * @brief 스크립트 탭 안에 mScriptIDE를 그리고 Ctrl+S 저장을 처리하는 내용 위젯입니다.
+         */
         Editor::FEditorContentWidget mScriptContent;
+
+        /**
+         * @brief 스크립트 IDE를 표시하는 주 탭이며 닫을 때 저장하지 않은 변경을 확인합니다.
+         */
         Editor::FEditorTab mScriptTab{"Script IDE###ScriptIDE", true, Editor::EEditorTabRole::Major};
 
         /**

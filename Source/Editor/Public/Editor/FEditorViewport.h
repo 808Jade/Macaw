@@ -81,6 +81,8 @@ namespace Editor {
          * @param[in] DeltaTime 이전 갱신 이후의 초 단위 시간입니다.
          * @param[in] AllowInput 뷰포트 입력을 받을지 지정합니다.
          * @param[in] Input 키·마우스 상태를 조회할 공통 입력입니다.
+         * @param[in] SetViewType 툴바의 뷰 타입 메뉴 선택을 적용할 콜백이며 비어 있으면 클라이언트에 직접 설정합니다.
+         * @param[in] DrawLayout 툴바 오른쪽 끝에 뷰포트 배치 컨트롤을 그릴 콜백이며 비어 있으면 생략합니다.
          */
         void DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput = true, const std::function<void(Editor::EEditorViewportType)>& SetViewType = {}, const std::function<void()>& DrawLayout = {});
 

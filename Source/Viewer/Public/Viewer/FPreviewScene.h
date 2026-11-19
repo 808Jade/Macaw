@@ -59,6 +59,13 @@ namespace Viewer {
          * @return 월드를 준비했으면 true이며 장면 생성 실패 시 Error에 원인을 기록합니다.
          */
         bool Initialize(Core::FString& Error);
+
+        /**
+         * @brief 미리 보기 하늘을 켜고 에셋 바로 아래에 에셋 크기에 비례하는 바닥 판을 배치합니다.
+         * @param[in,out] Family 미리 보기 하늘 사용을 기록할 이번 렌더링의 뷰 패밀리입니다.
+         * @param[in] Bounds 바닥 위치와 크기를 정할 에셋의 경계 상자입니다.
+         * @note 바닥은 처음 호출할 때 장면에 추가하고 이후에는 변환이 바뀐 경우에만 갱신합니다. 경계가 유효하지 않으면 바닥을 바꾸지 않습니다.
+         */
         void PrepareEnvironment(Engine::FSceneViewFamily& Family, const FBox& Bounds);
 
         /**
@@ -90,8 +97,19 @@ namespace Viewer {
          */
         Asset::FAssetManager* mAssets{};
 
+        /**
+         * @brief 바닥 판에 사용하는 머티리얼이며 바닥을 장면에 추가하기 전에는 nullptr입니다.
+         */
         std::unique_ptr<Asset::UMaterial> mFloorMaterial{};
+
+        /**
+         * @brief 장면에 등록한 바닥 프리미티브의 식별자입니다.
+         */
         Core::FGuid mFloorId{};
+
+        /**
+         * @brief 마지막으로 적용한 바닥 판의 월드 변환이며 변경 여부 비교에 사용합니다.
+         */
         FMatrix mFloorTransform{};
 
         /**

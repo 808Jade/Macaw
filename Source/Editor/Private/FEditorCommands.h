@@ -78,6 +78,11 @@ namespace Editor {
          * @param[in] SaveAs 새 저장 경로를 선택할지 지정합니다.
          */
         void SaveLevel(bool SaveAs);
+
+        /**
+         * @brief 현재 레벨을 저장하고 프로젝트의 시작 레벨로 지정합니다.
+         * @note 저장된 레벨이 없거나 저장에 실패하면 아무것도 바꾸지 않습니다. 시작 레벨이 바뀌면 프로젝트 썸네일을 다시 촬영합니다.
+         */
         void SetCurrentLevelAsStartup();
 
         /**
@@ -107,6 +112,10 @@ namespace Editor {
          */
         void ChooseProject(bool Create);
 
+        /**
+         * @brief 현재 레벨이 시작 레벨이면 첫 뷰포트의 원근 카메라로 장면을 렌더링해 프로젝트 썸네일 PNG로 저장합니다.
+         * @note 결과는 프로젝트의 Saved/ProjectThumbnail.png에 원자적으로 기록하며 성공 여부를 로그에 남깁니다.
+         */
         void CaptureProjectThumbnail();
 
     private:

@@ -511,6 +511,11 @@ namespace Editor {
          * @return 저장에 성공하면 true입니다.
          */
         bool SaveScene(const std::filesystem::path& Path);
+
+        /**
+         * @brief 장면 저장에 성공할 때마다 호출할 처리기를 지정합니다.
+         * @param[in] Handler 저장 후 호출할 콜백이며 비어 있으면 처리기를 해제합니다.
+         */
         void SetSceneSavedHandler(std::function<void()> Handler);
 
         /**
@@ -568,6 +573,11 @@ namespace Editor {
          */
         bool OpenInSequencer(CoreUObject::TObjectRef<Engine::ALevelSequenceActor> Handle);
 
+        /**
+         * @brief 활성 편집 뷰포트의 카메라를 액터에 맞춰 이동합니다.
+         * @param[in] Handle 초점을 맞출 액터의 핸들입니다.
+         * @return 카메라를 이동했으면 true이며 액터를 찾지 못했거나 활성 뷰포트가 편집 클라이언트를 쓰지 않으면 false입니다.
+         */
         bool FocusActor(CoreUObject::TObjectRef<Engine::AActor> Handle);
 
         /**
@@ -683,6 +693,11 @@ namespace Editor {
          * @param[in] Provider 호출 시점의 활성 뷰포트를 반환합니다.
          */
         void SetViewportProvider(std::function<Editor::FEditorViewport*()> Provider);
+
+        /**
+         * @brief 뷰포트 제공자가 반환하는 현재 활성 뷰포트를 조회합니다.
+         * @return 활성 뷰포트이며 제공자가 없거나 활성 뷰포트가 없으면 nullptr입니다.
+         */
         Editor::FEditorViewport* GetActiveViewport() const;
 
         /**
@@ -932,6 +947,9 @@ namespace Editor {
          */
         std::function<void(const std::filesystem::path&, bool)> mProjectRequestHandler{};
 
+        /**
+         * @brief 장면 저장에 성공한 뒤 호출할 콜백입니다.
+         */
         std::function<void()> mSceneSavedHandler{};
 
         /**

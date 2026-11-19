@@ -165,8 +165,17 @@ namespace Editor {
          */
         void TabIcon(EIcon Icon, ImU32 Color = 0);
 
+        /**
+         * @brief 아이콘 버튼의 선택 상태를 표시하는 방식입니다.
+         */
         enum class EIconSelectionStyle {
+            /**
+             * @brief 버튼 배경을 선택 색상으로 채웁니다.
+             */
             Background,
+            /**
+             * @brief 배경 없이 아이콘을 체크 표시 색상으로 그립니다.
+             */
             Icon
         };
 
@@ -181,23 +190,69 @@ namespace Editor {
          * @return 활성 버튼을 눌렀으면 true이며 비활성 상태에서는 false입니다.
          * @note 팝업 열기와 명령 실행은 호출자가 처리합니다. 문자열은 호출 중 유효해야 합니다.
          * @param[in] MinimumWidth 버튼에 확보할 최소 너비입니다.
+         * @param[in] SelectionStyle Selected가 true일 때 배경과 아이콘 중 어느 쪽으로 선택 상태를 표시할지 지정합니다.
          */
         bool IconButton(const char* Label, EIcon Icon, bool Selected = false, bool Enabled = true, bool Dropdown = false, const char* Tooltip = nullptr, float MinimumWidth = 0.0f, EIconSelectionStyle SelectionStyle = EIconSelectionStyle::Background);
 
+        /**
+         * @brief 분할 아이콘 버튼에서 이번 프레임에 눌린 영역입니다.
+         */
         enum class ESplitIconPress {
+            /**
+             * @brief 어느 영역도 눌리지 않았습니다.
+             */
             None,
+            /**
+             * @brief 아이콘 동작 영역이 눌렸습니다.
+             */
             Action,
+            /**
+             * @brief 메뉴 영역이 눌렸습니다.
+             */
             Menu
         };
 
+        /**
+         * @brief 분할 아이콘 버튼의 메뉴 표시와 동작 상태를 지정합니다.
+         */
         struct FSplitIconButtonOptions {
+            /**
+             * @brief 메뉴 영역에 표시할 현재 값 문자열이며 nullptr이면 더 보기 아이콘을 그립니다.
+             * @note 값 문자열이 있으면 개별 영역 배경 대신 버튼 전체에 마우스 오버 배경을 그립니다.
+             */
             const char* mMenuLabel{};
+            /**
+             * @brief false이면 동작 영역을 비활성으로 표시하며 메뉴 영역은 계속 누를 수 있습니다.
+             */
             bool mActionEnabled{true};
+            /**
+             * @brief true이면 메뉴 영역을 왼쪽, 동작 영역을 오른쪽에 배치합니다.
+             */
             bool mMenuFirst{};
+            /**
+             * @brief true이면 동작 아이콘을 체크 표시 색상으로 그려 켜진 상태를 나타냅니다.
+             */
             bool mActionChecked{};
         };
 
+        /**
+         * @brief 분할 아이콘 버튼이 차지할 전체 너비를 계산합니다.
+         * @param[in] MenuLabel 메뉴 영역에 표시할 값 문자열이며 nullptr이면 더 보기 아이콘 너비를 사용합니다.
+         * @return 동작 영역과 메뉴 영역을 합친 픽셀 너비입니다.
+         * @pre 현재 ImGui 프레임이 유효해야 합니다.
+         */
         float GetSplitIconButtonWidth(const char* MenuLabel = nullptr);
+
+        /**
+         * @brief 아이콘 동작 영역과 메뉴 영역이 붙은 분할 버튼과 영역별 툴팁을 표시합니다.
+         * @param[in] Label 현재 ID 범위에서 버튼을 식별할 문자열입니다.
+         * @param[in] Icon 동작 영역에 표시할 아이콘입니다.
+         * @param[in] ActionTooltip 동작 영역에 마우스를 올렸을 때 보여 줄 설명입니다.
+         * @param[in] MenuTooltip 메뉴 영역에 마우스를 올렸을 때 보여 줄 설명입니다.
+         * @param[in] Options 메뉴 표시 문자열, 배치 순서와 동작 상태입니다.
+         * @return 이번 프레임에 눌린 영역이며 누르지 않았으면 ESplitIconPress::None입니다.
+         * @note 메뉴 팝업 열기와 동작 실행은 호출자가 처리합니다. 문자열은 호출 중 유효해야 합니다.
+         */
         ESplitIconPress SplitIconButton(const char* Label, EIcon Icon, const char* ActionTooltip, const char* MenuTooltip, const FSplitIconButtonOptions& Options = {});
 
         /**
@@ -207,9 +262,19 @@ namespace Editor {
          * @param[in] Dropdown true이면 오른쪽에 드롭다운 삼각형을 그립니다.
          * @param[in] Enabled false이면 비활성 상태로 표시합니다.
          * @param[in] Tooltip 마우스를 올렸을 때 보여 줄 설명이며 없으면 nullptr입니다.
+         * @param[in] HoverOnly true이면 평소에는 배경 없이 그리고 마우스를 올렸을 때만 배경을 채웁니다.
          * @return 버튼을 눌렀으면 true입니다.
          */
         bool LabelButton(const char* Label, const EIcon* Icon = nullptr, bool Dropdown = false, bool Enabled = true, const char* Tooltip = nullptr, bool HoverOnly = false);
+
+        /**
+         * @brief LabelButton이 같은 인수로 차지할 너비를 계산합니다.
+         * @param[in] Label 버튼에 표시할 문자열이며 ## 뒤는 너비 계산에서 제외합니다.
+         * @param[in] Icon 텍스트 앞에 그릴 아이콘이며 없으면 nullptr입니다.
+         * @param[in] Dropdown true이면 드롭다운 삼각형 공간을 포함합니다.
+         * @return 프레임 여백을 포함한 픽셀 너비입니다.
+         * @pre 현재 ImGui 프레임이 유효해야 합니다.
+         */
         float GetLabelButtonWidth(const char* Label, const EIcon* Icon = nullptr, bool Dropdown = false);
 
         /**

@@ -44,6 +44,7 @@ namespace Renderer {
          * @brief 상수 버퍼·샘플러·깊이·래스터라이저 상태를 생성하고 파노라마를 불러옵니다.
          * @param[in] Device GPU 자원을 생성할 Direct3D 11 장치입니다.
          * @param[in] PanoramaPath BC7 DDS 형식의 등장방형 파노라마 경로입니다.
+         * @param[in] PreviewPath 에셋 뷰어 미리 보기에 사용할 BC7 DDS 형식의 등장방형 파노라마 경로입니다.
          * @return 고정 GPU 상태를 생성하면 true입니다.
          * @note 파노라마를 읽지 못하면 경고만 보고하고 true를 반환하며 Render는 아무것도 그리지 않습니다.
          */
@@ -63,6 +64,7 @@ namespace Renderer {
          * @param[in] Context GPU 명령을 기록할 Direct3D 11 컨텍스트입니다.
          * @param[in] Target 불투명 패스와 같은 색상·깊이 타깃입니다.
          * @param[in] View 시선 방향을 복원할 카메라 뷰입니다.
+         * @param[in] Preview true이면 미리 보기 파노라마를 사용하며 불러오지 못했으면 기본 파노라마로 대체합니다.
          * @return 제출한 드로 수이며 파노라마가 없거나 역행렬을 구하지 못하면 0입니다.
          */
         Uint32 Render(ID3D11DeviceContext* Context, const Renderer::FPassTarget& Target, const Engine::FSceneView& View, bool Preview);
@@ -72,6 +74,7 @@ namespace Renderer {
          * @brief BC7 DDS를 CPU 변환 없이 밉 체인 그대로 GPU 텍스처로 생성합니다.
          * @param[in] Device GPU 자원을 생성할 Direct3D 11 장치입니다.
          * @param[in] Path 읽을 DDS 파일 경로입니다.
+         * @param[out] Panorama 생성한 셰이더 리소스 뷰를 기록할 대상입니다.
          * @return 셰이더 리소스 뷰를 생성하면 true입니다.
          */
         bool LoadPanorama(ID3D11Device* Device, const std::filesystem::path& Path, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& Panorama);
@@ -111,6 +114,10 @@ namespace Renderer {
          * @brief 등장방형 파노라마의 셰이더 리소스 뷰이며 불러오지 못하면 비어 있습니다.
          */
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mPanorama{};
+
+        /**
+         * @brief 에셋 뷰어 미리 보기용 등장방형 파노라마의 셰이더 리소스 뷰이며 불러오지 못하면 비어 있습니다.
+         */
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mPreviewPanorama{};
     };
 

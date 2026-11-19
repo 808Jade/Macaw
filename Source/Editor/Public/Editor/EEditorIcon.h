@@ -168,10 +168,30 @@ namespace Editor {
          * @brief 추가 작업 메뉴 아이콘입니다.
          */
         More,
+
+        /**
+         * @brief 오브젝트 스냅 설정을 나타내는 자석 아이콘입니다.
+         */
         Snapping,
+
+        /**
+         * @brief 표면 스냅을 나타내는 경사면 위 아래 화살표 아이콘입니다.
+         */
         SurfaceSnap,
+
+        /**
+         * @brief 뷰포트 성능 및 렌더링 품질 설정을 나타내는 계기판 아이콘입니다.
+         */
         Performance,
+
+        /**
+         * @brief 품질 경고를 나타내는 경고 삼각형 아이콘입니다.
+         */
         Warning,
+
+        /**
+         * @brief 뷰포트 카메라 이동 속도 아이콘입니다.
+         */
         CameraSpeed
     };
 

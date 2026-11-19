@@ -52,6 +52,12 @@ namespace Viewer {
          * @return 콘텐츠 또는 월드가 소유하는 비소유 장면 포인터이며 없으면 nullptr입니다.
          */
         virtual Engine::FSceneInterface* GetScene() const = 0;
+
+        /**
+         * @brief 환경 표시가 켜진 뷰어가 렌더링 직전에 미리 보기 하늘과 바닥을 준비합니다.
+         * @param[in,out] Family 하늘 설정을 기록할 이번 렌더링의 뷰 패밀리입니다.
+         * @note 기본 구현은 아무것도 하지 않습니다.
+         */
         virtual void PrepareEnvironment(Engine::FSceneViewFamily& Family);
 
         /**

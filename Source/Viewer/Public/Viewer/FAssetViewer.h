@@ -47,6 +47,7 @@ namespace Viewer {
          * @brief 렌더러·에셋 서비스를 참조하고 독립 뷰어의 기본 표시 옵션을 구성합니다.
          * @param Renderer 외부에서 소유하는 렌더러 서비스입니다.
          * @param Assets 외부에서 소유하는 에셋 관리자입니다.
+         * @param ShowEnvironment true이면 하늘을 표시하고 렌더링마다 콘텐츠의 미리 보기 환경을 준비합니다.
          */
         FAssetViewer(RenderCore::IRendererModule* Renderer, Asset::FAssetManager* Assets, bool ShowEnvironment = false);
 
@@ -252,6 +253,9 @@ namespace Viewer {
          */
         float mImagePadding{1.0f};
 
+        /**
+         * @brief 렌더링 전에 콘텐츠의 미리 보기 하늘과 바닥을 준비할지 나타냅니다.
+         */
         bool mShowEnvironment{};
     };
 }

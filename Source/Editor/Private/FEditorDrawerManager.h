@@ -162,6 +162,11 @@ namespace Editor {
          * @param[in] DeltaTime 이전 프레임 이후 경과한 시간이며 단위는 초입니다.
          */
         void Draw(float DeltaTime);
+
+        /**
+         * @brief 프레임 끝에 끌어 놓기가 끝났으면 드래그 때문에 접은 콘텐츠 드로어의 복원 예약을 해제합니다.
+         * @note 다른 창의 그리기가 모두 끝난 뒤 프레임마다 호출해야 합니다.
+         */
         void FinishDragFrame();
 
     private:
@@ -228,6 +233,10 @@ namespace Editor {
          * @brief 예약한 드로어 작업이 도킹인지 복원인지 나타냅니다.
          */
         bool mPendingDock{};
+
+        /**
+         * @brief 끌어 놓기를 시작해 열린 콘텐츠 드로어를 접었는지 나타내며 드래그가 끝나면 드로어를 다시 엽니다.
+         */
         bool mContentDrawerCollapsedForDrag{};
     };
 }
