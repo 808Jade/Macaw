@@ -81,6 +81,7 @@ namespace {
      */
     constexpr FContentIcon ContentIcons[]{
         FileIcon,
+        {"Lua Script", "Lua 스크립트", MacawContentLuaIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(164, 197, 255, 255)},
         {"Folder", "폴더", MacawContentFolderIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(255, 208, 111, 255)},
         {"Mesh", "메시", MacawContentMeshIconResource, Editor::EditorStyle::EIcon::Local},
         {"Skeletal Mesh", "스켈레탈 메시", MacawContentSkeletalMeshIconResource, Editor::EditorStyle::EIcon::Skeleton},
@@ -93,6 +94,35 @@ namespace {
         {"Anim Graph", "애니메이션 그래프", MacawContentAnimationSequenceIconResource, Editor::EditorStyle::EIcon::Sequence, IM_COL32(150, 165, 255, 255)},
         {"Particle System", "파티클 시스템", MacawContentFileIconResource, Editor::EditorStyle::EIcon::Sprite, IM_COL32(255, 190, 110, 255)},
         {"Scene", "씬", MacawContentSceneIconResource, Editor::EditorStyle::EIcon::World}};
+
+    const char* GetAssetKind(Asset::EAssetType Type) {
+        switch (Type) {
+        case Asset::EAssetType::Mesh:
+            return "Mesh";
+        case Asset::EAssetType::SkeletalMesh:
+            return "Skeletal Mesh";
+        case Asset::EAssetType::Skeleton:
+            return "Skeleton";
+        case Asset::EAssetType::Shader:
+            return "Shader";
+        case Asset::EAssetType::Material:
+            return "Material";
+        case Asset::EAssetType::Texture:
+            return "Texture";
+        case Asset::EAssetType::Sequence:
+            return "Sequence";
+        case Asset::EAssetType::AnimSequence:
+            return "Animation Sequence";
+        case Asset::EAssetType::BlendSpace:
+            return "Blend Space";
+        case Asset::EAssetType::AnimGraph:
+            return "Anim Graph";
+        case Asset::EAssetType::ParticleSystem:
+            return "Particle System";
+        default:
+            return "Scene";
+        }
+    }
 
     /**
      * @brief 콘텐츠 종류에 대응하는 아이콘 메타데이터를 조회합니다.
@@ -160,6 +190,30 @@ FContentBrowserWidget::~FContentBrowserWidget() = default;
 void FContentBrowserWidget::Tick() {
     if (mRefreshContent) {
         RefreshContent();
+    }
+}
+
+void FContentBrowserWidget::DrawDragPreview() {
+    const ImGuiPayload* Payload{ImGui::GetDragDropPayload()};
+
+    if (Payload == nullptr || Payload->SourceId != mAssetDragSourceId || Payload->IsDelivery()) {
+        return;
+    }
+
+    const auto Path{Core::FilePath::FromUtf8(static_cast<const char*>(Payload->Data))};
+    const auto Type{mAssetTypes.find(Path)};
+    const bool HasThumbnail{Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
+    void* Thumbnail{HasThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
+    const char* Kind{Type != mAssetTypes.end() ? GetAssetKind(Type->second) : Core::FilePath::ToLowerExtension(Path) == L".lua" ? "Lua Script" : "File"};
+    const FContentIcon& Icon{GetContentIcon(Kind)};
+    const auto CachedIcon{mContentIcons.find(Icon.mKind)};
+    ID3D11ShaderResourceView* Resource{CachedIcon != mContentIcons.end() ? CachedIcon->second.Get() : nullptr};
+    const Core::FString Name{Core::FilePath::ToUtf8(Path.stem())};
+
+    if (ImGui::BeginTooltip()) {
+        DrawContentImage(64.0f * mUIScale.GetScale(), Thumbnail, Resource, Icon);
+        ImGui::TextUnformatted(Name.c_str());
+        ImGui::EndTooltip();
     }
 }
 
@@ -571,6 +625,10 @@ void FContentBrowserWidget::DrawContentContextMenu() {
         CreateParticleSystem();
     }
 
+    if (ImGui::MenuItem("New Lua Script", nullptr, false, CanEdit)) {
+        CreateLuaScript();
+    }
+
     if (!mSelectedContentPath.empty()) {
         ImGui::Separator();
 
@@ -851,9 +909,10 @@ void FContentBrowserWidget::DrawContentEntries() {
                     const bool Directory{Index < Folders.size()};
                     const auto& Path{Directory ? Folders[Index] : Assets[Index - Folders.size()]};
                     const auto Type{mAssetTypes.find(Path)};
+                    const bool LuaScript{!Directory && Type == mAssetTypes.end() && Core::FilePath::ToLowerExtension(Path) == L".lua"};
                     const bool HasThumbnail{!Directory && Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
                     void* Thumbnail{HasThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
-                    const char* Kind{Directory ? "Folder" : Type == mAssetTypes.end() ? "File" : Type->second == Asset::EAssetType::Mesh ? "Mesh" : Type->second == Asset::EAssetType::SkeletalMesh ? "Skeletal Mesh" : Type->second == Asset::EAssetType::Skeleton ? "Skeleton" : Type->second == Asset::EAssetType::Shader ? "Shader" : Type->second == Asset::EAssetType::Material ? "Material" : Type->second == Asset::EAssetType::Texture ? "Texture" : Type->second == Asset::EAssetType::Sequence ? "Sequence" : Type->second == Asset::EAssetType::AnimSequence ? "Animation Sequence" : Type->second == Asset::EAssetType::BlendSpace ? "Blend Space" : Type->second == Asset::EAssetType::AnimGraph ? "Anim Graph" : Type->second == Asset::EAssetType::ParticleSystem ? "Particle System" : "Scene"};
+                    const char* Kind{Directory ? "Folder" : Type != mAssetTypes.end() ? GetAssetKind(Type->second) : LuaScript ? "Lua Script" : "File"};
                     const Core::FString Actual{Core::FilePath::ToGenericUtf8(Path)};
                     const Core::FString Name{Core::FilePath::ToUtf8(Directory ? Path.filename() : Path.stem())};
                     const FContentIcon& Icon{GetContentIcon(Kind)};
@@ -898,13 +957,11 @@ void FContentBrowserWidget::DrawContentEntries() {
 
                     const bool Shader{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::Shader};
 
-                    if ((HasThumbnail || AnimSequence || BlendSpace || AnimGraph || Shader) && mContext->CanEditWorld() && ImGui::BeginDragDropSource()) {
-                        const char* Payload{Shader ? Editor::EditorAssetDragDrop::ShaderPayload : AnimSequence ? Editor::EditorAssetDragDrop::AnimSequencePayload : BlendSpace                                                                               ? Editor::EditorAssetDragDrop::BlendSpacePayload : AnimGraph ? Editor::EditorAssetDragDrop::AnimGraphPayload : Type->second == Asset::EAssetType::Mesh || Type->second == Asset::EAssetType::SkeletalMesh ? Editor::EditorAssetDragDrop::MeshPayload : Type->second == Asset::EAssetType::Skeleton ? Editor::EditorAssetDragDrop::SkeletonPayload : Type->second == Asset::EAssetType::Material ? Editor::EditorAssetDragDrop::MaterialPayload : Editor::EditorAssetDragDrop::TexturePayload};
+                    if ((LuaScript || HasThumbnail || AnimSequence || BlendSpace || AnimGraph || Shader) && mContext->CanEditWorld() && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+                        const char* Payload{LuaScript ? Editor::EditorAssetDragDrop::LuaScriptPayload : Shader ? Editor::EditorAssetDragDrop::ShaderPayload : AnimSequence ? Editor::EditorAssetDragDrop::AnimSequencePayload : BlendSpace ? Editor::EditorAssetDragDrop::BlendSpacePayload : AnimGraph ? Editor::EditorAssetDragDrop::AnimGraphPayload : Type->second == Asset::EAssetType::Mesh || Type->second == Asset::EAssetType::SkeletalMesh ? Editor::EditorAssetDragDrop::MeshPayload : Type->second == Asset::EAssetType::Skeleton ? Editor::EditorAssetDragDrop::SkeletonPayload : Type->second == Asset::EAssetType::Material ? Editor::EditorAssetDragDrop::MaterialPayload : Editor::EditorAssetDragDrop::TexturePayload};
 
                         ImGui::SetDragDropPayload(Payload, Actual.c_str(), Actual.size() + 1);
-
-                        DrawContentImage(64.0f * Scale, Thumbnail, Resource, Icon);
-                        ImGui::TextUnformatted(Name.c_str());
+                        mAssetDragSourceId = ImGui::GetDragDropPayload()->SourceId;
                         ImGui::EndDragDropSource();
                     }
 
@@ -1010,6 +1067,35 @@ void FContentBrowserWidget::CreateParticleSystem() {
         mContext->AddLog(Error.empty() ? "Cannot create the particle system" : Error);
 
         return;
+    }
+
+    mRefreshContent = true;
+    mSelectedContentPath = Path;
+}
+
+void FContentBrowserWidget::CreateLuaScript() {
+    auto Template{GetContentActionPath(L"Scripts/template.lua")};
+    std::error_code Code{};
+
+    if (!std::filesystem::is_regular_file(Template, Code)) {
+        std::array<wchar_t, 32768> Executable{};
+        const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
+
+        if (Length > 0 && Length < Executable.size()) {
+            Template = std::filesystem::path{Executable.data()}.parent_path() / L"Templates/Project/Content/Scripts/template.lua";
+        }
+    }
+
+    auto Path{mContentDirectory / L"NewScript.lua"};
+
+    for (Index_t Index{1}; !std::filesystem::copy_file(Template, GetContentActionPath(Path), std::filesystem::copy_options::none, Code); ++Index) {
+        if (Code != std::errc::file_exists) {
+            mContext->AddLog("Could not create Lua script: " + Code.message());
+
+            return;
+        }
+
+        Path = mContentDirectory / (L"NewScript_" + std::to_wstring(Index) + L".lua");
     }
 
     mRefreshContent = true;

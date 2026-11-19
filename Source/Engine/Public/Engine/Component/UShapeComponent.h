@@ -61,6 +61,9 @@ namespace Engine {
          */
         FHitDelegate& GetOnComponentHit();
 
+        bool BlocksMovement() const;
+        void SetBlocksMovement(bool Blocks);
+
         /**
          * @brief 겹침 시작 델리게이트를 호출합니다.
          * @param[in] Other 비교할 상대 값입니다.
@@ -198,6 +201,9 @@ namespace Engine {
          * @brief 컴포넌트 충돌 이벤트입니다.
          */
         FHitDelegate mOnComponentHit{};
+
+        UPROPERTY(Edit, Serialize, Getter = BlocksMovement, Setter = SetBlocksMovement)
+        bool mBlocksMovement{};
     };
 
 }

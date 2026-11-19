@@ -218,6 +218,7 @@ void FLevelEditorToolkit::Draw(float DeltaTime) {
     mImports->DrawImportOptions();
     mAssetEditors->Draw(DeltaTime);
     mDrawers->Draw(DeltaTime);
+    mBrowser->DrawDragPreview();
     mPlaySession->ProcessInput(DeltaTime, !ImGui::GetIO().WantTextInput && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup));
 }
 

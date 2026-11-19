@@ -7,6 +7,7 @@
 #pragma once
 
 #include "CoreUObject/TObjectRef.h"
+#include "CoreUObject/TDelegate.h"
 
 #include "Core/ReflectionMacros.h"
 #include "CoreUObject/UObject.h"
@@ -24,6 +25,8 @@ namespace Engine {
     class ULevel;
     class UActorComponent;
     class USceneComponent;
+    class UPrimitiveComponent;
+    struct FHitResult;
 
     /**
      * @brief 컴포넌트를 소유하고 루트 컴포넌트를 통해 공간 변환을 제공하는 월드 객체입니다.
@@ -32,6 +35,15 @@ namespace Engine {
     UCLASS()
     class AActor : public CoreUObject::UObject {
         GENERATED_BODY()
+
+    public:
+        enum class EComponentCollision {
+            BeginOverlap,
+            EndOverlap,
+            Hit
+        };
+
+        using FComponentCollisionDelegate = CoreUObject::TDelegate<Engine::AActor::EComponentCollision, Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*, const Engine::FHitResult*>;
 
     public:
         /**
@@ -63,6 +75,8 @@ namespace Engine {
          * @return 소유 목록의 읽기 전용 참조입니다.
          */
         const Core::TArray<std::unique_ptr<Engine::UActorComponent>>& GetComponents() const;
+
+        FComponentCollisionDelegate& GetOnComponentCollision();
 
         /**
          * @brief 액터 변환을 제공하는 루트 컴포넌트의 비소유 주소를 반환합니다.
@@ -213,6 +227,8 @@ namespace Engine {
          * @brief 액터가 소유한 컴포넌트 목록입니다.
          */
         Core::TArray<std::unique_ptr<Engine::UActorComponent>> mComponents{};
+
+        FComponentCollisionDelegate mOnComponentCollision{};
 
         /**
          * @brief 액터 변환을 제공하는 루트 컴포넌트의 비소유 주소입니다.

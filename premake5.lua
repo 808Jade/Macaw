@@ -136,6 +136,22 @@ for _, Name in ipairs(ModuleNames) do
     if Name == "Asset" then
         defines { "DIRECTX_TEX_IMPORT" }
     end
+
+    if Name == "Engine" then
+        local Bootstrap = "Source/Engine/Private/Lua/Bootstrap.lua"
+        local BootstrapDirectory = "$(IntDir)Lua"
+        local BootstrapHeader = BootstrapDirectory .. "/LuaBootstrap.generated.h"
+        files { Bootstrap }
+        includedirs { "vcpkg_installed/x64-windows/include/luajit", BootstrapDirectory }
+        defines { "SOL_ALL_SAFETIES_ON=1" }
+
+        filter ("files:" .. Bootstrap)
+            buildmessage "Embedding Lua runtime bootstrap"
+            buildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/EmbedLuaBootstrap.ps1" -SourcePath "%{file.abspath}" -HeaderPath "' .. BootstrapHeader .. '"' }
+            buildinputs { "Scripts/EmbedLuaBootstrap.ps1" }
+            buildoutputs { BootstrapHeader }
+        filter {}
+    end
 end
 
 Configure("Shaders", "Utility")
@@ -160,7 +176,7 @@ local function ConfigureRuntimeExecutable(Name, Kind, Directory)
         AddIncludes(Module, {})
     end
 
-    links { "Engine", "Renderer", "Platform", "Asset", "Serialization", "RenderCore", "CoreUObject", "Core", "d3d11", "dxgi", "d3dcompiler", "bcrypt", "user32", "gdi32", "dwmapi", "imm32", "ole32", "windowscodecs", "comdlg32", "shell32" }
+    links { "Engine", "Renderer", "Platform", "Asset", "Serialization", "RenderCore", "CoreUObject", "Core", "lua51", "d3d11", "dxgi", "d3dcompiler", "bcrypt", "user32", "gdi32", "dwmapi", "imm32", "ole32", "windowscodecs", "comdlg32", "shell32" }
     debugdir "%{wks.location}"
 end
 

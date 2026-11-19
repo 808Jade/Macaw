@@ -79,6 +79,7 @@ namespace Editor {
          * @brief 예약된 콘텐츠 목록 갱신을 처리합니다.
          */
         void Tick();
+        void DrawDragPreview();
 
         /**
          * @brief 현재 탐색 중인 콘텐츠 디렉터리를 반환합니다.
@@ -233,6 +234,7 @@ namespace Editor {
          * @brief 현재 폴더에 새 파티클 시스템 에셋을 만듭니다.
          */
         void CreateParticleSystem();
+        void CreateLuaScript();
 
     private:
         /**
@@ -349,6 +351,7 @@ namespace Editor {
          * @brief 콘텐츠 종류별 아이콘 텍스처 뷰 캐시입니다.
          */
         Core::TMap<std::string_view, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> mContentIcons{};
+        Uint32 mAssetDragSourceId{};
 
         /**
          * @brief 콘텐츠 이름 검색 입력 버퍼입니다.

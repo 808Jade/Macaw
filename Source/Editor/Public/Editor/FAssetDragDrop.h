@@ -54,6 +54,8 @@ namespace Editor {
          * @brief 텍스처 에셋 경로를 전달하는 드래그 페이로드 식별자입니다.
          */
         inline constexpr char TexturePayload[]{"MACAW_TEXTURE_ASSET"};
+
+        inline constexpr char LuaScriptPayload[]{"MACAW_LUA_SCRIPT"};
     }
 
 }

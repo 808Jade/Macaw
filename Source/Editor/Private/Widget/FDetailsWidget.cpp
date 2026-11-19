@@ -11,6 +11,7 @@
 #include "Editor/FAssetDragDrop.h"
 #include "Engine/AActor.h"
 #include "Engine/Component/UActorComponent.h"
+#include "Engine/Component/ULuaScriptComponent.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/Component/UMeshComponent.h"
 #include "Engine/Component/ULightComponent.h"
@@ -53,6 +54,50 @@ namespace Editor {
      * @brief Details 패널에서 사용하는 컴포넌트 표시 이름 변환입니다.
      */
     namespace {
+
+        bool DrawLuaScriptSlot(const Editor::FEditorContext& Context, Core::FString& Path) {
+            const auto& Style{ImGui::GetStyle()};
+            const Core::FString Name{Path.empty() ? "Drop Lua Script" : Core::FilePath::ToUtf8(Core::FilePath::FromUtf8(Path).filename())};
+            ImGui::InvisibleButton("##LuaScript", {std::max(1.0f, ImGui::GetContentRegionAvail().x), ImGui::GetFrameHeight()});
+
+            const ImVec2 Minimum{ImGui::GetItemRectMin()};
+            const ImVec2 Maximum{ImGui::GetItemRectMax()};
+            const ImVec2 TextPosition{Minimum.x + Style.FramePadding.x, Minimum.y + Style.FramePadding.y};
+            const ImVec4 Clip{TextPosition.x, Minimum.y, Maximum.x - Style.FramePadding.x, Maximum.y};
+            ImGui::RenderFrame(Minimum, Maximum, ImGui::GetColorU32(ImGuiCol_FrameBg), true, Style.FrameRounding);
+            ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), TextPosition, ImGui::GetColorU32(Path.empty() ? ImGuiCol_TextDisabled : ImGuiCol_Text), Name.data(), Name.data() + Name.size(), 0.0f, &Clip);
+
+            if (!Path.empty()) {
+                ImGui::SetItemTooltip("%s", Path.c_str());
+            }
+
+            if ((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0 || !ImGui::BeginDragDropTarget()) {
+                return false;
+            }
+
+            bool Changed{};
+
+            if (const ImGuiPayload* Payload{ImGui::AcceptDragDropPayload(Editor::EditorAssetDragDrop::LuaScriptPayload)}; Payload != nullptr && Payload->Data != nullptr && Payload->DataSize > 1 && static_cast<const char*>(Payload->Data)[Payload->DataSize - 1] == '\0') {
+                const Core::FString Candidate{static_cast<const char*>(Payload->Data), static_cast<std::size_t>(Payload->DataSize - 1)};
+                const auto Relative{Core::FilePath::FromUtf8(Candidate)};
+                const auto* Project{Context.GetProject()};
+
+                if (Project != nullptr && Project->GetAssets() != nullptr && !Relative.has_root_path() && Core::FilePath::ToLowerExtension(Relative) == L".lua") {
+                    Core::FString Error{};
+                    const auto Resolved{Project->GetAssets()->ResolvePath(Relative, Error)};
+                    std::error_code Code{};
+
+                    if (!Resolved.empty() && std::filesystem::is_regular_file(Resolved, Code) && Path != Candidate) {
+                        Path = Candidate;
+                        Changed = true;
+                    }
+                }
+            }
+
+            ImGui::EndDragDropTarget();
+
+            return Changed;
+        }
 
         /**
          * @brief 내부 식별자를 사람이 읽기 쉬운 표시 이름으로 변환합니다.
@@ -111,6 +156,10 @@ namespace Editor {
             }
 
             const std::string_view ClassName{Owner->GetName()};
+
+            if (Owner == Engine::ULuaScriptComponent::StaticClass()) {
+                return "Script";
+            }
 
             if (ClassName == "UCameraComponent") {
                 return "Camera";
@@ -738,6 +787,7 @@ namespace Editor {
         }
 
         const bool SkeletalMesh{CommonClass->IsChildOf(Engine::USkeletalMeshComponent::StaticClass())};
+        const bool LuaScript{CommonClass == Engine::ULuaScriptComponent::StaticClass()};
         const auto IsGraphMode{[Context](CoreUObject::TObjectRef<CoreUObject::UObject> Target) {
             const auto* Component{CoreUObject::Cast<Engine::USkeletalMeshComponent>(Context->ResolveObject(Target))};
 
@@ -762,12 +812,16 @@ namespace Editor {
                     continue;
                 }
 
+                if (LuaScript && Name == "EditorTickable") {
+                    continue;
+                }
+
                 if (SkeletalMesh && !AllAssetMode && (Name == "Animation" || Name == "Looping" || Name == "PlayRate")) {
                     continue;
                 }
 
                 const std::string_view Category{DetailCategory(*Class, Name)};
-                const Core::FString Label{Name == "AnimClass" ? "Animation Mode" : PropertyLabel(Property)};
+                const Core::FString Label{Name == "AnimClass" ? "Animation Mode" : LuaScript && Name == "ScriptPath" ? "Script" : PropertyLabel(Property)};
 
                 if (Name == "Transform" ? TransformMatches : MatchesSearch(Category, Label, Name)) {
                     Rows.push_back({Property, Targets, Category, Label, IsAdvancedProperty(Name)});
@@ -781,7 +835,7 @@ namespace Editor {
             });
         }
 
-        constexpr std::array Categories{"Transform", "Animation", "Mesh", "Materials", "Light", "Camera", "Fog", "Shape", "Movement", "Rendering", "General", "Settings", "Component Tick"};
+        constexpr std::array Categories{"Script", "Transform", "Animation", "Mesh", "Materials", "Light", "Camera", "Fog", "Shape", "Movement", "Rendering", "General", "Settings", "Component Tick"};
         const bool Searching{mPropertySearch.front() != '\0'};
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, {5.0f, 2.0f});
@@ -1040,6 +1094,7 @@ namespace Editor {
             return;
         }
 
+        const bool LuaScript{Row.mProperty->GetName() == "ScriptPath" && Row.mProperty == Engine::ULuaScriptComponent::StaticClass()->FindClassProperty("ScriptPath")};
         CoreUObject::FPropertyValue Value{Row.mProperty->ReadValue(Object)};
         Core::TArray<std::pair<CoreUObject::TObjectRef<CoreUObject::UObject>, CoreUObject::FPropertyValue>> Defaults{};
         bool Mixed{};
@@ -1079,14 +1134,16 @@ namespace Editor {
                 ImGui::SetClipboardText(Copy.ToString().c_str());
             }
 
-            const char* Clipboard{ImGui::GetClipboardText()};
-            auto PastedValue{Value};
-            Serialization::FJsonArchive Paste{Core::EArchiveMode::Loading};
-            const bool CanPaste{Editable && Clipboard != nullptr && Paste.Parse(Clipboard) && ArchiveDetailValue(Paste, PastedValue)};
+            if (!LuaScript) {
+                const char* Clipboard{ImGui::GetClipboardText()};
+                auto PastedValue{Value};
+                Serialization::FJsonArchive Paste{Core::EArchiveMode::Loading};
+                const bool CanPaste{Editable && Clipboard != nullptr && Paste.Parse(Clipboard) && ArchiveDetailValue(Paste, PastedValue)};
 
-            if (ImGui::MenuItem("Paste", nullptr, false, CanPaste)) {
-                Value = std::move(PastedValue);
-                Pasted = true;
+                if (ImGui::MenuItem("Paste", nullptr, false, CanPaste)) {
+                    Value = std::move(PastedValue);
+                    Pasted = true;
+                }
             }
 
             Reset = ImGui::MenuItem("Reset to Default", nullptr, false, Editable && !Defaults.empty());
@@ -1102,8 +1159,10 @@ namespace Editor {
 
         ImGui::SetNextItemWidth(-1.0f);
 
-        if (DrawPropertyValue(Row.mProperty, Value, "##Value") || Pasted) {
-            EditProperty(Row, Value, !Pasted && ImGui::IsItemActive());
+        const bool Changed{LuaScript ? DrawLuaScriptSlot(*Context, std::get<Core::FString>(Value)) : DrawPropertyValue(Row.mProperty, Value, "##Value")};
+
+        if (Changed || Pasted) {
+            EditProperty(Row, Value, !LuaScript && !Pasted && ImGui::IsItemActive());
         }
 
         ImGui::TableSetColumnIndex(2);

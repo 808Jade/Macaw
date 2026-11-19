@@ -32,6 +32,9 @@ namespace Engine {
     class AActor;
     class UEngine;
     class FWorldContext;
+    class FLuaRuntime;
+    class ULuaScriptComponent;
+    struct FHitResult;
     class FSceneInterface;
     class AStaticMeshActor;
     class UCameraComponent;
@@ -147,6 +150,8 @@ namespace Engine {
          * @return 갱신 전달을 수행하면 true이며 편집 Tick은 게임 시간과 횟수에 합산하지 않습니다.
          */
         bool Tick(float DeltaTime);
+
+        Engine::FHitResult MoveActorSwept(Engine::AActor& Actor, const FVector& Delta);
 
         /**
          * @brief Playing과 Paused 사이의 상태를 전환합니다.
@@ -341,6 +346,7 @@ namespace Engine {
          * @brief 컨텍스트가 소유 월드의 종류와 엔진 식별자를 설정하도록 허용합니다.
          */
         friend class FWorldContext;
+        friend class ULuaScriptComponent;
 
         /**
          * @brief 복제기가 원본과 복제본의 전달 범위를 보호하도록 허용합니다.
@@ -462,6 +468,8 @@ namespace Engine {
          * @brief 월드가 관리하는 현재 게임 실행 상태입니다.
          */
         Engine::EWorldPlayState mPlayState{Engine::EWorldPlayState::Stopped};
+
+        std::unique_ptr<Engine::FLuaRuntime> mLuaRuntime{};
 
         /**
          * @brief 월드가 소유한 영속 레벨입니다.

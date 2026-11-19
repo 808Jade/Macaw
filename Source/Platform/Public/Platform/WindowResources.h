@@ -85,3 +85,4 @@
  * @brief 콘텐츠 아이콘 라이선스 고지 문서의 Windows 리소스 ID입니다.
  */
 #define MacawContentIconNoticeResource 312
+#define MacawContentLuaIconResource 313

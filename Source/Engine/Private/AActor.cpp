@@ -102,6 +102,10 @@ namespace Engine {
         return mComponents;
     }
 
+    Engine::AActor::FComponentCollisionDelegate& Engine::AActor::GetOnComponentCollision() {
+        return mOnComponentCollision;
+    }
+
     /**
      * @brief 액터 변환을 제공하는 루트 컴포넌트의 비소유 주소를 반환합니다.
      */

@@ -1,7 +1,7 @@
 {
   "Id": "ThirdPerson",
   "Name": "Third Person",
-  "Description": "A character, camera, and animation assets in a simple blockout level.",
+  "Description": "A playable third-person character with Lua controls, a follow camera, and animations.",
   "Preview": "Preview.png",
   "BaseTemplate": "Project"
 }

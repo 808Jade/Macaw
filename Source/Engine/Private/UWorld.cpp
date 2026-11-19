@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "Engine/UWorld.h"
+#include "FLuaRuntime.h"
 #include "Asset/FAssetManager.h"
 #include "Core/FilePath.h"
 #include "Engine/Component/UHeightFogComponent.h"
@@ -534,6 +535,7 @@ namespace Engine {
 
         DestroyActor(mPlayerCameraManager);
         mPlayerCameraManager = {};
+        mLuaRuntime.reset();
         mPlayState = Engine::EWorldPlayState::Stopped;
     }
 
@@ -639,9 +641,16 @@ namespace Engine {
      * @brief 뷰포트 입력을 받아 프레임 시간에 따라 액터의 동작을 갱신합니다.
      */
     bool Engine::UWorld::Input(const Core::FInput& Input, float DeltaTime) {
-        Engine::AActor* Actor{GetInputTarget()};
+        if ((mWorldType != Engine::EWorldType::Game && mWorldType != Engine::EWorldType::PIE) || mPlayState != Engine::EWorldPlayState::Playing || IsDispatching() || !CanBeginActor() || !std::isfinite(DeltaTime) || DeltaTime < 0.0f) {
+            return false;
+        }
 
-        if ((mWorldType != Engine::EWorldType::Game && mWorldType != Engine::EWorldType::PIE) || mPlayState != Engine::EWorldPlayState::Playing || IsDispatching() || !CanBeginActor() || !Input.IsGameInputEnabled() || !std::isfinite(DeltaTime) || DeltaTime < 0.0f || Actor == nullptr || !Actor->HasBegunPlay()) {
+        if (mLuaRuntime != nullptr) {
+            mLuaRuntime->SetFrameInput(Input);
+        }
+
+        Engine::AActor* Actor{GetInputTarget()};
+        if (!Input.IsGameInputEnabled() || Actor == nullptr || !Actor->HasBegunPlay()) {
             return false;
         }
 
@@ -667,6 +676,9 @@ namespace Engine {
         FDispatchScope Scope{this};
 
         if (!EditorTick) {
+            if (mLuaRuntime != nullptr) {
+                mLuaRuntime->ReloadChangedScripts();
+            }
             mTimeSeconds += DeltaTime;
             ++mTickCount;
         }
@@ -690,6 +702,10 @@ namespace Engine {
         // 카메라는 이번 프레임의 이동과 겹침 처리가 모두 끝난 뒤에 갱신합니다.
         if (Engine::APlayerCameraManager* CameraManager{GetPlayerCameraManager()}; !EditorTick && !mEndPlayRequested && !mShutdownRequested && CameraManager != nullptr) {
             CameraManager->UpdateCamera(DeltaTime);
+        }
+
+        if (!EditorTick && mLuaRuntime != nullptr) {
+            mLuaRuntime->ClearFrameInput();
         }
 
         return true;

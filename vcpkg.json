@@ -23,10 +23,12 @@
     "imgui-neo-sequencer",
     "imgui-node-editor",
     "imterm",
+    "luajit",
     "nvapi",
     "physx",
     "range-v3",
     "rapidjson",
+    "sol2",
     "stb",
     "tomlplusplus"
   ]

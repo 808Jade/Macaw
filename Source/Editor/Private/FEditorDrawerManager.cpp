@@ -345,12 +345,17 @@ void FEditorDrawerManager::Draw(float DeltaTime) {
         ImGui::Separator();
 
         const float ContentHeight{std::max(1.0f, Height - ImGui::GetCursorPosY() - ImGui::GetStyle().WindowPadding.y)};
+        const bool Dragging{ImGui::GetDragDropPayload() != nullptr};
 
         if (ImGui::BeginChild("##DrawerContent", {0.0f, ContentHeight}, ImGuiChildFlags_None, ImGuiWindowFlags_NoSavedSettings)) {
             Active->mWidget->Draw(DeltaTime);
         }
 
         ImGui::EndChild();
+
+        if (Open && !Dragging && ImGui::GetDragDropPayload() != nullptr) {
+            Active->mTab->SetVisible(false);
+        }
 
         const bool Focused{ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)};
         const ImVec2 Mouse{ImGui::GetIO().MousePos};

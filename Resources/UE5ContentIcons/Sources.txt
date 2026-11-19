@@ -2,4 +2,5 @@ Unreal Engine 5.8 editor icons
 Copyright Epic Games, Inc. All rights reserved.
 
 Original PNG files from Engine/Content/Editor/Slate/Icons in the Unreal Engine 5.8 installation.
+SourceCodeEditor_64x.png is a 64 × 64 PNG rasterization of Engine/Content/Editor/Slate/Starship/Common/SourceCodeEditor.svg from the same installation.
 Unreal Engine End User License Agreement: https://www.unrealengine.com/eula/unreal

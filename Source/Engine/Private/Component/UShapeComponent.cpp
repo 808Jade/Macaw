@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "Engine/Component/UShapeComponent.h"
+#include "Engine/AActor.h"
 #include "Engine/FPrimitiveDrawInterface.h"
 #include "Engine/EPrimitiveType.h"
 #include "Core/Math/FBox.h"
@@ -83,14 +84,22 @@ namespace Engine {
      * @brief 겹침 시작 델리게이트를 호출합니다.
      */
     void Engine::UShapeComponent::OnBeginOverlap(Engine::UShapeComponent* Other) {
-        mOnComponentBeginOverlap.Broadcast(this, Other ? Other->GetOwner() : nullptr, Other);
+        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
+        mOnComponentBeginOverlap.Broadcast(this, OtherActor, Other);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::BeginOverlap, this, OtherActor, Other, nullptr);
+        }
     }
 
     /**
      * @brief 겹침 종료 델리게이트를 호출합니다.
      */
     void Engine::UShapeComponent::OnEndOverlap(Engine::UShapeComponent* Other) {
-        mOnComponentEndOverlap.Broadcast(this, Other ? Other->GetOwner() : nullptr, Other);
+        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
+        mOnComponentEndOverlap.Broadcast(this, OtherActor, Other);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::EndOverlap, this, OtherActor, Other, nullptr);
+        }
     }
 
     /**
@@ -98,6 +107,9 @@ namespace Engine {
      */
     void Engine::UShapeComponent::OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit) {
         mOnComponentHit.Broadcast(this, OtherActor, OtherComp, Hit);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::Hit, this, OtherActor, OtherComp, &Hit);
+        }
     }
 
     /**
@@ -233,6 +245,14 @@ namespace Engine {
      */
     Engine::UShapeComponent::FHitDelegate& Engine::UShapeComponent::GetOnComponentHit() {
         return mOnComponentHit;
+    }
+
+    bool Engine::UShapeComponent::BlocksMovement() const {
+        return mBlocksMovement;
+    }
+
+    void Engine::UShapeComponent::SetBlocksMovement(bool Blocks) {
+        mBlocksMovement = Blocks;
     }
 
     /**
