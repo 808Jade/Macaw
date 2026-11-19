@@ -1,0 +1,8 @@
+{
+  "name": "lua-language-server",
+  "version": "3.19.2",
+  "description": "Lua language server for the Macaw editor",
+  "homepage": "https://github.com/LuaLS/lua-language-server",
+  "license": "MIT",
+  "supports": "windows & x64"
+}

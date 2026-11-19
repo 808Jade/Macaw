@@ -1,6 +1,7 @@
 {
   "name": "imgui-color-text-edit",
   "version-date": "2026-11-19",
+  "port-version": 1,
   "description": "Syntax-highlighting text editor for Dear ImGui",
   "homepage": "https://github.com/goossens/ImGuiColorTextEdit",
   "license": "MIT",

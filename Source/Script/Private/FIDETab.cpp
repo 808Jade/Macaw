@@ -1,4 +1,5 @@
 #include "Script/FIDETab.h"
+#include "FLuaIntellisence.h"
 #include "Core/FAtomicFileWriter.h"
 
 #include <ImGuiColorTextEdit/TextEditor.h>
@@ -44,6 +45,7 @@ namespace {
 
 FIDETab::FIDETab()
 	: mEditor{std::make_unique<TextEditor>()},
+	  mIntellisence{std::make_unique<FLuaIntellisence>(*mEditor)},
 	  mFont{ImGui::GetIO().Fonts->AddFontDefaultVector()} {
     constexpr char KoreanFont[]{"C:/Windows/Fonts/malgun.ttf"};
     std::error_code Error{};
@@ -57,16 +59,20 @@ FIDETab::FIDETab()
 
     mEditor->SetLanguage(TextEditor::LookupLanguage("Lua"));
     mEditor->SetTransactionCallback([this](const std::vector<TextEditor::Change>&) {
-        mDirty = GetSourceText() != mSavedText;
+        auto Text{GetSourceText()};
+        mDirty = Text != mSavedText;
         if (!mDirty) {
             mSaveError.clear();
+        }
+        if (!mEditor->IsReadOnlyEnabled()) {
+            mIntellisence->Edit(std::move(Text));
         }
     });
 }
 
 FIDETab::~FIDETab() = default;
 
-bool FIDETab::Open(const std::filesystem::path& Path) {
+bool FIDETab::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
     std::string Source{};
     if (!ReadSource(Path, Source)) {
         return false;
@@ -87,7 +93,13 @@ bool FIDETab::Open(const std::filesystem::path& Path) {
     mSavedSource = std::move(Source);
     mPath = Path;
     mEditor->SetText(mSavedText);
-    mEditor->SetReadOnlyEnabled(Binary || GetSourceText() != mSavedText);
+    const bool ReadOnly{Binary || GetSourceText() != mSavedText};
+    mEditor->SetReadOnlyEnabled(ReadOnly);
+    if (ReadOnly) {
+        mIntellisence->Close();
+    } else {
+        mIntellisence->Open(Path, Workspace, mSavedText);
+    }
     mEditor->SetFocus();
     mSaveError.clear();
     mDirty = false;
@@ -132,8 +144,14 @@ bool FIDETab::Save() {
     mSavedSource = std::move(Source);
     mSavedText = std::move(Text);
     mDirty = false;
+    mIntellisence->Save();
 
     return true;
+}
+
+void FIDETab::Close() {
+    mIntellisence->Close();
+    DiscardChanges();
 }
 
 void FIDETab::DiscardChanges() {
@@ -154,6 +172,7 @@ bool FIDETab::IsDirty() const {
 }
 
 void FIDETab::Draw() {
+    mIntellisence->Update();
     const bool ReadOnly{mEditor->IsReadOnlyEnabled()};
     if (ReadOnly) {
         ImGui::TextDisabled("Read-only: this file contains text the editor cannot preserve.");

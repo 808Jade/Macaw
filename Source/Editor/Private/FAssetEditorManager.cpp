@@ -199,7 +199,7 @@ FAssetEditorManager::FAssetEditorManager(FEditorContext* Context, Platform::FWin
 	  mCommands{Commands},
 	  mScriptContent{"ScriptIDE", [this](float) {
           mScriptIDE.Draw();
-          if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup) && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S)) {
+          if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::GetTopMostPopupModal() == nullptr && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S)) {
               mScriptIDE.Save();
           }
       }} {
@@ -210,7 +210,7 @@ FAssetEditorManager::FAssetEditorManager(FEditorContext* Context, Platform::FWin
         return ConfirmScriptChange();
     });
     mScriptTab.SetClosedHandler([this]() {
-        mScriptIDE.DiscardChanges();
+        mScriptIDE.Close();
     });
 }
 
@@ -266,9 +266,13 @@ bool FAssetEditorManager::HasUnsavedScript(const std::function<bool(const std::f
 }
 
 bool FAssetEditorManager::IsFocused() const {
-    return (mScriptTab.IsVisible() && mScriptTab.IsFocused()) || std::any_of(mEditors.begin(), mEditors.end(), [](const auto& Editor) {
+    return IsScriptEditorFocused() || std::any_of(mEditors.begin(), mEditors.end(), [](const auto& Editor) {
         return Editor->GetTab().IsFocused();
     });
+}
+
+bool FAssetEditorManager::IsScriptEditorFocused() const {
+    return mScriptTab.IsVisible() && mScriptTab.IsFocused();
 }
 
 bool FAssetEditorManager::CanClose() {
@@ -325,7 +329,7 @@ void FAssetEditorManager::Draw(float DeltaTime) {
         mWorkspace.EndMajorTab();
     }
 
-    if (mWorkspace.IsLevelEditorFocused() || (mScriptTab.IsVisible() && mScriptTab.IsFocused())) {
+    if (mWorkspace.IsLevelEditorFocused() || IsScriptEditorFocused()) {
         mActiveEditor = nullptr;
     }
 
@@ -351,7 +355,8 @@ void FAssetEditorManager::Draw(float DeltaTime) {
 
 void FAssetEditorManager::OpenLuaScript(const std::filesystem::path& Path) {
     Core::FString Error{};
-    const auto Absolute{mContext->GetProject()->GetAssets()->ResolvePath(Path, Error)};
+    const auto* Assets{mContext->GetProject()->GetAssets()};
+    const auto Absolute{Assets->ResolvePath(Path, Error)};
 
     if (Absolute.empty()) {
         mContext->AddLog("Could not open Lua script " + Core::FilePath::ToGenericUtf8(Path) + (Error.empty() ? "" : ": " + Error));
@@ -367,7 +372,7 @@ void FAssetEditorManager::OpenLuaScript(const std::filesystem::path& Path) {
         return;
     }
 
-    if (!mScriptIDE.Open(Absolute)) {
+    if (!mScriptIDE.Open(Absolute, Assets->GetContentRoot())) {
         mContext->AddLog("Could not read Lua script " + Core::FilePath::ToGenericUtf8(Path));
         return;
     }

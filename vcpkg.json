@@ -24,6 +24,7 @@
     "imgui-neo-sequencer",
     "imgui-node-editor",
     "imterm",
+    "lua-language-server",
     "luajit",
     "nvapi",
     "physx",

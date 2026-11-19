@@ -82,6 +82,7 @@ namespace Editor {
          * @return 해당 편집기 영역에 포커스가 있으면 true입니다.
          */
         bool IsFocused() const;
+        bool IsScriptEditorFocused() const;
 
         /**
          * @brief 편집기를 닫아도 되는지 확인하며 필요한 경우 변경 내용의 처리를 요청합니다.

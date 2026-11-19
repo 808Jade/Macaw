@@ -1,0 +1,59 @@
+diff --git a/TextEditor.cpp b/TextEditor.cpp
+--- a/TextEditor.cpp
++++ b/TextEditor.cpp
+@@ -37,6 +37,7 @@
+ //
+ 
+ void TextEditor::reset() {
++	autocomplete.cancel();
+ 	document.clear();
+ 	transactions.reset();
+ 	cursors.clearAll();
+@@ -8727,6 +8728,7 @@
+ //
+ 
+ void TextEditor::AutoComplete::cancel() {
++	requestActivation = false;
+ 	if (active) {
+ 		requestDeactivation = true;
+ 	}
+@@ -8792,6 +8794,19 @@
+ //
+ 
+ bool TextEditor::AutoComplete::render(Document& document, Cursors& cursors, TypeSetter& typesetter, const Language* language, float textOffset, ImVec2 glyphSize) {
++	const auto closePopup = [this]() {
++		if (ImGui::BeginPopup("AutoCompleteContextMenu", ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
++			ImGui::CloseCurrentPopup();
++			ImGui::EndPopup();
++		}
++		requestDeactivation = false;
++		active = false;
++	};
++
++	if (active && requestDeactivation) {
++		closePopup();
++	}
++
+ 	// see if we need to activate autocomplete mode (after a previous session is closed)
+ 	if (requestActivation && !active) {
+ 		// drop the request if the editor lost focus (e.g. a menu was opened)
+@@ -8863,6 +8878,11 @@
+ 		}
+ 	}
+ 
++	if (requestDeactivation) {
++		closePopup();
++		return false;
++	}
++
+ 	// open popup window
+ 	bool result = false;
+ 	const auto pos = typesetter.docPos2VisPos(document, currentLocation);
+@@ -8985,6 +9005,7 @@
+ void TextEditor::AutoComplete::setSuggestions(const std::vector<std::string>& suggestions, const std::vector<std::string>& labels) {
+ 	state.suggestions = suggestions;
+ 	state.labels = labels;
++	state.suggestionsPromise = false;
+ 	currentSelection = 0;
+ }
+ 

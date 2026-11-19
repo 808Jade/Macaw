@@ -305,7 +305,7 @@ void FEditorShell::DrawMenu() {
     const Core::FInput& Input{mPlatform->GetInput()};
 
     if (Input.IsDown(EKey::Control)) {
-        if (Input.WasPressed(EKey::Space) && ImGui::GetTopMostPopupModal() == nullptr) {
+        if (Input.WasPressed(EKey::Space) && !mAssetEditors.IsScriptEditorFocused() && ImGui::GetTopMostPopupModal() == nullptr) {
             mDrawers.ToggleDrawer("Content");
         } else if (Input.WasPressed(EKey::Comma) && !ImGui::GetIO().WantTextInput) {
             mSettings.OpenSettings(0);

@@ -161,6 +161,7 @@ Configure("Script", "StaticLib")
         AddIncludes(Dependency, {})
     end
     links(Modules.Script.Private)
+    includedirs { "vcpkg_installed/x64-windows/include/luajit" }
 
 Configure("Shaders", "Utility")
     files { "Templates/Project/Content/Shaders/**.hlsl", "Templates/Project/Content/Shaders/**.hlsli" }
@@ -212,3 +213,4 @@ ConfigureRuntimeExecutable("Macaw", "WindowedApp", "Source/App")
     files { "Source/App/**.rc", "Resources/Editor.rc", "Macaw.ico" }
     resincludedirs { "." }
     postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageProjectTemplates.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}."' }
+    postbuildcommands { '{COPYDIR} "%{wks.location}/vcpkg_installed/x64-windows/tools/lua-language-server" "%{cfg.targetdir}/LuaLanguageServer"', '{COPYFILE} "%{wks.location}/Resources/Lua/Macaw.d.lua" "%{cfg.targetdir}/LuaLanguageServer/Macaw.d.lua"' }
