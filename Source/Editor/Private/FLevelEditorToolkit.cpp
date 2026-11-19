@@ -157,6 +157,9 @@ void FLevelEditorToolkit::ConnectServices() {
     mCommands->SetContentChanged([this]() {
         mBrowser->MarkRefresh();
     });
+    mContext->SetSceneSavedHandler([this]() {
+        mCommands->CaptureProjectThumbnail();
+    });
     mCommands->SetCanCloseAssets([this]() {
         return mAssetEditors->CanClose();
     });
@@ -252,6 +255,7 @@ void FLevelEditorToolkit::Shutdown() {
     }
 
     mViewport->SetPlayInputCaptureHandlers({}, {});
+    mContext->SetSceneSavedHandler({});
     mContext->SetSequencerOpener({});
     EditorStyle::SetAssetBrowseHandler({});
     mDetailsWidget.SetAnimGraphOpener({});

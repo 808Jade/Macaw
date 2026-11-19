@@ -511,6 +511,7 @@ namespace Editor {
          * @return 저장에 성공하면 true입니다.
          */
         bool SaveScene(const std::filesystem::path& Path);
+        void SetSceneSavedHandler(std::function<void()> Handler);
 
         /**
          * @brief 장면을 새 월드에 읽고 편집 대상 월드를 교체합니다.
@@ -930,6 +931,8 @@ namespace Editor {
          * @brief 프로젝트 생성 또는 열기를 애플리케이션에 전달하는 콜백입니다.
          */
         std::function<void(const std::filesystem::path&, bool)> mProjectRequestHandler{};
+
+        std::function<void()> mSceneSavedHandler{};
 
         /**
          * @brief 저장할 원근 편집 카메라의 조회 함수입니다.

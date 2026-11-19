@@ -349,7 +349,7 @@ namespace Editor {
         FProjectPreview Preview{};
         Preview.mFile = File;
 
-        for (const auto& Image : {File.parent_path() / (File.stem().wstring() + L".png"), File.parent_path() / "Saved/AutoScreenshot.png", File.parent_path() / "Preview.png"}) {
+        for (const auto& Image : {File.parent_path() / "Saved/ProjectThumbnail.png", File.parent_path() / (File.stem().wstring() + L".png"), File.parent_path() / "Saved/AutoScreenshot.png", File.parent_path() / "Preview.png"}) {
             std::error_code Code{};
 
             if (!std::filesystem::is_regular_file(Image, Code)) {

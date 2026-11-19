@@ -78,6 +78,7 @@ namespace Editor {
          * @param[in] SaveAs 새 저장 경로를 선택할지 지정합니다.
          */
         void SaveLevel(bool SaveAs);
+        void SetCurrentLevelAsStartup();
 
         /**
          * @brief 변경 처리 확인 뒤 파일을 선택해 레벨을 엽니다.
@@ -105,6 +106,8 @@ namespace Editor {
          * @param[in] Create 새 프로젝트 생성 여부입니다.
          */
         void ChooseProject(bool Create);
+
+        void CaptureProjectThumbnail();
 
     private:
         /**

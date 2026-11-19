@@ -957,7 +957,15 @@ namespace Editor {
 
         AddLog("Saved " + Core::FilePath::ToUtf8(ScenePath));
 
+        if (mSceneSavedHandler) {
+            mSceneSavedHandler();
+        }
+
         return true;
+    }
+
+    void Editor::FEditorContext::SetSceneSavedHandler(std::function<void()> Handler) {
+        mSceneSavedHandler = std::move(Handler);
     }
 
     /**

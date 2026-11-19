@@ -133,7 +133,7 @@ for _, Name in ipairs(ModuleNames) do
     links(Modules[Name].Public)
     links(Modules[Name].Private)
 
-    if Name == "Asset" then
+    if Name == "Asset" or Name == "Editor" then
         defines { "DIRECTX_TEX_IMPORT" }
     end
 

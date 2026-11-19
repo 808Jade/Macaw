@@ -11,15 +11,58 @@
 #include "Editor/FPlayInEditorSession.h"
 #include "Editor/FGameExporter.h"
 #include "Editor/FProjectDialog.h"
+#include "Core/FAtomicFileWriter.h"
 #include "Core/FilePath.h"
 #include "Engine/FProject.h"
+#include "Engine/FRenderTarget.h"
+#include "Engine/FSceneViewFamily.h"
+#include "Engine/UWorld.h"
 #include "Platform/Window.h"
+#include "RenderCore/IRendererModule.h"
 #include <commdlg.h>
+#include <d3d11.h>
+#include <DirectXTex.h>
+#include <wincodec.h>
+#include <wrl/client.h>
 #include <algorithm>
 #include <array>
 #include <utility>
 
 using namespace Editor;
+
+namespace {
+
+    constexpr Uint32 ThumbnailSize{192};
+
+    bool IsStartupLevel(const Engine::FProject& Project, const std::filesystem::path& ScenePath) {
+        const std::filesystem::path Startup{Project.GetAssets()->GetContentRoot() / Core::FilePath::FromUtf8(Project.GetStartupScene())};
+        std::error_code Code{};
+
+        return std::filesystem::equivalent(ScenePath, Startup, Code);
+    }
+
+    bool EncodeProjectThumbnail(const Engine::FRenderTarget& Target, const RenderCore::IRendererModule& Renderer, DirectX::Blob& Png) {
+        auto* View{static_cast<ID3D11ShaderResourceView*>(Target.GetNativeTexture())};
+        auto* Device{static_cast<ID3D11Device*>(Renderer.GetNativeDevice())};
+        auto* Context{static_cast<ID3D11DeviceContext*>(Renderer.GetNativeContext())};
+
+        if (View == nullptr || Device == nullptr || Context == nullptr) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID3D11Resource> Resource{};
+        DirectX::ScratchImage Captured{};
+        DirectX::ScratchImage Resized{};
+        View->GetResource(Resource.GetAddressOf());
+
+        if (FAILED(DirectX::CaptureTexture(Device, Context, Resource.Get(), Captured)) || FAILED(DirectX::Resize(*Captured.GetImage(0, 0, 0), ThumbnailSize, ThumbnailSize, DirectX::TEX_FILTER_FANT, Resized))) {
+            return false;
+        }
+
+        return SUCCEEDED(DirectX::SaveToWICMemory(*Resized.GetImage(0, 0, 0), DirectX::WIC_FLAGS_FORCE_SRGB, GUID_ContainerFormatPng, Png, &GUID_WICPixelFormat24bppBGR));
+    }
+
+}
 
 FEditorCommands::FEditorCommands(FEditorContext* Context, FPlayInEditorSession* PlaySession, FEditorViewportLayout& ViewportLayout, Platform::FWindowsApplication* Platform)
 	: mContext{Context},
@@ -86,6 +129,28 @@ void FEditorCommands::SaveLevel(bool SaveAs) {
         if (mContentChanged) {
             mContentChanged();
         }
+    }
+}
+
+void FEditorCommands::SetCurrentLevelAsStartup() {
+    Engine::FProject* Project{mContext->GetProject()};
+    const std::filesystem::path Path{mContext->GetScenePath()};
+
+    if (Project == nullptr || Path.empty()) {
+        return;
+    }
+
+    const bool WasStartup{IsStartupLevel(*Project, Path)};
+    Core::FString Error{};
+
+    if (!mContext->SaveScene(Path)) {
+        return;
+    }
+
+    if (!Project->SetStartupScene(Path, Error)) {
+        mContext->AddLog(Error);
+    } else if (!WasStartup) {
+        CaptureProjectThumbnail();
     }
 }
 
@@ -172,4 +237,58 @@ void FEditorCommands::ChooseProject(bool Create) {
     }
 
     mContext->RequestProject({}, Create);
+}
+
+void FEditorCommands::CaptureProjectThumbnail() {
+    const Engine::FProject* Project{mContext->GetProject()};
+
+    if (Project == nullptr || !IsStartupLevel(*Project, mContext->GetScenePath())) {
+        return;
+    }
+
+    constexpr Uint32 RenderSize{ThumbnailSize * 2};
+    Engine::UWorld* World{mContext->GetWorld()};
+    RenderCore::IRendererModule* Renderer{mContext->GetRenderer()};
+    FEditorViewport* Viewport{mViewportLayout.GetViewport(0)};
+
+    if (World == nullptr || World->GetScene() == nullptr || Renderer == nullptr || Viewport == nullptr) {
+        return;
+    }
+
+    const auto Target{Renderer->CreateRenderTarget(RenderSize, RenderSize)};
+
+    if (Target == nullptr) {
+        mContext->AddLog("Cannot create the project thumbnail render target");
+
+        return;
+    }
+
+    FEditorViewportClient Camera{nullptr};
+    Camera.SetPerspectiveCamera(Viewport->GetClient()->GetPerspectiveCamera());
+    const Engine::FSceneView View{Camera.CalcSceneView({RenderSize, RenderSize})};
+    World->SendAllEndOfFrameUpdates();
+    Renderer->BeginRenderingViewFamily({World->GetScene(), Target.get(), View});
+
+    DirectX::Blob Png{};
+
+    if (!EncodeProjectThumbnail(*Target, *Renderer, Png)) {
+        mContext->AddLog("Cannot capture the project thumbnail");
+
+        return;
+    }
+
+    Core::FAtomicFileWriter Writer{};
+    Core::FString Error{};
+    const std::filesystem::path Path{Project->GetRootPath() / "Saved/ProjectThumbnail.png"};
+
+    if (Writer.Open(Path, Error)) {
+        Writer.GetStream().write(reinterpret_cast<const char*>(Png.GetBufferPointer()), static_cast<std::streamsize>(Png.GetBufferSize()));
+        Writer.Commit(Error);
+    }
+
+    if (!Error.empty()) {
+        mContext->AddLog("Cannot save the project thumbnail: " + Error);
+    } else {
+        mContext->AddLog("Saved project thumbnail to " + Core::FilePath::ToUtf8(Path));
+    }
 }

@@ -179,11 +179,7 @@ void FEditorShell::DrawMenu() {
             }
 
             if (ImGui::MenuItem("Set Current Level as Startup", nullptr, false, CanSave && !mContext->GetScenePath().empty())) {
-                Core::FString Error{};
-
-                if (!mContext->SaveScene(mContext->GetScenePath()) || !mContext->GetProject()->SetStartupScene(mContext->GetScenePath(), Error)) {
-                    mContext->AddLog(Error);
-                }
+                mCommands.SetCurrentLevelAsStartup();
             }
 
             ImGui::Separator();
