@@ -571,6 +571,8 @@ namespace Editor {
          */
         bool OpenInSequencer(CoreUObject::TObjectRef<Engine::ALevelSequenceActor> Handle);
 
+        bool FocusActor(CoreUObject::TObjectRef<Engine::AActor> Handle);
+
         /**
          * @brief 원근 편집 뷰포트가 대신 사용할 시퀀서 프리뷰 카메라를 설정합니다.
          * @param[in] Camera 사용할 카메라 컴포넌트의 핸들이며 비어 있으면 편집 카메라로 돌아갑니다.
@@ -680,10 +682,11 @@ namespace Editor {
         void SetShadowAtlasOpen(bool Open);
 
         /**
-         * @brief 콘솔 명령이 사용할 뷰포트 제공자를 설정합니다.
-         * @param[in] Provider 명령을 실행할 때 활성 뷰포트를 반환합니다.
+         * @brief 공통 편집 작업이 사용할 뷰포트 제공자를 설정합니다.
+         * @param[in] Provider 호출 시점의 활성 뷰포트를 반환합니다.
          */
-        void SetConsoleViewportProvider(std::function<Editor::FEditorViewport*()> Provider);
+        void SetViewportProvider(std::function<Editor::FEditorViewport*()> Provider);
+        Editor::FEditorViewport* GetActiveViewport() const;
 
         /**
          * @brief 새 액터의 배치 변환을 제공하는 경로를 연결합니다.
@@ -924,9 +927,9 @@ namespace Editor {
         Editor::FStatGraphs mStatGraphs{};
 
         /**
-         * @brief 콘솔 명령 대상 뷰포트를 찾는 콜백입니다.
+         * @brief 공통 편집 작업의 활성 뷰포트를 찾는 콜백입니다.
          */
-        std::function<Editor::FEditorViewport*()> mConsoleViewportProvider{};
+        std::function<Editor::FEditorViewport*()> mViewportProvider{};
 
         /**
          * @brief 그림자 아틀라스 검사 창의 표시 상태입니다.

@@ -29,7 +29,7 @@ namespace Editor {
             return FTransform{mUI->GetActiveViewport()->GetClient()->GetPlacementLocation(), {}, {1.0f, 1.0f, 1.0f}};
         });
 
-        mContext.SetConsoleViewportProvider([this]() {
+        mContext.SetViewportProvider([this]() {
             return mUI->GetActiveViewport();
         });
 

@@ -76,6 +76,7 @@ namespace Editor {
 
         mGizmo.SetEditorContext(Context);
         mContext = Context;
+        mFocusActive = false;
     }
 
     /**
@@ -210,6 +211,13 @@ namespace Editor {
         }
 
         const FVector2 Size{Viewport->GetSize()};
+        const bool CameraInput{(Input.mHovered || Input.mFocused) && (Input.mRightDown || Input.mMiddleDown || (Input.mAlt && Input.mLeftDown) || (Input.mHovered && Input.mWheel != 0.0f) || (Input.mFocused && (Input.mForward || Input.mBackward || Input.mLeft || Input.mRight || Input.mUp || Input.mDown)))};
+
+        if (CameraInput || mGizmo.IsDragging() || mContext->GetPreviewCamera() != nullptr) {
+            mFocusActive = false;
+        }
+
+        UpdateCameraFocus(DeltaTime);
 
         if (!mGizmo.IsDragging() && Input.mFocused && !Input.mRightDown && !Input.mAlt && !Input.mControl) {
             bool ModeRequested{};
@@ -277,7 +285,7 @@ namespace Editor {
         }
 
         if (Input.mFocusSelection && Input.mFocused && !Input.mRightDown && !Input.mAlt) {
-            FocusSelection(Size);
+            FocusActor(mContext->GetSelectedActor(), Size);
         }
 
         const FQuat Rotation{mCameraRotation.Quaternion()};
@@ -376,38 +384,76 @@ namespace Editor {
     /**
      * @brief 선택한 액터가 화면에 들어오도록 카메라 위치와 중심을 조정합니다.
      */
-    void Editor::FEditorViewportClient::FocusSelection(const FVector2& Size) {
-        const Engine::AActor* Actor{mContext->GetSelectedActor()};
-        const auto* Component{Actor != nullptr ? CoreUObject::Cast<Engine::UPrimitiveComponent>(Actor->GetRootComponent()) : nullptr};
-
-        auto* Light{Actor != nullptr ? CoreUObject::Cast<Engine::ULightComponentBase>(Actor->GetRootComponent()) : nullptr};
-
-        auto* Fog{Actor != nullptr ? CoreUObject::Cast<Engine::UHeightFogComponent>(Actor->GetRootComponent()) : nullptr};
-
-        if (Component == nullptr && Light == nullptr && Fog == nullptr) {
+    void Editor::FEditorViewportClient::FocusActor(const Engine::AActor* Actor, const FVector2& Size) {
+        if (Actor == nullptr || Actor->IsPendingDestroy() || mGizmo.IsDragging() || mContext->GetPreviewCamera() != nullptr) {
             return;
         }
 
-        const FVector Location{Light != nullptr ? Light->GetTransform().mLocation : Fog != nullptr ? Fog->GetTransform().mLocation : FVector{}};
-        const FBox Bounds{Component != nullptr ? CalcComponentBounds(Component, CalcSceneView(Size)) : FBox{Location - FVector{0.5f, 0.5f, 0.5f}, Location + FVector{0.5f, 0.5f, 0.5f}}};
+        const Engine::FSceneView View{CalcSceneView(Size)};
+        const FVector Location{Actor->GetRootComponent() != nullptr ? Actor->GetRootComponent()->GetTransform().mLocation : FVector{}};
+        FBox Bounds{Location - FVector{0.5f, 0.5f, 0.5f}, Location + FVector{0.5f, 0.5f, 0.5f}};
+        bool HasBounds{};
 
-        mOrbitPivot = Bounds.mMinimum.Lerp(Bounds.mMaximum, 0.5f);
+        for (const auto& Component : Actor->GetComponents()) {
+            const auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(Component.get())};
 
-        const float Radius{Bounds.mMinimum.Distance(Bounds.mMaximum) * 0.5f};
+            if (Primitive == nullptr) {
+                continue;
+            }
+
+            const FBox ComponentBounds{CalcComponentBounds(Primitive, View)};
+
+            if (!ComponentBounds.mMinimum.IsFinite() || !ComponentBounds.mMaximum.IsFinite() || ComponentBounds.mMinimum.x > ComponentBounds.mMaximum.x || ComponentBounds.mMinimum.y > ComponentBounds.mMaximum.y || ComponentBounds.mMinimum.z > ComponentBounds.mMaximum.z) {
+                continue;
+            }
+
+            Bounds = HasBounds ? FBox{Bounds.mMinimum.Min(ComponentBounds.mMinimum), Bounds.mMaximum.Max(ComponentBounds.mMaximum)} : ComponentBounds;
+            HasBounds = true;
+        }
+
+        if (!Bounds.mMinimum.IsFinite() || !Bounds.mMaximum.IsFinite()) {
+            return;
+        }
+
+        const float Radius{std::max(Bounds.mMinimum.Distance(Bounds.mMaximum) * 0.5f, 0.25f)};
+        const float Aspect{std::max(Size.x, 1.0f) / std::max(Size.y, 1.0f)};
+
+        mFocusStartLocation = mCameraLocation;
+        mFocusStartPivot = mOrbitPivot;
+        mFocusStartWidth = mOrthographicWidth;
+        mFocusTargetPivot = Bounds.mMinimum.Lerp(Bounds.mMaximum, 0.5f);
+        mFocusTargetWidth = mOrthographicWidth;
 
         if (mViewType != Editor::EEditorViewportType::Perspective) {
-            const float Aspect{std::max(Size.x, 1.0f) / std::max(Size.y, 1.0f)};
+            mFocusTargetWidth = std::clamp(Radius * 2.4f * std::max(Aspect, 1.0f), 0.1f, 10000.0f);
+            mFocusTargetLocation = mFocusTargetPivot - mCameraRotation.Vector() * 5000.0f;
+        } else {
+            const Core::FAngle HalfFieldOfView{Core::Math::Atan2(Core::Math::Tan(mFieldOfView * 0.5_deg) * std::min(Aspect, 1.0f), 1.0f)};
+            const float Distance{std::max(Radius / Core::Math::Sin(HalfFieldOfView) * 1.2f, Radius + mNearClip * 1.2f)};
 
-            mOrthographicWidth = std::clamp(Radius * 2.4f * std::max(Aspect, 1.0f), 0.1f, 10000.0f);
-            mCameraLocation = mOrbitPivot - mCameraRotation.Vector() * 5000.0f;
+            mFocusTargetLocation = mFocusTargetPivot - mCameraRotation.Vector() * Distance;
+        }
 
+        mFocusElapsed = 0.0f;
+        mFocusActive = true;
+    }
+
+    void Editor::FEditorViewportClient::UpdateCameraFocus(float DeltaTime) {
+        if (!mFocusActive || !std::isfinite(DeltaTime) || DeltaTime <= 0.0f) {
             return;
         }
 
-        const Core::FAngle HalfFieldOfView{Core::Math::Atan2(Core::Math::Tan(mFieldOfView * 0.5_deg) * std::min(std::max(Size.x, 1.0f) / std::max(Size.y, 1.0f), 1.0f), 1.0f)};
-        const float Distance{std::max(0.5f, Radius / Core::Math::Sin(HalfFieldOfView) * 1.2f)};
+        constexpr float Duration{0.35f};
 
-        mCameraLocation = mOrbitPivot - mCameraRotation.Vector() * Distance;
+        mFocusElapsed = std::min(mFocusElapsed + DeltaTime, Duration);
+
+        const float Progress{mFocusElapsed / Duration};
+        const float Alpha{Progress * Progress * (3.0f - 2.0f * Progress)};
+
+        mCameraLocation = mFocusStartLocation.Lerp(mFocusTargetLocation, Alpha);
+        mOrbitPivot = mFocusStartPivot.Lerp(mFocusTargetPivot, Alpha);
+        mOrthographicWidth = mFocusStartWidth + (mFocusTargetWidth - mFocusStartWidth) * Alpha;
+        mFocusActive = mFocusElapsed < Duration;
     }
 
     /**
@@ -569,6 +615,7 @@ namespace Editor {
      * @brief 에디터 카메라를 초기 위치와 회전으로 되돌립니다.
      */
     void Editor::FEditorViewportClient::ResetCamera() {
+        mFocusActive = false;
         mCameraLocation = {-7.0f, -9.0f, 6.0f};
         mCameraRotation = {-26.0f, 50.0f, 0.0f};
 
@@ -595,6 +642,7 @@ namespace Editor {
      * @brief 유효한 위치와 회전으로 에디터 카메라를 설정합니다.
      */
     void Editor::FEditorViewportClient::SetCamera(const FVector& Location, const FRotator& Rotation) {
+        mFocusActive = false;
         SetViewType(Editor::EEditorViewportType::Perspective);
 
         mCameraLocation = Location;
@@ -609,6 +657,8 @@ namespace Editor {
         if (Type < Editor::EEditorViewportType::Perspective || Type > Editor::EEditorViewportType::Right || mViewType == Type || mGizmo.IsDragging()) {
             return;
         }
+
+        mFocusActive = false;
 
         if (mViewType == Editor::EEditorViewportType::Perspective) {
             mPerspectiveLocation = mCameraLocation;
@@ -726,6 +776,7 @@ namespace Editor {
             return false;
         }
 
+        mFocusActive = false;
         mPerspectiveLocation = State.GetLocation();
         mPerspectiveRotation = State.GetRotation();
         mPerspectivePivot = mPerspectiveLocation + mPerspectiveRotation.Vector() * 10.0f;
@@ -1199,6 +1250,7 @@ namespace Editor {
             return false;
         }
 
+        mFocusActive = false;
         mOrthographicWidth = Width;
 
         return true;

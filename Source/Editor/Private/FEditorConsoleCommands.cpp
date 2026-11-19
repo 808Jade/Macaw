@@ -215,7 +215,7 @@ namespace Editor {
                     return;
                 }
 
-                Editor::FEditorViewport* Viewport{mConsoleViewportProvider ? mConsoleViewportProvider() : nullptr};
+                Editor::FEditorViewport* Viewport{GetActiveViewport()};
 
                 if (Viewport == nullptr) {
                     AddLog("Viewport is unavailable.");
@@ -236,7 +236,7 @@ namespace Editor {
         RegisterShowFlag("ShowFlag.Sky", &Engine::FEngineShowFlags::mSky);
 
         const auto ExecuteStat{[this](const Editor::FConsoleInvocation& Invocation) {
-            Editor::FEditorViewport* Viewport{mConsoleViewportProvider ? mConsoleViewportProvider() : nullptr};
+            Editor::FEditorViewport* Viewport{GetActiveViewport()};
 
             if (Viewport == nullptr) {
                 AddLog("Viewport is unavailable.");
@@ -306,13 +306,6 @@ namespace Editor {
      */
     Core::TArray<Core::FString> Editor::FEditorContext::GetConsoleSuggestions(std::string_view Input) const {
         return mConsoleCommands.GetSuggestions(Input);
-    }
-
-    /**
-     * @brief 콘솔 명령이 사용할 뷰포트 제공자를 설정합니다.
-     */
-    void Editor::FEditorContext::SetConsoleViewportProvider(std::function<Editor::FEditorViewport*()> Provider) {
-        mConsoleViewportProvider = std::move(Provider);
     }
 
     /**

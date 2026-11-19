@@ -214,6 +214,7 @@ namespace Editor {
                 }
 
                 if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                    Context->FocusActor(Handle);
                     Context->OpenInSequencer(CoreUObject::Cast<Engine::ALevelSequenceActor>(Context->ResolveObject(Handle)));
                 }
 

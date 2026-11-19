@@ -19,6 +19,7 @@
 #include <filesystem>
 
 namespace Engine {
+    class AActor;
     class UPrimitiveComponent;
 }
 
@@ -52,6 +53,12 @@ namespace Editor {
          * @param[in] Context 새 비소유 컨텍스트이며 nullptr이면 기존 연결을 유지합니다.
          */
         void SetEditorContext(Editor::FEditorContext* Context);
+
+        /**
+         * @brief 선택한 액터가 화면에 들어오도록 카메라 위치와 중심을 조정합니다.
+         * @param[in] Size 뷰포트의 픽셀 크기입니다.
+         */
+        void FocusActor(const Engine::AActor* Actor, const FVector2& Size);
 
         /**
          * @brief 실행 가능 여부를 검사한 뒤 뷰포트 명령을 처리합니다.
@@ -360,11 +367,7 @@ namespace Editor {
          */
         bool NavigateCamera(const Engine::FViewportInput& Input, const FVector2& Size, float DeltaTime);
 
-        /**
-         * @brief 선택한 액터가 화면에 들어오도록 카메라 위치와 중심을 조정합니다.
-         * @param[in] Size 뷰포트의 픽셀 크기입니다.
-         */
-        void FocusSelection(const FVector2& Size);
+        void UpdateCameraFocus(float DeltaTime);
 
         /**
          * @brief 텍스트·Billboard의 뷰 정렬을 반영한 월드 AABB를 계산합니다.
@@ -402,6 +405,15 @@ namespace Editor {
          * @brief 카메라 오빗의 월드 중심점입니다.
          */
         FVector mOrbitPivot{};
+
+        FVector mFocusStartLocation{};
+        FVector mFocusTargetLocation{};
+        FVector mFocusStartPivot{};
+        FVector mFocusTargetPivot{};
+        float mFocusStartWidth{};
+        float mFocusTargetWidth{};
+        float mFocusElapsed{};
+        bool mFocusActive{};
 
         /**
          * @brief 카메라 이동 속도입니다.

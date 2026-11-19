@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "Editor/FEditorContext.h"
+#include "Editor/FEditorViewport.h"
 #include "Core/FilePath.h"
 #include "Engine/FProject.h"
 #include "Engine/Component/UMeshComponent.h"
@@ -20,6 +21,7 @@
 #include "Engine/UWorld.h"
 #include "Engine/ULevel.h"
 #include "Engine/FWorldContext.h"
+#include "Engine/FSceneViewport.h"
 #include "Engine/AActor.h"
 #include "Engine/AStaticMeshActor.h"
 #include "Engine/ACameraActor.h"
@@ -1046,6 +1048,35 @@ namespace Editor {
         mSequencerOpener(Handle);
 
         return true;
+    }
+
+    bool Editor::FEditorContext::FocusActor(CoreUObject::TObjectRef<Engine::AActor> Handle) {
+        auto* Actor{CoreUObject::Cast<Engine::AActor>(ResolveObject(Handle))};
+
+        if (Actor == nullptr) {
+            return false;
+        }
+
+        Editor::FEditorViewport* Viewport{GetActiveViewport()};
+
+        if (Viewport == nullptr || Viewport->GetSceneViewport() == nullptr || Viewport->GetActiveClient() != Viewport->GetClient()) {
+            return false;
+        }
+
+        Viewport->GetClient()->FocusActor(Actor, Viewport->GetSceneViewport()->GetSize());
+
+        return true;
+    }
+
+    /**
+     * @brief 공통 편집 작업이 사용할 뷰포트 제공자를 설정합니다.
+     */
+    void Editor::FEditorContext::SetViewportProvider(std::function<Editor::FEditorViewport*()> Provider) {
+        mViewportProvider = std::move(Provider);
+    }
+
+    Editor::FEditorViewport* Editor::FEditorContext::GetActiveViewport() const {
+        return mViewportProvider ? mViewportProvider() : nullptr;
     }
 
     /**
