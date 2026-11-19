@@ -1,12 +1,20 @@
 <Project>
+  <PropertyGroup>
+    <MacawToolBuild>$([System.String]::Copy('$(MSBuildProjectDirectory.ToUpperInvariant())\').StartsWith('$(MSBuildThisFileDirectory.ToUpperInvariant()).TOOLS\'))</MacawToolBuild>
+  </PropertyGroup>
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Macaw'">
     <ProjectReference Include="$(MSBuildThisFileDirectory)MacawGame.vcxproj">
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
-  <Import Project="$(VcpkgRoot)scripts\buildsystems\msbuild\vcpkg.targets" Condition="Exists('$(VcpkgRoot)scripts\buildsystems\msbuild\vcpkg.targets')" />
-  <Target Name="CheckDependencies" BeforeTargets="PrepareForBuild" Condition="!Exists('$(VcpkgRoot)vcpkg.exe')">
+  <Import Project="$(VcpkgRoot)scripts\buildsystems\msbuild\vcpkg.targets" Condition="'$(MacawToolBuild)' != 'true' And Exists('$(VcpkgRoot)scripts\buildsystems\msbuild\vcpkg.targets')" />
+  <ItemDefinitionGroup Condition="'$(MacawToolBuild)' != 'true' And '$(VcpkgEnabled)' == 'true'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(VcpkgInstalledDir)$(VcpkgTriplet)\include\physx</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <Target Name="CheckDependencies" BeforeTargets="PrepareForBuild" Condition="'$(MacawToolBuild)' != 'true' And !Exists('$(VcpkgRoot)vcpkg.exe')">
     <Error Text="Run Build.bat from the repository root to prepare tools, restore dependencies, and generate the solution." />
   </Target>
 </Project>

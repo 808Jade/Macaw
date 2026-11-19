@@ -24,6 +24,7 @@
     "imgui-node-editor",
     "imterm",
     "nvapi",
+    "physx",
     "range-v3",
     "rapidjson",
     "stb",
