@@ -167,7 +167,12 @@ namespace Editor {
         /**
          * @brief 추가 작업 메뉴 아이콘입니다.
          */
-        More
+        More,
+        Snapping,
+        SurfaceSnap,
+        Performance,
+        Warning,
+        CameraSpeed
     };
 
 }

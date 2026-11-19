@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "Editor/EEditorViewportType.h"
+
+#include <functional>
+
 namespace Editor {
 
     class FEditorViewportClient;
@@ -20,15 +24,8 @@ namespace Editor {
          * @brief 아이콘 버튼과 메뉴를 표시하고 사용자 요청을 클라이언트의 공통 명령 경로로 전달합니다.
          * @param[in,out] Client 명령 실행과 상태 조회에 사용할 뷰포트 클라이언트의 비소유 주소입니다.
          * @pre Client는 nullptr이 아니어야 하며 현재 ImGui 프레임과 창이 유효해야 합니다.
-         * @note 그리드 설정 메뉴는 열 수 있지만 그리드 기능이 지원되기 전까지 항목은 비활성입니다.
          */
-        void Draw(Editor::FEditorViewportClient* Client);
-
-        /**
-         * @brief 뷰 모드·표시 플래그·카메라 설정 드롭다운을 한 줄로 표시합니다.
-         * @param[in] Client 설정을 읽고 변경할 뷰포트 클라이언트입니다.
-         */
-        void DrawViewOptions(Editor::FEditorViewportClient* Client);
+        void Draw(Editor::FEditorViewportClient* Client, float Width, bool AllowInput, const char* PlayStatus, const std::function<void(Editor::EEditorViewportType)>& SetViewType, const std::function<void()>& DrawLayout);
     }
 
 }

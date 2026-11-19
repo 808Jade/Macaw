@@ -11,12 +11,58 @@
 #include "Editor/FEditorViewportClient.h"
 #include "Editor/FViewportCommandInfo.h"
 
+#include <algorithm>
+#include <array>
+#include <format>
+#include <span>
+
 namespace Editor {
 
     /**
      * @brief 툴바와 메뉴에서 공유하는 변환 명령 목록과 표시 보조 함수를 제공합니다.
      */
     namespace {
+        constexpr Editor::EditorStyle::EIcon CameraIcon{Editor::EditorStyle::EIcon::Camera};
+        constexpr Editor::EditorStyle::EIcon CameraSpeedIcon{Editor::EditorStyle::EIcon::CameraSpeed};
+        constexpr Editor::EditorStyle::EIcon ViewModeIcon{Editor::EditorStyle::EIcon::Material};
+        constexpr std::array<Engine::EViewMode, 5> ColorModes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
+        constexpr std::array<const char*, ColorModes.size()> ColorModeNames{"Lit (Gouraud)", "Lit (Lambert)", "Lit", "Unlit", "Wireframe"};
+        constexpr std::array<const char*, 7> ViewTypeNames{"Perspective", "Top", "Bottom", "Front", "Back", "Left", "Right"};
+
+        struct FSnapControl {
+            Editor::EViewportCommand mCommand{};
+            Editor::EGizmoSetting mSetting{};
+            float Editor::FGizmoSettings::* mValue{};
+            const char* mTooltip{};
+            const char* mSuffix{};
+            std::span<const float> mPresets{};
+        };
+
+        constexpr std::array TranslationPresets{0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f, 25.0f, 50.0f, 100.0f};
+        constexpr std::array RotationPresets{1.0f, 5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 60.0f, 90.0f};
+        constexpr std::array ScalePresets{0.01f, 0.025f, 0.05f, 0.1f, 0.125f, 0.25f, 0.5f, 1.0f};
+        constexpr std::array SnapControls{
+            FSnapControl{Editor::EViewportCommand::ToggleTranslationSnap, Editor::EGizmoSetting::TranslationStep, &Editor::FGizmoSettings::mTranslationStep, "이동 스냅", "", TranslationPresets},
+            FSnapControl{Editor::EViewportCommand::ToggleRotationSnap, Editor::EGizmoSetting::RotationStep, &Editor::FGizmoSettings::mRotationStep, "회전 스냅", "°", RotationPresets},
+            FSnapControl{Editor::EViewportCommand::ToggleScaleSnap, Editor::EGizmoSetting::ScaleStep, &Editor::FGizmoSettings::mScaleStep, "스케일 스냅", "", ScalePresets}
+        };
+
+        bool BeginToolbarPopup(const char* Id, bool Open) {
+            if (Open) {
+                ImGui::OpenPopup(Id);
+            }
+
+            const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
+            ImGui::SetNextWindowPos({ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
+
+            return Editor::EditorStyle::BeginPopup(Id);
+        }
+
+        void DrawPlaceholder(const char* Label, Editor::EditorStyle::EIcon Icon, bool Dropdown) {
+            const Core::FString Tooltip{std::format("{} ( 준비중 )", Label)};
+            Editor::EditorStyle::IconButton(Label, Icon, false, false, Dropdown, Tooltip.c_str());
+        }
+
         /**
          * @brief 동일한 변환 명령 목록을 아이콘 버튼 또는 메뉴 항목으로 표시합니다.
          * @param[in,out] Client 명령 실행과 상태 조회에 사용할 뷰포트 클라이언트입니다.
@@ -40,7 +86,8 @@ namespace Editor {
                 const Core::FString Shortcut{Info.GetShortcutLabel()};
                 const char* TooltipName{Command == Editor::EViewportCommand::Select ? "선택" : Command == Editor::EViewportCommand::Translate ? "이동" : Command == Editor::EViewportCommand::Rotate ? "회전" : Command == Editor::EViewportCommand::Scale ? "크기 조절" : Info.mLabel};
                 const Core::FString Tooltip{Core::FString{TooltipName} + " (" + Shortcut + ")"};
-                const bool Pressed{Menu ? Command == Editor::EViewportCommand::Select ? ImGui::MenuItem(Info.mLabel, Shortcut.c_str(), Selected, Enabled) : Editor::EditorStyle::IconMenuItem(Info.mLabel, Info.mIcon, Selected, Enabled) : Editor::EditorStyle::IconButton(Info.mLabel, Command == Editor::EViewportCommand::Select ? Editor::EditorStyle::EIcon::Select : Info.mIcon, Selected, Enabled, false, Tooltip.c_str())};
+                const Editor::EditorStyle::EIcon ButtonIcon{Command == Editor::EViewportCommand::Select ? Editor::EditorStyle::EIcon::Select : Info.mIcon};
+                const bool Pressed{Menu ? Command == Editor::EViewportCommand::Select ? ImGui::MenuItem(Info.mLabel, Shortcut.c_str(), Selected, Enabled) : Editor::EditorStyle::IconMenuItem(Info.mLabel, Info.mIcon, Selected, Enabled) : Editor::EditorStyle::IconButton(Info.mLabel, ButtonIcon, Selected, Enabled, false, Tooltip.c_str(), 0.0f, Editor::EditorStyle::EIconSelectionStyle::Icon)};
 
                 Drawn = true;
 
@@ -85,21 +132,6 @@ namespace Editor {
         }
 
         /**
-         * @brief 스냅 명령의 체크 상태를 표시하고 변경 요청을 공통 명령 경로로 전달합니다.
-         * @param[in,out] Client 상태 조회와 명령 실행에 사용할 클라이언트입니다.
-         * @param[in] Command 체크 상자에 연결할 스냅 전환 명령입니다.
-         * @pre Client는 유효해야 하며 Command는 공통 명령 정보에 등록되어 있어야 합니다.
-         */
-        void DrawSettingToggle(Editor::FEditorViewportClient* Client, Editor::EViewportCommand Command) {
-            const Editor::FViewportCommandInfo* Info{Editor::FViewportCommandInfo::Find(Command)};
-            bool Checked{Client->IsCommandChecked(Command)};
-
-            if (ImGui::Checkbox(Info->mLabel, &Checked)) {
-                Client->ExecuteCommand(Command);
-            }
-        }
-
-        /**
          * @brief 기즈모 수치 설정의 입력을 표시하고 변경 값을 클라이언트의 검증 경로로 전달합니다.
          * @param[in,out] Client 변경 값을 검증하고 적용할 유효한 클라이언트입니다.
          * @param[in] Setting 변경할 수치 항목입니다.
@@ -108,218 +140,430 @@ namespace Editor {
          * @note 크기는 슬라이더로, 나머지는 수치 입력으로 표시하며 기즈모 설정의 주소를 UI에 직접 전달하지 않습니다.
          */
         void DrawNumericSetting(Editor::FEditorViewportClient* Client, Editor::EGizmoSetting Setting, const char* Label, float Value) {
-            const bool Changed{Setting == Editor::EGizmoSetting::Size ? ImGui::SliderFloat(Label, &Value, 0.5f, 2.0f) : ImGui::InputFloat(Label, &Value)};
+            const bool Changed{Setting == Editor::EGizmoSetting::Size ? ImGui::SliderFloat(Label, &Value, 0.5f, 2.0f) : ImGui::InputFloat(Label, &Value, 0.0f, 0.0f, "%.8g")};
 
             if (Changed) {
                 Client->SetGizmoSetting(Setting, Value);
             }
         }
 
-        /**
-         * @brief View Mode, View Filter 체크박스와 카메라 감도 드롭다운을 표시합니다.
-         * @param[in] Client 설정을 읽고 변경할 뷰포트 클라이언트입니다.
-         */
-        void DrawViewSettings(Editor::FEditorViewportClient* Client) {
-            const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
-            const std::array<Engine::EViewMode, 5> Modes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
-            const std::array<const char*, 5> Names{"Lit (Gouraud)", "Lit (Lambert)", "Lit", "Unlit", "Wireframe"};
-            const auto Current{std::find(Modes.begin(), Modes.end(), Client->GetColorViewMode())};
-            const Index_t Index{static_cast<Index_t>(Current != Modes.end() ? static_cast<std::size_t>(Current - Modes.begin()) : 2)};
-            const auto& Buffers{Editor::BufferVisualization::Modes};
-            const auto& BufferNames{Editor::BufferVisualization::Names};
-            const auto SelectedBuffer{std::find(Buffers.begin(), Buffers.end(), Client->GetViewMode())};
-            const Index_t BufferIndex{static_cast<Index_t>(SelectedBuffer == Buffers.end() ? 0u : static_cast<std::size_t>(SelectedBuffer - Buffers.begin()))};
-            const char* Preview{BufferIndex == 0 ? Names[Index] : BufferNames[BufferIndex]};
+        void DrawSnapValues(Editor::FEditorViewportClient* Client, const FSnapControl& Control) {
+            const float Current{Client->GetGizmoSettings()->*(Control.mValue)};
 
-            if (Editor::EditorStyle::LabelButton((Core::FString{Preview} + "##ViewMode").c_str(), nullptr, true, true, "뷰 모드")) {
-                ImGui::OpenPopup("ViewModeMenu");
+            for (const float Value : Control.mPresets) {
+                const Core::FString Label{std::format("{:g}{}", Value, Control.mSuffix)};
+
+                if (ImGui::MenuItem(Label.c_str(), nullptr, Current == Value)) {
+                    Client->SetGizmoSetting(Control.mSetting, Value);
+                }
             }
 
-            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
+            ImGui::Separator();
+            DrawNumericSetting(Client, Control.mSetting, "직접 입력", Current);
+        }
 
-            if (ImGui::BeginPopup("ViewModeMenu")) {
-                for (Index_t Mode{}; Mode < Modes.size(); ++Mode) {
-                    if (ImGui::Selectable(Names[Mode], Client->GetViewMode() == Modes[Mode])) {
-                        Client->SetViewMode(Modes[Mode]);
+        void DrawSnapButton(Editor::FEditorViewportClient* Client, const FSnapControl& Control, const char* Label) {
+            const Editor::FViewportCommandInfo* Info{Editor::FViewportCommandInfo::Find(Control.mCommand)};
+            const bool Enabled{Client->CanExecuteCommand(Control.mCommand)};
+            const bool Checked{Client->IsCommandChecked(Control.mCommand)};
+            ImGui::BeginDisabled(!Enabled);
+            const auto Pressed{Editor::EditorStyle::SplitIconButton(Info->mLabel, Info->mIcon, Control.mTooltip, "스냅 간격", {.mMenuLabel{Label}, .mActionChecked{Checked}})};
+            ImGui::EndDisabled();
+
+            if (Pressed == Editor::EditorStyle::ESplitIconPress::Action) {
+                Client->ExecuteCommand(Control.mCommand);
+            }
+
+            if (BeginToolbarPopup(Info->mLabel, Pressed == Editor::EditorStyle::ESplitIconPress::Menu)) {
+                ImGui::BeginDisabled(!Enabled);
+                DrawSnapValues(Client, Control);
+                ImGui::EndDisabled();
+                Editor::EditorStyle::EndPopup();
+            }
+        }
+
+        void DrawTransformSettings(Editor::FEditorViewportClient* Client) {
+            DrawCoordinateMenu(Client);
+            ImGui::Separator();
+            ImGui::BeginDisabled(!Client->CanEditGizmoSettings());
+            DrawNumericSetting(Client, Editor::EGizmoSetting::Size, "Gizmo Size", Client->GetGizmoSettings()->mSize);
+            ImGui::EndDisabled();
+        }
+
+        void DrawViewTypeMenu(Editor::FEditorViewportClient* Client, const std::function<void(Editor::EEditorViewportType)>& SetViewType) {
+            for (Index_t Index{}; Index < ViewTypeNames.size(); ++Index) {
+                const auto Type{static_cast<Editor::EEditorViewportType>(Index)};
+
+                if (Index == 1) {
+                    ImGui::SeparatorText("Orthographic");
+                }
+
+                if (ImGui::MenuItem(ViewTypeNames[Index], nullptr, Client->GetViewType() == Type)) {
+                    if (SetViewType) {
+                        SetViewType(Type);
+                    } else {
+                        Client->SetViewType(Type);
+                    }
+                }
+            }
+        }
+
+        Index_t GetBufferModeIndex(Engine::EViewMode Mode) {
+            const auto& Modes{Editor::BufferVisualization::Modes};
+            const auto Current{std::find(Modes.begin(), Modes.end(), Mode)};
+
+            return Current == Modes.end() ? 0u : static_cast<Index_t>(Current - Modes.begin());
+        }
+
+        const char* GetViewModeName(Editor::FEditorViewportClient* Client) {
+            const Index_t Buffer{GetBufferModeIndex(Client->GetViewMode())};
+
+            if (Buffer != 0) {
+                return Editor::BufferVisualization::Names[Buffer];
+            }
+
+            const auto Current{std::find(ColorModes.begin(), ColorModes.end(), Client->GetColorViewMode())};
+
+            return Current == ColorModes.end() ? "Lit" : ColorModeNames[Current - ColorModes.begin()];
+        }
+
+        void DrawViewModeMenu(Editor::FEditorViewportClient* Client) {
+            for (Index_t Mode{}; Mode < ColorModes.size(); ++Mode) {
+                if (ImGui::MenuItem(ColorModeNames[Mode], nullptr, Client->GetViewMode() == ColorModes[Mode])) {
+                    Client->SetViewMode(ColorModes[Mode]);
+                }
+            }
+
+            ImGui::Separator();
+
+            if (ImGui::BeginMenu("Buffer Visualization")) {
+                const Index_t Current{GetBufferModeIndex(Client->GetViewMode())};
+                const auto& Modes{Editor::BufferVisualization::Modes};
+                const auto& Names{Editor::BufferVisualization::Names};
+
+                for (Index_t Buffer{}; Buffer < Modes.size(); ++Buffer) {
+                    if (ImGui::MenuItem(Names[Buffer], nullptr, Buffer == Current)) {
+                        Client->SetViewMode(Buffer == 0 ? Client->GetColorViewMode() : Modes[Buffer]);
                     }
                 }
 
-                ImGui::Separator();
+                ImGui::EndMenu();
+            }
+        }
 
-                if (ImGui::BeginMenu("Buffer Visualization")) {
-                    for (Index_t Buffer{}; Buffer < Buffers.size(); ++Buffer) {
-                        if (ImGui::MenuItem(BufferNames[Buffer], nullptr, Buffer == BufferIndex)) {
-                            Client->SetViewMode(Buffer == 0 ? Client->GetColorViewMode() : Buffers[Buffer]);
-                        }
+        void DrawShowFlags(Editor::FEditorViewportClient* Client) {
+            ImGui::SeparatorText("Show Flags");
+
+            Engine::FEngineShowFlags Flags{Client->GetShowFlags()};
+            bool Changed{ImGui::Checkbox("Primitives", &Flags.mPrimitives)};
+
+            Changed = ImGui::Checkbox("Sprites / Billboards", &Flags.mSprites) || Changed;
+            Changed = ImGui::Checkbox("Text", &Flags.mText) || Changed;
+            Changed = ImGui::Checkbox("Light Icons", &Flags.mLightIcons) || Changed;
+            Changed = ImGui::Checkbox("Shadows", &Flags.mShadows) || Changed;
+            Changed = ImGui::Checkbox("Sky", &Flags.mSky) || Changed;
+            Changed = ImGui::Checkbox("Fog", &Flags.mFog) || Changed;
+            Changed = ImGui::Checkbox("FXAA", &Flags.mFXAA) || Changed;
+            Changed = ImGui::Checkbox("Fog Icons", &Flags.mFogIcons) || Changed;
+            Changed = ImGui::Checkbox("Light Visualizers", &Flags.mLightVisualizers) || Changed;
+            Changed = ImGui::Checkbox("Bounding Boxes (AABB)", &Flags.mBounds) || Changed;
+            Changed = ImGui::Checkbox("Grid", &Flags.mGrid) || Changed;
+            Changed = ImGui::Checkbox("World Axes", &Flags.mAxes) || Changed;
+
+            ImGui::Separator();
+
+            float Thickness{Client->GetLineThickness()};
+
+            if (ImGui::SliderFloat("Line Width (px)", &Thickness, 0.5f, 10.0f, "%.1f")) {
+                Client->SetLineThickness(Thickness);
+            }
+
+            if (ImGui::MenuItem("Use Defaults")) {
+                Flags = {};
+                Changed = true;
+
+                Client->SetLineThickness(1.5f);
+            }
+
+            if (Changed) {
+                Client->SetShowFlags(Flags);
+            }
+        }
+
+        void DrawCameraSpeed(Editor::FEditorViewportClient* Client) {
+            float Speed{Client->GetCameraSpeed()};
+
+            if (ImGui::SliderFloat("Movement Speed", &Speed, 0.1f, 128.0f, "%.2f", ImGuiSliderFlags_Logarithmic)) {
+                Client->SetCameraSpeed(Speed);
+            }
+        }
+
+        void DrawViewportSettings(Editor::FEditorViewportClient* Client) {
+            ImGui::SeparatorText("Camera Settings");
+
+            float Sensitivity{Client->GetCameraSensitivity()};
+
+            if (ImGui::SliderFloat("Sensitivity", &Sensitivity, 0.01f, 2.0f, "%.2f")) {
+                Client->SetCameraSensitivity(Sensitivity);
+            }
+
+            Engine::FEditorCameraState Camera{Client->GetPerspectiveCamera()};
+            float FieldOfView{Camera.GetFieldOfView()};
+            float NearClip{Camera.GetNearClip()};
+            float FarClip{Camera.GetFarClip()};
+            bool ProjectionChanged{ImGui::SliderFloat("FOV", &FieldOfView, 1.0f, 179.0f, "%.1f")};
+
+            ProjectionChanged = ImGui::InputFloat("Near Clip", &NearClip) || ProjectionChanged;
+            ProjectionChanged = ImGui::InputFloat("Far Clip", &FarClip) || ProjectionChanged;
+
+            if (ProjectionChanged && Camera.Set(Camera.GetLocation(), Camera.GetRotation(), FieldOfView, NearClip, FarClip)) {
+                Client->SetPerspectiveCamera(Camera);
+            }
+
+            DrawGridSettings(Client);
+        }
+
+        void DrawCompactMenu(Editor::FEditorViewportClient* Client, const std::function<void(Editor::EEditorViewportType)>& SetViewType) {
+            ImGui::Separator();
+            DrawTransformSettings(Client);
+
+            for (const FSnapControl& Control : SnapControls) {
+                if (ImGui::BeginMenu(Control.mTooltip, Client->CanExecuteCommand(Control.mCommand))) {
+                    if (ImGui::MenuItem("활성화", nullptr, Client->IsCommandChecked(Control.mCommand))) {
+                        Client->ExecuteCommand(Control.mCommand);
                     }
 
+                    DrawSnapValues(Client, Control);
                     ImGui::EndMenu();
                 }
-
-                ImGui::EndPopup();
             }
 
-            ImGui::SameLine();
+            ImGui::Separator();
 
-            if (Editor::EditorStyle::LabelButton("Show", nullptr, true, true, "표시 플래그")) {
-                ImGui::OpenPopup("ShowMenu");
+            if (ImGui::BeginMenu("뷰포트 종류")) {
+                DrawViewTypeMenu(Client, SetViewType);
+                ImGui::EndMenu();
             }
 
-            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
-
-            if (ImGui::BeginPopup("ShowMenu")) {
-                ImGui::SeparatorText("Show Flags");
-
-                Engine::FEngineShowFlags Flags{Client->GetShowFlags()};
-                bool Changed{ImGui::Checkbox("Primitives", &Flags.mPrimitives)};
-
-                Changed = ImGui::Checkbox("Sprites / Billboards", &Flags.mSprites) || Changed;
-                Changed = ImGui::Checkbox("Text", &Flags.mText) || Changed;
-                Changed = ImGui::Checkbox("Light Icons", &Flags.mLightIcons) || Changed;
-                Changed = ImGui::Checkbox("Shadows", &Flags.mShadows) || Changed;
-                Changed = ImGui::Checkbox("Sky", &Flags.mSky) || Changed;
-                Changed = ImGui::Checkbox("Fog", &Flags.mFog) || Changed;
-                Changed = ImGui::Checkbox("FXAA", &Flags.mFXAA) || Changed;
-                Changed = ImGui::Checkbox("Fog Icons", &Flags.mFogIcons) || Changed;
-                Changed = ImGui::Checkbox("Light Visualizers", &Flags.mLightVisualizers) || Changed;
-                Changed = ImGui::Checkbox("Bounding Boxes (AABB)", &Flags.mBounds) || Changed;
-                Changed = ImGui::Checkbox("Grid", &Flags.mGrid) || Changed;
-                Changed = ImGui::Checkbox("World Axes", &Flags.mAxes) || Changed;
-
-                ImGui::Separator();
-
-                float Thickness{Client->GetLineThickness()};
-
-                if (ImGui::SliderFloat("Line Width (px)", &Thickness, 0.5f, 10.0f, "%.1f")) {
-                    Client->SetLineThickness(Thickness);
-                }
-
-                if (ImGui::MenuItem("Use Defaults")) {
-                    Flags = {};
-                    Changed = true;
-
-                    Client->SetLineThickness(1.5f);
-                }
-
-                if (Changed) {
-                    Client->SetShowFlags(Flags);
-                }
-
-                ImGui::EndPopup();
+            if (ImGui::BeginMenu("카메라 속도")) {
+                DrawCameraSpeed(Client);
+                ImGui::EndMenu();
             }
 
-            ImGui::SameLine();
-
-            const Editor::EditorStyle::EIcon CameraIcon{Editor::EditorStyle::EIcon::Camera};
-
-            if (Editor::EditorStyle::LabelButton("##CameraSettings", &CameraIcon, true, true, "카메라 설정")) {
-                ImGui::OpenPopup("CameraMenu");
+            if (ImGui::BeginMenu("뷰 모드")) {
+                DrawViewModeMenu(Client);
+                ImGui::EndMenu();
             }
 
-            ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f * Scale}, ImGuiCond_Appearing);
+            if (ImGui::BeginMenu("표시 플래그")) {
+                DrawShowFlags(Client);
+                ImGui::EndMenu();
+            }
 
-            if (ImGui::BeginPopup("CameraMenu")) {
-                ImGui::SeparatorText("Camera Settings");
-
-                float Sensitivity{Client->GetCameraSensitivity()};
-
-                if (ImGui::SliderFloat("Sensitivity", &Sensitivity, 0.01f, 2.0f, "%.2f")) {
-                    Client->SetCameraSensitivity(Sensitivity);
-                }
-
-                float Speed{Client->GetCameraSpeed()};
-
-                if (ImGui::SliderFloat("Movement Speed", &Speed, 0.1f, 128.0f, "%.1f", ImGuiSliderFlags_Logarithmic)) {
-                    Client->SetCameraSpeed(Speed);
-                }
-
-                Engine::FEditorCameraState Camera{Client->GetPerspectiveCamera()};
-                float FieldOfView{Camera.GetFieldOfView()};
-                float NearClip{Camera.GetNearClip()};
-                float FarClip{Camera.GetFarClip()};
-                bool ProjectionChanged{ImGui::SliderFloat("FOV", &FieldOfView, 1.0f, 179.0f, "%.1f")};
-
-                ProjectionChanged = ImGui::InputFloat("Near Clip", &NearClip) || ProjectionChanged;
-                ProjectionChanged = ImGui::InputFloat("Far Clip", &FarClip) || ProjectionChanged;
-
-                if (ProjectionChanged && Camera.Set(Camera.GetLocation(), Camera.GetRotation(), FieldOfView, NearClip, FarClip)) {
-                    Client->SetPerspectiveCamera(Camera);
-                }
-
-                ImGui::EndPopup();
+            if (ImGui::BeginMenu("뷰포트 설정")) {
+                DrawViewportSettings(Client);
+                ImGui::EndMenu();
             }
         }
 
+        void DrawToolsButton(Editor::FEditorViewportClient* Client, bool Compact, const std::function<void(Editor::EEditorViewportType)>& SetViewType) {
+            if (BeginToolbarPopup("TransformTools", Editor::EditorStyle::IconButton("Tools", Editor::EditorStyle::EIcon::Tools, false, true, true, Compact ? "뷰포트 도구" : "변환 도구"))) {
+                DrawModeCommands(Client, true);
+
+                if (Compact) {
+                    DrawCompactMenu(Client, SetViewType);
+                }
+
+                Editor::EditorStyle::EndPopup();
+            }
+        }
+
+        void DrawTransformControls(Editor::FEditorViewportClient* Client, const std::array<Core::FString, SnapControls.size()>& SnapLabels, float GroupSpacing, bool ShowPlaceholders) {
+            ImGui::SameLine(0.0f, GroupSpacing);
+
+            const bool WorldSpace{Client->IsCommandChecked(Editor::EViewportCommand::WorldSpace)};
+            const char* CoordinateTooltip{Client->GetGizmoMode() == Editor::EGizmoMode::Scale ? "로컬 좌표계\n크기 조절은 로컬 축을 사용합니다." : WorldSpace ? "월드 좌표계 (클릭하면 전환)" : "로컬 좌표계 (클릭하면 전환)"};
+            const auto Pressed{Editor::EditorStyle::SplitIconButton("CoordinateSystem", WorldSpace ? Editor::EditorStyle::EIcon::World : Editor::EditorStyle::EIcon::Local, CoordinateTooltip, "좌표계 및 기즈모 설정", {.mActionEnabled{Client->CanExecuteCommand(Editor::EViewportCommand::ToggleCoordinateSystem)}})};
+
+            if (Pressed == Editor::EditorStyle::ESplitIconPress::Action) {
+                Client->ExecuteCommand(Editor::EViewportCommand::ToggleCoordinateSystem);
+            }
+
+            if (BeginToolbarPopup("TransformSettings", Pressed == Editor::EditorStyle::ESplitIconPress::Menu)) {
+                DrawTransformSettings(Client);
+                Editor::EditorStyle::EndPopup();
+            }
+
+            ImGui::SameLine(0.0f, GroupSpacing);
+
+            if (ShowPlaceholders) {
+                DrawPlaceholder("오브젝트 스냅 설정", Editor::EditorStyle::EIcon::Snapping, true);
+                ImGui::SameLine();
+                DrawPlaceholder("표면 스냅", Editor::EditorStyle::EIcon::SurfaceSnap, true);
+                ImGui::SameLine();
+            }
+
+            for (Index_t Index{}; Index < SnapControls.size(); ++Index) {
+                if (Index != 0) {
+                    ImGui::SameLine();
+                }
+
+                DrawSnapButton(Client, SnapControls[Index], SnapLabels[Index].c_str());
+            }
+        }
+
+        void DrawViewTypeButton(Editor::FEditorViewportClient* Client, const char* Label, const std::function<void(Editor::EEditorViewportType)>& SetViewType) {
+            const bool Open{Label != nullptr ? Editor::EditorStyle::LabelButton(Label, &CameraIcon, true, true, "뷰포트 종류") : Editor::EditorStyle::IconButton("ViewType", CameraIcon, false, true, true, "뷰포트 종류")};
+
+            if (BeginToolbarPopup("ViewTypeMenu", Open)) {
+                DrawViewTypeMenu(Client, SetViewType);
+                Editor::EditorStyle::EndPopup();
+            }
+        }
+
+        void DrawViewControls(Editor::FEditorViewportClient* Client, const char* ViewModeLabel, const char* SpeedLabel, float GroupSpacing, bool ShowPlaceholders) {
+            ImGui::SameLine();
+
+            if (BeginToolbarPopup("CameraSpeed", Editor::EditorStyle::LabelButton(SpeedLabel, &CameraSpeedIcon, true, true, "카메라 속도", true))) {
+                DrawCameraSpeed(Client);
+                Editor::EditorStyle::EndPopup();
+            }
+
+            ImGui::SameLine(0.0f, GroupSpacing);
+
+            if (BeginToolbarPopup("ViewModeMenu", Editor::EditorStyle::LabelButton(ViewModeLabel, &ViewModeIcon, true, true, "뷰 모드"))) {
+                DrawViewModeMenu(Client);
+                Editor::EditorStyle::EndPopup();
+            }
+
+            ImGui::SameLine();
+
+            if (BeginToolbarPopup("ShowMenu", Editor::EditorStyle::IconButton("Show", Editor::EditorStyle::EIcon::Visible, false, true, true, "표시 플래그"))) {
+                DrawShowFlags(Client);
+                Editor::EditorStyle::EndPopup();
+            }
+
+            if (ShowPlaceholders) {
+                ImGui::SameLine();
+                DrawPlaceholder("뷰포트 성능 및 렌더링 품질 설정", Editor::EditorStyle::EIcon::Performance, true);
+                ImGui::SameLine();
+                DrawPlaceholder("뷰포트 품질 경고 및 기본값 복원", Editor::EditorStyle::EIcon::Warning, false);
+            }
+
+            ImGui::SameLine(0.0f, GroupSpacing);
+
+            if (BeginToolbarPopup("ViewportSettings", Editor::EditorStyle::IconButton("Settings", Editor::EditorStyle::EIcon::Settings, false, true, true, "뷰포트 설정"))) {
+                DrawViewportSettings(Client);
+                Editor::EditorStyle::EndPopup();
+            }
+        }
+
+        void DrawControls(Editor::FEditorViewportClient* Client, const ImVec2& Start, float Width, float Scale, const std::function<void(Editor::EEditorViewportType)>& SetViewType, const std::function<void()>& DrawLayout) {
+            const float IconWidth{ImGui::GetFrameHeight()};
+            const float DropdownWidth{IconWidth + 12.0f * Scale};
+            const float SplitWidth{Editor::EditorStyle::GetSplitIconButtonWidth()};
+            const float Spacing{ImGui::GetStyle().ItemSpacing.x};
+            const float GroupSpacing{8.0f * Scale};
+            const float LayoutWidth{DrawLayout ? SplitWidth + Spacing : 0.0f};
+            const Core::FString ViewTypeLabel{Core::FString{Client->GetViewTypeName()} + "###ViewType"};
+            const Core::FString ViewModeLabel{Core::FString{GetViewModeName(Client)} + "###ViewMode"};
+            const Core::FString SpeedLabel{std::format("{:.3g}###CameraSpeed", Client->GetCameraSpeed())};
+            std::array<Core::FString, SnapControls.size()> SnapLabels{};
+            const float ModesWidth{4.0f * (IconWidth + Spacing)};
+            const float TransformPlaceholderWidth{2.0f * (DropdownWidth + Spacing)};
+            const float ViewPlaceholderWidth{DropdownWidth + IconWidth + 2.0f * Spacing};
+            float TransformWidth{4.0f * IconWidth + DropdownWidth + SplitWidth + 6.0f * Spacing + 2.0f * GroupSpacing};
+            float ViewWidth{2.0f * DropdownWidth + 2.0f * Spacing + 2.0f * GroupSpacing};
+
+            for (Index_t Index{}; Index < SnapControls.size(); ++Index) {
+                const FSnapControl& Control{SnapControls[Index]};
+                SnapLabels[Index] = std::format("{:.4g}{}", Client->GetGizmoSettings()->*(Control.mValue), Control.mSuffix);
+                TransformWidth += Editor::EditorStyle::GetSplitIconButtonWidth(SnapLabels[Index].c_str());
+            }
+
+            ViewWidth += Editor::EditorStyle::GetLabelButtonWidth(ViewTypeLabel.c_str(), &CameraIcon, true);
+            ViewWidth += Editor::EditorStyle::GetLabelButtonWidth(ViewModeLabel.c_str(), &ViewModeIcon, true);
+            ViewWidth += Editor::EditorStyle::GetLabelButtonWidth(SpeedLabel.c_str(), &CameraSpeedIcon, true);
+
+            ViewWidth += LayoutWidth;
+
+            const float ControlsWidth{TransformWidth + ViewWidth + GroupSpacing};
+            const bool ShowPlaceholders{Width >= ControlsWidth + TransformPlaceholderWidth + ViewPlaceholderWidth};
+            const bool Compact{Width < ControlsWidth};
+            const bool ShowViewType{!Compact || Width >= 2.0f * DropdownWidth + LayoutWidth + GroupSpacing};
+            const bool ShowLayout{DrawLayout && (!Compact || Width >= DropdownWidth + LayoutWidth)};
+
+            if (ShowPlaceholders) {
+                ViewWidth += ViewPlaceholderWidth;
+            } else if (Compact) {
+                ViewWidth = (ShowLayout ? SplitWidth : 0.0f) + (ShowViewType ? DropdownWidth : 0.0f) + (ShowLayout && ShowViewType ? Spacing : 0.0f);
+            }
+
+            DrawToolsButton(Client, Compact, SetViewType);
+
+            if (!Compact || Width >= DropdownWidth + ModesWidth + ViewWidth + GroupSpacing) {
+                ImGui::SameLine();
+                DrawModeCommands(Client, false);
+            }
+
+            if (!Compact) {
+                DrawTransformControls(Client, SnapLabels, GroupSpacing, ShowPlaceholders);
+            }
+
+            if (ViewWidth > 0.0f) {
+                ImGui::SetCursorScreenPos({Start.x + Width - ViewWidth, Start.y});
+
+                if (ShowViewType) {
+                    DrawViewTypeButton(Client, Compact ? nullptr : ViewTypeLabel.c_str(), SetViewType);
+                }
+
+                if (!Compact) {
+                    DrawViewControls(Client, ViewModeLabel.c_str(), SpeedLabel.c_str(), GroupSpacing, ShowPlaceholders);
+                }
+
+                if (ShowLayout) {
+                    if (ShowViewType) {
+                        ImGui::SameLine();
+                    }
+
+                    DrawLayout();
+                }
+            }
+        }
     }
 
-    /**
-     * @fn void Editor::ViewportToolbar::Draw(Editor::FEditorViewportClient* Client)
-     * @brief 공통 스타일로 툴바와 드롭다운을 구성하고 입력을 클라이언트 명령으로 전달합니다.
-     */
-
-    /**
-     * @brief 아이콘 버튼과 메뉴를 표시하고 사용자 요청을 클라이언트의 공통 명령 경로로 전달합니다.
-     */
-    void Editor::ViewportToolbar::Draw(Editor::FEditorViewportClient* Client) {
+    void Editor::ViewportToolbar::Draw(Editor::FEditorViewportClient* Client, float Width, bool AllowInput, const char* PlayStatus, const std::function<void(Editor::EEditorViewportType)>& SetViewType, const std::function<void()>& DrawLayout) {
         ImGui::PushID("ViewportToolbar");
         Editor::EditorStyle::PushViewportToolbar();
-        ImGui::BeginGroup();
-        DrawModeCommands(Client, false);
-        ImGui::SameLine(0.0f, 6.0f);
 
-        const bool WorldSpace{Client->IsCommandChecked(Editor::EViewportCommand::WorldSpace)};
-        const char* CoordinateTooltip{Client->GetGizmoMode() == Editor::EGizmoMode::Scale ? "로컬 좌표계\n크기 조절은 로컬 축을 사용합니다." : WorldSpace ? "월드 좌표계 (클릭하면 전환)" : "로컬 좌표계 (클릭하면 전환)"};
+        const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
+        const float Padding{4.0f * Scale};
+        const float Height{ImGui::GetFrameHeight() + 2.0f * Padding};
+        const ImVec2 Start{ImGui::GetCursorScreenPos()};
+        const ImVec2 End{Start.x + Width, Start.y + Height};
+        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
 
-        if (Editor::EditorStyle::IconButton("Coordinate System", WorldSpace ? Editor::EditorStyle::EIcon::World : Editor::EditorStyle::EIcon::Local, false, Client->CanExecuteCommand(Editor::EViewportCommand::ToggleCoordinateSystem), false, CoordinateTooltip)) {
-            Client->ExecuteCommand(Editor::EViewportCommand::ToggleCoordinateSystem);
+        ImGui::Dummy({Width, Height});
+        DrawList->AddRectFilled(Start, End, ImGui::GetColorU32(Editor::EditorStyle::GetMajorTabColor()));
+        DrawList->AddLine({Start.x, End.y - 1.0f}, {End.x, End.y - 1.0f}, ImGui::GetColorU32(ImGuiCol_Separator));
+
+        if (Width > 2.0f * Padding) {
+            const ImVec2 Content{Start.x + Padding, Start.y + Padding};
+            ImGui::SetCursorScreenPos(Content);
+
+            if (PlayStatus != nullptr) {
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted(PlayStatus);
+            } else {
+                ImGui::BeginDisabled(!AllowInput);
+                DrawControls(Client, Content, Width - 2.0f * Padding, Scale, SetViewType, DrawLayout);
+                ImGui::EndDisabled();
+            }
         }
 
-        ImGui::SameLine(0.0f, 6.0f);
-
-        if (Editor::EditorStyle::IconButton("Grid Settings", Editor::EditorStyle::EIcon::Grid, ImGui::IsPopupOpen("GridSettings"), true, true, "그리드 설정")) {
-            ImGui::OpenPopup("GridSettings");
-        }
-
-        ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f}, ImGuiCond_Appearing);
-
-        if (ImGui::BeginPopup("GridSettings")) {
-            DrawGridSettings(Client);
-            ImGui::EndPopup();
-        }
-
-        ImGui::SameLine(0.0f, 6.0f);
-
-        if (Editor::EditorStyle::LabelButton("Snap", nullptr, true, true, "스냅 설정")) {
-            ImGui::OpenPopup("GizmoSnapping");
-        }
-
-        ImGui::SetNextWindowPos(ImVec2{ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f}, ImGuiCond_Appearing);
-
-        if (ImGui::BeginPopup("GizmoSnapping")) {
-            ImGui::BeginDisabled(!Client->CanEditGizmoSettings());
-
-            const Editor::FGizmoSettings* Settings{Client->GetGizmoSettings()};
-
-            DrawSettingToggle(Client, Editor::EViewportCommand::ToggleTranslationSnap);
-            DrawNumericSetting(Client, Editor::EGizmoSetting::TranslationStep, "Translation Step", Settings->mTranslationStep);
-            DrawSettingToggle(Client, Editor::EViewportCommand::ToggleRotationSnap);
-            DrawNumericSetting(Client, Editor::EGizmoSetting::RotationStep, "Rotation Degrees", Settings->mRotationStep);
-            DrawSettingToggle(Client, Editor::EViewportCommand::ToggleScaleSnap);
-            DrawNumericSetting(Client, Editor::EGizmoSetting::ScaleStep, "Scale Step", Settings->mScaleStep);
-            DrawNumericSetting(Client, Editor::EGizmoSetting::Size, "Gizmo Size", Settings->mSize);
-            ImGui::EndDisabled();
-            ImGui::EndPopup();
-        }
-
-        ImGui::EndGroup();
         Editor::EditorStyle::PopViewportToolbar();
         ImGui::PopID();
-    }
-
-    void Editor::ViewportToolbar::DrawViewOptions(Editor::FEditorViewportClient* Client) {
-        ImGui::PushID("ViewportViewOptions");
-        DrawViewSettings(Client);
-        ImGui::PopID();
+        ImGui::SetCursorScreenPos({Start.x, End.y});
     }
 
 }

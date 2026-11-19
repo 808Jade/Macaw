@@ -165,6 +165,11 @@ namespace Editor {
          */
         void TabIcon(EIcon Icon, ImU32 Color = 0);
 
+        enum class EIconSelectionStyle {
+            Background,
+            Icon
+        };
+
         /**
          * @brief 선택 및 비활성 상태를 반영하는 아이콘 버튼과 툴팁을 표시합니다.
          * @param[in] Label 현재 ID 범위에서 버튼을 식별하며 기본 툴팁에도 사용할 문자열입니다.
@@ -177,7 +182,23 @@ namespace Editor {
          * @note 팝업 열기와 명령 실행은 호출자가 처리합니다. 문자열은 호출 중 유효해야 합니다.
          * @param[in] MinimumWidth 버튼에 확보할 최소 너비입니다.
          */
-        bool IconButton(const char* Label, EIcon Icon, bool Selected = false, bool Enabled = true, bool Dropdown = false, const char* Tooltip = nullptr, float MinimumWidth = 0.0f);
+        bool IconButton(const char* Label, EIcon Icon, bool Selected = false, bool Enabled = true, bool Dropdown = false, const char* Tooltip = nullptr, float MinimumWidth = 0.0f, EIconSelectionStyle SelectionStyle = EIconSelectionStyle::Background);
+
+        enum class ESplitIconPress {
+            None,
+            Action,
+            Menu
+        };
+
+        struct FSplitIconButtonOptions {
+            const char* mMenuLabel{};
+            bool mActionEnabled{true};
+            bool mMenuFirst{};
+            bool mActionChecked{};
+        };
+
+        float GetSplitIconButtonWidth(const char* MenuLabel = nullptr);
+        ESplitIconPress SplitIconButton(const char* Label, EIcon Icon, const char* ActionTooltip, const char* MenuTooltip, const FSplitIconButtonOptions& Options = {});
 
         /**
          * @brief 선택적인 아이콘과 드롭다운 표시를 붙인 텍스트 버튼을 표시합니다.
@@ -188,7 +209,8 @@ namespace Editor {
          * @param[in] Tooltip 마우스를 올렸을 때 보여 줄 설명이며 없으면 nullptr입니다.
          * @return 버튼을 눌렀으면 true입니다.
          */
-        bool LabelButton(const char* Label, const EIcon* Icon = nullptr, bool Dropdown = false, bool Enabled = true, const char* Tooltip = nullptr);
+        bool LabelButton(const char* Label, const EIcon* Icon = nullptr, bool Dropdown = false, bool Enabled = true, const char* Tooltip = nullptr, bool HoverOnly = false);
+        float GetLabelButtonWidth(const char* Label, const EIcon* Icon = nullptr, bool Dropdown = false);
 
         /**
          * @brief 에셋 에디터 툴바의 찾아보기 버튼이 콘텐츠 브라우저에서 에셋을 선택할 때 호출할 처리기를 지정합니다.

@@ -240,9 +240,21 @@ void FEditorViewportLayout::DrawPresetButton(EEditorViewportLayoutPreset Preset)
     ImGui::PopID();
 }
 
-void FEditorViewportLayout::DrawPresetMenu(Index_t Index) {
+void FEditorViewportLayout::DrawLayoutControls(Index_t Index) {
     const float Scale{ImGui::GetFontSize() / 16.0f};
-    if (EditorStyle::IconButton("ViewportLayout", EditorStyle::EIcon::QuadView, false, true, true, "뷰포트 레이아웃 프리셋")) {
+    const EditorStyle::EIcon Icon{mMaximized ? EditorStyle::EIcon::QuadView : EditorStyle::EIcon::Maximize};
+    const char* ActionTooltip{mMaximized ? "분할 뷰포트 복구" : "원근 뷰포트로 복귀"};
+    const auto Pressed{EditorStyle::SplitIconButton("ViewportLayout", Icon, ActionTooltip, "뷰포트 레이아웃 프리셋", {.mMenuFirst{true}})};
+
+    if (Pressed == EditorStyle::ESplitIconPress::Action) {
+        if (mMaximized) {
+            RestoreViewports();
+        } else {
+            SetPreset(EEditorViewportLayoutPreset::Single);
+        }
+    }
+
+    if (Pressed == EditorStyle::ESplitIconPress::Menu) {
         mActiveViewport = Index;
         ImGui::OpenPopup("ViewportLayoutPresets");
     }
@@ -291,39 +303,25 @@ void FEditorViewportLayout::DrawViewport(Index_t Index, const Core::FInput& Inpu
 
     FEditorViewportClient* Client{Viewport->GetClient()};
     const bool AllowInput{CapturedViewport == nullptr || CapturedViewport == Viewport};
-    const auto ToolbarExtras{[this, Index, Client](Index_t Part) {
-        ImGui::BeginDisabled(!CanChangeLayout());
-        if (Part == 0) {
-            if (EditorStyle::LabelButton((Core::FString{Client->GetViewTypeName()} + "##ViewType").c_str(), nullptr, true, true, "뷰포트 종류")) {
-                ImGui::OpenPopup("ViewTypeMenu");
-            }
-            if (EditorStyle::BeginPopup("ViewTypeMenu")) {
-                const std::array<const char*, 7> Names{"Perspective", "Top", "Bottom", "Front", "Back", "Left", "Right"};
-                for (Index_t Type{}; Type < Names.size(); ++Type) {
-                    const EEditorViewportType ViewType{static_cast<EEditorViewportType>(Type)};
-                    if (Type == 1) {
-                        ImGui::SeparatorText("Orthographic");
-                    }
-                    if (ImGui::MenuItem(Names[Type], nullptr, Client->GetViewType() == ViewType)) {
-                        Client->SetViewType(ViewType);
-                        mActiveViewport = Index;
-                        ImGui::MarkIniSettingsDirty();
-                    }
-                }
-                EditorStyle::EndPopup();
-            }
-        } else {
-            DrawPresetMenu(Index);
+    const auto SetViewType{[this, Index, Client](EEditorViewportType Type) {
+        if (CanChangeLayout()) {
+            Client->SetViewType(Type);
+            mActiveViewport = Index;
+            ImGui::MarkIniSettingsDirty();
         }
-
+    }};
+    const auto DrawLayout{[this, Index] {
+        ImGui::BeginDisabled(!CanChangeLayout());
+        DrawLayoutControls(Index);
         ImGui::EndDisabled();
     }};
-    Viewport->DrawContents(Input, DeltaTime, AllowInput, ToolbarExtras);
+
+    Viewport->DrawContents(Input, DeltaTime, AllowInput, SetViewType, DrawLayout);
     mVisible[Index] = true;
     if (Viewport->IsMouseCaptured()) {
         CapturedViewport = Viewport;
         mActiveViewport = Index;
-    } else if (AllowInput && ImGui::IsWindowFocused()) {
+    } else if (AllowInput && (!mMaximized || Index == mSingleViewport) && ImGui::IsWindowFocused()) {
         mActiveViewport = Index;
     }
 }

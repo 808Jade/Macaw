@@ -250,10 +250,10 @@ namespace Editor {
         void DrawLayoutNode(const Editor::FEditorViewportLayout::FPresetDefinition& Definition, Index_t NodeIndex, const FVector4& Bounds, const Core::FInput& Input, float DeltaTime, Editor::FEditorViewport*& CapturedViewport);
 
         /**
-         * @brief 해당 뷰포트의 배치 프리셋 선택 메뉴를 그립니다.
+         * @brief 해당 뷰포트의 배치 프리셋 메뉴와 최대화 전환 버튼을 그립니다.
          * @param[in] Index 조회하거나 변경할 0부터 시작하는 인덱스입니다.
          */
-        void DrawPresetMenu(Index_t Index);
+        void DrawLayoutControls(Index_t Index);
 
         /**
          * @brief 분할 미리 보기를 포함한 프리셋 선택 버튼을 그립니다.

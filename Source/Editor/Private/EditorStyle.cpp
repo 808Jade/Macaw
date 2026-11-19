@@ -361,6 +361,20 @@ namespace Editor {
             break;
         }
 
+        case EIcon::CameraSpeed: {
+            const std::array<ImVec2, 4> Lens{Point(11.0f, 5.0f), Point(16.5f, 2.5f), Point(16.5f, 10.5f), Point(11.0f, 8.0f)};
+
+            DrawList->AddRect(Point(2.0f, 2.5f), Point(11.0f, 10.5f), Color, Scale, Thickness);
+            DrawList->AddPolyline(Lens.data(), static_cast<int>(Lens.size()), Color, Thickness, ImDrawFlags_Closed);
+            Line(2.0f, 15.5f, 3.0f, 15.5f);
+            Line(5.5f, 15.5f, 6.5f, 15.5f);
+            Line(9.0f, 15.5f, 18.5f, 15.5f);
+            Line(15.0f, 12.5f, 18.5f, 15.5f);
+            Line(18.5f, 15.5f, 15.0f, 18.5f);
+
+            break;
+        }
+
         case EIcon::Skeleton:
             Line(6.0f, 14.0f, 14.0f, 6.0f);
             DrawList->AddCircle(Point(4.5f, 15.5f), 2.5f * Scale, Color, 12, Thickness);
@@ -502,24 +516,80 @@ namespace Editor {
             break;
         }
 
+        case EIcon::Snapping:
+            DrawList->PathLineTo(Point(3.0f, 3.0f));
+            DrawList->PathArcTo(Point(10.0f, 10.0f), 7.0f * Scale, IM_PI, 0.0f, 12);
+            DrawList->PathLineTo(Point(17.0f, 3.0f));
+            DrawList->PathLineTo(Point(13.0f, 3.0f));
+            DrawList->PathArcTo(Point(10.0f, 10.0f), 3.0f * Scale, 0.0f, IM_PI, 8);
+            DrawList->PathLineTo(Point(7.0f, 3.0f));
+            DrawList->PathStroke(Color, Thickness, ImDrawFlags_Closed);
+            Line(3.0f, 7.0f, 7.0f, 7.0f);
+            Line(13.0f, 7.0f, 17.0f, 7.0f);
+
+            break;
+        case EIcon::SurfaceSnap:
+            Line(2.0f, 17.0f, 18.0f, 10.0f);
+            Line(2.0f, 19.0f, 18.0f, 19.0f);
+            Line(10.0f, 2.0f, 10.0f, 11.0f);
+            Line(7.0f, 8.0f, 10.0f, 11.0f);
+            Line(10.0f, 11.0f, 13.0f, 8.0f);
+
+            break;
+        case EIcon::Performance:
+            DrawList->PathArcTo(Point(10.0f, 12.0f), 8.0f * Scale, IM_PI, IM_PI * 2.0f, 16);
+            DrawList->PathStroke(Color, Thickness);
+            Line(2.0f, 12.0f, 2.0f, 16.0f);
+            Line(18.0f, 12.0f, 18.0f, 16.0f);
+            Line(2.0f, 16.0f, 18.0f, 16.0f);
+            Line(10.0f, 12.0f, 14.0f, 8.0f);
+            DrawList->AddCircleFilled(Point(10.0f, 12.0f), 1.4f * Scale, Color);
+
+            break;
+        case EIcon::Warning:
+            DrawList->AddTriangle(Point(10.0f, 2.0f), Point(18.0f, 17.0f), Point(2.0f, 17.0f), Color, Thickness);
+            Line(10.0f, 7.0f, 10.0f, 11.5f);
+            DrawList->AddCircleFilled(Point(10.0f, 14.0f), 0.95f * Scale, Color);
+
+            break;
+        }
+    }
+
+    namespace {
+        ImVec4 GetNeutralButtonColor(float Emphasis) {
+            const ImGuiStyle& Style{ImGui::GetStyle()};
+
+            return ImLerp(Style.Colors[ImGuiCol_Button], Style.Colors[ImGuiCol_Text], Emphasis);
+        }
+
+        bool HoverBackgroundButton(const char* Label, const ImVec2& Size) {
+            const bool Pressed{ImGui::InvisibleButton(Label, Size, ImGuiButtonFlags_EnableNav)};
+
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_NoNavOverride)) {
+                ImGui::GetWindowDrawList()->AddRectFilled(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImGui::GetColorU32(GetNeutralButtonColor(0.12f)), ImGui::GetStyle().FrameRounding);
+            }
+
+            return Pressed;
         }
     }
 
     /**
-     * @fn bool Editor::EditorStyle::IconButton(const char* Label, EIcon Icon, bool Selected, bool Enabled, bool Dropdown, const char* Tooltip)
+     * @fn bool Editor::EditorStyle::IconButton(const char* Label, EIcon Icon, bool Selected, bool Enabled, bool Dropdown, const char* Tooltip, float MinimumWidth, EIconSelectionStyle SelectionStyle)
      * @brief 아이콘 버튼을 표시하고 선택 색상, 비활성 처리와 툴팁을 적용합니다.
      */
 
     /**
      * @brief 선택 및 비활성 상태를 반영하는 아이콘 버튼과 툴팁을 표시합니다.
      */
-    bool Editor::EditorStyle::IconButton(const char* Label, EIcon Icon, bool Selected, bool Enabled, bool Dropdown, const char* Tooltip, float MinimumWidth) {
+    bool Editor::EditorStyle::IconButton(const char* Label, EIcon Icon, bool Selected, bool Enabled, bool Dropdown, const char* Tooltip, float MinimumWidth, EIconSelectionStyle SelectionStyle) {
         const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
+        const bool HighlightIcon{SelectionStyle == EIconSelectionStyle::Icon};
+        const bool HighlightBackground{Selected && !HighlightIcon};
 
         ImGui::PushID(Label);
         ImGui::BeginDisabled(!Enabled);
 
-        if (Selected) {
+        if (HighlightBackground) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
         }
@@ -527,13 +597,14 @@ namespace Editor {
         const float Height{ImGui::GetFrameHeight()};
         const float IconSize{ImGui::GetFontSize() + 2.0f * Scale};
         const float Width{std::max(MinimumWidth, Height + (Dropdown ? 12.0f * Scale : 0.0f))};
-        const bool Pressed{EditorStyle::Button("##Button", ImVec2{Width, Height}, Selected)};
+        const ImVec2 Size{Width, Height};
+        const bool Pressed{HighlightIcon ? HoverBackgroundButton("##Button", Size) : EditorStyle::Button("##Button", Size, HighlightBackground)};
         const ImVec2 Minimum{ImGui::GetItemRectMin()};
         const ImVec2 Origin{Minimum.x + (Height - IconSize) * 0.5f, Minimum.y + (Height - IconSize) * 0.5f};
         const ImVec4 Foreground{Icon == EIcon::Play ? ImVec4{0.30f, 0.85f, 0.40f, 1.0f} : Icon == EIcon::Stop ? ImVec4{0.95f, 0.30f, 0.28f, 1.0f} : ImGui::GetStyleColorVec4(ImGuiCol_Text)};
         const ImU32 Color{ImGui::GetColorU32(Foreground)};
 
-        Editor::EditorStyle::DrawIcon(Icon, Origin, IconSize, Color);
+        Editor::EditorStyle::DrawIcon(Icon, Origin, IconSize, Selected && HighlightIcon ? ImGui::GetColorU32(ImGuiCol_CheckMark) : Color);
 
         if (Dropdown) {
             ImDrawList* DrawList{ImGui::GetWindowDrawList()};
@@ -543,7 +614,7 @@ namespace Editor {
             DrawList->AddTriangleFilled(ImVec2{X - 3.0f * Scale, Y - 1.5f * Scale}, ImVec2{X + 3.0f * Scale, Y - 1.5f * Scale}, ImVec2{X, Y + 1.5f * Scale}, Color);
         }
 
-        if (Selected) {
+        if (HighlightBackground) {
             ImGui::PopStyleColor(2);
         }
 
@@ -558,6 +629,81 @@ namespace Editor {
         return Pressed;
     }
 
+    float Editor::EditorStyle::GetSplitIconButtonWidth(const char* MenuLabel) {
+        const float Height{ImGui::GetFrameHeight()};
+
+        return Height + (MenuLabel != nullptr ? GetLabelButtonWidth(MenuLabel, nullptr, true) : std::floor(Height * 0.55f));
+    }
+
+    Editor::EditorStyle::ESplitIconPress Editor::EditorStyle::SplitIconButton(const char* Label, EIcon Icon, const char* ActionTooltip, const char* MenuTooltip, const FSplitIconButtonOptions& Options) {
+        const ImGuiStyle& Style{ImGui::GetStyle()};
+        const bool HasValueMenu{Options.mMenuLabel != nullptr};
+        const float Scale{Style.FontScaleMain * Style.FontScaleDpi};
+        const float Height{ImGui::GetFrameHeight()};
+        const float FullWidth{GetSplitIconButtonWidth(Options.mMenuLabel)};
+        const float MenuWidth{FullWidth - Height};
+        const ImVec2 Minimum{ImGui::GetCursorScreenPos()};
+        const ImVec2 Maximum{Minimum.x + FullWidth, Minimum.y + Height};
+        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
+        const auto DrawSegment{[&](bool Menu) {
+            const float Width{Menu ? MenuWidth : Height};
+            ImGui::BeginDisabled(!Menu && !Options.mActionEnabled);
+            const bool Pressed{ImGui::InvisibleButton(Menu ? "##Menu" : "##Action", {Width, Height}, ImGuiButtonFlags_EnableNav)};
+
+            if (ImGui::IsItemVisible()) {
+                const ImVec2 Origin{ImGui::GetItemRectMin()};
+                const ImVec2 End{ImGui::GetItemRectMax()};
+                const ImU32 Foreground{ImGui::GetColorU32(!Menu && Options.mActionChecked ? ImGuiCol_CheckMark : ImGuiCol_Text)};
+
+                if (Menu && HasValueMenu) {
+                    const float TextY{Origin.y + (Height - ImGui::GetFontSize()) * 0.5f};
+                    const float ArrowX{End.x - Style.FramePadding.x - 3.0f * Scale};
+                    const float ArrowY{Origin.y + Height * 0.5f};
+                    DrawList->AddText({Origin.x + Style.FramePadding.x, TextY}, Foreground, Options.mMenuLabel);
+                    DrawList->AddTriangleFilled({ArrowX - 3.0f * Scale, ArrowY - 1.5f * Scale}, {ArrowX + 3.0f * Scale, ArrowY - 1.5f * Scale}, {ArrowX, ArrowY + 1.5f * Scale}, Foreground);
+                } else {
+                    const float IconSize{Menu ? ImGui::GetFontSize() : ImGui::GetFontSize() + 2.0f * Scale};
+                    DrawIcon(DrawList, Menu ? EIcon::More : Icon, {Origin.x + (Width - IconSize) * 0.5f, Origin.y + (Height - IconSize) * 0.5f}, IconSize, Foreground);
+                }
+            }
+
+            ImGui::EndDisabled();
+
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled)) {
+                ImGui::SetTooltip("%s", Menu ? MenuTooltip : ActionTooltip);
+            }
+
+            return Pressed;
+        }};
+
+        ImGui::PushID(Label);
+        ImGui::BeginGroup();
+
+        if ((ImGui::GetCurrentContext()->CurrentItemFlags & ImGuiItemFlags_Disabled) == 0 && ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && ImGui::IsMouseHoveringRect(Minimum, Maximum)) {
+            DrawList->AddRectFilled(Minimum, Maximum, ImGui::GetColorU32(GetNeutralButtonColor(0.12f)), Style.FrameRounding);
+        }
+
+        const bool FirstPressed{DrawSegment(Options.mMenuFirst)};
+        ImGui::SameLine(0.0f, 0.0f);
+        const bool SecondPressed{DrawSegment(!Options.mMenuFirst)};
+        ImGui::EndGroup();
+        ImGui::PopID();
+
+        if (FirstPressed) {
+            return Options.mMenuFirst ? ESplitIconPress::Menu : ESplitIconPress::Action;
+        }
+
+        return SecondPressed ? (Options.mMenuFirst ? ESplitIconPress::Action : ESplitIconPress::Menu) : ESplitIconPress::None;
+    }
+
+    float Editor::EditorStyle::GetLabelButtonWidth(const char* Label, const EIcon* Icon, bool Dropdown) {
+        const ImGuiStyle& Style{ImGui::GetStyle()};
+        const float Scale{Style.FontScaleMain * Style.FontScaleDpi};
+        const float TextWidth{ImGui::CalcTextSize(Label, nullptr, true).x};
+
+        return Style.FramePadding.x * 2.0f + TextWidth + (Icon != nullptr ? ImGui::GetFontSize() + (TextWidth > 0.0f ? Style.ItemInnerSpacing.x : 0.0f) : 0.0f) + (Dropdown ? 12.0f * Scale : 0.0f);
+    }
+
     /**
      * @fn void Editor::EditorStyle::PushViewportToolbar()
      * @brief 뷰포트 툴바에서 사용할 스타일을 ImGui 스택에 추가합니다.
@@ -566,19 +712,20 @@ namespace Editor {
     /**
      * @brief 선택적 아이콘과 드롭다운 표시를 포함한 텍스트 버튼을 그립니다.
      */
-    bool Editor::EditorStyle::LabelButton(const char* Label, const EIcon* Icon, bool Dropdown, bool Enabled, const char* Tooltip) {
+    bool Editor::EditorStyle::LabelButton(const char* Label, const EIcon* Icon, bool Dropdown, bool Enabled, const char* Tooltip, bool HoverOnly) {
         const ImGuiStyle& Style{ImGui::GetStyle()};
         const float Scale{Style.FontScaleMain * Style.FontScaleDpi};
         const float Height{ImGui::GetFrameHeight()};
         const float IconSize{ImGui::GetFontSize()};
         const char* End{ImGui::FindRenderedTextEnd(Label)};
         const ImVec2 TextSize{ImGui::CalcTextSize(Label, End)};
-        const float Width{Style.FramePadding.x * 2.0f + TextSize.x + (Icon != nullptr ? IconSize + (TextSize.x > 0.0f ? Style.ItemInnerSpacing.x : 0.0f) : 0.0f) + (Dropdown ? 12.0f * Scale : 0.0f)};
+        const float Width{GetLabelButtonWidth(Label, Icon, Dropdown)};
 
         ImGui::PushID(Label);
         ImGui::BeginDisabled(!Enabled);
 
-        const bool Pressed{EditorStyle::Button("##Button", ImVec2{Width, Height})};
+        const ImVec2 Size{Width, Height};
+        const bool Pressed{HoverOnly ? HoverBackgroundButton("##Button", Size) : EditorStyle::Button("##Button", Size)};
         const ImVec2 Minimum{ImGui::GetItemRectMin()};
         const ImU32 Color{ImGui::GetColorU32(ImGuiCol_Text)};
         ImDrawList* DrawList{ImGui::GetWindowDrawList()};

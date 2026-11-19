@@ -81,9 +81,8 @@ namespace Editor {
          * @param[in] DeltaTime 이전 갱신 이후의 초 단위 시간입니다.
          * @param[in] AllowInput 뷰포트 입력을 받을지 지정합니다.
          * @param[in] Input 키·마우스 상태를 조회할 공통 입력입니다.
-         * @param[in] ToolbarExtras 오른쪽 툴바 묶음의 앞(인수 0)과 뒤(인수 1)에 추가 위젯을 그릴 콜백입니다.
          */
-        void DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput = true, const std::function<void(Index_t)>& ToolbarExtras = {});
+        void DrawContents(const Core::FInput& Input, float DeltaTime, bool AllowInput = true, const std::function<void(Editor::EEditorViewportType)>& SetViewType = {}, const std::function<void()>& DrawLayout = {});
 
         /**
          * @brief 뷰포트가 마우스 입력을 캡처 중인지 검사합니다.
@@ -242,11 +241,6 @@ namespace Editor {
          * @brief 뷰포트의 마우스 입력 캡처 상태입니다.
          */
         bool mMouseCaptured{};
-
-        /**
-         * @brief 직전 프레임에 측정한 오른쪽 툴바 묶음의 너비이며 오른쪽 정렬에 사용합니다.
-         */
-        float mRightToolbarWidth{};
 
         /**
          * @brief 컬러 타깃을 소유하고 입력, 그리기와 CPU 피킹을 클라이언트에 연결합니다.
