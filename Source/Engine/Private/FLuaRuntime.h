@@ -19,8 +19,8 @@
 
 namespace Engine {
 
+    class UActorComponent;
     class ULuaScriptComponent;
-    class USkeletalMeshComponent;
     class UWorld;
 
     /**
@@ -171,20 +171,31 @@ namespace Engine {
         };
 
         /**
-         * @brief Lua에 SkeletalMeshComponent 타입으로 노출하는 컴포넌트 약한 참조입니다.
+         * @brief Lua에 공통 Component 타입으로 노출하는 액터 컴포넌트 약한 참조입니다.
          */
-        struct FSkeletalMeshRef {
+        class FLuaComponentRef {
+        public:
             /**
-             * @brief 참조하는 스켈레탈 메시 컴포넌트입니다.
+             * @brief 엔진이 소유한 컴포넌트를 Lua에서 참조할 수 있게 감쌉니다.
+             * @param[in] Component 참조할 컴포넌트입니다.
              */
-            CoreUObject::TObjectRef<Engine::USkeletalMeshComponent> mComponent{};
+            explicit FLuaComponentRef(Engine::UActorComponent* Component);
+
+        public:
+            /**
+             * @brief 컴포넌트와 소유 액터가 유효할 때 컴포넌트 주소를 반환합니다.
+             * @return 컴포넌트가 사라졌거나 소유 액터가 유효하지 않으면 nullptr입니다.
+             */
+            Engine::UActorComponent* Get() const;
 
             /**
-             * @brief 참조하는 컴포넌트를 반환합니다.
-             * @return 유효한 스켈레탈 메시 컴포넌트입니다.
-             * @exception sol::error 컴포넌트나 소유 액터가 사라졌거나 파괴 대기 중이면 발생하며 Lua 오류로 전달됩니다.
+             * @brief Lua 바인딩에서 사용할 유효한 컴포넌트를 반환합니다.
+             * @exception sol::error Get()이 nullptr을 반환하면 발생하며 Lua 오류로 전달됩니다.
              */
-            Engine::USkeletalMeshComponent& Resolve() const;
+            Engine::UActorComponent& Resolve() const;
+
+        private:
+            CoreUObject::TObjectRef<Engine::UActorComponent> mComponent{};
         };
 
         /**
@@ -258,7 +269,7 @@ namespace Engine {
 
     private:
         /**
-         * @brief 수학 타입, 충돌 결과, Actor, World, Input 등 엔진 타입을 Lua에 등록합니다.
+         * @brief 수학 타입, 충돌 결과, Actor, Component, World, Input 등 엔진 API를 Lua에 등록합니다.
          */
         void RegisterBindings();
 

@@ -265,7 +265,7 @@ local function UpdateCamera(Step)
 end
 
 function BeginPlay()
-    State.mMesh = assert(Actor:GetSkeletalMeshComponent(), "The third person character needs a skeletal mesh.")
+    State.mMesh = assert(Actor:GetComponentByClass("USkeletalMeshComponent"), "The third person character needs a skeletal mesh.")
     State.mCamera = assert(World.FindActor("Follow Camera"), "The follow camera is missing.")
     assert(World.SetActiveCamera(State.mCamera), "The follow camera needs a camera component.")
     State.mSpawn = Actor:GetActorTransform()

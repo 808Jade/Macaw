@@ -90,26 +90,34 @@ HitResult = {}
 ---@field Distance number
 RaycastHit = {}
 
----@class MacawSkeletalMeshComponent
-SkeletalMeshComponent = {}
+---@class MacawComponent
+---@field Name string
+---@field Owner MacawActor
+Component = {}
+
+---@alias MacawSkeletalMeshComponent MacawComponent
+SkeletalMeshComponent = Component
+
+---@return boolean
+function Component:IsValid() end
 
 ---@param Name string
 ---@param Value number
 ---@return boolean
-function SkeletalMeshComponent:SetAnimGraphFloat(Name, Value) end
+function Component:SetAnimGraphFloat(Name, Value) end
 
 ---@param Name string
 ---@param Value boolean
 ---@return boolean
-function SkeletalMeshComponent:SetAnimGraphBool(Name, Value) end
+function Component:SetAnimGraphBool(Name, Value) end
 
 ---@param Name string
 ---@return boolean
-function SkeletalMeshComponent:RestartAnimGraphPlayer(Name) end
+function Component:RestartAnimGraphPlayer(Name) end
 
 ---@param Name string
 ---@return boolean
-function SkeletalMeshComponent:IsAnimGraphPlayerFinished(Name) end
+function Component:IsAnimGraphPlayerFinished(Name) end
 
 ---@class MacawActor
 ---@field UUID string
@@ -130,7 +138,13 @@ function Actor:GetActorTransform() end
 ---@return boolean
 function Actor:SetActorTransform(Value) end
 
----@return MacawSkeletalMeshComponent?
+--- 지정한 클래스 또는 그 파생 클래스에 해당하는 첫 번째 컴포넌트를 반환합니다.
+--- 일치하는 컴포넌트가 없으면 nil을 반환합니다. 등록되지 않았거나 컴포넌트가 아닌 클래스 이름을 넘기면 오류가 발생합니다.
+---@param ClassName string
+---@return MacawComponent?
+function Actor:GetComponentByClass(ClassName) end
+
+---@return MacawComponent?
 function Actor:GetSkeletalMeshComponent() end
 
 function Actor:PrintLocation() end

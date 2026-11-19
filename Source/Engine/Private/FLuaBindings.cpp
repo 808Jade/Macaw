@@ -3,7 +3,10 @@
 #include "Core/Math/FRotator.h"
 #include "Core/Math/FQuat.h"
 #include "Core/Math/FTransform.h"
+#include "CoreUObject/Reflection/Cast.h"
+#include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "Engine/AActor.h"
+#include "Engine/Component/UActorComponent.h"
 #include "Engine/Component/UCameraComponent.h"
 #include "Engine/Component/UProjectileMovementComponent.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
@@ -43,11 +46,20 @@ AActor& FLuaRuntime::FActorRef::Resolve() const {
     return *Actor;
 }
 
-USkeletalMeshComponent& FLuaRuntime::FSkeletalMeshRef::Resolve() const {
+FLuaRuntime::FLuaComponentRef::FLuaComponentRef(UActorComponent* Component)
+    : mComponent(CoreUObject::MakeObjectRef(Component)) {
+}
+
+UActorComponent* FLuaRuntime::FLuaComponentRef::Get() const {
     auto* Component{mComponent.Get()};
     const auto* Owner{Component != nullptr ? Component->GetOwner() : nullptr};
-    if (Owner == nullptr || Owner->IsPendingDestroy()) {
-        throw sol::error{"Skeletal mesh component is no longer valid"};
+    return Owner != nullptr && !Owner->IsPendingDestroy() ? Component : nullptr;
+}
+
+UActorComponent& FLuaRuntime::FLuaComponentRef::Resolve() const {
+    auto* Component{Get()};
+    if (Component == nullptr) {
+        throw sol::error{"Component is no longer valid"};
     }
     return *Component;
 }
@@ -104,19 +116,33 @@ void FLuaRuntime::RegisterBindings() {
     RaycastHit["Position"] = sol::readonly(&Engine::FWorldHit::mPosition);
     RaycastHit["Distance"] = sol::readonly(&Engine::FWorldHit::mDistance);
 
-    auto SkeletalMesh{mLua.new_usertype<FSkeletalMeshRef>("SkeletalMeshComponent", sol::no_constructor)};
-    SkeletalMesh["SetAnimGraphFloat"] = [](const FSkeletalMeshRef& Ref, const Core::FString& Name, float Value) {
-        return Ref.Resolve().SetAnimGraphFloat(Name, Value);
+    auto Component{mLua.new_usertype<FLuaComponentRef>("Component", sol::no_constructor)};
+    Component["IsValid"] = [](const FLuaComponentRef& Ref) {
+        return Ref.Get() != nullptr;
     };
-    SkeletalMesh["SetAnimGraphBool"] = [](const FSkeletalMeshRef& Ref, const Core::FString& Name, bool Value) {
-        return Ref.Resolve().SetAnimGraphBool(Name, Value);
+    Component["Name"] = sol::property([](const FLuaComponentRef& Ref) {
+        return Ref.Resolve().GetName();
+    });
+    Component["Owner"] = sol::property([](const FLuaComponentRef& Ref) {
+        return FActorRef{CoreUObject::MakeObjectRef(Ref.Resolve().GetOwner())};
+    });
+    Component["SetAnimGraphFloat"] = [](const FLuaComponentRef& Ref, const Core::FString& Name, float Value) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->SetAnimGraphFloat(Name, Value);
     };
-    SkeletalMesh["RestartAnimGraphPlayer"] = [](const FSkeletalMeshRef& Ref, const Core::FString& Name) {
-        return Ref.Resolve().RestartAnimGraphPlayer(Name);
+    Component["SetAnimGraphBool"] = [](const FLuaComponentRef& Ref, const Core::FString& Name, bool Value) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->SetAnimGraphBool(Name, Value);
     };
-    SkeletalMesh["IsAnimGraphPlayerFinished"] = [](const FSkeletalMeshRef& Ref, const Core::FString& Name) {
-        return Ref.Resolve().IsAnimGraphPlayerFinished(Name);
+    Component["RestartAnimGraphPlayer"] = [](const FLuaComponentRef& Ref, const Core::FString& Name) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->RestartAnimGraphPlayer(Name);
     };
+    Component["IsAnimGraphPlayerFinished"] = [](const FLuaComponentRef& Ref, const Core::FString& Name) {
+        const auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->IsAnimGraphPlayerFinished(Name);
+    };
+    mLua["SkeletalMeshComponent"] = mLua.get<sol::table>("Component");
 
     auto Actor{mLua.new_usertype<FActorRef>("Actor", sol::no_constructor)};
     Actor["IsValid"] = [](const FActorRef& Ref) {
@@ -135,9 +161,19 @@ void FLuaRuntime::RegisterBindings() {
     Actor["SetActorTransform"] = [](const FActorRef& Ref, const FTransform& Value) {
         return Ref.Resolve().SetActorTransform(Value);
     };
-    Actor["GetSkeletalMeshComponent"] = [](const FActorRef& Ref) -> sol::optional<FSkeletalMeshRef> {
-        if (auto* Component{static_cast<Engine::USkeletalMeshComponent*>(FindComponent(Ref.Resolve(), Engine::USkeletalMeshComponent::StaticClass()))}) {
-            return FSkeletalMeshRef{CoreUObject::MakeObjectRef(Component)};
+    Actor["GetComponentByClass"] = [](const FActorRef& Ref, const Core::FString& ClassName) -> sol::optional<FLuaComponentRef> {
+        const auto* Class{CoreUObject::FReflectionRegistry::FindClass(ClassName)};
+        if (Class == nullptr || !Class->IsChildOf(Engine::UActorComponent::StaticClass())) {
+            throw sol::error{"Invalid component class: " + ClassName};
+        }
+        if (auto* Found{FindComponent(Ref.Resolve(), Class)}) {
+            return FLuaComponentRef{Found};
+        }
+        return sol::nullopt;
+    };
+    Actor["GetSkeletalMeshComponent"] = [](const FActorRef& Ref) -> sol::optional<FLuaComponentRef> {
+        if (auto* Found{FindComponent(Ref.Resolve(), Engine::USkeletalMeshComponent::StaticClass())}) {
+            return FLuaComponentRef{Found};
         }
         return sol::nullopt;
     };
