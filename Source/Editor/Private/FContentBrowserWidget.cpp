@@ -441,6 +441,10 @@ Core::FString FContentBrowserWidget::FindContentActionBlocker(const std::filesys
         return "편집 중인 머티리얼입니다. 머티리얼 편집기를 닫은 뒤에 다시 시도하세요.";
     }
 
+    if (mAssetEditors.HasUnsavedScript(Contains)) {
+        return "Script IDE에서 Lua 스크립트의 변경 사항을 저장하거나 취소한 뒤 다시 시도하세요.";
+    }
+
     return {};
 }
 
@@ -930,6 +934,8 @@ void FContentBrowserWidget::DrawContentEntries() {
                             if (Directory) {
                                 Requested = Path;
                                 Navigate = true;
+                            } else if (LuaScript) {
+                                mAssetEditors.OpenLuaScript(Path);
                             } else if (Type != mAssetTypes.end() && mContext->CanEditWorld()) {
                                 mAssetEditors.OpenContentAsset(Path, Type->second);
                             }

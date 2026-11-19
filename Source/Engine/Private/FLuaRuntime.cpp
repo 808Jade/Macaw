@@ -61,7 +61,7 @@ Engine::FLuaScriptInstance* FLuaRuntime::Start(Engine::ULuaScriptComponent& Comp
     auto [Source, FirstUse]{mSources.try_emplace(Path)};
     if (FirstUse) {
         mPathTracker.Track(Path);
-        Source->second.mFactory = LoadFactory(Path);
+        Source->second.mChunk = LoadChunk(Path);
     }
     ++Source->second.mUsers;
     Value.mCollisionHandle = Owner->GetOnComponentCollision().Add([Target = &Value](Engine::AActor::EComponentCollision Kind, Engine::UPrimitiveComponent*, Engine::AActor* Other, Engine::UPrimitiveComponent*, const Engine::FHitResult* Hit) {
@@ -70,10 +70,10 @@ Engine::FLuaScriptInstance* FLuaRuntime::Start(Engine::ULuaScriptComponent& Comp
         }
     });
     Engine::FLuaScriptInstance::FExecution Execution{};
-    if (CreateExecution(Value, Source->second.mFactory, Execution)) {
+    if (CreateExecution(Value, Source->second.mChunk, Execution)) {
         Value.mExecution = std::move(Execution);
         Value.mRunning = true;
-        Value.mRunning = Invoke(Value, Value.mExecution.mBeginPlay, "BeginPlay", Value.mExecution.mObject);
+        Value.mRunning = Invoke(Value, Value.mExecution.mBeginPlay, "BeginPlay");
     }
     return &Value;
 }
@@ -89,13 +89,13 @@ void FLuaRuntime::Tick(Engine::FLuaScriptInstance& Instance, float DeltaTime) {
     for (const auto& Event : Events) {
         switch (Event.mKind) {
         case Engine::AActor::EComponentCollision::BeginOverlap:
-            Instance.mRunning = Invoke(Instance, Execution.mOverlap, "OnOverlap", Execution.mObject, FActorRef{Event.mOther});
+            Instance.mRunning = Invoke(Instance, Execution.mOverlap, "OnOverlap", FActorRef{Event.mOther});
             break;
         case Engine::AActor::EComponentCollision::EndOverlap:
-            Instance.mRunning = Invoke(Instance, Execution.mEndOverlap, "OnEndOverlap", Execution.mObject, FActorRef{Event.mOther});
+            Instance.mRunning = Invoke(Instance, Execution.mEndOverlap, "OnEndOverlap", FActorRef{Event.mOther});
             break;
         case Engine::AActor::EComponentCollision::Hit:
-            Instance.mRunning = Invoke(Instance, Execution.mHit, "OnHit", Execution.mObject, FActorRef{Event.mOther}, Engine::FHitResult{Event.mHit});
+            Instance.mRunning = Invoke(Instance, Execution.mHit, "OnHit", FActorRef{Event.mOther}, Engine::FHitResult{Event.mHit});
             break;
         }
         if (!Instance.mRunning) {
@@ -103,12 +103,12 @@ void FLuaRuntime::Tick(Engine::FLuaScriptInstance& Instance, float DeltaTime) {
         }
     }
 
-    Instance.mRunning = Invoke(Instance, Execution.mTick, "Tick", Execution.mObject, DeltaTime) && Invoke(Instance, Execution.mAdvanceTasks, "Coroutine", Execution.mTasks, DeltaTime);
+    Instance.mRunning = Invoke(Instance, Execution.mTick, "Tick", DeltaTime) && Invoke(Instance, Execution.mAdvanceTasks, "Coroutine", Execution.mTasks, DeltaTime);
 }
 
 void FLuaRuntime::Stop(Engine::ULuaScriptComponent& Component, Engine::FLuaScriptInstance& Instance) {
     Instance.DisconnectCollision();
-    Invoke(Instance, Instance.mExecution.mEndPlay, "EndPlay", Instance.mExecution.mObject);
+    Invoke(Instance, Instance.mExecution.mEndPlay, "EndPlay");
 
     const auto Source{mSources.find(Instance.mPath)};
     if (--Source->second.mUsers == 0) {
@@ -134,7 +134,7 @@ void FLuaRuntime::ClearFrameInput() {
     mFrameInput = {};
 }
 
-sol::protected_function FLuaRuntime::LoadFactory(const std::filesystem::path& Path) {
+sol::protected_function FLuaRuntime::LoadChunk(const std::filesystem::path& Path) {
     std::ifstream File{Path, std::ios::binary};
     if (!File) {
         Report(Path, nullptr, "Load", "Could not open the script");
@@ -154,24 +154,11 @@ sol::protected_function FLuaRuntime::LoadFactory(const std::filesystem::path& Pa
         return {};
     }
 
-    const auto Chunk{Loaded.get<sol::protected_function>()};
-    const sol::environment Environment{mLua, sol::create, mLua.globals()};
-    sol::set_environment(Environment, Chunk);
-    const sol::protected_function_result Result{Chunk()};
-    if (!Result.valid()) {
-        const auto Error{Result.get<sol::error>()};
-        Report(Path, nullptr, "Load", Error.what());
-        return {};
-    }
-    if (Result.return_count() == 0 || Result.get_type() != sol::type::function) {
-        Report(Path, nullptr, "Load", "The script must return a function that creates an instance");
-        return {};
-    }
-    return Result.get<sol::protected_function>();
+    return Loaded.get<sol::protected_function>();
 }
 
-bool FLuaRuntime::CreateExecution(const Engine::FLuaScriptInstance& Instance, const sol::protected_function& Factory, Engine::FLuaScriptInstance::FExecution& Execution) {
-    if (!Factory.valid()) {
+bool FLuaRuntime::CreateExecution(const Engine::FLuaScriptInstance& Instance, const sol::protected_function& Chunk, Engine::FLuaScriptInstance::FExecution& Execution) {
+    if (!Chunk.valid()) {
         return false;
     }
 
@@ -181,16 +168,24 @@ bool FLuaRuntime::CreateExecution(const Engine::FLuaScriptInstance& Instance, co
     }
     Execution.mTasks = Tasks.get<sol::table>();
     Execution.mAdvanceTasks = Tasks.get<sol::protected_function>(1);
-    const auto Result{Factory(FActorRef{Instance.mOwner}, Execution.mTasks)};
-    if (!FinishCall(Instance, "Create", Result)) {
+
+    Execution.mEnvironment = sol::environment{mLua, sol::create, mLua.globals()};
+    Execution.mEnvironment["_G"] = Execution.mEnvironment;
+    Execution.mEnvironment["Actor"] = FActorRef{Instance.mOwner};
+    Execution.mEnvironment["Tasks"] = Execution.mTasks;
+
+    const auto PreviousEnvironment{sol::get_environment(Chunk)};
+    sol::set_environment(Execution.mEnvironment, Chunk);
+    const auto Result{Chunk()};
+    sol::set_environment(PreviousEnvironment, Chunk);
+    if (!FinishCall(Instance, "Initialize", Result)) {
         return false;
     }
-    if (Result.return_count() == 0 || Result.get_type() != sol::type::table) {
-        Report(Instance.mPath, Instance.mOwner.Get(), "Create", "The instance factory must return a table");
+    if (Result.return_count() != 0 && Result.get_type() == sol::type::function) {
+        Report(Instance.mPath, Instance.mOwner.Get(), "Initialize", "Define lifecycle callbacks directly in the script environment.");
         return false;
     }
-    Execution.mObject = Result.get<sol::table>();
-    const auto Captured{mCaptureCallbacks(Execution.mObject)};
+    const auto Captured{mCaptureCallbacks(Execution.mEnvironment)};
     if (!FinishCall(Instance, "Capture callbacks", Captured)) {
         return false;
     }
@@ -209,8 +204,8 @@ bool FLuaRuntime::CreateExecution(const Engine::FLuaScriptInstance& Instance, co
 }
 
 void FLuaRuntime::Reload(const std::filesystem::path& Path, FSource& Source) {
-    auto Factory{LoadFactory(Path)};
-    if (!Factory.valid()) {
+    auto Chunk{LoadChunk(Path)};
+    if (!Chunk.valid()) {
         return;
     }
 
@@ -222,20 +217,20 @@ void FLuaRuntime::Reload(const std::filesystem::path& Path, FSource& Source) {
         }
 
         Engine::FLuaScriptInstance::FExecution Replacement{};
-        if (!CreateExecution(Instance, Factory, Replacement)) {
+        if (!CreateExecution(Instance, Chunk, Replacement)) {
             return;
         }
         Replacements.emplace_back(&Instance, std::move(Replacement));
     }
 
-    Source.mFactory = std::move(Factory);
+    Source.mChunk = std::move(Chunk);
     for (auto& [Target, Replacement] : Replacements) {
         auto& Instance{*Target};
         auto& Execution{Instance.mExecution};
-        Invoke(Instance, Execution.mEndPlay, "EndPlay", Execution.mObject);
+        Invoke(Instance, Execution.mEndPlay, "EndPlay");
         Execution = std::move(Replacement);
         Instance.mRunning = true;
-        Instance.mRunning = Invoke(Instance, Execution.mBeginPlay, "BeginPlay", Execution.mObject);
+        Instance.mRunning = Invoke(Instance, Execution.mBeginPlay, "BeginPlay");
     }
 }
 

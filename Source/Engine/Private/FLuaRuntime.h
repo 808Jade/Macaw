@@ -26,7 +26,7 @@ namespace Engine {
         };
 
         struct FExecution {
-            sol::table mObject{};
+            sol::environment mEnvironment{};
             sol::table mTasks{};
             sol::protected_function mBeginPlay{};
             sol::protected_function mTick{};
@@ -67,7 +67,7 @@ namespace Engine {
         };
 
         struct FSource {
-            sol::protected_function mFactory{};
+            sol::protected_function mChunk{};
             std::size_t mUsers{};
         };
 
@@ -86,8 +86,8 @@ namespace Engine {
 
     private:
         void RegisterBindings();
-        sol::protected_function LoadFactory(const std::filesystem::path& Path);
-        bool CreateExecution(const Engine::FLuaScriptInstance& Instance, const sol::protected_function& Factory, Engine::FLuaScriptInstance::FExecution& Execution);
+        sol::protected_function LoadChunk(const std::filesystem::path& Path);
+        bool CreateExecution(const Engine::FLuaScriptInstance& Instance, const sol::protected_function& Chunk, Engine::FLuaScriptInstance::FExecution& Execution);
         void Reload(const std::filesystem::path& Path, FSource& Source);
 
         template <typename... Args>

@@ -153,6 +153,14 @@ void FEditorDrawerManager::DrawDockedActions(const Core::FString& Id) {
 }
 
 void FEditorDrawerManager::Tick() {
+    if (mContentDrawerCollapsedForDrag && ImGui::GetDragDropPayload() == nullptr) {
+        mContentDrawerCollapsedForDrag = false;
+
+        if (!IsDocked("Content")) {
+            OpenDrawer("Content");
+        }
+    }
+
     FDrawer* Pending{FindDrawer(mPendingId)};
     if (Pending == nullptr) {
         return;
@@ -353,8 +361,9 @@ void FEditorDrawerManager::Draw(float DeltaTime) {
 
         ImGui::EndChild();
 
-        if (Open && !Dragging && ImGui::GetDragDropPayload() != nullptr) {
+        if (Open && Active->mId == "Content" && !Dragging && ImGui::GetDragDropPayload() != nullptr) {
             Active->mTab->SetVisible(false);
+            mContentDrawerCollapsedForDrag = !Active->mTab->IsVisible();
         }
 
         const bool Focused{ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)};
@@ -377,4 +386,10 @@ void FEditorDrawerManager::Draw(float DeltaTime) {
 
     ImGui::End();
     ImGui::PopStyleVar(3);
+}
+
+void FEditorDrawerManager::FinishDragFrame() {
+    if (mContentDrawerCollapsedForDrag && ImGui::GetDragDropPayload() == nullptr) {
+        mContentDrawerCollapsedForDrag = false;
+    }
 }

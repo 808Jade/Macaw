@@ -1,14 +1,9 @@
-local RotatorScript = {}
-RotatorScript.__index = RotatorScript
+local Speed = 90
 
-function RotatorScript:Tick(DeltaTime)
-    local Transform = self.Actor:GetActorTransform()
+function Tick(DeltaTime)
+    local Transform = Actor:GetActorTransform()
     local Rotation = Transform:GetRotator()
-    Rotation.Yaw = Rotation.Yaw + self.Speed * DeltaTime
+    Rotation.Yaw = Rotation.Yaw + Speed * DeltaTime
     Transform:SetRotator(Rotation)
-    self.Actor:SetActorTransform(Transform)
-end
-
-return function(Actor)
-    return setmetatable({ Actor = Actor, Speed = 90 }, RotatorScript)
+    Actor:SetActorTransform(Transform)
 end

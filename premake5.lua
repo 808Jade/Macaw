@@ -154,6 +154,14 @@ for _, Name in ipairs(ModuleNames) do
     end
 end
 
+Configure("Script", "StaticLib")
+    files { "Source/Script/Public/**.h", "Source/Script/Private/**.cpp" }
+    AddIncludes("Script", {})
+    for _, Dependency in ipairs(Modules.Script.Private) do
+        AddIncludes(Dependency, {})
+    end
+    links(Modules.Script.Private)
+
 Configure("Shaders", "Utility")
     files { "Templates/Project/Content/Shaders/**.hlsl", "Templates/Project/Content/Shaders/**.hlsli" }
     vpaths { ["*"] = "Templates/Project/Content/Shaders" }

@@ -20,6 +20,7 @@
       ]
     },
     "imanim",
+    "imgui-color-text-edit",
     "imgui-neo-sequencer",
     "imgui-node-editor",
     "imterm",

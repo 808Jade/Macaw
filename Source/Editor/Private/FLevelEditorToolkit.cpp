@@ -229,6 +229,7 @@ void FLevelEditorToolkit::Render(float DeltaTime) {
     mViewportLayout.Draw(DeltaTime);
     mPlaySession->DrawPlayWindow();
     mShell->DrawShadowAtlas();
+    mDrawers->FinishDragFrame();
 }
 
 bool FLevelEditorToolkit::CanClose() {

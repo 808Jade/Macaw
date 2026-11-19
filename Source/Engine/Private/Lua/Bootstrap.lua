@@ -45,10 +45,10 @@ end
 
 local EventNames = { "BeginPlay", "Tick", "EndPlay", "OnOverlap", "OnEndOverlap", "OnHit" }
 
-local function CaptureCallbacks(Instance)
+local function CaptureCallbacks(Environment)
     local Callbacks = {}
     for _, Name in ipairs(EventNames) do
-        local Callback = Instance[Name]
+        local Callback = rawget(Environment, Name)
         if Callback ~= nil then
             assert(type(Callback) == "function", Name .. " must be a function")
             Callbacks[Name] = Callback

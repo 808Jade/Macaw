@@ -9,6 +9,8 @@
 #include "Core/Types.h"
 #include "Asset/FAssetFile.h"
 #include "Editor/FEditorTabManager.h"
+#include "Editor/Widget/FEditorContentWidget.h"
+#include "Script/FIDETab.h"
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -56,6 +58,7 @@ namespace Editor {
          * @param[in] Type 편집할 에셋의 종류입니다.
          */
         void OpenContentAsset(const std::filesystem::path& Path, Asset::EAssetType Type);
+        void OpenLuaScript(const std::filesystem::path& Path);
 
         /**
          * @brief 열린 에셋 탭을 그리고 활성 편집기를 추적하며 닫힌 편집기를 제거합니다.
@@ -98,6 +101,7 @@ namespace Editor {
          * @return 조건에 맞는 열린 머티리얼이 있으면 true입니다.
          */
         bool HasOpenMaterial(const std::function<bool(const std::filesystem::path&)>& Predicate) const;
+        bool HasUnsavedScript(const std::function<bool(const std::filesystem::path&)>& Predicate) const;
 
         /**
          * @brief 변경이 발생했을 때 호출할 알림 콜백을 지정합니다.
@@ -106,6 +110,8 @@ namespace Editor {
         void SetChangedHandler(std::function<void()> Handler);
 
     private:
+        bool ConfirmScriptChange();
+
         /**
          * @brief 포커스와 마지막 활성 상태로 표시 중인 에셋 편집기를 찾습니다.
          * @return 활성 편집기의 비소유 주소이며 없으면 nullptr입니다.
@@ -154,6 +160,10 @@ namespace Editor {
          * @brief 위젯·주 탭을 등록하고 표시하는 탭 관리자입니다.
          */
         Editor::FEditorTabManager mTabs{};
+
+        Script::FIDETab mScriptIDE{};
+        Editor::FEditorContentWidget mScriptContent;
+        Editor::FEditorTab mScriptTab{"Script IDE###ScriptIDE", true, Editor::EEditorTabRole::Major};
 
         /**
          * @brief 열려 있는 에셋 편집기 툴킷의 소유 목록입니다.

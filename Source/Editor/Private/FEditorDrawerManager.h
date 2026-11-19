@@ -162,6 +162,7 @@ namespace Editor {
          * @param[in] DeltaTime 이전 프레임 이후 경과한 시간이며 단위는 초입니다.
          */
         void Draw(float DeltaTime);
+        void FinishDragFrame();
 
     private:
         /**
@@ -227,5 +228,6 @@ namespace Editor {
          * @brief 예약한 드로어 작업이 도킹인지 복원인지 나타냅니다.
          */
         bool mPendingDock{};
+        bool mContentDrawerCollapsedForDrag{};
     };
 }
