@@ -5,9 +5,9 @@
  */
 
 #include "Engine/AActor.h"
-#include "Engine/EngineStats.h"
 #include "Engine/Component/UActorComponent.h"
 #include "Engine/Component/USceneComponent.h"
+#include "Engine/ULevel.h"
 #include "Engine/UWorld.h"
 #include "Core/Math/FTransform.h"
 #include "CoreUObject/FObjectRegistry.h"
@@ -38,7 +38,15 @@ namespace Engine {
     }
 
     /**
+     * @brief 액터의 직접 외부 객체에서 Tick을 등록할 레벨을 찾습니다.
+     */
+    Engine::ULevel* Engine::AActor::GetLevel() const {
+        return CoreUObject::Cast<Engine::ULevel>(GetOuter());
+    }
+
+    /**
      * @brief 객체가 소속된 월드 연결을 지정합니다.
+     * @details 기존 컴포넌트와 액터 Tick 등록을 해제한 뒤 새 월드에서 액터 Tick을 먼저 등록합니다.
      */
     void Engine::AActor::SetWorld(Engine::UWorld* World) {
         if (mWorld == World || mChangingWorld) {
@@ -55,9 +63,15 @@ namespace Engine {
             Component->UnregisterComponent();
         }
 
+        if (mWorld != nullptr) {
+            RegisterActorTickFunctions(false);
+        }
+
         mWorld = World;
 
         if (mWorld != nullptr) {
+            RegisterActorTickFunctions(true);
+
             for (const auto& Component : mComponents) {
                 Component->RegisterComponent(mWorld);
             }
@@ -199,7 +213,7 @@ namespace Engine {
     }
 
     /**
-     * @brief 액터의 실행 또는 허용된 편집 갱신 시 호출되는 확장 지점입니다.
+     * @brief 기본 액터 Tick 함수가 실행 차례에 호출하는 갱신 확장 지점입니다.
      */
     void Engine::AActor::Tick(float DeltaTime) {
     }
@@ -242,6 +256,41 @@ namespace Engine {
      */
     void Engine::AActor::SetEditorTickable(bool EditorTickable) {
         mEditorTickable = EditorTickable;
+    }
+
+    /**
+     * @brief 액터가 직접 소유한 기본 Tick 함수를 반환합니다.
+     */
+    Engine::FActorTickFunction& Engine::AActor::GetPrimaryActorTick() {
+        return mPrimaryActorTick;
+    }
+
+    /**
+     * @brief 기본 액터 Tick에 지정한 그룹을 조회합니다.
+     */
+    Engine::ETickingGroup Engine::AActor::GetTickGroup() const {
+        return mPrimaryActorTick.GetTickGroup();
+    }
+
+    /**
+     * @brief 검증과 그룹 설정을 기본 액터 Tick에 전달합니다.
+     */
+    bool Engine::AActor::SetTickGroup(Engine::ETickingGroup Group) {
+        return mPrimaryActorTick.SetTickGroup(Group);
+    }
+
+    /**
+     * @brief 등록을 요청하면 소속 레벨에서 기본 Tick을 등록하고, 해제 시에는 기존 등록을 끊습니다.
+     */
+    void Engine::AActor::RegisterActorTickFunctions(bool Register) {
+        if (!Register) {
+            mPrimaryActorTick.UnregisterTickFunction();
+            return;
+        }
+
+        if (Engine::ULevel* Level{GetLevel()}) {
+            mPrimaryActorTick.RegisterTickFunction(*Level);
+        }
     }
 
     /**
@@ -306,32 +355,6 @@ namespace Engine {
             mBeginPlayCalled = true;
 
             BeginPlay();
-        }
-    }
-
-    /**
-     * @brief 액터와 각 컴포넌트의 실행 상태 및 편집 Tick 설정에 따라 갱신을 전달합니다.
-     */
-    void Engine::AActor::DispatchTick(float DeltaTime, bool EditorTick) {
-        if (mWorld == nullptr || mPendingDestroy || (!EditorTick && !mHasBegunPlay)) {
-            return;
-        }
-
-        const auto Handles{GetComponentRefs()};
-
-        if (!EditorTick || mEditorTickable) {
-            Engine::EngineStats::ActorTicks.Add();
-            Tick(DeltaTime);
-        }
-
-        for (const CoreUObject::TObjectRef<Engine::UActorComponent> Handle : Handles) {
-            if (mPendingDestroy || mWorld == nullptr || (!EditorTick && !mHasBegunPlay) || mWorld->mEndPlayRequested || mWorld->mShutdownRequested) {
-                break;
-            }
-
-            if (auto* Component{CoreUObject::Cast<Engine::UActorComponent>(Handle.Get())}; Component != nullptr && Component->GetOwner() == this) {
-                Component->DispatchTick(DeltaTime, EditorTick);
-            }
         }
     }
 

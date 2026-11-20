@@ -121,9 +121,10 @@ namespace Editor {
 
         /**
          * @brief 선언 클래스와 프로퍼티 이름에 맞는 표시 분류를 선택합니다.
-         * @param Owner 새 상태에 복사할 변수 정의를 가진 소유 그래프입니다.
+         * @param Owner 프로퍼티를 선언한 클래스입니다.
          * @param Name 조회하거나 표시할 이름입니다.
          * @return 정적 분류 이름 또는 메타데이터의 문자열 뷰입니다.
+         * @details Tick 그룹과 편집 Tick 허용 설정은 선언 클래스에 따라 Actor Tick 또는 Component Tick에 표시합니다.
          */
         std::string_view DetailCategory(const CoreUObject::UClass* Owner, std::string_view Name) {
             if (Name == "Transform") {
@@ -142,8 +143,8 @@ namespace Editor {
                 return "Animation";
             }
 
-            if (Name == "EditorTickable") {
-                return "Component Tick";
+            if (Name == "TickGroup" || Name == "EditorTickable") {
+                return Owner == Engine::AActor::StaticClass() ? "Actor Tick" : "Component Tick";
             }
 
             if (Owner->IsChildOf(Engine::ULightComponent::StaticClass()) || Owner->GetName() == "ULightComponentBase") {

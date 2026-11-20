@@ -11,6 +11,7 @@
 
 #include "Core/ReflectionMacros.h"
 #include "CoreUObject/UObject.h"
+#include "Engine/Tick/FTickFunction.h"
 #include "AActor.generated.h"
 
 struct FTransform;
@@ -62,6 +63,12 @@ namespace Engine {
          * @return 조회한 값의 비소유 주소이며, 해당 값이 없으면 nullptr입니다.
          */
         Engine::UWorld* GetWorld() const;
+
+        /**
+         * @brief 액터의 직접 외부 객체가 레벨이면 해당 레벨을 반환합니다.
+         * @return 레벨의 비소유 주소이며, 레벨 밖의 액터는 nullptr입니다.
+         */
+        Engine::ULevel* GetLevel() const;
 
         /**
          * @brief 컴포넌트의 소유권을 액터로 옮기고 필요하면 월드에 등록합니다.
@@ -123,8 +130,8 @@ namespace Engine {
         virtual void BeginPlay();
 
         /**
-         * @brief 액터의 실행 또는 허용된 편집 갱신 시 호출되는 확장 지점입니다.
-         * @param[in] DeltaTime 이번 갱신이 진행하는 초 단위 시간입니다.
+         * @brief 기본 액터 Tick 함수가 실행 차례에 호출하는 갱신 확장 지점입니다.
+         * @param[in] DeltaTime 호출에 전달된 초 단위 시간 간격입니다.
          */
         virtual void Tick(float DeltaTime);
 
@@ -164,6 +171,26 @@ namespace Engine {
          */
         void SetEditorTickable(bool EditorTickable);
 
+        /** @brief 이 액터의 Tick()을 호출하는 기본 Tick 함수의 참조를 반환합니다. */
+        Engine::FActorTickFunction& GetPrimaryActorTick();
+
+        /** @brief 액터의 기본 Tick에 설정된 그룹을 반환합니다. */
+        Engine::ETickingGroup GetTickGroup() const;
+
+        /**
+         * @brief 액터의 기본 Tick에 설정할 그룹을 지정합니다.
+         * @param[in] Group 액터의 기본 Tick이 시작할 수 있는 가장 이른 그룹입니다.
+         * @return 지정할 수 있는 그룹이면 true입니다.
+         */
+        bool SetTickGroup(Engine::ETickingGroup Group);
+
+        /**
+         * @brief 이 액터의 기본 Tick을 소속 레벨에 등록하거나 등록을 해제합니다.
+         * @param[in] Register 등록할 때 true이고 해제할 때 false입니다.
+         * @details 별도의 Tick 함수를 소유하는 파생 클래스는 이 함수를 재정의해 함께 등록하고 해제할 수 있습니다.
+         */
+        virtual void RegisterActorTickFunctions(bool Register);
+
         /**
          * @brief 액터의 표시 여부를 반환합니다.
          * @return 액터와 소유 컴포넌트를 표시하도록 설정했으면 true입니다.
@@ -181,6 +208,7 @@ namespace Engine {
         /**
          * @brief 객체가 소속된 월드 연결을 지정합니다.
          * @param[in] World 연결할 월드이며, nullptr이면 연결을 해제합니다.
+         * @details 기존 월드에서 액터와 컴포넌트의 Tick 등록을 해제하고 새 월드에 연결된 뒤 다시 등록합니다.
          */
         void SetWorld(Engine::UWorld* World);
 
@@ -198,13 +226,6 @@ namespace Engine {
          * @brief 컴포넌트를 먼저 시작한 뒤 살아 있는 액터의 시작 콜백을 전달합니다.
          */
         void DispatchBeginPlay();
-
-        /**
-         * @brief 액터와 각 컴포넌트의 실행 상태 및 편집 Tick 설정에 따라 갱신을 전달합니다.
-         * @param[in] DeltaTime 이번 갱신의 초 단위 시간입니다.
-         * @param[in] EditorTick BeginPlay 없이 편집 Tick 설정을 검사할지 지정합니다.
-         */
-        void DispatchTick(float DeltaTime, bool EditorTick);
 
         /**
          * @brief 시작된 액터의 종료 콜백과 컴포넌트 역순 종료를 전달합니다.
@@ -260,6 +281,10 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize)
         bool mEditorTickable{};
+
+        /** @brief 액터의 Tick()을 호출하는 기본 함수이며, 설정 그룹을 편집 및 직렬화에 노출합니다. */
+        UPROPERTY(Edit, Serialize, Name = "TickGroup", Getter = GetTickGroup, Setter = SetTickGroup)
+        Engine::FActorTickFunction mPrimaryActorTick{*this};
 
         /**
          * @brief 액터와 소유 컴포넌트의 표시 여부이며 아웃라이너에서 변경합니다.

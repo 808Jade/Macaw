@@ -13,6 +13,7 @@
 #include "Engine/EWorldType.h"
 #include "Engine/EWorldPlayState.h"
 #include "Engine/FWorldHandle.h"
+#include "Engine/Tick/FTickTaskManager.h"
 #include "UWorld.generated.h"
 
 namespace Asset {
@@ -145,9 +146,10 @@ namespace Engine {
         void EndPlay();
 
         /**
-         * @brief Playing 상태의 게임 갱신 또는 정지한 편집 월드의 선택적 갱신을 수행합니다.
+         * @brief 월드 상태에 따라 일반 게임, 편집 또는 일시정지 Tick을 수행합니다.
          * @param[in] DeltaTime 진행할 초 단위 시간이며 유한한 0 이상의 값이어야 합니다.
-         * @return 갱신 전달을 수행하면 true이며 편집 Tick은 게임 시간과 횟수에 합산하지 않습니다.
+         * @return 일반 또는 편집 프레임을 처리했거나 일시정지 Tick을 하나 이상 호출했으면 true입니다.
+         * @details 편집과 일시정지 Tick은 게임 시간과 일반 프레임 횟수를 유지합니다.
          */
         bool Tick(float DeltaTime);
 
@@ -161,7 +163,7 @@ namespace Engine {
         bool SetPaused(bool Paused);
 
         /**
-         * @brief Paused 상태를 유지하면서 게임 갱신을 한 번 수행합니다.
+         * @brief Paused 상태를 유지하면서 일반 게임 프레임을 한 번 수행합니다.
          * @param[in] DeltaTime 진행할 초 단위 시간이며 유한한 양수여야 합니다.
          * @return 일시정지 상태에서 한 번 갱신하면 true입니다.
          */
@@ -348,6 +350,9 @@ namespace Engine {
         friend class FWorldContext;
         friend class ULuaScriptComponent;
 
+        /** @brief Tick 실행 중 월드 종료 요청을 검사할 수 있게 합니다. */
+        friend class FTickTaskManager;
+
         /**
          * @brief 복제기가 원본과 복제본의 전달 범위를 보호하도록 허용합니다.
          */
@@ -407,12 +412,13 @@ namespace Engine {
         bool CanBeginActor() const;
 
         /**
-         * @brief 시간을 검증하고 액터 핸들 스냅샷으로 갱신을 전달합니다.
+         * @brief 시간과 실행 상태를 검증하고 일반 그룹 또는 일시정지 Tick을 실행합니다.
          * @param[in] DeltaTime 진행할 유한한 0 이상의 초 단위 시간입니다.
          * @param[in] EditorTick 객체별 편집 Tick 설정을 검사하고 게임 시간은 유지할지 지정합니다.
-         * @return 재진입 없이 갱신 전달을 수행하면 true입니다.
+         * @param[in] PauseTick 일시정지 전용 Tick 목록을 실행할지 지정합니다.
+         * @return 일반 또는 편집 프레임을 처리했거나 일시정지 Tick을 하나 이상 호출했으면 true입니다.
          */
-        bool TickActors(float DeltaTime, bool EditorTick);
+        bool TickActors(float DeltaTime, bool EditorTick, bool PauseTick);
 
         /**
          * @brief 컨테이너 변경에 영향받지 않는 액터 핸들 스냅샷을 만듭니다.
@@ -475,6 +481,9 @@ namespace Engine {
          * @brief 월드가 소유한 영속 레벨입니다.
          */
         std::unique_ptr<Engine::ULevel> mPersistentLevel{};
+
+        /** @brief 영속 레벨을 갱신할 때 사용할 일반 및 일시정지 프레임의 실행 큐를 관리합니다. */
+        Engine::FTickTaskManager mTickTaskManager{};
 
         /**
          * @brief 월드가 소유한 렌더 장면입니다.
