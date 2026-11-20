@@ -490,7 +490,7 @@ namespace Engine {
         return true;
     }
 
-    bool Engine::UEngine::ProcessSceneTransition(Engine::FWorldHandle Source, Engine::FWorldHandle& Replacement, Core::FString& Error) {
+    bool Engine::UEngine::ProcessSceneTransition(Engine::FWorldHandle Source, Engine::FWorldHandle& Replacement, Core::FString& Error, bool RequireActiveCamera) {
         Replacement = {};
         Error.clear();
 
@@ -529,7 +529,7 @@ namespace Engine {
             return false;
         }
 
-        if (Context->GetWorld()->GetActiveCamera() == nullptr) {
+        if (RequireActiveCamera && Context->GetWorld()->GetActiveCamera() == nullptr) {
             Error = "Scene transition requires an active camera in the destination scene";
 
             return false;
@@ -560,7 +560,7 @@ namespace Engine {
 
         mUpdating = true;
 
-        const bool Started{!mShutdownRequested && NextWorld->BeginPlay() && NextWorld->GetPlayState() == Engine::EWorldPlayState::Playing && NextWorld->GetActiveCamera() != nullptr && !mShutdownRequested};
+        const bool Started{!mShutdownRequested && NextWorld->BeginPlay() && NextWorld->GetPlayState() == Engine::EWorldPlayState::Playing && (!RequireActiveCamera || NextWorld->GetActiveCamera() != nullptr) && !mShutdownRequested};
 
         mUpdating = false;
 

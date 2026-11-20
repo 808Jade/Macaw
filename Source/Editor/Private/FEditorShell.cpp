@@ -81,7 +81,9 @@ FEditorShell::FEditorShell(FEditorContext* Context, FEditorViewport* Viewport, F
 	  mStopButton{"Stop", {}, [this]() {
           mPlaySession->Stop();
       }},
-	  mSimulateButton{"Simulate", {}},
+	  mSimulateButton{"Simulate", {}, [this]() {
+          mPlaySession->Start(nullptr, FPlayInEditorSession::EMode::Simulate);
+      }},
 	  mPlayOptionsButton{"PlayOptions", {}, []() {
           ImGui::OpenPopup("PlayOptionsMenu");
       }} {
@@ -103,8 +105,7 @@ FEditorShell::FEditorShell(FEditorContext* Context, FEditorViewport* Viewport, F
     mPauseButton.SetToolTip("일시 정지");
     mStepButton.SetToolTip("한 프레임 진행");
     mStopButton.SetToolTip("중지 (Esc)");
-    mSimulateButton.SetToolTip("시뮬레이션 (준비 중)");
-    mSimulateButton.SetEnabled(false);
+    mSimulateButton.SetToolTip("시뮬레이션 실행");
     mPlayOptionsButton.SetToolTip("PIE 실행 옵션");
 }
 
@@ -461,9 +462,12 @@ void FEditorShell::DrawEditorToolbar() {
         DrawPlayControls();
 
         if (mPlaySession->IsActive()) {
+            const bool Paused{mPlaySession->IsPaused()};
+            const char* Status{mPlaySession->IsSimulating() ? (Paused ? "Simulation Paused" : "Simulating") : (Paused ? "Paused" : "Playing")};
+
             ImGui::SameLine(0.0f, 12.0f * Scale);
             ImGui::AlignTextToFramePadding();
-            ImGui::TextDisabled("%s", mPlaySession->IsPaused() ? "Paused" : "Playing");
+            ImGui::TextDisabled("%s", Status);
         }
 
 
@@ -590,7 +594,9 @@ void FEditorShell::DrawPlayControls() {
     const float Scale{mUIScale.GetScale()};
     const bool Active{mPlaySession->IsActive()};
     const bool Paused{mPlaySession->IsPaused()};
-    const bool CanStart{!Active && mViewportLayout.CanChangeLayout() && mPlaySession->CanStart()};
+    const bool CanStartSession{!Active && mViewportLayout.CanChangeLayout()};
+    const bool CanStart{CanStartSession && mPlaySession->CanStart()};
+    const bool Simulating{mPlaySession->IsSimulating()};
     const float Height{ImGui::GetFrameHeight()};
     const float Padding{2.0f * Scale};
     const ImVec2 Origin{ImGui::GetCursorScreenPos()};
@@ -609,7 +615,7 @@ void FEditorShell::DrawPlayControls() {
     if (Active && !Paused) {
         mPauseButton.Draw(0.0f);
     } else {
-        const char* PlayTooltip{Paused ? "PIE 재개" : CanStart ? "PIE 실행 (Alt+P)" : "PIE를 실행하려면 활성 월드 카메라가 있고 에디터가 다른 작업 중이 아니어야 합니다"};
+        const char* PlayTooltip{Paused ? (Simulating ? "시뮬레이션 재개" : "PIE 재개") : CanStart ? "PIE 실행 (Alt+P)" : "PIE를 실행하려면 활성 월드 카메라가 있고 에디터가 다른 작업 중이 아니어야 합니다"};
 
         mPlayButton.SetEnabled(Paused || CanStart);
         mPlayButton.SetToolTip(PlayTooltip);
@@ -627,6 +633,8 @@ void FEditorShell::DrawPlayControls() {
     mStopButton.Draw(0.0f);
 
     ImGui::SameLine(0.0f, 0.0f);
+    mSimulateButton.SetEnabled(CanStartSession && mPlaySession->CanStart(FPlayInEditorSession::EMode::Simulate));
+    mSimulateButton.SetSelected(Simulating);
     mSimulateButton.Draw(0.0f);
 
     ImGui::SameLine(0.0f, 0.0f);

@@ -112,11 +112,13 @@ FEditorViewport* FEditorViewportLayout::GetViewport(Index_t Index) const {
 }
 
 FEditorViewport* FEditorViewportLayout::GetActiveViewport() const {
-    return mPlaySession->IsActive() ? mViewport : GetViewport(mActiveViewport);
+    return mPlaySession->IsActive() && !mPlaySession->IsSimulating() ? mViewport : GetViewport(mActiveViewport);
 }
 
 void FEditorViewportLayout::UpdateViewportContexts() {
     FEditorContext* Context{mPlaySession->IsActive() ? mPlaySession->GetInspectionContext() : mContext};
+    mViewport->GetClient()->SetEditorContext(mPlaySession->IsSimulating() ? Context : mContext);
+
     for (const auto& Viewport : mOrthographicViewports) {
         if (Viewport != nullptr) {
             Viewport->GetClient()->SetEditorContext(Context);
@@ -125,7 +127,7 @@ void FEditorViewportLayout::UpdateViewportContexts() {
 }
 
 bool FEditorViewportLayout::CanChangeLayout() const {
-    if (mPlaySession->IsActive()) {
+    if (mPlaySession->IsActive() && !mPlaySession->IsSimulating()) {
         return false;
     }
 
@@ -330,7 +332,8 @@ void FEditorViewportLayout::DrawViewport(Index_t Index, const Core::FInput& Inpu
 void FEditorViewportLayout::DrawLayoutNode(const FPresetDefinition& Definition, Index_t NodeIndex, const FVector4& Bounds, const Core::FInput& Input, float DeltaTime, FEditorViewport*& CapturedViewport) {
     const FLayoutNode& Node{Definition.mNodes[NodeIndex]};
     if (Node.mFirst < 0) {
-        const Index_t Slot{Definition.mCount == 1 ? (mPlaySession->IsActive() ? 0 : mSingleViewport) : Node.mSlot};
+        const Index_t SingleViewport{mPlaySession->IsActive() && !mPlaySession->IsSimulating() ? 0 : mSingleViewport};
+        const Index_t Slot{Definition.mCount == 1 ? SingleViewport : Node.mSlot};
         ImGui::SetCursorScreenPos({Bounds.x, Bounds.y});
         ImGui::PushID(static_cast<int>(Slot));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});

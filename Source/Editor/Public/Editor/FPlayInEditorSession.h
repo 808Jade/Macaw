@@ -61,6 +61,11 @@ namespace Editor {
             bool mStartPaused{};
         };
 
+        enum class EMode {
+            Play,
+            Simulate
+        };
+
     public:
         /**
          * @brief 전달받은 설정과 의존성으로 FPlayInEditorSession의 초기 상태를 구성합니다.
@@ -114,14 +119,14 @@ namespace Editor {
          * @brief 편집 월드와 뷰포트 상태가 PIE 시작 조건을 만족하는지 검사합니다.
          * @return 검사 조건을 만족하면 true, 그렇지 않으면 false입니다.
          */
-        bool CanStart() const;
+        bool CanStart(EMode Mode = EMode::Play) const;
 
         /**
          * @brief 편집 월드를 복제하여 PIE를 시작하고 뷰포트 입력과 조회 대상을 연결합니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          * @param[in] Input 키·마우스 상태를 조회할 공통 입력입니다.
          */
-        bool Start(Core::FInput* Input = nullptr);
+        bool Start(Core::FInput* Input = nullptr, EMode Mode = EMode::Play);
 
         /**
          * @brief PIE 실행을 종료하고 복제 월드와 객체 대응표를 정리한 뒤 편집 상태를 복원합니다.
@@ -160,6 +165,8 @@ namespace Editor {
          * @return 검사 조건을 만족하면 true, 그렇지 않으면 false입니다.
          */
         bool IsActive() const;
+
+        bool IsSimulating() const;
 
         /**
          * @brief PIE 실행 월드의 일시정지 여부를 반환합니다.
@@ -204,6 +211,8 @@ namespace Editor {
          * @brief 다음 PIE 실행에 사용할 세션 옵션입니다.
          */
         FOptions mOptions{};
+
+        EMode mMode{EMode::Play};
 
         /**
          * @brief 별도 PIE 실행 창의 소유 객체입니다.

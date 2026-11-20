@@ -694,6 +694,10 @@ namespace Engine {
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PrePhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::StartPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::DuringPhysics);
+        //
+        // ** Week13 ** 
+        // 여기에 물리 엔진 처리를 넣으세요.
+        //
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::EndPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PostPhysics);
 

@@ -187,7 +187,7 @@ namespace Engine {
          * @param Error 실패 원인을 기록할 출력 문자열입니다.
          * @return 전환 처리에 성공하면 true이며 새 핸들은 Replacement에 기록합니다.
          */
-        bool ProcessSceneTransition(Engine::FWorldHandle Source, Engine::FWorldHandle& Replacement, Core::FString& Error);
+        bool ProcessSceneTransition(Engine::FWorldHandle Source, Engine::FWorldHandle& Replacement, Core::FString& Error, bool RequireActiveCamera = true);
 
         /**
          * @brief 월드 교체 시 증가하는 컨텍스트 세대를 반환합니다.
