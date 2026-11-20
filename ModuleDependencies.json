@@ -5,7 +5,7 @@
   "RenderCore": { "Public": ["Core", "CoreUObject"], "Private": [] },
   "Asset": { "Public": ["CoreUObject", "RenderCore"], "Private": ["Serialization"] },
   "PhysicsRuntime": { "Public": ["CoreUObject"], "Private": [] },
-  "Engine": { "Public": ["CoreUObject", "Asset", "RenderCore"], "Private": ["Serialization", "Script", "PhysicsRuntime"] },
+  "Engine": { "Public": ["CoreUObject", "Asset", "RenderCore", "PhysicsRuntime"], "Private": ["Serialization", "Script"] },
   "Renderer": { "Public": ["Engine"], "Private": [] },
   "Platform": { "Public": ["Core"], "Private": ["CoreUObject"] },
   "Viewer": { "Public": ["Engine"], "Private": [] },

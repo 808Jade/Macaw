@@ -12,6 +12,7 @@
 #include "CoreUObject/UObject.h"
 #include "Engine/EWorldType.h"
 #include "Engine/FWorldHandle.h"
+#include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "Engine.generated.h"
 
 namespace CoreUObject {
@@ -234,6 +235,8 @@ namespace Engine {
         Engine::FWorldHandle AdoptWorld(std::unique_ptr<Engine::FWorldContext> Context);
 
     private:
+
+        PhysicsRuntime::FPhysicsRuntime mPhysicsRuntime{};
 
         /**
          * @brief 월드를 각각 소유하는 컨텍스트 슬롯입니다.

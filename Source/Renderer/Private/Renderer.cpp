@@ -9,6 +9,7 @@
 #include "RendererStats.h"
 #include "Core/FilePath.h"
 #include "Core/LoadingStatus.h"
+#include "Core/Log/Log.h"
 #include "Renderer/FLineVertex.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FMatrix.h"
@@ -61,6 +62,8 @@ namespace Renderer {
      * @brief 이 구현 파일에서만 사용하는 내부 상태와 보조 함수입니다.
      */
     namespace {
+        DEFINE_LOG_CATEGORY_STATIC(LogRenderer, Log, All);
+
         /**
          * @brief 프로젝트 또는 실행 파일의 기본 콘텐츠에서 우선순위에 맞는 경로를 반환합니다.
          * @param[in] ContentRoot 프로젝트 Content 루트입니다.
@@ -130,14 +133,18 @@ namespace Renderer {
         Core::LoadingStatus::BeginStage("Preparing shaders...", 0.15f);
 
         if (!CreatePipeline()) {
+            MACAW_LOG(LogRenderer, Error, "Cannot initialize the render pipeline using shaders from '{}'.", Core::FilePath::ToGenericUtf8(mShaderDirectory));
             Core::ErrorHandler::Fatal("Renderer", "Render pipeline creation failed");
         }
 
         Core::LoadingStatus::BeginStage("Building editor meshes...", 0.62f);
 
         if (!CreateEditorMeshes()) {
+            MACAW_LOG(LogRenderer, Error, "Cannot create the editor meshes for the renderer.");
             Core::ErrorHandler::Fatal("Renderer", "Render pipeline creation failed");
         }
+
+        MACAW_LOG(LogRenderer, Log, "Render pipeline and editor meshes initialized.");
 
         return true;
     }
@@ -147,6 +154,7 @@ namespace Renderer {
      */
     bool Renderer::FRenderer::InitializeUi(void* WindowHandle, Uint32 Width, Uint32 Height) {
         if (mDevice != nullptr || WindowHandle == nullptr || Width == 0 || Height == 0) {
+            MACAW_LOG(LogRenderer, Error, "Invalid renderer initialization state (device exists {}, window provided {}, size {}x{}).", mDevice != nullptr, WindowHandle != nullptr, Width, Height);
             Core::ErrorHandler::Fatal("Renderer", "Invalid renderer initialization state");
         }
 
@@ -184,9 +192,14 @@ namespace Renderer {
             const UINT AttemptFlags{(Attempt & 1) != 0 ? Flags & ~D3D11_CREATE_DEVICE_DEBUG : Flags};
 
             Result = D3D11CreateDeviceAndSwapChain(nullptr, Driver, nullptr, AttemptFlags, &Level, 1, D3D11_SDK_VERSION, &Description, mSwapChain.GetAddressOf(), mDevice.GetAddressOf(), nullptr, mContext.GetAddressOf());
+
+            if (SUCCEEDED(Result)) {
+                MACAW_LOG(LogRenderer, Log, "Created Direct3D 11 device and swap chain ({} driver, {}x{}, debug layer {}).", Driver == D3D_DRIVER_TYPE_WARP ? "WARP" : "hardware", Width, Height, (AttemptFlags & D3D11_CREATE_DEVICE_DEBUG) != 0);
+            }
         }
 
         if (FAILED(Result)) {
+            MACAW_LOG(LogRenderer, Error, "Cannot create a Direct3D 11 device and swap chain for {}x{} (HRESULT 0x{:08X}).", Width, Height, static_cast<Uint32>(Result));
             Core::ErrorHandler::ReportHRESULT(Result, "Renderer", "D3D11 device creation failed", Core::ErrorHandler::EErrorLevel::Critical);
         }
 
@@ -880,7 +893,10 @@ namespace Renderer {
 
         const UINT Flags{mTearingSupported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u};
 
-        if (FAILED(mSwapChain->ResizeBuffers(0, Width, Height, DXGI_FORMAT_UNKNOWN, Flags))) {
+        const HRESULT Result{mSwapChain->ResizeBuffers(0, Width, Height, DXGI_FORMAT_UNKNOWN, Flags)};
+
+        if (FAILED(Result)) {
+            MACAW_LOG(LogRenderer, Error, "Cannot resize the swap chain to {}x{} (HRESULT 0x{:08X}).", Width, Height, static_cast<Uint32>(Result));
             Core::ErrorHandler::Fatal("Renderer", "Swap chain resize failed");
         }
 
@@ -888,6 +904,7 @@ namespace Renderer {
         auto BackBuffer{CoreUObject::NewObject<Asset::UTexture2D>()};
 
         if (FAILED(mSwapChain->GetBuffer(0, IID_PPV_ARGS(Texture.GetAddressOf()))) || !BackBuffer->AttachResource(Texture.Get(), Asset::ETextureUsage::RenderTarget)) {
+            MACAW_LOG(LogRenderer, Error, "Cannot acquire a {}x{} back buffer.", Width, Height);
             Core::ErrorHandler::Fatal("Renderer", "Back buffer allocation failed");
         }
 

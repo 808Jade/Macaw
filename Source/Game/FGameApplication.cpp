@@ -9,6 +9,7 @@
 #include "PhysicsRuntimeReflection.h"
 #include "Core/Base/ErrorHandler.h"
 #include "Core/FilePath.h"
+#include "Core/Log/Log.h"
 #include "Core/Stats.h"
 #include "Engine/FWorldContext.h"
 #include "Engine/SceneSerializer.h"
@@ -17,6 +18,8 @@
 #include <algorithm>
 
 namespace Game {
+
+    DEFINE_LOG_CATEGORY_STATIC(LogGame, Log, All);
 
     /**
      * @brief Game 모듈의 리플렉션 타입을 등록합니다.
@@ -39,7 +42,11 @@ namespace Game {
     int Game::FGameApplication::Run(const std::filesystem::path& ProjectFile) {
         Core::FString Error{};
 
+        MACAW_LOG(LogGame, Log, "Opening game project '{}'.", Core::FilePath::ToGenericUtf8(ProjectFile));
+
         if (!Initialize(ProjectFile, Error)) {
+            MACAW_LOG(LogGame, Error, "Cannot initialize game project '{}'. {}", Core::FilePath::ToGenericUtf8(ProjectFile), Error);
+
             return ReportFailure(Error);
         }
 
@@ -137,7 +144,11 @@ namespace Game {
             return false;
         }
 
-        const auto ScenePath{mProject.GetAssets()->ResolvePath(Core::FilePath::FromUtf8(mProject.GetStartupScene()), Error)};
+        const Core::FString& Startup{mProject.GetStartupScene()};
+
+        MACAW_LOG(LogGame, Log, "Loading game startup scene '{}'.", Startup);
+
+        const auto ScenePath{mProject.GetAssets()->ResolvePath(Core::FilePath::FromUtf8(Startup), Error)};
         auto Context{ScenePath.empty() ? nullptr : Engine::FSceneSerializer::Load(ScenePath, Error, mProject.GetAssets(), Engine::EWorldType::Game)};
 
         if (Context == nullptr) {
@@ -158,6 +169,8 @@ namespace Game {
         }
 
         mViewport = std::make_unique<Engine::FSceneViewport>(&mRenderer, &mGameClient);
+
+        MACAW_LOG(LogGame, Log, "Game world started from '{}'.", Startup);
 
         return true;
     }

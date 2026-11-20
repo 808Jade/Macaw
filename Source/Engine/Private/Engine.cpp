@@ -24,11 +24,9 @@
 #include "Engine/AActor.h"
 #include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/Reflection/Cast.h"
-#include "PhysicsRuntime/FPhysicsRuntime.h"
 
 #include <atomic>
 #include <cmath>
-#include <mutex>
 #include <utility>
 
 namespace Engine {
@@ -42,10 +40,7 @@ namespace Engine {
          */
         std::atomic<Uint64> NextWorldGeneration{1};
 
-        std::mutex PhysicsRuntimeMutex{};
-        PhysicsRuntime::FPhysicsRuntime SharedPhysicsRuntime{};
-        Index_t PhysicsRuntimeUsers{};
-        DEFINE_LOG_CATEGORY_STATIC(LogPhysics, Log, All);
+        DEFINE_LOG_CATEGORY_STATIC(LogEngine, Log, All);
     }
 
     /**
@@ -81,26 +76,18 @@ namespace Engine {
      */
     bool Engine::UEngine::Initialize() {
         if (mInitialized || IsDispatching()) {
+            MACAW_LOG(LogEngine, Warning, "Cannot initialize the engine while it is initialized or dispatching events.");
+
             return false;
         }
 
         Engine::ReflectionModules::RegisterEngine();
         StaticClass();
 
-        {
-            const std::scoped_lock Lock{PhysicsRuntimeMutex};
+        MACAW_LOG(LogEngine, Log, "Engine reflection types registered.");
 
-            if (PhysicsRuntimeUsers == 0) {
-                if (!SharedPhysicsRuntime.Initialize()) {
-                    MACAW_LOG(LogPhysics, Error, "PhysX initialization failed.");
-
-                    return false;
-                }
-
-                MACAW_LOG(LogPhysics, Log, "PhysX initialized.");
-            }
-
-            ++PhysicsRuntimeUsers;
+        if (!mPhysicsRuntime.Initialize()) {
+            return false;
         }
 
         mInitialized = true;
@@ -108,12 +95,14 @@ namespace Engine {
         mCurrentWorld = CreateWorld(Engine::EWorldType::Editor);
 
         if (!mCurrentWorld.IsValid()) {
+            MACAW_LOG(LogEngine, Error, "Cannot create the default editor world.");
             Shutdown();
 
             return false;
         }
 
         ++mWorldGeneration;
+        MACAW_LOG(LogEngine, Log, "Engine initialized with a default editor world.");
 
         return true;
     }
@@ -123,11 +112,15 @@ namespace Engine {
      */
     bool Engine::UEngine::Initialize(RenderCore::IRendererModule* Renderer) {
         if (Renderer == nullptr || mInitialized) {
+            MACAW_LOG(LogEngine, Warning, "Cannot initialize the engine with a renderer (renderer provided {}, engine initialized {}).", Renderer != nullptr, mInitialized);
+
             return false;
         }
 
         for (Index_t Index{}; Index < static_cast<Uint32>(Engine::EPrimitiveType::Count); ++Index) {
             if (!Renderer->UploadMesh(static_cast<Engine::EPrimitiveType>(Index), Engine::GetPrimitiveMesh(static_cast<Engine::EPrimitiveType>(Index)))) {
+                MACAW_LOG(LogEngine, Error, "Cannot upload shared primitive mesh {}.", Index);
+
                 return false;
             }
         }
@@ -141,6 +134,7 @@ namespace Engine {
         }
 
         Engine::EngineStats::SharedGeometry.Set(static_cast<double>(GeometryBytes));
+        MACAW_LOG(LogEngine, Log, "Uploaded {} shared primitive meshes ({} bytes of geometry).", static_cast<Uint32>(Engine::EPrimitiveType::Count), GeometryBytes);
 
         if (!Initialize()) {
             mRenderer = nullptr;
@@ -161,7 +155,6 @@ namespace Engine {
             return;
         }
 
-        const bool Initialized{mInitialized};
         mInitialized = false;
         mShutdownRequested = false;
         mUpdating = true;
@@ -173,16 +166,7 @@ namespace Engine {
         }
 
         mWorldContexts.clear();
-
-        if (Initialized) {
-            const std::scoped_lock Lock{PhysicsRuntimeMutex};
-
-            --PhysicsRuntimeUsers;
-
-            if (PhysicsRuntimeUsers == 0) {
-                SharedPhysicsRuntime.Shutdown();
-            }
-        }
+        mPhysicsRuntime.Shutdown();
 
         mUpdating = false;
         mCurrentWorld = {};

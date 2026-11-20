@@ -7,6 +7,7 @@
 #include "Editor/EditorEngine.h"
 #include "Core/FilePath.h"
 #include "Core/LoadingStatus.h"
+#include "Core/Log/Log.h"
 #include "FEditorUI.h"
 #include "Engine/UWorld.h"
 #include "Engine/AStaticMeshActor.h"
@@ -16,6 +17,8 @@
 #include "Engine/FProject.h"
 
 namespace Editor {
+
+    DEFINE_LOG_CATEGORY_STATIC(LogEditor, Log, All);
 
     /**
      * @brief 편집 상태와 UI의 비소유 연결 및 새 액터 배치 변환 제공 경로를 구성합니다.
@@ -58,6 +61,7 @@ namespace Editor {
         StaticClass();
 
         if (!mContext.SetWorld(GetWorldHandle())) {
+            MACAW_LOG(LogEditor, Error, "Cannot bind the editor context to its initial world.");
             Engine::UEngine::Shutdown();
 
             return false;
@@ -77,6 +81,7 @@ namespace Editor {
         StaticClass();
 
         if (!mContext.SetWorld(GetWorldHandle())) {
+            MACAW_LOG(LogEditor, Error, "Cannot bind the editor context to its initial world.");
             Engine::UEngine::Shutdown();
 
             return false;
@@ -89,11 +94,25 @@ namespace Editor {
      * @brief 엔진, ImGui 백엔드, 뷰포트와 초기 장면을 준비합니다.
      */
     bool Editor::UEditorEngine::InitializeEditor(RenderCore::IRendererModule* Renderer, Platform::FWindowsApplication* Platform) {
-        if (Renderer == nullptr || Platform == nullptr || !Initialize(Renderer)) {
+        if (Renderer == nullptr || Platform == nullptr) {
+            MACAW_LOG(LogEditor, Error, "Editor initialization requires a renderer and a platform window.");
+
             return false;
         }
 
-        if (!mViewport.Initialize(Renderer) || !mUI->Initialize(Renderer, Platform)) {
+        if (!Initialize(Renderer)) {
+            return false;
+        }
+
+        if (!mViewport.Initialize(Renderer)) {
+            MACAW_LOG(LogEditor, Error, "Cannot initialize the editor viewport.");
+            Shutdown();
+
+            return false;
+        }
+
+        if (!mUI->Initialize(Renderer, Platform)) {
+            MACAW_LOG(LogEditor, Error, "Cannot initialize the editor UI.");
             Shutdown();
 
             return false;
@@ -103,8 +122,10 @@ namespace Editor {
             const Core::FString& Startup{GetProject()->GetStartupScene()};
 
             Core::LoadingStatus::BeginStage("Loading startup scene...", 0.82f);
+            MACAW_LOG(LogEditor, Log, "Loading editor startup scene '{}'.", Startup);
 
             if (!mContext.LoadScene(Core::FilePath::FromUtf8(Startup))) {
+                MACAW_LOG(LogEditor, Error, "Cannot load editor startup scene '{}'.", Startup);
                 Shutdown();
 
                 return false;
@@ -112,6 +133,7 @@ namespace Editor {
         }
 
         SynchronizeWorld();
+        MACAW_LOG(LogEditor, Log, "Editor initialized.");
 
         return true;
     }

@@ -8,7 +8,9 @@
 #include "AppReflection.h"
 #include "CoreUObject/UObject.h"
 #include "Core/Base/ErrorHandler.h"
+#include "Core/FilePath.h"
 #include "Core/LoadingStatus.h"
+#include "Core/Log/Log.h"
 #include "Core/Memory.h"
 #include "Core/Stats.h"
 #include "Editor/FProjectBrowser.h"
@@ -18,6 +20,8 @@
 #include <array>
 
 namespace App {
+
+    DEFINE_LOG_CATEGORY_STATIC(LogApplication, Log, All);
 
     /**
      * @brief FApplication의 초기 상태와 전달받은 의존성을 구성합니다.
@@ -41,10 +45,13 @@ namespace App {
             Core::ErrorHandler::Fatal("Application", "Window creation failed");
         }
 
+        MACAW_LOG(LogApplication, Log, "Editor window created ({}x{}).", mPlatform.GetWidth(), mPlatform.GetHeight());
+
         std::array<wchar_t, 32768> Executable{};
         const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
 
         if (Length == 0 || Length >= Executable.size()) {
+            MACAW_LOG(LogApplication, Error, "Cannot locate the executable directory for project templates.");
             Core::ErrorHandler::Fatal("Application", "Cannot locate the project templates");
         }
 
@@ -136,6 +143,7 @@ namespace App {
 
         if (!mPlatform.BeginPresentation()) {
             Error = "Cannot hide the editor window during project loading.";
+            MACAW_LOG(LogApplication, Error, "Cannot start loading project '{}'. {}", Core::FilePath::ToGenericUtf8(Path), Error);
             Splash.Close();
 
             return false;
@@ -166,6 +174,7 @@ namespace App {
 
             if (!FrameReady) {
                 Error = "Cannot prepare the first editor frame.";
+                MACAW_LOG(LogApplication, Error, "Cannot present the first editor frame for project '{}'.", Core::FilePath::ToGenericUtf8(Path));
                 mEngine.Shutdown();
                 mRenderer.Shutdown();
                 mEngine.SetProject(nullptr);
@@ -178,6 +187,7 @@ namespace App {
 
         if (FrameReady) {
             mPlatform.Activate();
+            MACAW_LOG(LogApplication, Log, "Project '{}' is ready in the editor.", Core::FilePath::ToGenericUtf8(Path));
         }
 
         mTimer.Tick();
@@ -190,10 +200,13 @@ namespace App {
      */
     bool App::FApplication::LoadProject(const std::filesystem::path& Path, bool Create, Core::FString& Error) {
         Core::LoadingStatus::BeginStage(Create ? "Creating project from template..." : "Opening project...", 0.0f);
+        MACAW_LOG(LogApplication, Log, "{} project '{}'.", Create ? "Creating" : "Opening", Core::FilePath::ToGenericUtf8(Path));
 
         auto Project{std::make_unique<Engine::FProject>()};
 
         if (!(Create ? Project->Create(Path, mTemplateDirectory, Error) : Project->Open(Path, Error))) {
+            MACAW_LOG(LogApplication, Error, "Cannot {} project '{}'. {}", Create ? "create" : "open", Core::FilePath::ToGenericUtf8(Path), Error);
+
             return false;
         }
 
