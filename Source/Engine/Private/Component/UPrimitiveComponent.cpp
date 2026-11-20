@@ -1,11 +1,12 @@
 /**
  * @file UPrimitiveComponent.cpp
- * @brief 장면 프록시 생성과 지연된 렌더 상태 및 변환 갱신을 제공하는 기반 클래스입니다.
+ * @brief 렌더링과 충돌에 쓰이는 기하 형태를 가진 컴포넌트의 기반 클래스입니다.
  * @ingroup Engine
  */
 
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Asset/UStaticMesh.h"
+#include "Engine/AActor.h"
 #include "Engine/Component/UActorComponent.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/UWorld.h"
@@ -288,6 +289,73 @@ namespace Engine {
         MarkRenderStateDirty();
 
         return true;
+    }
+
+    /**
+     * @brief 컴포넌트 겹침 시작 이벤트를 반환합니다.
+     */
+    Engine::UPrimitiveComponent::FOverlapDelegate& Engine::UPrimitiveComponent::GetOnComponentBeginOverlap() {
+        return mOnComponentBeginOverlap;
+    }
+
+    /**
+     * @brief 컴포넌트 겹침 종료 이벤트를 반환합니다.
+     */
+    Engine::UPrimitiveComponent::FOverlapDelegate& Engine::UPrimitiveComponent::GetOnComponentEndOverlap() {
+        return mOnComponentEndOverlap;
+    }
+
+    /**
+     * @brief 컴포넌트 충돌 이벤트를 반환합니다.
+     */
+    Engine::UPrimitiveComponent::FHitDelegate& Engine::UPrimitiveComponent::GetOnComponentHit() {
+        return mOnComponentHit;
+    }
+
+    /**
+     * @brief 다른 컴포넌트의 이동을 막는지 반환합니다.
+     */
+    bool Engine::UPrimitiveComponent::BlocksMovement() const {
+        return mBlocksMovement;
+    }
+
+    /**
+     * @brief 다른 컴포넌트의 이동을 막을지 설정합니다.
+     */
+    void Engine::UPrimitiveComponent::SetBlocksMovement(bool Blocks) {
+        mBlocksMovement = Blocks;
+    }
+
+    /**
+     * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
+     */
+    void Engine::UPrimitiveComponent::OnBeginOverlap(Engine::UPrimitiveComponent* Other) {
+        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
+        mOnComponentBeginOverlap.Broadcast(this, OtherActor, Other);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::BeginOverlap, this, OtherActor, Other, nullptr);
+        }
+    }
+
+    /**
+     * @brief 겹침 종료 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
+     */
+    void Engine::UPrimitiveComponent::OnEndOverlap(Engine::UPrimitiveComponent* Other) {
+        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
+        mOnComponentEndOverlap.Broadcast(this, OtherActor, Other);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::EndOverlap, this, OtherActor, Other, nullptr);
+        }
+    }
+
+    /**
+     * @brief 적중 액터·컴포넌트와 충돌 정보를 델리게이트와 소유 액터의 충돌 이벤트로 전달합니다.
+     */
+    void Engine::UPrimitiveComponent::OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit) {
+        mOnComponentHit.Broadcast(this, OtherActor, OtherComp, Hit);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::Hit, this, OtherActor, OtherComp, &Hit);
+        }
     }
 
 }

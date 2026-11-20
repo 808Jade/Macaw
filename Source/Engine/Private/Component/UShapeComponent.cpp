@@ -1,6 +1,6 @@
 /**
  * @file UShapeComponent.cpp
- * @brief 충돌 형상·접촉 이벤트와 에디터 보조 선을 제공하는 기본 컴포넌트입니다.
+ * @brief 렌더 프록시 없이 단순 충돌 형상을 제공하고 에디터 보조 선으로 표시하는 프리미티브 컴포넌트입니다.
  * @ingroup Engine
  */
 
@@ -71,45 +71,13 @@ namespace Engine {
      * @brief 전달된 설정과 기본값으로 UShapeComponent 객체를 생성합니다.
      */
     Engine::UShapeComponent::UShapeComponent() {
-        mOnComponentBeginOverlap.Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
+        GetOnComponentBeginOverlap().Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
             std::clog << "BeginOverlap\n";
         });
 
-        mOnComponentEndOverlap.Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
+        GetOnComponentEndOverlap().Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
             std::clog << "EndOverlap\n";
         });
-    }
-
-    /**
-     * @brief 겹침 시작 델리게이트를 호출합니다.
-     */
-    void Engine::UShapeComponent::OnBeginOverlap(Engine::UShapeComponent* Other) {
-        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
-        mOnComponentBeginOverlap.Broadcast(this, OtherActor, Other);
-        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
-            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::BeginOverlap, this, OtherActor, Other, nullptr);
-        }
-    }
-
-    /**
-     * @brief 겹침 종료 델리게이트를 호출합니다.
-     */
-    void Engine::UShapeComponent::OnEndOverlap(Engine::UShapeComponent* Other) {
-        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
-        mOnComponentEndOverlap.Broadcast(this, OtherActor, Other);
-        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
-            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::EndOverlap, this, OtherActor, Other, nullptr);
-        }
-    }
-
-    /**
-     * @brief 적중 액터·컴포넌트와 충돌 정보를 델리게이트로 전달합니다.
-     */
-    void Engine::UShapeComponent::OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit) {
-        mOnComponentHit.Broadcast(this, OtherActor, OtherComp, Hit);
-        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
-            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::Hit, this, OtherActor, OtherComp, &Hit);
-        }
     }
 
     /**
@@ -224,35 +192,6 @@ namespace Engine {
         FVector Scale{GetTransform().mScale};
 
         return std::min({ std::abs(Scale.x), std::abs(Scale.y), std::abs(Scale.z) });
-    }
-
-    /**
-     * @brief 컴포넌트 겹침 시작 이벤트를 반환합니다.
-     */
-    Engine::UShapeComponent::FOverlapDelegate& Engine::UShapeComponent::GetOnComponentBeginOverlap() {
-        return mOnComponentBeginOverlap;
-    }
-
-    /**
-     * @brief 컴포넌트 겹침 종료 이벤트를 반환합니다.
-     */
-    Engine::UShapeComponent::FOverlapDelegate& Engine::UShapeComponent::GetOnComponentEndOverlap() {
-        return mOnComponentEndOverlap;
-    }
-
-    /**
-     * @brief 컴포넌트 충돌 이벤트를 반환합니다.
-     */
-    Engine::UShapeComponent::FHitDelegate& Engine::UShapeComponent::GetOnComponentHit() {
-        return mOnComponentHit;
-    }
-
-    bool Engine::UShapeComponent::BlocksMovement() const {
-        return mBlocksMovement;
-    }
-
-    void Engine::UShapeComponent::SetBlocksMovement(bool Blocks) {
-        mBlocksMovement = Blocks;
     }
 
     /**

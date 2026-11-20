@@ -78,7 +78,7 @@ Engine::FHitResult UWorld::MoveActorSwept(Engine::AActor& Actor, const FVector& 
     if (MovedShape != nullptr) {
         const auto MovedHandle{CoreUObject::MakeObjectRef(MovedShape)};
         MovedShape->OnHit(Hit.GetActor(), Hit.GetComponent(), Hit);
-        if (auto* Target{CoreUObject::Cast<Engine::UShapeComponent>(Hit.GetComponent())}; Target != nullptr && MovedHandle.Get() != nullptr) {
+        if (auto* Target{Hit.GetComponent()}; Target != nullptr && MovedHandle.Get() != nullptr) {
             const auto Reversed{Engine::FHitResult::GetReversedHit(Hit, MovedHandle.Get(), &Actor)};
             Target->OnHit(&Actor, MovedHandle.Get(), Reversed);
         }

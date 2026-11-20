@@ -1,12 +1,13 @@
 /**
  * @file UPrimitiveComponent.h
- * @brief 장면 프록시 생성과 지연된 렌더 상태 및 변환 갱신을 제공하는 기반 클래스입니다.
+ * @brief 렌더링과 충돌에 쓰이는 기하 형태를 가진 컴포넌트의 기반 클래스입니다.
  * @ingroup Engine
  */
 
 #pragma once
 
 #include "CoreUObject/TObjectRef.h"
+#include "CoreUObject/TDelegate.h"
 
 #include "Core/ReflectionMacros.h"
 #include "Engine/Component/USceneComponent.h"
@@ -22,16 +23,33 @@ struct FBox;
 
 namespace Engine {
 
+    class AActor;
     enum class EPrimitiveType : Uint8;
+    struct FHitResult;
     struct FPrimitiveSceneProxy;
 
     /**
-     * @brief 장면 프록시 생성과 지연된 렌더 상태 및 변환 갱신을 제공하는 기반 클래스입니다.
+     * @brief 렌더링과 충돌에 쓰이는 기하 형태를 가진 컴포넌트의 기반 클래스입니다.
+     * @details 렌더 장면 프록시의 생성과 지연 갱신, 월드 경계, 그림자·데칼 같은 렌더 속성을 제공합니다.
+     *          겹침·충돌 이벤트와 이동 차단 여부도 함께 제공하며, 구체적인 형상은 파생 클래스가 정의합니다.
+     *          렌더 프록시가 필요 없는 파생 클래스는 ShouldCreateRenderState()에서 false를 반환합니다.
      * @ingroup Engine
      */
     UCLASS(Abstract)
     class UPrimitiveComponent : public Engine::USceneComponent {
         GENERATED_BODY()
+
+    public:
+
+        /**
+         * @brief 겹친 컴포넌트를 전달하는 이벤트 시그니처입니다.
+         */
+        using FOverlapDelegate = CoreUObject::TDelegate<Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*>;
+
+        /**
+         * @brief 충돌한 액터·컴포넌트·충돌 정보를 전달하는 이벤트 시그니처입니다.
+         */
+        using FHitDelegate = CoreUObject::TDelegate<Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*, const Engine::FHitResult&>;
 
     public:
 
@@ -186,6 +204,56 @@ namespace Engine {
          */
         void SetReceivesDecals(bool ReceivesDecals);
 
+        /**
+         * @brief 컴포넌트 겹침 시작 이벤트를 반환합니다.
+         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
+         */
+        FOverlapDelegate& GetOnComponentBeginOverlap();
+
+        /**
+         * @brief 컴포넌트 겹침 종료 이벤트를 반환합니다.
+         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
+         */
+        FOverlapDelegate& GetOnComponentEndOverlap();
+
+        /**
+         * @brief 컴포넌트 충돌 이벤트를 반환합니다.
+         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
+         */
+        FHitDelegate& GetOnComponentHit();
+
+        /**
+         * @brief 다른 컴포넌트의 이동을 막는지 반환합니다.
+         * @return 이동을 막으면 true입니다.
+         */
+        bool BlocksMovement() const;
+
+        /**
+         * @brief 다른 컴포넌트의 이동을 막을지 설정합니다.
+         * @param[in] Blocks 이동을 막으려면 true입니다.
+         */
+        void SetBlocksMovement(bool Blocks);
+
+        /**
+         * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
+         * @param[in] Other 겹치기 시작한 상대 컴포넌트입니다.
+         */
+        void OnBeginOverlap(Engine::UPrimitiveComponent* Other);
+
+        /**
+         * @brief 겹침 종료 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
+         * @param[in] Other 겹침이 끝난 상대 컴포넌트입니다.
+         */
+        void OnEndOverlap(Engine::UPrimitiveComponent* Other);
+
+        /**
+         * @brief 적중 액터·컴포넌트와 충돌 정보를 델리게이트와 소유 액터의 충돌 이벤트로 전달합니다.
+         * @param[in] OtherActor 충돌한 상대 액터입니다.
+         * @param[in] OtherComp 충돌한 상대 컴포넌트입니다.
+         * @param[in] Hit 원본 충돌 결과입니다.
+         */
+        void OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit);
+
     private:
 
         /**
@@ -247,6 +315,27 @@ namespace Engine {
          * @brief 현재 UV 변환을 제어하는 컴포넌트 핸들입니다.
          */
         CoreUObject::TObjectRef<CoreUObject::UObject> mUVSource{};
+
+        /**
+         * @brief 다른 컴포넌트의 이동을 막는지 여부입니다.
+         */
+        UPROPERTY(Edit, Serialize, Getter = BlocksMovement, Setter = SetBlocksMovement)
+        bool mBlocksMovement{};
+
+        /**
+         * @brief 컴포넌트 겹침 시작 이벤트입니다.
+         */
+        FOverlapDelegate mOnComponentBeginOverlap{};
+
+        /**
+         * @brief 컴포넌트 겹침 종료 이벤트입니다.
+         */
+        FOverlapDelegate mOnComponentEndOverlap{};
+
+        /**
+         * @brief 컴포넌트 충돌 이벤트입니다.
+         */
+        FHitDelegate mOnComponentHit{};
     };
 
 }
