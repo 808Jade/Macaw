@@ -497,7 +497,11 @@ namespace Asset {
         void Serialize(Core::FArchive& Archive);
 
     private:
+        friend class UAnimGraph;
 
+        void Serialize(Core::FArchive& Archive, Uint32 Depth);
+
+    private:
         /**
          * @brief 상태 목록입니다.
          */

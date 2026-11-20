@@ -25,7 +25,6 @@
 #include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/Reflection/Cast.h"
 
-#include <atomic>
 #include <cmath>
 #include <utility>
 
@@ -38,7 +37,7 @@ namespace Engine {
         /**
          * @brief 프로세스 내 엔진 및 월드 슬롯 재사용을 구분하는 다음 세대입니다.
          */
-        std::atomic<Uint64> NextWorldGeneration{1};
+        Uint64 NextWorldGeneration{1};
 
         DEFINE_LOG_CATEGORY_STATIC(LogEngine, Log, All);
     }
@@ -284,7 +283,7 @@ namespace Engine {
             ++Index;
         }
 
-        const Uint64 Generation{NextWorldGeneration.fetch_add(1, std::memory_order_relaxed)};
+        const Uint64 Generation{NextWorldGeneration++};
         const Engine::FWorldHandle Handle{static_cast<Int32>(Index), Generation};
 
         Context->SetHandle(Handle);
