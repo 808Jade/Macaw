@@ -62,7 +62,7 @@ namespace Engine {
 
             Mesh.SetBounds({{-0.5f, -0.5f, -0.001f}, {0.5f, 0.5f, 0.001f}});
         } else if (Type == Engine::EPrimitiveType::Cube) {
-            const std::array<FVector, 6> FaceNormals{{{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}};
+            const Core::TStaticArray<FVector, 6> FaceNormals{{{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}};
 
             for (const FVector& Normal : FaceNormals) {
                 const FVector Up{std::abs(Normal.z) > 0.5f ? FVector{0.0f, 1.0f, 0.0f} : FVector{0.0f, 0.0f, 1.0f}};
@@ -82,7 +82,7 @@ namespace Engine {
             constexpr Uint32 Rings{20};
             constexpr Uint32 Segments{32};
 
-            std::array<FVector2, Segments + 1> Circle{};
+            Core::TStaticArray<FVector2, Segments + 1> Circle{};
 
             for (Index_t Segment{}; Segment < Segments; ++Segment) {
                 Circle[Segment] = FVector2{1.0f, 0.0f}.Rotated(1_turn * Segment / Segments / 1_deg);
@@ -132,7 +132,7 @@ namespace Engine {
      * @brief 종류별로 캐시된 읽기 전용 기본 메시를 반환합니다.
      */
     const Asset::FMeshData& GetPrimitiveMesh(Engine::EPrimitiveType Type) {
-        static const std::array<Asset::FMeshData, 3> Meshes{Engine::BuildPrimitive(Engine::EPrimitiveType::Plane), Engine::BuildPrimitive(Engine::EPrimitiveType::Cube), Engine::BuildPrimitive(Engine::EPrimitiveType::Sphere)};
+        static const Core::TStaticArray<Asset::FMeshData, 3> Meshes{Engine::BuildPrimitive(Engine::EPrimitiveType::Plane), Engine::BuildPrimitive(Engine::EPrimitiveType::Cube), Engine::BuildPrimitive(Engine::EPrimitiveType::Sphere)};
 
         return Meshes[static_cast<Index_t>(Type)];
     }

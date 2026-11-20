@@ -12,7 +12,6 @@
 #include "FMeshImportTransform.h"
 
 #include <algorithm>
-#include <array>
 #include <assimp/Importer.hpp>
 #include <assimp/config.h>
 #include <assimp/material.h>
@@ -100,7 +99,7 @@ namespace Asset {
         Core::FString& Error{GetError()};
 
         constexpr std::size_t MaximumBytes{std::numeric_limits<Uint32>::max()};
-        const std::size_t MaximumVertices{MaximumBytes / sizeof(std::array<float, 7>)};
+        const std::size_t MaximumVertices{MaximumBytes / sizeof(Core::TStaticArray<float, 7>)};
         constexpr Index_t MaximumIndices{static_cast<Index_t>(MaximumBytes / sizeof(Uint32))};
         Core::TArray<FVector>& Positions{MeshData.GetPositions()};
         Core::TArray<FVector>& Normals{MeshData.GetNormals()};

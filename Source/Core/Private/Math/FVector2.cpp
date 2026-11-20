@@ -7,6 +7,7 @@
 #include "Core/Math/FVector2.h"
 #include "Math/SimdMath.h"
 #include "Core/Math/MathUtility.h"
+#include "Core/Types.h"
 
 #include <algorithm>
 #include <cmath>
@@ -289,6 +290,6 @@ FVector2 FVector2::Rotated(float Degrees) const {
 /**
  * @brief 유효한 성분을 원래 순서의 일반 배열로 반환합니다.
  */
-std::array<float, 2> FVector2::ToArray() const {
+Core::TStaticArray<float, 2> FVector2::ToArray() const {
     return {x, y};
 }

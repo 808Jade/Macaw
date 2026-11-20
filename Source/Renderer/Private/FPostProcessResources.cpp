@@ -9,6 +9,7 @@
 #include "RenderTarget.h"
 #include "Engine/FSceneViewFamily.h"
 #include "Engine/FHeightFogSceneProxy.h"
+#include "Core/Types.h"
 
 namespace Renderer {
 
@@ -120,7 +121,7 @@ namespace Renderer {
      * @brief 입력 컬러·깊이를 읽어 다른 컬러 타깃에 전체 화면 삼각형을 그리고 SRV·RTV 바인딩을 해제합니다.
      */
     void Renderer::FPostProcessResources::Draw(ID3D11DeviceContext* Context, const Asset::UTexture2D* Source, Asset::UTexture2D* Destination, const Asset::UTexture2D* Depth) {
-        const std::array<ID3D11ShaderResourceView*, 2> Empty{};
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 2> Empty{};
 
         Context->PSSetShaderResources(0, static_cast<UINT>(Empty.size()), Empty.data());
 
@@ -136,7 +137,7 @@ namespace Renderer {
         Context->PSSetShader(mPixelShader.Get(), nullptr, 0);
 
         ID3D11SamplerState* Sampler{mSampler.Get()};
-        const std::array<ID3D11ShaderResourceView*, 2> Resources{Source->GetShaderResourceView(), Depth != nullptr ? Depth->GetShaderResourceView() : nullptr};
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 2> Resources{Source->GetShaderResourceView(), Depth != nullptr ? Depth->GetShaderResourceView() : nullptr};
 
         mConstants.Bind(Context, RenderCore::EShaderStage::Pixel, 0);
         Context->PSSetSamplers(0, 1, &Sampler);

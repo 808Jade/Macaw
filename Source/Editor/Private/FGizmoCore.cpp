@@ -31,7 +31,7 @@ namespace Editor {
         /**
          * @brief X·Y·Z 기즈모 축의 색상입니다.
          */
-        const std::array<FVector, 3> AxisColors{{{1.0f, 0.28f, 0.22f}, {0.35f, 0.95f, 0.45f}, {0.32f, 0.58f, 1.0f}}};
+        const Core::TStaticArray<FVector, 3> AxisColors{{{1.0f, 0.28f, 0.22f}, {0.35f, 0.95f, 0.45f}, {0.32f, 0.58f, 1.0f}}};
 
         /**
          * @brief 입력 축에 수직인 정규화 방향을 계산합니다.
@@ -52,7 +52,7 @@ namespace Editor {
          */
         FMatrix Basis(const FVector& X, const FVector& Y, const FVector& Z, const FVector& Position) {
             FMatrix Result{FMatrix::Identity()};
-            const std::array<FVector, 4> Rows{X, Y, Z, Position};
+            const Core::TStaticArray<FVector, 4> Rows{X, Y, Z, Position};
 
             for (Int32 Index{}; Index < 4; ++Index) {
                 Result(Index, 0) = Rows[Index].x;
@@ -79,8 +79,8 @@ namespace Editor {
     /**
      * @brief 기즈모의 기본 X·Y·Z 단위 축을 반환합니다.
      */
-    const std::array<FVector, 3>& Editor::FGizmoCore::GetUnitAxes() {
-        static const std::array<FVector, 3> UnitAxes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
+    const Core::TStaticArray<FVector, 3>& Editor::FGizmoCore::GetUnitAxes() {
+        static const Core::TStaticArray<FVector, 3> UnitAxes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
 
         return UnitAxes;
     }
@@ -348,7 +348,7 @@ namespace Editor {
             return;
         }
 
-        const std::array<FVector, 3> Axes{IsDragging() ? mDragAxes : Placement.mAxes};
+        const Core::TStaticArray<FVector, 3> Axes{IsDragging() ? mDragAxes : Placement.mAxes};
         const Int32 Highlight{IsDragging() ? mActiveAxis : mHoveredAxis};
         const CoreUObject::TObjectRef<Engine::AActor> Owner{Placement.mOwner};
 
@@ -402,7 +402,7 @@ namespace Editor {
             }
         }
 
-        const std::array<std::array<Int32, 2>, 3> Pairs{{{0, 1}, {0, 2}, {1, 2}}};
+        const Core::TStaticArray<Core::TStaticArray<Int32, 2>, 3> Pairs{{{0, 1}, {0, 2}, {1, 2}}};
 
         for (Int32 Index{}; Index < 3; ++Index) {
             const FVector First{Axes[Pairs[Index][0]]};
@@ -504,7 +504,7 @@ namespace Editor {
     /**
      * @brief 드래그 시작 시 고정한 세 기저 축을 반환합니다.
      */
-    const std::array<FVector, 3>& Editor::FGizmoCore::GetDragAxes() const {
+    const Core::TStaticArray<FVector, 3>& Editor::FGizmoCore::GetDragAxes() const {
         return mDragAxes;
     }
 

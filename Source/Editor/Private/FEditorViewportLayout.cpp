@@ -10,6 +10,7 @@
 #include "Editor/FEditorViewport.h"
 #include "Editor/FPlayInEditorSession.h"
 #include "RenderCore/IRendererModule.h"
+#include "Core/Types.h"
 
 #include <imgui_internal.h>
 #include <algorithm>
@@ -36,7 +37,7 @@ const FEditorViewportLayout::FPresetDefinition& FEditorViewportLayout::GetDefini
     const auto Split{[](bool Columns, Index_t Ratio, Int32 First, Int32 Second) {
         return FLayoutNode{First, Second, 0, Ratio, Columns};
     }};
-    static const std::array<FPresetDefinition, 12> Definitions{{{"단일 뷰포트", 1, {Leaf(0)}, {0.5f, 0.5f, 0.5f}},
+    static const Core::TStaticArray<FPresetDefinition, 12> Definitions{{{"단일 뷰포트", 1, {Leaf(0)}, {0.5f, 0.5f, 0.5f}},
         {"좌우 2분할", 2, {Split(true, 0, 1, 2), Leaf(0), Leaf(1)}, {0.5f, 0.5f, 0.5f}},
         {"상하 2분할", 2, {Split(false, 1, 1, 2), Leaf(0), Leaf(1)}, {0.5f, 0.5f, 0.5f}},
         {"왼쪽 큰 3분할", 3, {Split(true, 0, 1, 2), Leaf(0), Split(false, 1, 3, 4), Leaf(1), Leaf(2)}, {0.66f, 0.5f, 0.5f}},
@@ -61,7 +62,7 @@ bool FEditorViewportLayout::Initialize(RenderCore::IRendererModule* Renderer) {
         return false;
     }
 
-    const std::array<EEditorViewportType, 3> Types{EEditorViewportType::Top, EEditorViewportType::Front, EEditorViewportType::Right};
+    const Core::TStaticArray<EEditorViewportType, 3> Types{EEditorViewportType::Top, EEditorViewportType::Front, EEditorViewportType::Right};
     for (Index_t Index{}; Index < mOrthographicViewports.size(); ++Index) {
         mOrthographicViewports[Index] = std::make_unique<FEditorViewport>(mContext, "Orthographic" + std::to_string(Index));
         mOrthographicViewports[Index]->GetClient()->SetViewType(Types[Index]);

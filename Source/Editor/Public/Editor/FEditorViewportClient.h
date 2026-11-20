@@ -14,8 +14,8 @@
 #include "Engine/EViewMode.h"
 #include "Engine/FEngineShowFlags.h"
 #include "Engine/FEditorCameraState.h"
+#include "Core/Types.h"
 
-#include <array>
 #include <filesystem>
 
 namespace Engine {
@@ -383,7 +383,7 @@ namespace Editor {
          * @param[in] View 카메라 행렬과 뷰포트 크기입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        std::array<FVector, 8> CalcComponentCorners(const Engine::UPrimitiveComponent* Component, const Engine::FSceneView& View) const;
+        Core::TStaticArray<FVector, 8> CalcComponentCorners(const Engine::UPrimitiveComponent* Component, const Engine::FSceneView& View) const;
 
     private:
         /**

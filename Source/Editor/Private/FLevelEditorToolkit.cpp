@@ -27,9 +27,9 @@
 #include "Engine/Component/ULightComponentBase.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Platform/Window.h"
+#include "Core/Types.h"
 #include <shellapi.h>
 #include <imgui_internal.h>
-#include <array>
 
 using namespace Editor;
 
@@ -288,7 +288,7 @@ void FLevelEditorToolkit::Shutdown() {
 }
 
 void FLevelEditorToolkit::InstallEditorIcons() {
-    std::array<wchar_t, 32768> Executable{};
+    Core::TStaticArray<wchar_t, 32768> Executable{};
     const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
     const std::filesystem::path Bundled{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content/Editor/Icon" : std::filesystem::path{}};
     Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};

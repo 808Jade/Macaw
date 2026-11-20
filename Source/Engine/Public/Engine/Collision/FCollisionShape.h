@@ -275,7 +275,7 @@ namespace Engine {
          * @param[in] InAxis 회전 상자의 세 기저 축입니다.
          * @param[in] InExtent 상자 각 축의 반길이입니다.
          */
-        FOrientedBox(FVector InCenter, std::array<FVector, 3> InAxis, FVector InExtent);
+        FOrientedBox(FVector InCenter, Core::TStaticArray<FVector, 3> InAxis, FVector InExtent);
 
     public:
         /**
@@ -294,13 +294,13 @@ namespace Engine {
          * @brief 회전 상자의 세 기저 축을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        const std::array<FVector, 3>& GetAxis() const;
+        const Core::TStaticArray<FVector, 3>& GetAxis() const;
 
         /**
          * @brief 회전 상자의 세 기저 축을 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetAxis(const std::array<FVector, 3>& Value);
+        void SetAxis(const Core::TStaticArray<FVector, 3>& Value);
 
         /**
          * @brief 각 축의 반길이를 반환합니다.
@@ -323,7 +323,7 @@ namespace Engine {
         /**
          * @brief 회전 상자의 세 기저 축입니다.
          */
-        std::array<FVector, 3> mAxis{};
+        Core::TStaticArray<FVector, 3> mAxis{};
 
         /**
          * @brief 각 축의 반길이입니다.

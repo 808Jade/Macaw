@@ -10,8 +10,8 @@
 #include "Engine/FRenderTarget.h"
 #include "Asset/UTexture2D.h"
 #include "GBuffer.h"
+#include "Core/Types.h"
 
-#include <array>
 #include <d3d11.h>
 #include <wrl/client.h>
 
@@ -91,7 +91,7 @@ namespace Renderer {
          * @brief 표면 속성을 저장하는 GBuffer 텍스처를 반환합니다.
          * @return 타깃이 소유하는 텍스처 배열의 읽기 전용 참조입니다.
          */
-        const std::array<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount>& GetGBuffer() const;
+        const Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount>& GetGBuffer() const;
 
         /**
          * @brief 데칼 노멀 혼합에 필요한 원본 또는 누적 노멀 복사본을 준비합니다.
@@ -178,7 +178,7 @@ namespace Renderer {
         /**
          * @brief 지연 렌더링의 표면 속성 텍스처를 소유합니다.
          */
-        std::array<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount> mGBuffer{};
+        Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount> mGBuffer{};
 
         /**
          * @brief 데칼 적용 전 노멀을 읽기 위해 소유한 복사 텍스처입니다.

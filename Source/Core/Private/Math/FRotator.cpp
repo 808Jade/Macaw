@@ -8,6 +8,7 @@
 #include "Core/Math/FQuat.h"
 #include "Core/Math/FVector.h"
 #include "Math/SimdMath.h"
+#include "Core/Types.h"
 
 #include <cmath>
 #include <numbers>
@@ -228,6 +229,6 @@ FRotator operator*(float Value, const FRotator& Rotation) {
 /**
  * @brief 유효한 성분을 원래 순서의 일반 배열로 반환합니다.
  */
-std::array<float, 3> FRotator::ToArray() const {
+Core::TStaticArray<float, 3> FRotator::ToArray() const {
     return {pitch, yaw, roll};
 }

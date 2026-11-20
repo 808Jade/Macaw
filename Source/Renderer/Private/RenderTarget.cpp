@@ -6,6 +6,7 @@
 
 #include "RenderTarget.h"
 #include "CoreUObject/Reflection/NewObject.h"
+#include "Core/Types.h"
 
 #include <algorithm>
 
@@ -64,7 +65,7 @@ namespace Renderer {
             return false;
         }
 
-        std::array<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount> GBuffer{};
+        Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount> GBuffer{};
 
         for (auto& Attachment : GBuffer) {
             Attachment = CoreUObject::NewObject<Asset::UTexture2D>();
@@ -133,7 +134,7 @@ namespace Renderer {
         return mStencilResource.Get();
     }
 
-    const std::array<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount>& Renderer::FDXRenderTarget::GetGBuffer() const {
+    const Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount>& Renderer::FDXRenderTarget::GetGBuffer() const {
         return mGBuffer;
     }
 

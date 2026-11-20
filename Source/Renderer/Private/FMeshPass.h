@@ -10,8 +10,8 @@
 #include "Core/Math/FMatrix.h"
 #include "EMeshPass.h"
 #include "FMeshDrawCommand.h"
+#include "Core/Types.h"
 
-#include <array>
 #include <memory>
 
 #include <d3d11.h>
@@ -51,7 +51,7 @@ namespace Renderer {
          * @param[in] Context 머티리얼 상수 업로드에 사용할 Direct3D 11 장치 컨텍스트의 비소유 주소입니다.
          * @param[in] Meshes 기본 프리미티브 종류별 공유 메시의 소유 배열입니다.
          */
-        FMeshPass(Renderer::FRenderer& Renderer, ID3D11Device* Device, ID3D11DeviceContext* Context, const std::array<std::unique_ptr<Asset::UStaticMesh>, 3>& Meshes);
+        FMeshPass(Renderer::FRenderer& Renderer, ID3D11Device* Device, ID3D11DeviceContext* Context, const Core::TStaticArray<std::unique_ptr<Asset::UStaticMesh>, 3>& Meshes);
 
         /**
          * @brief 객체 수명을 끝냅니다.
@@ -132,7 +132,7 @@ namespace Renderer {
         /**
          * @brief 기본 프리미티브 종류별 공유 메시 배열의 비소유 주소입니다.
          */
-        const std::array<std::unique_ptr<Asset::UStaticMesh>, 3>* mMeshes{};
+        const Core::TStaticArray<std::unique_ptr<Asset::UStaticMesh>, 3>* mMeshes{};
     };
 
 }

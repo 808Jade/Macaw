@@ -12,7 +12,6 @@
 #include "Editor/FViewportCommandInfo.h"
 
 #include <algorithm>
-#include <array>
 #include <format>
 #include <span>
 
@@ -25,9 +24,9 @@ namespace Editor {
         constexpr Editor::EditorStyle::EIcon CameraIcon{Editor::EditorStyle::EIcon::Camera};
         constexpr Editor::EditorStyle::EIcon CameraSpeedIcon{Editor::EditorStyle::EIcon::CameraSpeed};
         constexpr Editor::EditorStyle::EIcon ViewModeIcon{Editor::EditorStyle::EIcon::Material};
-        constexpr std::array<Engine::EViewMode, 5> ColorModes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
-        constexpr std::array<const char*, ColorModes.size()> ColorModeNames{"Lit (Gouraud)", "Lit (Lambert)", "Lit", "Unlit", "Wireframe"};
-        constexpr std::array<const char*, 7> ViewTypeNames{"Perspective", "Top", "Bottom", "Front", "Back", "Left", "Right"};
+        constexpr Core::TStaticArray<Engine::EViewMode, 5> ColorModes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
+        constexpr Core::TStaticArray<const char*, ColorModes.size()> ColorModeNames{"Lit (Gouraud)", "Lit (Lambert)", "Lit", "Unlit", "Wireframe"};
+        constexpr Core::TStaticArray<const char*, 7> ViewTypeNames{"Perspective", "Top", "Bottom", "Front", "Back", "Left", "Right"};
 
         struct FSnapControl {
             Editor::EViewportCommand mCommand{};
@@ -38,10 +37,10 @@ namespace Editor {
             std::span<const float> mPresets{};
         };
 
-        constexpr std::array TranslationPresets{0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f, 25.0f, 50.0f, 100.0f};
-        constexpr std::array RotationPresets{1.0f, 5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 60.0f, 90.0f};
-        constexpr std::array ScalePresets{0.01f, 0.025f, 0.05f, 0.1f, 0.125f, 0.25f, 0.5f, 1.0f};
-        constexpr std::array SnapControls{
+        constexpr Core::TStaticArray<float, 12> TranslationPresets{0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f, 25.0f, 50.0f, 100.0f};
+        constexpr Core::TStaticArray<float, 8> RotationPresets{1.0f, 5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 60.0f, 90.0f};
+        constexpr Core::TStaticArray<float, 8> ScalePresets{0.01f, 0.025f, 0.05f, 0.1f, 0.125f, 0.25f, 0.5f, 1.0f};
+        constexpr Core::TStaticArray<FSnapControl, 3> SnapControls{
             FSnapControl{Editor::EViewportCommand::ToggleTranslationSnap, Editor::EGizmoSetting::TranslationStep, &Editor::FGizmoSettings::mTranslationStep, "이동 스냅", "", TranslationPresets},
             FSnapControl{Editor::EViewportCommand::ToggleRotationSnap, Editor::EGizmoSetting::RotationStep, &Editor::FGizmoSettings::mRotationStep, "회전 스냅", "°", RotationPresets},
             FSnapControl{Editor::EViewportCommand::ToggleScaleSnap, Editor::EGizmoSetting::ScaleStep, &Editor::FGizmoSettings::mScaleStep, "스케일 스냅", "", ScalePresets}
@@ -378,7 +377,7 @@ namespace Editor {
             }
         }
 
-        void DrawTransformControls(Editor::FEditorViewportClient* Client, const std::array<Core::FString, SnapControls.size()>& SnapLabels, float GroupSpacing, bool ShowPlaceholders) {
+        void DrawTransformControls(Editor::FEditorViewportClient* Client, const Core::TStaticArray<Core::FString, SnapControls.size()>& SnapLabels, float GroupSpacing, bool ShowPlaceholders) {
             ImGui::SameLine(0.0f, GroupSpacing);
 
             const bool WorldSpace{Client->IsCommandChecked(Editor::EViewportCommand::WorldSpace)};
@@ -468,7 +467,7 @@ namespace Editor {
             const Core::FString ViewTypeLabel{Core::FString{Client->GetViewTypeName()} + "###ViewType"};
             const Core::FString ViewModeLabel{Core::FString{GetViewModeName(Client)} + "###ViewMode"};
             const Core::FString SpeedLabel{std::format("{:.3g}###CameraSpeed", Client->GetCameraSpeed())};
-            std::array<Core::FString, SnapControls.size()> SnapLabels{};
+            Core::TStaticArray<Core::FString, SnapControls.size()> SnapLabels{};
             const float ModesWidth{4.0f * (IconWidth + Spacing)};
             const float TransformPlaceholderWidth{2.0f * (DropdownWidth + Spacing)};
             const float ViewPlaceholderWidth{DropdownWidth + IconWidth + 2.0f * Spacing};

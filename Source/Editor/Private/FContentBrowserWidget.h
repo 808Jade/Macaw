@@ -8,7 +8,7 @@
 
 #include "Editor/Widget/FEditorContextWidget.h"
 #include "Asset/FAssetFile.h"
-#include <array>
+#include "Core/Types.h"
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -335,7 +335,7 @@ namespace Editor {
         /**
          * @brief 이름 변경 창의 새 이름 입력 버퍼입니다.
          */
-        std::array<char, 256> mContentActionName{};
+        Core::TStaticArray<char, 256> mContentActionName{};
 
         /**
          * @brief 콘텐츠 작업 확인 창에 표시할 오류입니다.
@@ -356,7 +356,7 @@ namespace Editor {
         /**
          * @brief 콘텐츠 이름 검색 입력 버퍼입니다.
          */
-        std::array<char, 128> mContentSearch{};
+        Core::TStaticArray<char, 128> mContentSearch{};
 
         /**
          * @brief 콘텐츠 목록에 적용할 선택적 에셋 종류 필터입니다.

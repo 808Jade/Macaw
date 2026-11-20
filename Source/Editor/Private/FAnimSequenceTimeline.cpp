@@ -5,12 +5,12 @@
  */
 
 #include "FAnimSequenceTimeline.h"
+#include "Core/Types.h"
 
 #include "Viewer/FAnimationViewerContent.h"
 #include "Asset/Animation/UAnimSequence.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <format>
 #include <numbers>
@@ -342,7 +342,7 @@ void FAnimSequenceTimeline::DrawTransportBar(Viewer::FAnimationViewerContent& Pr
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{0.0f, 0.0f, 0.0f, 0.0f});
 
         if (ImGui::BeginCombo("##Speed", SpeedLabel.c_str())) {
-            for (const float Candidate : std::array<float, 6>{0.1f, 0.25f, 0.5f, 1.0f, 1.5f, 2.0f}) {
+            for (const float Candidate : Core::TStaticArray<float, 6>{0.1f, 0.25f, 0.5f, 1.0f, 1.5f, 2.0f}) {
                 const Core::FString Label{Candidate < 1.0f ? std::format("x{:.2g}", Candidate) : std::format("x{:.1f}", Candidate)};
                 const bool Selected{Candidate == Speed};
 

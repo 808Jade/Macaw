@@ -14,7 +14,6 @@
 #include "Math/SimdMath.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <limits>
 
@@ -325,7 +324,7 @@ FRotator FMatrix::GetRotation() const {
  */
 FQuat FMatrix::GetQuaternion() const {
     FMatrix Rotation{*this};
-    std::array<float, 3> Scales{};
+    Core::TStaticArray<float, 3> Scales{};
 
     for (Index_t Row{}; Row < 3; ++Row) {
         const __m128 Axis{mRows[Row]};
@@ -383,8 +382,8 @@ bool FMatrix::TryGetTransform(FTransform& Result) const {
         return false;
     }
 
-    std::array<float, 3> Scales{};
-    std::array<__m128, 3> Axes{};
+    Core::TStaticArray<float, 3> Scales{};
+    Core::TStaticArray<__m128, 3> Axes{};
 
     for (Index_t Row{}; Row < 3; ++Row) {
         const float Size{std::sqrt(_mm_cvtss_f32(Core::Math::Simd::Dot<3>(mRows[Row], mRows[Row])))};
@@ -493,9 +492,9 @@ FMatrix FMatrix::Transposed() const {
  * @brief 4×4 행렬의 행렬식을 구합니다.
  */
 float FMatrix::Determinant() const {
-    constexpr std::array<std::array<Int32, 2>, 6> Columns{{{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
-    std::array<double, 6> Upper{};
-    std::array<double, 6> Lower{};
+    constexpr Core::TStaticArray<Core::TStaticArray<Int32, 2>, 6> Columns{{{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
+    Core::TStaticArray<double, 6> Upper{};
+    Core::TStaticArray<double, 6> Lower{};
 
     for (Index_t Index{}; Index < Columns.size(); ++Index) {
         const Index_t A{static_cast<Index_t>(Columns[Index][0])};

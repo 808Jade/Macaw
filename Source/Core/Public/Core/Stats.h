@@ -273,7 +273,7 @@ namespace Core {
         /**
          * @brief 최근 최대 120프레임의 값을 저장하는 순환 이력입니다.
          */
-        std::array<double, 120> mHistory{};
+        Core::TStaticArray<double, 120> mHistory{};
 
         /**
          * @brief 다음 완료 프레임 값을 기록할 순환 이력 위치입니다.

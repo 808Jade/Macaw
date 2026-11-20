@@ -7,8 +7,8 @@
 #include "Asset/FAssetFile.h"
 #include "Core/FAtomicFileWriter.h"
 #include "Core/LoadingStatus.h"
+#include "Core/Types.h"
 
-#include <array>
 #include <fstream>
 
 namespace Asset {
@@ -20,7 +20,7 @@ namespace Asset {
         /**
          * @brief Macaw 에셋 파일을 식별하는 헤더의 매직 바이트입니다.
          */
-        constexpr std::array<char, 8> AssetMagic{'M', 'A', 'C', 'A', 'W', 'A', 'S', 'T'};
+        constexpr Core::TStaticArray<char, 8> AssetMagic{'M', 'A', 'C', 'A', 'W', 'A', 'S', 'T'};
 
         /**
          * @brief 현재 지원하는 에셋 파일 형식 버전입니다.
@@ -61,7 +61,7 @@ namespace Asset {
 
             Input.open(Path, std::ios::binary);
 
-            std::array<char, 8> Magic{};
+            Core::TStaticArray<char, 8> Magic{};
             Uint32 Version{};
             Uint32 TypeValue{};
 

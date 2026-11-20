@@ -547,7 +547,7 @@ namespace Editor {
                     if (const auto* Decal{CoreUObject::Cast<Engine::UDecalComponent>(Component.get())}; Decal != nullptr && Highlight) {
                         const FMatrix DecalToWorld{Decal->GetDecalToWorld()};
                         const FVector Color{1.0f, 0.65f, 0.15f};
-                        std::array<FVector, 8> Corners{};
+                        Core::TStaticArray<FVector, 8> Corners{};
 
                         for (Index_t Corner{}; Corner < Corners.size(); ++Corner) {
                             Corners[Corner] = DecalToWorld.TransformPosition({(Corner & 1u) != 0 ? 1.0f : -1.0f, (Corner & 2u) != 0 ? 1.0f : -1.0f, (Corner & 4u) != 0 ? 1.0f : -1.0f});

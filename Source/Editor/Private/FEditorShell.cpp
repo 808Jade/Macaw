@@ -30,6 +30,7 @@
 #include "Platform/Window.h"
 #include "Platform/WindowResources.h"
 #include "RenderCore/IRendererModule.h"
+#include "Core/Types.h"
 #include <d3d11.h>
 #include <imgui_internal.h>
 #include <algorithm>
@@ -680,7 +681,7 @@ void FEditorShell::DrawPlayOptions() {
     ImGui::SeparatorText("New Window Size");
     ImGui::BeginDisabled(!Options.mNewWindow);
 
-    std::array<int, 2> Size{static_cast<int>(Options.mWindowWidth), static_cast<int>(Options.mWindowHeight)};
+    Core::TStaticArray<int, 2> Size{static_cast<int>(Options.mWindowWidth), static_cast<int>(Options.mWindowHeight)};
 
     ImGui::SetNextItemWidth(240.0f * mUIScale.GetScale());
 
@@ -691,7 +692,7 @@ void FEditorShell::DrawPlayOptions() {
     }
 
     if (ImGui::BeginMenu("Resolution Presets")) {
-        for (const std::array<Uint32, 2>& Preset : {std::array<Uint32, 2>{1280, 720}, {1600, 900}, {1920, 1080}, {2560, 1440}}) {
+        for (const Core::TStaticArray<Uint32, 2>& Preset : {Core::TStaticArray<Uint32, 2>{1280, 720}, {1600, 900}, {1920, 1080}, {2560, 1440}}) {
             const Core::FString Label{std::format("{} x {}", Preset[0], Preset[1])};
 
             if (ImGui::MenuItem(Label.c_str(), nullptr, Options.mWindowWidth == Preset[0] && Options.mWindowHeight == Preset[1])) {

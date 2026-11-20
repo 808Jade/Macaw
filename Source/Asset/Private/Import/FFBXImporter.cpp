@@ -11,7 +11,6 @@
 #include "FMeshImportTransform.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <d3d11.h>
 #include <limits>
@@ -154,8 +153,8 @@ namespace Asset {
             TwoSided = DoubleSided.IsValid() && DoubleSided.Get<FbxBool>();
 
             // 재질 슬롯별로 받아들이는 텍스처 형태입니다. 렌더러가 새 형태를 지원하면 여기에 추가합니다.
-            constexpr std::array BaseColorShapes{Asset::EMeshImportTextureShape::Texture2D};
-            constexpr std::array NormalShapes{Asset::EMeshImportTextureShape::Texture2D};
+            constexpr Core::TStaticArray<Asset::EMeshImportTextureShape, 1> BaseColorShapes{Asset::EMeshImportTextureShape::Texture2D};
+            constexpr Core::TStaticArray<Asset::EMeshImportTextureShape, 1> NormalShapes{Asset::EMeshImportTextureShape::Texture2D};
 
             // 재질의 지정한 속성에 연결된 텍스처를 이미지 처리기로 읽는 도우미입니다.
             // 텍스처가 연결되지 않은 경우에도 true를 반환하며, Texture의 Source가 None으로 남습니다.

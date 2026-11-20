@@ -179,11 +179,11 @@ namespace Editor {
 
         if (mCore.GetDragMode() == Editor::EGizmoMode::Scale) {
             const Int32 ActiveAxis{static_cast<Int32>(mCore.GetActiveAxis())};
-            const std::array<FVector, 3>& DragAxes{mCore.GetDragAxes()};
+            const Core::TStaticArray<FVector, 3>& DragAxes{mCore.GetDragAxes()};
             const float Delta{mCore.GetScaleDelta()};
             const float Uniform{std::max(0.001f, 1.0f + Delta)};
             const auto Primary{mStartTransform.mScale.ToArray()};
-            std::array<float, 3> Factors{1.0f, 1.0f, 1.0f};
+            Core::TStaticArray<float, 3> Factors{1.0f, 1.0f, 1.0f};
 
             for (Int32 Index{}; Index < 3; ++Index) {
                 const float Value{Primary[Index] + Delta};

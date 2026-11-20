@@ -107,7 +107,7 @@ namespace Engine {
             constexpr float Shoulder{0.16f};
             const FVector Head{};
             const FVector Tail{0.0f, 0.0f, 1.0f};
-            const std::array<FVector, 4> Corners{{{1.0f, 0.0f, Shoulder}, {0.0f, 1.0f, Shoulder}, {-1.0f, 0.0f, Shoulder}, {0.0f, -1.0f, Shoulder}}};
+            const Core::TStaticArray<FVector, 4> Corners{{{1.0f, 0.0f, Shoulder}, {0.0f, 1.0f, Shoulder}, {-1.0f, 0.0f, Shoulder}, {0.0f, -1.0f, Shoulder}}};
 
             for (Index_t Index{}; Index < Corners.size(); ++Index) {
                 const FVector& A{Corners[Index]};
@@ -150,7 +150,7 @@ namespace Engine {
             return Empty;
         }
 
-        static const std::array<Asset::FMeshData, static_cast<std::size_t>(Engine::EEditorMesh::Count)> Meshes{BuildMesh(Engine::EEditorMesh::Arrow), BuildMesh(Engine::EEditorMesh::Hammer), BuildMesh(Engine::EEditorMesh::Ring), BuildMesh(Engine::EEditorMesh::HalfRing), BuildMesh(Engine::EEditorMesh::Quad), BuildMesh(Engine::EEditorMesh::Triangle), BuildMesh(Engine::EEditorMesh::Cube), BuildMesh(Engine::EEditorMesh::Sphere), BuildMesh(Engine::EEditorMesh::BoneOctahedron)};
+        static const Core::TStaticArray<Asset::FMeshData, static_cast<std::size_t>(Engine::EEditorMesh::Count)> Meshes{BuildMesh(Engine::EEditorMesh::Arrow), BuildMesh(Engine::EEditorMesh::Hammer), BuildMesh(Engine::EEditorMesh::Ring), BuildMesh(Engine::EEditorMesh::HalfRing), BuildMesh(Engine::EEditorMesh::Quad), BuildMesh(Engine::EEditorMesh::Triangle), BuildMesh(Engine::EEditorMesh::Cube), BuildMesh(Engine::EEditorMesh::Sphere), BuildMesh(Engine::EEditorMesh::BoneOctahedron)};
 
         return Meshes[static_cast<Index_t>(Type)];
     }

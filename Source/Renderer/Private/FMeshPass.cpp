@@ -24,7 +24,7 @@ namespace Renderer {
     /**
      * @brief 파이프라인 조회와 메시 자원 생성에 사용할 렌더러 의존성을 보관합니다.
      */
-    Renderer::FMeshPass::FMeshPass(Renderer::FRenderer& Renderer, ID3D11Device* Device, ID3D11DeviceContext* Context, const std::array<std::unique_ptr<Asset::UStaticMesh>, 3>& Meshes)
+    Renderer::FMeshPass::FMeshPass(Renderer::FRenderer& Renderer, ID3D11Device* Device, ID3D11DeviceContext* Context, const Core::TStaticArray<std::unique_ptr<Asset::UStaticMesh>, 3>& Meshes)
 		: mRenderer{&Renderer},
 		  mDevice{Device},
 		  mContext{Context},
@@ -40,7 +40,7 @@ namespace Renderer {
      * @brief 경계 상자의 8개 꼭짓점이 모두 같은 클립 평면 밖에 있지 않은지 검사합니다.
      */
     bool Renderer::FMeshPass::IsVisible(const FMatrix& ViewProjection, const FBox& Bounds) {
-        std::array<Uint32, 6> Outside{};
+        Core::TStaticArray<Uint32, 6> Outside{};
 
         for (Index_t Index{}; Index < 8; ++Index) {
             const FVector Point{(Index & 1) ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Index & 2) ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Index & 4) ? Bounds.mMaximum.z : Bounds.mMinimum.z};

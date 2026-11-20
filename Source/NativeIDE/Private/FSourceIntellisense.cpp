@@ -1,11 +1,11 @@
 #include "FSourceIntellisense.h"
 #include "Core/FilePath.h"
+#include "Core/Types.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <algorithm>
-#include <array>
 #include <charconv>
 #include <string_view>
 #include <utility>
@@ -17,7 +17,7 @@ namespace {
     constexpr size_t ServerDiagnostic{2};
 
     std::filesystem::path GetProgramDirectory() {
-        std::array<wchar_t, 32768> Executable{};
+        Core::TStaticArray<wchar_t, 32768> Executable{};
         const DWORD Count{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
         return Count > 0 && Count < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() : std::filesystem::path{};
     }

@@ -328,7 +328,7 @@ namespace Renderer {
 
         // 각 본의 위치 변환과 법선 역전치를 함께 올려 비균일 스케일도 처리합니다.
         // 한 원소의 배치(행렬 2개)는 Skinning.hlsl의 FSkinBone과 일치해야 합니다.
-        Core::TArray<std::array<FMatrix, 2>> Bones{};
+        Core::TArray<Core::TStaticArray<FMatrix, 2>> Bones{};
         Bones.reserve(Primitive.mProxy.mSkinMatrices.size());
 
         for (const FMatrix& Skin : Primitive.mProxy.mSkinMatrices) {

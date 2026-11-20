@@ -23,9 +23,9 @@
 #include "Asset/UTexture2D.h"
 #include "Asset/UMaterial.h"
 #include "Renderer/FLineVertex.h"
+#include "Core/Types.h"
 
 #include <d3d11.h>
-#include <array>
 #include <span>
 #include <wrl/client.h>
 
@@ -627,7 +627,7 @@ namespace Renderer {
         /**
          * @brief 프리미티브 종류별 GPU 메시입니다.
          */
-        std::array<std::unique_ptr<Asset::UStaticMesh>, 3> mMeshes{};
+        Core::TStaticArray<std::unique_ptr<Asset::UStaticMesh>, 3> mMeshes{};
 
         /**
          * @brief 업로드할 보조 선분 정점입니다.
@@ -682,7 +682,7 @@ namespace Renderer {
         /**
          * @brief 렌더러가 초기화 때 생성하고 종료 때 해제하는 enum별 불변 GPU 정점·인덱스 버퍼입니다.
          */
-        std::array<std::unique_ptr<Asset::UStaticMesh>, static_cast<std::size_t>(Engine::EEditorMesh::Count)> mEditorMeshes{};
+        Core::TStaticArray<std::unique_ptr<Asset::UStaticMesh>, static_cast<std::size_t>(Engine::EEditorMesh::Count)> mEditorMeshes{};
     };
 
 }

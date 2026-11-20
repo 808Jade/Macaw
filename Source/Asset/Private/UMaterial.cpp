@@ -239,8 +239,8 @@ namespace Asset {
             return false;
         }
 
-        const std::array<Asset::UTexture2D*, 3> Textures{mSpecularTexture, mEmissiveTexture, mReflectionTexture};
-        const std::array<const Core::FString*, 3> Paths{&mSpecularTexturePath, &mEmissiveTexturePath, &mReflectionTexturePath};
+        const Core::TStaticArray<Asset::UTexture2D*, 3> Textures{mSpecularTexture, mEmissiveTexture, mReflectionTexture};
+        const Core::TStaticArray<const Core::FString*, 3> Paths{&mSpecularTexturePath, &mEmissiveTexturePath, &mReflectionTexturePath};
 
         for (Index_t Index{}; Index < Textures.size(); ++Index) {
             if ((!Paths[Index]->empty() && Textures[Index] == nullptr) || (Textures[Index] != nullptr && !Textures[Index]->CreateResources(Device))) {
@@ -248,7 +248,7 @@ namespace Asset {
             }
         }
 
-        const std::array<float, 28> Color{mBaseColor.x, mBaseColor.y, mBaseColor.z, mBaseColor.w, mSpecularStrength, mShininess, mNormalStrength, mReflectionStrength, mSpecularColor.x, mSpecularColor.y, mSpecularColor.z, mSpecularColor.w, mAmbientColor.x, mAmbientColor.y, mAmbientColor.z, mAmbientColor.w, mEmissiveColor.x, mEmissiveColor.y, mEmissiveColor.z, mEmissiveColor.w, mReflectionColor.x, mReflectionColor.y, mReflectionColor.z, mReflectionColor.w, mSpecularTexture != nullptr ? 1.0f : 0.0f, mEmissiveTexture != nullptr ? 1.0f : 0.0f, mReflectionTexture != nullptr ? 1.0f : 0.0f, 0.0f};
+        const Core::TStaticArray<float, 28> Color{mBaseColor.x, mBaseColor.y, mBaseColor.z, mBaseColor.w, mSpecularStrength, mShininess, mNormalStrength, mReflectionStrength, mSpecularColor.x, mSpecularColor.y, mSpecularColor.z, mSpecularColor.w, mAmbientColor.x, mAmbientColor.y, mAmbientColor.z, mAmbientColor.w, mEmissiveColor.x, mEmissiveColor.y, mEmissiveColor.z, mEmissiveColor.w, mReflectionColor.x, mReflectionColor.y, mReflectionColor.z, mReflectionColor.w, mSpecularTexture != nullptr ? 1.0f : 0.0f, mEmissiveTexture != nullptr ? 1.0f : 0.0f, mReflectionTexture != nullptr ? 1.0f : 0.0f, 0.0f};
 
         const bool Created{mConstantBuffer.IsCreated()};
         Core::FString Error{};

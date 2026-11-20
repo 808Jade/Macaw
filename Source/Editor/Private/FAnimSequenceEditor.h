@@ -12,7 +12,6 @@
 #include "FAnimSequenceTimeline.h"
 #include "Editor/FAssetPicker.h"
 
-#include <array>
 #include <filesystem>
 #include <memory>
 
@@ -281,12 +280,12 @@ namespace Editor {
         /**
          * @brief 루트 모션 본 이름의 UTF-8 편집 버퍼입니다.
          */
-        std::array<char, 1024> mRootBone{};
+        Core::TStaticArray<char, 1024> mRootBone{};
 
         /**
          * @brief 애니메이션 목록의 UTF-8 검색 입력 버퍼입니다.
          */
-        std::array<char, 256> mAnimationSearch{};
+        Core::TStaticArray<char, 256> mAnimationSearch{};
 
         /**
          * @brief 에디터 창이 열려 있는지 여부입니다.

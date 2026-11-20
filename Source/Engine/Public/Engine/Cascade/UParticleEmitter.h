@@ -135,13 +135,13 @@ namespace Engine {
          * @brief 모듈별 파티클 추가 데이터의 배치 오프셋을 반환합니다.
          * @return 모듈 참조에서 바이트 오프셋으로의 읽기 전용 맵입니다.
          */
-        const Core::TMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t, CoreUObject::TObjectRefHash<const Engine::UParticleModule>>& GetModuleDataOffsets() const;
+        const CoreUObject::ObjectHashMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t>& GetModuleDataOffsets() const;
 
         /**
          * @brief 모듈별 인스턴스 데이터의 배치 오프셋을 반환합니다.
          * @return 모듈 참조에서 바이트 오프셋으로의 읽기 전용 맵입니다.
          */
-        const Core::TMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t, CoreUObject::TObjectRefHash<const Engine::UParticleModule>>& GetModuleInstanceDataOffsets() const;
+        const CoreUObject::ObjectHashMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t>& GetModuleInstanceDataOffsets() const;
 
         void Serialize(Core::FArchive& Archive) override;
 
@@ -160,12 +160,12 @@ namespace Engine {
         /**
          * @brief 모듈별 파티클 추가 데이터의 바이트 오프셋 맵입니다.
          */
-        Core::TMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t, CoreUObject::TObjectRefHash<const Engine::UParticleModule>> mModuleDataOffsets{};
+        CoreUObject::ObjectHashMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t> mModuleDataOffsets{};
 
         /**
          * @brief 모듈별 인스턴스 데이터의 바이트 오프셋 맵입니다.
          */
-        Core::TMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t, CoreUObject::TObjectRefHash<const Engine::UParticleModule>> mModuleInstanceDataOffsets{};
+        CoreUObject::ObjectHashMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t> mModuleInstanceDataOffsets{};
 
         /**
          * @brief 기본 파티클과 모듈 추가 영역을 포함한 정렬 레코드 크기입니다.

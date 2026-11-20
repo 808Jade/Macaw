@@ -79,7 +79,7 @@ namespace Renderer {
                 return ProjectPath;
             }
 
-            std::array<wchar_t, 32768> Executable{};
+            Core::TStaticArray<wchar_t, 32768> Executable{};
             const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
             const std::filesystem::path EnginePath{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content" / RelativePath : ProjectPath};
 
@@ -452,7 +452,7 @@ namespace Renderer {
         OpaqueParameters.mTarget.mDepth = SceneTarget.mDepth;
         OpaqueParameters.mTarget.mViewport = SceneTarget.mViewport;
         OpaqueParameters.mViewProjection = Family.mView.mViewProjection;
-        std::array<ID3D11RenderTargetView*, Renderer::GBuffer::AttachmentCount> Attachments{};
+        Core::TStaticArray<ID3D11RenderTargetView*, Renderer::GBuffer::AttachmentCount> Attachments{};
 
         for (Index_t Index{}; Index < Attachments.size(); ++Index) {
             Attachments[Index] = Target->GetGBuffer()[Index]->GetRenderTargetView();
@@ -809,7 +809,7 @@ namespace Renderer {
             return false;
         }
 
-        const std::array<D3D11_INPUT_ELEMENT_DESC, 3> LineElements{{{"START", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mStartAndWidth), D3D11_INPUT_PER_INSTANCE_DATA, 1}, {"END", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mEnd), D3D11_INPUT_PER_INSTANCE_DATA, 1}, {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mColor), D3D11_INPUT_PER_INSTANCE_DATA, 1}}};
+        const Core::TStaticArray<D3D11_INPUT_ELEMENT_DESC, 3> LineElements{{{"START", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mStartAndWidth), D3D11_INPUT_PER_INSTANCE_DATA, 1}, {"END", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mEnd), D3D11_INPUT_PER_INSTANCE_DATA, 1}, {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mColor), D3D11_INPUT_PER_INSTANCE_DATA, 1}}};
 
         if (FAILED(mDevice->CreateVertexShader(VertexCode->GetByteCode().data(), VertexCode->GetByteCode().size(), nullptr, LineVertex.GetAddressOf())) || FAILED(mDevice->CreatePixelShader(PixelCode->GetByteCode().data(), PixelCode->GetByteCode().size(), nullptr, LinePixel.GetAddressOf())) || FAILED(mDevice->CreateInputLayout(LineElements.data(), static_cast<UINT>(LineElements.size()), VertexCode->GetByteCode().data(), VertexCode->GetByteCode().size(), LineLayout.GetAddressOf()))) {
             Core::ErrorHandler::Report("Renderer", "Line pipeline allocation failed", Core::ErrorHandler::EErrorLevel::Error);
@@ -824,7 +824,7 @@ namespace Renderer {
             return false;
         }
 
-        const std::array<D3D11_INPUT_ELEMENT_DESC, 1> OverlayElements{{{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0}}};
+        const Core::TStaticArray<D3D11_INPUT_ELEMENT_DESC, 1> OverlayElements{{{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0}}};
 
         if (FAILED(mDevice->CreateVertexShader(VertexCode->GetByteCode().data(), VertexCode->GetByteCode().size(), nullptr, GizmoVertex.GetAddressOf())) || FAILED(mDevice->CreatePixelShader(PixelCode->GetByteCode().data(), PixelCode->GetByteCode().size(), nullptr, GizmoPixel.GetAddressOf())) || FAILED(mDevice->CreateInputLayout(OverlayElements.data(), static_cast<UINT>(OverlayElements.size()), VertexCode->GetByteCode().data(), VertexCode->GetByteCode().size(), OverlayLayout.GetAddressOf()))) {
             Core::ErrorHandler::Report("Renderer", "Gizmo pipeline allocation failed", Core::ErrorHandler::EErrorLevel::Error);
@@ -1398,7 +1398,7 @@ namespace Renderer {
     bool Renderer::FRenderer::PrepareLighting(const Engine::FSceneViewFamily& Family) {
         const auto* Scene{static_cast<const Renderer::FScene*>(Family.mScene)};
 
-        return mLightingResources != nullptr && mLightingResources->Upload(mDevice.Get(), mContext.Get(), Scene->GetLights(), Family.mView, mShadowResources != nullptr ? std::span<const std::array<Uint32, 2>>{mShadowResources->GetLightRanges()} : std::span<const std::array<Uint32, 2>>{});
+        return mLightingResources != nullptr && mLightingResources->Upload(mDevice.Get(), mContext.Get(), Scene->GetLights(), Family.mView, mShadowResources != nullptr ? std::span<const Core::TStaticArray<Uint32, 2>>{mShadowResources->GetLightRanges()} : std::span<const Core::TStaticArray<Uint32, 2>>{});
     }
 
     /**
@@ -1627,8 +1627,8 @@ namespace Renderer {
                 mContext->VSSetShaderResources(1, 1, &NormalResource);
                 mContext->PSSetShaderResources(1, 1, &NormalResource);
 
-                const std::array<Asset::UTexture2D*, 3> LightingTextures{Command.mMaterial->GetSpecularTexture(), Command.mMaterial->GetEmissiveTexture(), Command.mMaterial->GetReflectionTexture()};
-                const std::array<ID3D11ShaderResourceView*, 3> LightingResources{LightingTextures[0] != nullptr ? LightingTextures[0]->GetShaderResourceView() : nullptr, LightingTextures[1] != nullptr ? LightingTextures[1]->GetShaderResourceView() : nullptr, LightingTextures[2] != nullptr ? LightingTextures[2]->GetShaderResourceView() : nullptr};
+                const Core::TStaticArray<Asset::UTexture2D*, 3> LightingTextures{Command.mMaterial->GetSpecularTexture(), Command.mMaterial->GetEmissiveTexture(), Command.mMaterial->GetReflectionTexture()};
+                const Core::TStaticArray<ID3D11ShaderResourceView*, 3> LightingResources{LightingTextures[0] != nullptr ? LightingTextures[0]->GetShaderResourceView() : nullptr, LightingTextures[1] != nullptr ? LightingTextures[1]->GetShaderResourceView() : nullptr, LightingTextures[2] != nullptr ? LightingTextures[2]->GetShaderResourceView() : nullptr};
 
                 mContext->PSSetShaderResources(7, static_cast<UINT>(LightingResources.size()), LightingResources.data());
 
@@ -1676,7 +1676,7 @@ namespace Renderer {
             mContext->VSSetShaderResources(1, 1, &Empty);
             mContext->PSSetShaderResources(1, 1, &Empty);
 
-            const std::array<ID3D11ShaderResourceView*, 3> EmptyLightingResources{};
+            const Core::TStaticArray<ID3D11ShaderResourceView*, 3> EmptyLightingResources{};
 
             mContext->PSSetShaderResources(7, static_cast<UINT>(EmptyLightingResources.size()), EmptyLightingResources.data());
         }

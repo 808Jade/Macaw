@@ -19,13 +19,13 @@
 #include "Engine/UWorld.h"
 #include "Platform/Window.h"
 #include "RenderCore/IRendererModule.h"
+#include "Core/Types.h"
 #include <commdlg.h>
 #include <d3d11.h>
 #include <DirectXTex.h>
 #include <wincodec.h>
 #include <wrl/client.h>
 #include <algorithm>
-#include <array>
 #include <utility>
 
 using namespace Editor;
@@ -90,7 +90,7 @@ void FEditorCommands::RequestExit() {
 }
 
 std::filesystem::path FEditorCommands::ChooseFile(bool Save) {
-    std::array<wchar_t, 4096> Buffer{};
+    Core::TStaticArray<wchar_t, 4096> Buffer{};
 
     if (Save) {
         const std::wstring Filename{mContext->GetScenePath().empty() ? L"Scene.masset" : mContext->GetScenePath().filename().wstring()};
@@ -183,7 +183,7 @@ void FEditorCommands::ExportGame() {
         return;
     }
 
-    std::array<wchar_t, 32768> Executable{};
+    Core::TStaticArray<wchar_t, 32768> Executable{};
     const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
     Core::FString Error{};
     bool Exported{};

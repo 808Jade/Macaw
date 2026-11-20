@@ -269,11 +269,11 @@ namespace Engine {
         /**
          * @brief 초기화 시 복사한 모듈별 파티클 추가 데이터의 바이트 오프셋입니다.
          */
-        Core::TMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t, CoreUObject::TObjectRefHash<const Engine::UParticleModule>> mModuleDataOffsets{};
+        CoreUObject::ObjectHashMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t> mModuleDataOffsets{};
         /**
          * @brief 초기화 시 복사한 모듈별 인스턴스 실행 데이터의 바이트 오프셋입니다.
          */
-        Core::TMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t, CoreUObject::TObjectRefHash<const Engine::UParticleModule>> mModuleInstanceDataOffsets{};
+        CoreUObject::ObjectHashMap<CoreUObject::TObjectRef<const Engine::UParticleModule>, Index_t> mModuleInstanceDataOffsets{};
         /**
          * @brief 각 레코드에 기본 파티클과 모듈별 추가 데이터를 함께 보관하는 16바이트 정렬 버퍼입니다.
          */

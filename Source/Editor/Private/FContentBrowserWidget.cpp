@@ -24,6 +24,7 @@
 #include "RenderCore/IRendererModule.h"
 #include "Platform/Window.h"
 #include "Platform/WindowResources.h"
+#include "Core/Types.h"
 #include <d3d11.h>
 #include <shellapi.h>
 #include <imgui_internal.h>
@@ -1096,7 +1097,7 @@ void FContentBrowserWidget::CreateLuaScript() {
     std::error_code Code{};
 
     if (!std::filesystem::is_regular_file(Template, Code)) {
-        std::array<wchar_t, 32768> Executable{};
+        Core::TStaticArray<wchar_t, 32768> Executable{};
         const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
 
         if (Length > 0 && Length < Executable.size()) {

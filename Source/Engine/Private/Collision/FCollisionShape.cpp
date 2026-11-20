@@ -626,7 +626,7 @@ namespace Engine {
     /**
      * @brief 전달된 설정과 기본값으로 FOrientedBox 객체를 생성합니다.
      */
-    Engine::FOrientedBox::FOrientedBox(FVector InCenter, std::array<FVector, 3> InAxis, FVector InExtent)
+    Engine::FOrientedBox::FOrientedBox(FVector InCenter, Core::TStaticArray<FVector, 3> InAxis, FVector InExtent)
 		: mCenter{InCenter},
 		  mAxis{InAxis},
 		  mExtent{InExtent} {
@@ -649,14 +649,14 @@ namespace Engine {
     /**
      * @brief 회전 상자의 세 기저 축을 반환합니다.
      */
-    const std::array<FVector, 3>& Engine::FOrientedBox::GetAxis() const {
+    const Core::TStaticArray<FVector, 3>& Engine::FOrientedBox::GetAxis() const {
         return mAxis;
     }
 
     /**
      * @brief 회전 상자의 세 기저 축을 설정합니다.
      */
-    void Engine::FOrientedBox::SetAxis(const std::array<FVector, 3>& Value) {
+    void Engine::FOrientedBox::SetAxis(const Core::TStaticArray<FVector, 3>& Value) {
         mAxis = Value;
     }
 

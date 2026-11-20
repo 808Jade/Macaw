@@ -41,7 +41,6 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <format>
 #include <string>
@@ -835,7 +834,7 @@ namespace Editor {
             });
         }
 
-        constexpr std::array Categories{"Script", "Transform", "Animation", "Mesh", "Materials", "Light", "Camera", "Fog", "Shape", "Movement", "Rendering", "General", "Settings", "Component Tick"};
+        constexpr Core::TStaticArray<const char*, 14> Categories{"Script", "Transform", "Animation", "Mesh", "Materials", "Light", "Camera", "Fog", "Shape", "Movement", "Rendering", "General", "Settings", "Component Tick"};
         const bool Searching{mPropertySearch.front() != '\0'};
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, {5.0f, 2.0f});
@@ -1193,14 +1192,14 @@ namespace Editor {
         const bool Editable{std::all_of(Row.mTargets.begin(), Row.mTargets.end(), [Context, &Row](CoreUObject::TObjectRef<CoreUObject::UObject> Target) {
             return Context->CanEditProperty(Target, Row.mProperty);
         })};
-        constexpr std::array Labels{"Location", "Rotation", "Scale"};
-        constexpr std::array Axes{"X %.3f", "Y %.3f", "Z %.3f"};
-        constexpr std::array AxisIds{"X", "Y", "Z"};
+        constexpr Core::TStaticArray<const char*, 3> Labels{"Location", "Rotation", "Scale"};
+        constexpr Core::TStaticArray<const char*, 3> Axes{"X %.3f", "Y %.3f", "Z %.3f"};
+        constexpr Core::TStaticArray<const char*, 3> AxisIds{"X", "Y", "Z"};
         const auto ReadPart{[](const FTransform& Transform, Index_t Part) {
             if (Part == 1) {
                 const FRotator Rotation{Transform.GetRotator()};
 
-                return std::array<float, 3>{Rotation.roll, Rotation.pitch, Rotation.yaw};
+                return Core::TStaticArray<float, 3>{Rotation.roll, Rotation.pitch, Rotation.yaw};
             }
 
             return (Part == 0 ? Transform.mLocation : Transform.mScale).ToArray();
@@ -1215,7 +1214,7 @@ namespace Editor {
             }
 
             const auto First{ReadPart(std::get<FTransform>(Row.mProperty->ReadValue(Object)), Part)};
-            std::array<bool, 3> Mixed{};
+            Core::TStaticArray<bool, 3> Mixed{};
             bool Modified{};
 
             for (CoreUObject::TObjectRef<CoreUObject::UObject> Target : Row.mTargets) {
@@ -1244,7 +1243,7 @@ namespace Editor {
             BeginPropertyRow(Labels[Part]);
             ImGui::TableSetColumnIndex(1);
             auto Values{First};
-            std::array<bool, 3> Changed{};
+            Core::TStaticArray<bool, 3> Changed{};
             bool Interactive{};
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {2.0f, ImGui::GetStyle().ItemSpacing.y});
             const float Width{std::max(1.0f, (ImGui::GetContentRegionAvail().x - 4.0f) / 3.0f)};
@@ -1387,7 +1386,7 @@ namespace Editor {
 
             if (ImGui::TreeNodeEx(Label, ImGuiTreeNodeFlags_DefaultOpen)) {
                 for (Index_t Row{}; Row < 4; ++Row) {
-                    std::array<float, 4> Values{(*Matrix)(Row, 0), (*Matrix)(Row, 1), (*Matrix)(Row, 2), (*Matrix)(Row, 3)};
+                    Core::TStaticArray<float, 4> Values{(*Matrix)(Row, 0), (*Matrix)(Row, 1), (*Matrix)(Row, 2), (*Matrix)(Row, 3)};
 
                     if (ImGui::DragFloat4(DrawFieldLabel(std::to_string(Row).c_str()).c_str(), Values.data(), 0.025f)) {
                         for (Index_t Column{}; Column < 4; ++Column) {
@@ -1463,7 +1462,7 @@ namespace Editor {
                 return false;
             }
 
-            std::array<char, 512> Buffer{};
+            Core::TStaticArray<char, 512> Buffer{};
 
             std::copy_n(String->begin(), std::min(String->size(), Buffer.size() - 1), Buffer.begin());
 

@@ -10,7 +10,6 @@
 
 #include <DirectXTex.h>
 #include <algorithm>
-#include <array>
 #include <d3d11.h>
 #include <fstream>
 #include <limits>
@@ -209,8 +208,8 @@ namespace Asset {
         }};
 
         // PNG 시그니처가 아니면 APNG일 수 없습니다.
-        constexpr std::array<Uint8, 8> Signature{137, 80, 78, 71, 13, 10, 26, 10};
-        std::array<Uint8, 8> Header{};
+        constexpr Core::TStaticArray<Uint8, 8> Signature{137, 80, 78, 71, 13, 10, 26, 10};
+        Core::TStaticArray<Uint8, 8> Header{};
 
         if (!Read(0, Header) || Header != Signature) {
             return false;
@@ -416,7 +415,7 @@ namespace Asset {
 
         // 내장되지 않았으면 원본 FBX 폴더 기준으로 상대 경로, 기록된 경로, 파일 이름만 순서대로 찾습니다.
         // 기록된 경로가 다른 PC의 절대 경로일 수 있으므로 마지막에는 파일 이름만으로 찾아봅니다.
-        const std::array<std::filesystem::path, 3> Candidates{SourceDirectory / Core::FilePath::FromUtf8(RelativeName), SourceDirectory / Core::FilePath::FromUtf8(FileName), SourceDirectory / Core::FilePath::FromUtf8(FileName).filename()};
+        const Core::TStaticArray<std::filesystem::path, 3> Candidates{SourceDirectory / Core::FilePath::FromUtf8(RelativeName), SourceDirectory / Core::FilePath::FromUtf8(FileName), SourceDirectory / Core::FilePath::FromUtf8(FileName).filename()};
 
         for (const auto& Candidate : Candidates) {
             std::error_code Code{};
