@@ -23,9 +23,11 @@
 #include "Engine/AActor.h"
 #include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/Reflection/Cast.h"
+#include "PhysicsRuntime/FPhysicsRuntime.h"
 
 #include <atomic>
 #include <cmath>
+#include <mutex>
 #include <utility>
 
 namespace Engine {
@@ -38,6 +40,10 @@ namespace Engine {
          * @brief 프로세스 내 엔진 및 월드 슬롯 재사용을 구분하는 다음 세대입니다.
          */
         std::atomic<Uint64> NextWorldGeneration{1};
+
+        std::mutex PhysicsRuntimeMutex{};
+        PhysicsRuntime::FPhysicsRuntime SharedPhysicsRuntime{};
+        Index_t PhysicsRuntimeUsers{};
     }
 
     /**
@@ -78,6 +84,16 @@ namespace Engine {
 
         Engine::ReflectionModules::RegisterEngine();
         StaticClass();
+
+        {
+            const std::scoped_lock Lock{PhysicsRuntimeMutex};
+
+            if (!SharedPhysicsRuntime.Initialize()) {
+                return false;
+            }
+
+            ++PhysicsRuntimeUsers;
+        }
 
         mInitialized = true;
         mShutdownRequested = false;
@@ -137,6 +153,7 @@ namespace Engine {
             return;
         }
 
+        const bool Initialized{mInitialized};
         mInitialized = false;
         mShutdownRequested = false;
         mUpdating = true;
@@ -148,6 +165,17 @@ namespace Engine {
         }
 
         mWorldContexts.clear();
+
+        if (Initialized) {
+            const std::scoped_lock Lock{PhysicsRuntimeMutex};
+
+            --PhysicsRuntimeUsers;
+
+            if (PhysicsRuntimeUsers == 0) {
+                SharedPhysicsRuntime.Shutdown();
+            }
+        }
+
         mUpdating = false;
         mCurrentWorld = {};
         mRenderer = nullptr;

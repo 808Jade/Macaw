@@ -6,6 +6,7 @@
 
 #include "FGameApplication.h"
 #include "GameReflection.h"
+#include "PhysicsRuntimeReflection.h"
 #include "Core/Base/ErrorHandler.h"
 #include "Core/FilePath.h"
 #include "Core/Stats.h"
@@ -21,6 +22,7 @@ namespace Game {
      * @brief Game 모듈의 리플렉션 타입을 등록합니다.
      */
     Game::FGameApplication::FGameApplication() {
+        PhysicsRuntime::ReflectionModules::RegisterPhysicsRuntimeTypes();
         Game::ReflectionModules::RegisterGameTypes();
     }
 

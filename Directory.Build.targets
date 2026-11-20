@@ -14,6 +14,11 @@
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(VcpkgInstalledDir)$(VcpkgTriplet)\include\physx</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
+  <Target Name="CopyPhysXCommon" AfterTargets="AppLocalFromInstalled;AppLocalFromInstalledPreserve" Condition="'$(VcpkgApplocalDeps)' == 'true' And '@(Link)' != '' And Exists('$(TargetDir)PhysX_64.dll')">
+    <Copy SourceFiles="$(_ZVcpkgCurrentInstalledDir)$(_ZVcpkgConfigSubdir)bin\PhysXCommon_64.dll" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true">
+      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
   <Target Name="CheckDependencies" BeforeTargets="PrepareForBuild" Condition="'$(MacawToolBuild)' != 'true' And !Exists('$(VcpkgRoot)vcpkg.exe')">
     <Error Text="Run Build.bat from the repository root to prepare tools, restore dependencies, and generate the solution." />
   </Target>

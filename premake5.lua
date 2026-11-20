@@ -112,7 +112,7 @@ Configure("MacawHeaderTool", "ConsoleApp")
 @var ModuleNames
 @brief 정적 라이브러리와 리플렉션 코드를 생성할 모듈 목록입니다.
 ]]
-local ModuleNames = { "Core", "CoreUObject", "Serialization", "Asset", "RenderCore", "Engine", "Renderer", "Platform", "Viewer", "Editor" }
+local ModuleNames = { "Core", "CoreUObject", "Serialization", "Asset", "RenderCore", "PhysicsRuntime", "Engine", "Renderer", "Platform", "Viewer", "Editor" }
 
 for _, Name in ipairs(ModuleNames) do
     Configure(Name, "StaticLib")
@@ -189,11 +189,11 @@ local function ConfigureRuntimeExecutable(Name, Kind, Directory)
     files { Directory .. "/**.h", Directory .. "/**.cpp" }
     includedirs { Directory }
 
-    for _, Module in ipairs({ "Engine", "Renderer", "Platform" }) do
+    for _, Module in ipairs({ "Engine", "Renderer", "Platform", "PhysicsRuntime" }) do
         AddIncludes(Module, {})
     end
 
-    links { "Engine", "Renderer", "Platform", "Asset", "Serialization", "RenderCore", "CoreUObject", "Core", "lua51", "d3d11", "dxgi", "d3dcompiler", "bcrypt", "user32", "gdi32", "dwmapi", "imm32", "ole32", "windowscodecs", "comdlg32", "shell32" }
+    links { "Engine", "Renderer", "Platform", "Asset", "Serialization", "RenderCore", "PhysicsRuntime", "CoreUObject", "Core", "lua51", "d3d11", "dxgi", "d3dcompiler", "bcrypt", "user32", "gdi32", "dwmapi", "imm32", "ole32", "windowscodecs", "comdlg32", "shell32" }
     debugdir "%{wks.location}"
 end
 
