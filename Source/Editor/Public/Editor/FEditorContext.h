@@ -639,6 +639,7 @@ namespace Editor {
          * @param[in] Message 추가할 메시지입니다.
          */
         void AddLog(const Core::FString& Message);
+        void SyncGlobalLogs();
 
         /**
          * @brief 수집한 로그를 지우고 로그 세대를 갱신합니다.
@@ -723,6 +724,8 @@ namespace Editor {
         bool SetMaterialOverride(CoreUObject::TObjectRef<CoreUObject::UObject> Handle, Index_t Slot, const Core::FString& Path);
 
     private:
+
+        void AppendLog(Core::FString Message);
 
         /**
          * @brief 편집 기능·렌더 설정·통계 명령을 콘솔에 등록합니다.
@@ -906,6 +909,7 @@ namespace Editor {
          * @brief 로그 추가와 초기화를 구분하는 변경 세대입니다.
          */
         Uint64 mLogRevision{};
+        Uint64 mGlobalLogSequence{};
 
         /**
          * @brief 활성 뷰포트 등에 따른 새 액터의 배치 변환 제공자입니다.

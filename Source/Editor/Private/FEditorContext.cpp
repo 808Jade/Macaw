@@ -42,6 +42,7 @@
 #include "CoreUObject/Reflection/UClass.h"
 #include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "Core/Base/ErrorHandler.h"
+#include "Core/Log/OutputDeviceRedirector.h"
 
 #include <Windows.h>
 #include <utility>
@@ -1301,15 +1302,26 @@ namespace Editor {
      * @brief 콘솔 로그 모델에 메시지를 추가합니다.
      */
     void Editor::FEditorContext::AddLog(const Core::FString& Message) {
+        SyncGlobalLogs();
+        AppendLog(Message);
+
+        OutputDebugStringA((Message + "\n").c_str());
+    }
+
+    void Editor::FEditorContext::SyncGlobalLogs() {
+        for (const Core::FLogRecord& Record : GLog->ReadBacklog(mGlobalLogSequence)) {
+            AppendLog(Record.ToString());
+        }
+    }
+
+    void Editor::FEditorContext::AppendLog(Core::FString Message) {
         if (mLogs.size() >= 500) {
             mLogs.erase(mLogs.begin(), mLogs.begin() + 100);
         }
 
-        mLogs.push_back(Message);
+        mLogs.push_back(std::move(Message));
 
         ++mLogRevision;
-
-        OutputDebugStringA((Message + "\n").c_str());
     }
 
     /**

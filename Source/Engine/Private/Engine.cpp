@@ -7,6 +7,7 @@
 #include "Core/Types.h"
 #include "Engine/Engine.h"
 #include "Core/FilePath.h"
+#include "Core/Log/Log.h"
 #include "Engine/SceneSerializer.h"
 #include "Engine/EngineStats.h"
 #include "Engine/ULevel.h"
@@ -44,6 +45,7 @@ namespace Engine {
         std::mutex PhysicsRuntimeMutex{};
         PhysicsRuntime::FPhysicsRuntime SharedPhysicsRuntime{};
         Index_t PhysicsRuntimeUsers{};
+        DEFINE_LOG_CATEGORY_STATIC(LogPhysics, Log, All);
     }
 
     /**
@@ -88,8 +90,14 @@ namespace Engine {
         {
             const std::scoped_lock Lock{PhysicsRuntimeMutex};
 
-            if (!SharedPhysicsRuntime.Initialize()) {
-                return false;
+            if (PhysicsRuntimeUsers == 0) {
+                if (!SharedPhysicsRuntime.Initialize()) {
+                    MACAW_LOG(LogPhysics, Error, "PhysX initialization failed.");
+
+                    return false;
+                }
+
+                MACAW_LOG(LogPhysics, Log, "PhysX initialized.");
             }
 
             ++PhysicsRuntimeUsers;

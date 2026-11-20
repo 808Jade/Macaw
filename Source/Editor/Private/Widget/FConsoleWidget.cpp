@@ -346,12 +346,15 @@ namespace Editor {
      * @brief 패널 고유의 ImGui 위젯과 내용을 그립니다.
      */
     void Editor::FConsoleWidget::DrawContent(float) {
+        Editor::FEditorContext* Context{GetEditorContext()};
+        Context->SyncGlobalLogs();
+
         const float InputHeight{ImGui::GetFrameHeightWithSpacing()};
         const ImGuiStyle& Style{ImGui::GetStyle()};
         const ImVec2 Available{ImGui::GetContentRegionAvail()};
         const bool ShowFilter{Available.y >= 4.0f * InputHeight && Available.x >= 10.0f * ImGui::GetFontSize()};
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, std::max(Style.ChildRounding, Style.FrameRounding));
-        mOutput->Draw(*GetEditorContext(), InputHeight, ShowFilter);
+        mOutput->Draw(*Context, InputHeight, ShowFilter);
         ImGui::PopStyleVar();
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(GetConsoleAccent(), ">");
