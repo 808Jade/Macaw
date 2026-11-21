@@ -23,7 +23,7 @@ namespace PhysicsRuntime {
         constexpr Core::FLength UnitLength{1_m};
 
         /**
-         * @brief 허용 오차의 속도 기준으로 사용하는 표준 중력 가속도입니다.
+         * @brief 기본 중력과 허용 오차의 속도 기준으로 사용하는 표준 중력 가속도입니다.
          */
         constexpr Core::FAcceleration StandardGravity{9.81_mps2};
 
@@ -186,6 +186,13 @@ namespace PhysicsRuntime {
      */
     const physx::PxTolerancesScale& PhysicsRuntime::FPhysicsRuntime::GetTolerancesScale() const {
         return mTolerancesScale;
+    }
+
+    /**
+     * @brief 물리 장면에 기본으로 적용할 중력 가속도를 반환합니다.
+     */
+    FVector PhysicsRuntime::FPhysicsRuntime::GetDefaultGravity() const {
+        return FVector{0.0f, 0.0f, -(StandardGravity / 1_mps2)};
     }
 
     /**

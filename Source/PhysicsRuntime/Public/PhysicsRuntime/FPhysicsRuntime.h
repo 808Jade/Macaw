@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "Core/Math/FVector.h"
+#include "PhysicsRuntime/FPhysXRelease.h"
+
 #include <PxPhysicsAPI.h>
 #include <memory>
 
@@ -18,20 +21,6 @@ namespace PhysicsRuntime {
      * @ingroup PhysicsRuntime
      */
     class FPhysicsRuntime {
-    private:
-
-        /**
-         * @brief PhysX 객체를 소유자 종료 시 release()로 해제하는 삭제자입니다.
-         */
-        struct FRelease {
-            /**
-             * @brief PhysX 객체의 release()를 호출합니다.
-             * @param[in] Object 해제할 PhysX 객체입니다.
-             */
-            template <typename ObjectType>
-            void operator()(ObjectType* Object) const noexcept;
-        };
-
     public:
 
         /**
@@ -76,6 +65,12 @@ namespace PhysicsRuntime {
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
         const physx::PxTolerancesScale& GetTolerancesScale() const;
+
+        /**
+         * @brief 물리 장면에 기본으로 적용할 중력 가속도를 반환합니다.
+         * @return 엔진 Up 축(+Z)의 반대 방향으로 표준 중력 크기를 가진 벡터(m/s²)입니다.
+         */
+        FVector GetDefaultGravity() const;
 
         /**
          * @brief PhysX SDK 객체의 비소유 주소를 반환합니다.
@@ -135,51 +130,43 @@ namespace PhysicsRuntime {
         /**
          * @brief 다른 모든 PhysX 객체가 의존하는 Foundation입니다.
          */
-        std::unique_ptr<physx::PxFoundation, FRelease> mFoundation{};
+        std::unique_ptr<physx::PxFoundation, PhysicsRuntime::FPhysXRelease> mFoundation{};
 
         /**
          * @brief PVD가 사용하는 소켓 전송 객체입니다.
          * @note PVD 객체보다 나중에 해제되도록 먼저 선언합니다.
          */
-        std::unique_ptr<physx::PxPvdTransport, FRelease> mPvdTransport{};
+        std::unique_ptr<physx::PxPvdTransport, PhysicsRuntime::FPhysXRelease> mPvdTransport{};
 
         /**
          * @brief PhysX Visual Debugger 연결 객체입니다.
          */
-        std::unique_ptr<physx::PxPvd, FRelease> mPvd{};
+        std::unique_ptr<physx::PxPvd, PhysicsRuntime::FPhysXRelease> mPvd{};
 
         /**
          * @brief 강체·형상·재질을 생성하는 PhysX SDK 객체입니다.
          */
-        std::unique_ptr<physx::PxPhysics, FRelease> mPhysics{};
+        std::unique_ptr<physx::PxPhysics, PhysicsRuntime::FPhysXRelease> mPhysics{};
 
         /**
          * @brief Convex·Triangle 메시를 쿠킹하는 객체입니다.
          */
-        std::unique_ptr<physx::PxCooking, FRelease> mCooking{};
+        std::unique_ptr<physx::PxCooking, PhysicsRuntime::FPhysXRelease> mCooking{};
 
         /**
          * @brief 별도 재질이 없는 형상에 사용할 기본 재질입니다.
          */
-        std::unique_ptr<physx::PxMaterial, FRelease> mDefaultMaterial{};
+        std::unique_ptr<physx::PxMaterial, PhysicsRuntime::FPhysXRelease> mDefaultMaterial{};
 
         /**
          * @brief 물리 장면의 시뮬레이션 작업을 실행하는 CPU 디스패처입니다.
          */
-        std::unique_ptr<physx::PxDefaultCpuDispatcher, FRelease> mDispatcher{};
+        std::unique_ptr<physx::PxDefaultCpuDispatcher, PhysicsRuntime::FPhysXRelease> mDispatcher{};
 
         /**
          * @brief PxInitExtensions 호출에 성공했는지 여부입니다.
          */
         bool mExtensionsInitialized{};
     };
-
-    /**
-     * @brief PhysX 객체의 release()를 호출합니다.
-     */
-    template <typename ObjectType>
-    void PhysicsRuntime::FPhysicsRuntime::FRelease::operator()(ObjectType* Object) const noexcept {
-        Object->release();
-    }
 
 }
