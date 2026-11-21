@@ -466,6 +466,13 @@ namespace Engine {
     }
 
     /**
+     * @brief 엔진이 소유한 PhysX 런타임을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsRuntime& Engine::UEngine::GetPhysicsRuntime() {
+        return mPhysicsRuntime;
+    }
+
+    /**
      * @brief 새 월드 컨텍스트를 검증하고 장면을 연결한 뒤 현재 월드를 교체합니다.
      */
     bool Engine::UEngine::ReplaceWorld(std::unique_ptr<Engine::FWorldContext> Context) {
