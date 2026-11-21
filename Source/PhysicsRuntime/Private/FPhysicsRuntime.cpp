@@ -67,10 +67,16 @@ namespace PhysicsRuntime {
         mFoundation.reset();
     }
 
+    /**
+     * @brief 물리 객체를 만드는 PhysX SDK를 반환합니다.
+     */
     physx::PxPhysics* FPhysicsRuntime::GetPhysics() const {
         return mPhysics.get();
     }
 
+    /**
+     * @brief 물리 장면이 작업을 나눠 실행할 CPU 디스패처를 반환합니다.
+     */
     physx::PxCpuDispatcher* FPhysicsRuntime::GetDispatcher() const {
         return mDispatcher.get();
     }

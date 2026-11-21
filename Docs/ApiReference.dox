@@ -223,6 +223,8 @@ JSON 문서와 파일 직렬화입니다.
 에셋 타입, 로드·캐시·직렬화와 외부 파일 임포트입니다.
 \defgroup RenderCore RenderCore
 렌더러 인터페이스와 렌더 통계입니다.
+\defgroup PhysicsRuntime PhysicsRuntime
+PhysX 초기화, 월드별 물리 장면과 엔진·PhysX 타입 변환입니다.
 \defgroup Engine Engine
 월드, 액터, 컴포넌트, 장면 인터페이스와 직렬화입니다.
 \defgroup Renderer Renderer
@@ -276,6 +278,11 @@ Lua와 HLSL 소스 편집기, 언어 서버 연동과 빌드 메시지입니다.
 /**
  * @namespace Platform
  * @brief Win32 창·DPI·입력 메시지와 플랫폼 애플리케이션을 제공합니다.
+ */
+
+/**
+ * @namespace PhysicsRuntime
+ * @brief PhysX SDK를 초기화하고 월드별 물리 장면과 엔진·PhysX 타입 변환을 제공합니다.
  */
 
 /**

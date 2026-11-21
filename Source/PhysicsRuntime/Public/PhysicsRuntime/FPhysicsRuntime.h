@@ -19,8 +19,16 @@ namespace PhysicsRuntime {
         bool Initialize();
         void Shutdown();
 
-        // 초기화 전이면 nullptr
+        /**
+         * @brief 물리 객체를 만드는 PhysX SDK를 반환합니다.
+         * @return PhysX SDK의 비소유 주소이며, 초기화 전이면 nullptr입니다.
+         */
         physx::PxPhysics* GetPhysics() const;
+
+        /**
+         * @brief 물리 장면이 작업을 나눠 실행할 CPU 디스패처를 반환합니다.
+         * @return 디스패처의 비소유 주소이며, 초기화 전이면 nullptr입니다.
+         */
         physx::PxCpuDispatcher* GetDispatcher() const;
 
     private:
