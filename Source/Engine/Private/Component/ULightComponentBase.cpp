@@ -179,7 +179,7 @@ namespace Engine {
             return;
         }
 
-        std::array<wchar_t, 32768> Executable{};
+        Core::TStaticArray<wchar_t, 32768> Executable{};
         const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
         std::filesystem::path Path{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content/Editor/Icon" / Name : std::filesystem::path{}};
         std::error_code Error{};
@@ -224,7 +224,7 @@ namespace Engine {
         const float Radius{Proxy.mAttenuationRadius};
 
         if (Proxy.mType == Engine::ELightType::Point) {
-            const std::array<FVector, 3> Axes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
+            const Core::TStaticArray<FVector, 3> Axes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
 
             for (Index_t Axis{}; Axis < 3; ++Axis) {
                 for (Index_t Index{}; Index < Segments; ++Index) {

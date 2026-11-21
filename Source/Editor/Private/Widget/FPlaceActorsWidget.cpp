@@ -67,7 +67,7 @@ namespace Editor {
             return;
         }
 
-        static constexpr std::array<const char*, static_cast<std::size_t>(Editor::EPlaceActorIcon::Count)> Paths{nullptr, "Editor/Icon/Pawn_64x.png", "Editor/Icon/SkyLight_64x.png", "Editor/Icon/DirectionalLight_64x.png", "Editor/Icon/PointLight_64x.png", "Editor/Icon/SpotLight_64x.png", "Editor/Icon/ExponentialHeightFog_64x.png"};
+        static constexpr Core::TStaticArray<const char*, static_cast<std::size_t>(Editor::EPlaceActorIcon::Count)> Paths{nullptr, "Editor/Icon/Pawn_64x.png", "Editor/Icon/SkyLight_64x.png", "Editor/Icon/DirectionalLight_64x.png", "Editor/Icon/PointLight_64x.png", "Editor/Icon/SpotLight_64x.png", "Editor/Icon/ExponentialHeightFog_64x.png", "Editor/Icon/EmptyActor_64x.png", "Editor/Icon/DecalActor_64x.png", "Editor/Icon/LevelSequenceActor_64x.png"};
 
         mIcons = {};
 
@@ -99,6 +99,7 @@ namespace Editor {
         ImGui::BeginDisabled(!GetEditorContext()->CanEditWorld());
 
         if (mCategory == 0 || mCategory == 2) {
+            DrawEntry("AActor", "Empty Actor", "SceneComponent", Editor::EPlaceActorIcon::EmptyActor);
             DrawEntry("Cube", "Cube", "StaticMeshComponent", Editor::EPlaceActorIcon::None);
             DrawEntry("Sphere", "Sphere", "StaticMeshComponent", Editor::EPlaceActorIcon::None);
             DrawEntry("Plane", "Plane", "StaticMeshComponent", Editor::EPlaceActorIcon::None);
@@ -120,10 +121,22 @@ namespace Editor {
                 continue;
             }
 
+            if (Decal) {
+                DrawEntry(Name, "Decal Actor", "DecalComponent", Editor::EPlaceActorIcon::Decal);
+
+                continue;
+            }
+
+            if (Name == "ALevelSequenceActor") {
+                DrawEntry(Name, "Level Sequence Actor", "SceneComponent", Editor::EPlaceActorIcon::LevelSequence);
+
+                continue;
+            }
+
             const Editor::EPlaceActorIcon Icon{Fog ? Editor::EPlaceActorIcon::HeightFog : Name.find("Directional") != Core::FString::npos ? Editor::EPlaceActorIcon::DirectionalLight : Name.find("Ambient") != Core::FString::npos ? Editor::EPlaceActorIcon::AmbientLight : Name.find("Spot") != Core::FString::npos ? Editor::EPlaceActorIcon::SpotLight : Light ? Editor::EPlaceActorIcon::PointLight : Editor::EPlaceActorIcon::None};
             Core::FString Label{Name.starts_with('A') ? Name.substr(1) : Name};
 
-            DrawEntry(Name, Label, Decal ? "DecalComponent" : Fog ? "HeightFogComponent" : Light ? "LightComponent" : Name.find("Camera") != Core::FString::npos ? "CameraComponent" : "Default components", Icon);
+            DrawEntry(Name, Label, Fog ? "HeightFogComponent" : Light ? "LightComponent" : Name.find("Camera") != Core::FString::npos ? "CameraComponent" : "Default components", Icon);
         }
 
         ImGui::EndDisabled();

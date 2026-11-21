@@ -26,6 +26,7 @@
 #include "Platform/Window.h"
 #include "RenderCore/IRendererModule.h"
 #include "Serialization/JsonArchive.h"
+#include "Core/Types.h"
 #include <imgui_internal.h>
 #include <commdlg.h>
 #include <algorithm>
@@ -43,7 +44,7 @@ namespace {
     /**
      * @brief 뷰포트 설정 UI와 직렬화에서 공유하는 표시 이름·ShowFlag 멤버 포인터 목록입니다.
      */
-    const std::array<std::pair<const char*, bool Engine::FEngineShowFlags::*>, 13> ShowOptions{{{"Primitives", &Engine::FEngineShowFlags::mPrimitives},
+    const Core::TStaticArray<std::pair<const char*, bool Engine::FEngineShowFlags::*>, 13> ShowOptions{{{"Primitives", &Engine::FEngineShowFlags::mPrimitives},
         {"Sprites", &Engine::FEngineShowFlags::mSprites},
         {"Text", &Engine::FEngineShowFlags::mText},
         {"Shadows", &Engine::FEngineShowFlags::mShadows},
@@ -60,12 +61,12 @@ namespace {
     /**
      * @brief 버퍼 시각화를 제외한 컬러 조명·와이어프레임 표시 모드 목록입니다.
      */
-    const std::array<Engine::EViewMode, 5> ViewModes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
+    const Core::TStaticArray<Engine::EViewMode, 5> ViewModes{Engine::EViewMode::Lit_Gouraud, Engine::EViewMode::Lit_Lambert, Engine::EViewMode::Lit_Phong, Engine::EViewMode::Unlit, Engine::EViewMode::Wireframe};
 
     /**
      * @brief 컬러 표시 모드 목록과 같은 순서로 보여 줄 설정 UI 이름입니다.
      */
-    const std::array<const char*, 5> ViewModeNames{"Lit - Gouraud", "Lit - Lambert", "Lit - Phong", "Unlit", "Wireframe"};
+    const Core::TStaticArray<const char*, 5> ViewModeNames{"Lit - Gouraud", "Lit - Lambert", "Lit - Phong", "Unlit", "Wireframe"};
 
     /**
      * @brief 카메라 조작·표시·변환 스냅·통계 그룹 설정을 뷰포트별로 저장하거나 복원합니다.
@@ -147,7 +148,7 @@ namespace {
             }
         }
 
-        const std::array<Editor::EViewportCommand, 4> Commands{Editor::EViewportCommand::Translate, Editor::EViewportCommand::Rotate, Editor::EViewportCommand::Scale, Editor::EViewportCommand::Select};
+        const Core::TStaticArray<Editor::EViewportCommand, 4> Commands{Editor::EViewportCommand::Translate, Editor::EViewportCommand::Rotate, Editor::EViewportCommand::Scale, Editor::EViewportCommand::Select};
 
         if (TransformMode >= 0 && static_cast<size_t>(TransformMode) < Commands.size()) {
             Client.ExecuteCommand(Commands[TransformMode]);
@@ -637,7 +638,7 @@ void FEditorSettings::InitializeSettings() {
     mThemeFilter.fill('\0');
     strncpy_s(mStartupScene.data(), mStartupScene.size(), mContext->GetProject()->GetStartupScene().c_str(), _TRUNCATE);
 
-    std::array<wchar_t, 32768> Executable{};
+    Core::TStaticArray<wchar_t, 32768> Executable{};
     const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
     std::filesystem::path Bundled{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Editor/ImThemes/themes.toml" : std::filesystem::path{}};
     std::error_code Code{};
@@ -914,7 +915,7 @@ void FEditorSettings::DrawSettings() {
             if (mSettingsSection == 0) {
                 DrawInterfaceSettings();
             } else if (mSettingsSection == 1 || mSettingsSection == 2 || mSettingsSection == 4) {
-                const std::array<const char*, 4> Names{"Viewport 1", "Viewport 2", "Viewport 3", "Viewport 4"};
+                const Core::TStaticArray<const char*, 4> Names{"Viewport 1", "Viewport 2", "Viewport 3", "Viewport 4"};
                 Int32 Selected{static_cast<Int32>(mSettingsViewport)};
 
                 if (ImGui::Combo("Viewport", &Selected, Names.data(), static_cast<int>(Names.size()))) {
@@ -1064,11 +1065,25 @@ void FEditorSettings::DrawViewportSettings() {
     const auto& BufferNames{Editor::BufferVisualization::Names};
     const auto& BufferModes{Editor::BufferVisualization::Modes};
     const auto SelectedBuffer{std::find(BufferModes.begin(), BufferModes.end(), Client.GetViewMode())};
-    int Buffer{SelectedBuffer == BufferModes.end() ? 0 : static_cast<int>(SelectedBuffer - BufferModes.begin())};
+    const Index_t Buffer{SelectedBuffer == BufferModes.end() ? 0u : static_cast<Index_t>(SelectedBuffer - BufferModes.begin())};
 
-    if (ImGui::Combo("Buffer Visualization", &Buffer, BufferNames.data(), static_cast<int>(BufferNames.size()))) {
-        Client.SetViewMode(Buffer == 0 ? Client.GetColorViewMode() : BufferModes[Buffer]);
-        MarkDirty();
+    if (ImGui::BeginCombo("Buffer Visualization", BufferNames[Buffer])) {
+        for (Index_t Index{}; Index < BufferModes.size(); ++Index) {
+            ImGui::BeginDisabled(!Client.SupportsViewMode(BufferModes[Index]));
+
+            if (ImGui::Selectable(BufferNames[Index], Index == Buffer)) {
+                Client.SetViewMode(Index == 0 ? Client.GetColorViewMode() : BufferModes[Index]);
+                MarkDirty();
+            }
+
+            ImGui::EndDisabled();
+
+            if (Index == Buffer) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
     }
 
     DrawWidget("Grid Spacing");
@@ -1142,6 +1157,10 @@ void FEditorSettings::DrawPanelSettings() {
 
 void FEditorSettings::DrawProjectSettings() {
     Engine::FProject& Project{*mContext->GetProject()};
+    const bool ActiveForwardShading{mContext->GetRenderer()->UsesForwardShading()};
+    const char* ShadingPaths[]{"Deferred", "Forward"};
+    int ShadingPath{Project.UsesForwardShading() ? 1 : 0};
+
     ImGui::TextWrapped("Project: %s", Project.GetName().c_str());
     ImGui::TextWrapped("Location: %s", Core::FilePath::ToUtf8(Project.GetFilePath()).c_str());
     ImGui::SeparatorText("Startup Scene");
@@ -1149,13 +1168,29 @@ void FEditorSettings::DrawProjectSettings() {
     DrawWidget("Content Path");
     DrawWidget("Save Startup Scene");
     ImGui::EndDisabled();
+    ImGui::SeparatorText("Rendering");
+
+    if (ImGui::Combo("Shading Path", &ShadingPath, ShadingPaths, static_cast<int>(std::size(ShadingPaths)))) {
+        Core::FString Error{};
+
+        mSettingsStatus = Project.SetForwardShading(ShadingPath == 1, Error) ? "Shading path saved" : Error;
+    }
+
+    if (Project.UsesForwardShading() != ActiveForwardShading) {
+        ImGui::TextWrapped("Reopen the project to apply this change. Active path: %s", ShadingPaths[ActiveForwardShading ? 1 : 0]);
+    }
+
+    if (Project.UsesForwardShading() || ActiveForwardShading) {
+        ImGui::TextWrapped("Decals and GBuffer visualizations require Deferred shading.");
+    }
+
     ImGui::SeparatorText("Preferences");
     ImGui::TextWrapped("Settings: %s", Core::FilePath::ToUtf8(mSettingsPath).c_str());
     ImGui::TextWrapped("Custom themes: %s", Core::FilePath::ToUtf8(mSettingsPath.parent_path() / "Themes").c_str());
 }
 
 void FEditorSettings::ImportTheme() {
-    std::array<wchar_t, 32768> Filename{};
+    Core::TStaticArray<wchar_t, 32768> Filename{};
     OPENFILENAMEW Dialog{};
     Dialog.lStructSize = sizeof(Dialog);
     Dialog.hwndOwner = mPlatform->GetWindowHandle();

@@ -14,8 +14,8 @@
 #include "Engine/EViewMode.h"
 #include "Engine/FEngineShowFlags.h"
 #include "Engine/FEditorCameraState.h"
+#include "Core/Types.h"
 
-#include <array>
 #include <filesystem>
 
 namespace Engine {
@@ -35,6 +35,14 @@ namespace Editor {
      * @note 툴바, 메뉴와 단축키는 동일한 명령 경로를 사용하며 기즈모는 이 클라이언트의 모드와 좌표계를 읽습니다.
      */
     class FEditorViewportClient final : public Engine::FViewportClient {
+    private:
+        enum class EActorIcon : Uint8 {
+            EmptyActor,
+            Decal,
+            LevelSequence,
+            Count
+        };
+
     public:
         /**
          * @brief FEditorViewportClient의 초기 상태와 전달받은 의존성을 구성합니다.
@@ -255,6 +263,7 @@ namespace Editor {
          * @param[in] Mode 적용할 장면 표시 모드입니다.
          */
         void SetViewMode(Engine::EViewMode Mode);
+        bool SupportsViewMode(Engine::EViewMode Mode) const;
 
         /**
          * @brief 뷰포트별 장면·보조 표시 필터를 반환합니다.
@@ -369,6 +378,8 @@ namespace Editor {
 
         void UpdateCameraFocus(float DeltaTime);
 
+        bool TryCreateActorIcon(const Engine::AActor& Actor, Engine::FPrimitiveSceneProxy& Proxy) const;
+
         /**
          * @brief 텍스트·Billboard의 뷰 정렬을 반영한 월드 AABB를 계산합니다.
          * @param[in] Component 경계를 계산할 컴포넌트의 비소유 주소입니다.
@@ -383,7 +394,7 @@ namespace Editor {
          * @param[in] View 카메라 행렬과 뷰포트 크기입니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        std::array<FVector, 8> CalcComponentCorners(const Engine::UPrimitiveComponent* Component, const Engine::FSceneView& View) const;
+        Core::TStaticArray<FVector, 8> CalcComponentCorners(const Engine::UPrimitiveComponent* Component, const Engine::FSceneView& View) const;
 
     private:
         /**
@@ -509,6 +520,8 @@ namespace Editor {
          * @brief 현재 프레임의 에디터 보조 선분 수집기입니다.
          */
         Engine::FPrimitiveDrawInterface mDrawInterface{};
+
+        mutable Core::TStaticArray<CoreUObject::TObjectRef<Asset::UTexture2D>, static_cast<Index_t>(EActorIcon::Count)> mActorIconTextures{};
     };
 
 }

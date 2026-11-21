@@ -9,6 +9,7 @@
 #include "Core/Math/FQuat.h"
 #include "Core/Math/FRotator.h"
 #include "Core/Math/MathUtility.h"
+#include "Core/Types.h"
 
 #include <algorithm>
 #include <cmath>
@@ -280,7 +281,7 @@ FVector operator*(float Value, const FVector& Vector) {
 /**
  * @brief 유효한 성분을 원래 순서의 일반 배열로 반환합니다.
  */
-std::array<float, 3> FVector::ToArray() const {
+Core::TStaticArray<float, 3> FVector::ToArray() const {
     return {x, y, z};
 }
 

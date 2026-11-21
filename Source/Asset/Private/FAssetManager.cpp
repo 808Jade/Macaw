@@ -31,7 +31,6 @@
 #include "Asset/Import/FMeshImportResult.h"
 
 #include <algorithm>
-#include <array>
 #include <limits>
 #include <utility>
 
@@ -516,8 +515,8 @@ namespace Asset {
             }
 
             for (Index_t Vertex{}; Vertex < VertexCount && !Archive.HasError(); ++Vertex) {
-                std::array<Uint32, Asset::FMeshImportSkinWeight::MaxInfluences> BoneIndices{Archive.IsLoading() ? std::array<Uint32, Asset::FMeshImportSkinWeight::MaxInfluences>{} : SkinWeights[Vertex].GetBoneIndices()};
-                std::array<float, Asset::FMeshImportSkinWeight::MaxInfluences> Weights{Archive.IsLoading() ? std::array<float, Asset::FMeshImportSkinWeight::MaxInfluences>{} : SkinWeights[Vertex].GetWeights()};
+                Core::TStaticArray<Uint32, Asset::FMeshImportSkinWeight::MaxInfluences> BoneIndices{Archive.IsLoading() ? Core::TStaticArray<Uint32, Asset::FMeshImportSkinWeight::MaxInfluences>{} : SkinWeights[Vertex].GetBoneIndices()};
+                Core::TStaticArray<float, Asset::FMeshImportSkinWeight::MaxInfluences> Weights{Archive.IsLoading() ? Core::TStaticArray<float, Asset::FMeshImportSkinWeight::MaxInfluences>{} : SkinWeights[Vertex].GetWeights()};
 
                 for (Index_t Influence{}; Influence < Asset::FMeshImportSkinWeight::MaxInfluences; ++Influence) {
                     Archive.Serialize("BoneIndex", BoneIndices[Influence]);

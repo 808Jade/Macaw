@@ -13,7 +13,6 @@
 
 #include <dxgiformat.h>
 #include <algorithm>
-#include <array>
 #include <fstream>
 
 namespace Renderer {
@@ -209,7 +208,7 @@ namespace Renderer {
         std::error_code Code{};
         const auto Size{std::filesystem::file_size(Path, Code)};
         std::ifstream Input{Path, std::ios::binary};
-        std::array<Uint32, HeaderWords> Header{};
+        Core::TStaticArray<Uint32, HeaderWords> Header{};
 
         if (Code || Size < sizeof(Header) || !Input || !Input.read(reinterpret_cast<char*>(Header.data()), sizeof(Header))) {
             return false;

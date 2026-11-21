@@ -140,10 +140,10 @@ namespace Asset {
 
         const std::size_t VertexCount{mMeshData.GetPositions().size()};
         const std::size_t ChannelCount{std::max<std::size_t>(1, GetUVChannelCount())};
-        Core::TArray<std::array<float, 3>> Positions{};
-        Core::TArray<std::array<float, 7>> Tangents{};
-        Core::TArray<std::array<float, 2>> UVs{};
-        Core::TArray<std::array<float, 4>> Colors{};
+        Core::TArray<Core::TStaticArray<float, 3>> Positions{};
+        Core::TArray<Core::TStaticArray<float, 7>> Tangents{};
+        Core::TArray<Core::TStaticArray<float, 2>> UVs{};
+        Core::TArray<Core::TStaticArray<float, 4>> Colors{};
 
         Positions.reserve(VertexCount);
         Tangents.reserve(VertexCount);
@@ -172,10 +172,10 @@ namespace Asset {
         }
 
         // 다섯 버퍼를 모두 만든 뒤에 교체하여 실패해도 기존 자원을 유지합니다.
-        TMeshVertexBuffer<std::array<float, 3>> PositionBuffer{};
-        TMeshVertexBuffer<std::array<float, 7>> TangentBuffer{};
-        TMeshVertexBuffer<std::array<float, 2>> UVBuffer{};
-        TMeshVertexBuffer<std::array<float, 4>> ColorBuffer{};
+        TMeshVertexBuffer<Core::TStaticArray<float, 3>> PositionBuffer{};
+        TMeshVertexBuffer<Core::TStaticArray<float, 7>> TangentBuffer{};
+        TMeshVertexBuffer<Core::TStaticArray<float, 2>> UVBuffer{};
+        TMeshVertexBuffer<Core::TStaticArray<float, 4>> ColorBuffer{};
         RenderCore::TIndexBuffer<Uint32> IndexBuffer{};
         Core::FString Error{};
 

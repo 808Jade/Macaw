@@ -23,7 +23,6 @@
 #include <imgui_node_editor.h>
 
 #include <algorithm>
-#include <array>
 #include <charconv>
 #include <cmath>
 #include <cstdint>
@@ -478,7 +477,7 @@ namespace Editor {
             const float GetWidth{ImGui::CalcTextSize("Get").x + 2.0f * Style.FramePadding.x};
             const float NameWidth{std::max(1.0f, Width - FrameHeight - GetWidth - 2.0f * Style.ItemSpacing.x)};
             Asset::FAnimGraphVariable Variable{mRootEditing->GetVariables()[Index]};
-            std::array<char, 64> Name{};
+            Core::TStaticArray<char, 64> Name{};
             bool Changed{};
 
             std::copy_n(Variable.mName.begin(), std::min(Variable.mName.size(), Name.size() - 1), Name.begin());
@@ -989,7 +988,7 @@ namespace Editor {
 
         ed::Resume();
 
-        std::array<ed::NodeId, 2> Selected{};
+        Core::TStaticArray<ed::NodeId, 2> Selected{};
         const int SelectedCount{ed::GetSelectedNodes(Selected.data(), static_cast<int>(Selected.size()))};
 
         if (SelectedCount == 1) {
@@ -1054,7 +1053,7 @@ namespace Editor {
         ImGui::PushID(Node->mId);
         ImGui::TextDisabled("%s", Type != nullptr ? Type->mTitle.c_str() : Node->mType.c_str());
 
-        std::array<char, 64> Name{};
+        Core::TStaticArray<char, 64> Name{};
 
         std::copy_n(Node->mName.begin(), std::min(Node->mName.size(), Name.size() - 1), Name.begin());
 

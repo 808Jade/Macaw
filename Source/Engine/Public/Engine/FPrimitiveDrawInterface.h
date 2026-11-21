@@ -10,6 +10,7 @@
 #include "Engine/FDrawLine.h"
 #include "Engine/FDrawMesh.h"
 #include "Engine/FDrawText.h"
+#include "Engine/FPrimitiveSceneProxy.h"
 
 struct FBox;
 
@@ -57,6 +58,9 @@ namespace Engine {
          */
         const Core::TArray<Engine::FDrawMesh>& GetMeshes() const;
 
+        void DrawSprite(const Engine::FPrimitiveSceneProxy& Sprite);
+        const Core::TArray<Engine::FPrimitiveSceneProxy>& GetSprites() const;
+
         /**
          * @brief 이번 프레임에 표시할 텍스트 요청을 수집합니다.
          * @param[in] Text 그릴 텍스트 요청입니다.
@@ -85,6 +89,8 @@ namespace Engine {
          * @brief 현재 프레임에 표시할 에디터 메시와 피킹 의미의 목록입니다.
          */
         Core::TArray<Engine::FDrawMesh> mMeshes{};
+
+        Core::TArray<Engine::FPrimitiveSceneProxy> mSprites{};
 
         /**
          * @brief 현재 프레임의 텍스트 요청 목록입니다.

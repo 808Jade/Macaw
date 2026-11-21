@@ -376,7 +376,7 @@ namespace Platform {
         return true;
     }
 
-    std::array<float, 4> Platform::FSplashCanvas::SampleIcon(const FIconImage& Image, float U, float V) {
+    Core::TStaticArray<float, 4> Platform::FSplashCanvas::SampleIcon(const FIconImage& Image, float U, float V) {
         const float X{std::clamp(U * static_cast<float>(Image.Size) - 0.5f, 0.0f, static_cast<float>(Image.Size - 1))};
         const float Y{std::clamp(V * static_cast<float>(Image.Size) - 0.5f, 0.0f, static_cast<float>(Image.Size - 1))};
         const Int32 X0{static_cast<Int32>(X)};
@@ -385,7 +385,7 @@ namespace Platform {
         const Int32 Y1{std::min(Y0 + 1, Image.Size - 1)};
         const float FX{X - static_cast<float>(X0)};
         const float FY{Y - static_cast<float>(Y0)};
-        std::array<float, 4> Result{};
+        Core::TStaticArray<float, 4> Result{};
 
         for (Index_t Channel{}; Channel < 4; ++Channel) {
             const auto At{[&Image, Channel](Int32 PX, Int32 PY) {
@@ -408,7 +408,7 @@ namespace Platform {
 
         for (Int32 Y{Y0}; Y < Y1; ++Y) {
             for (Int32 X{X0}; X < X1; ++X) {
-                const std::array<float, 4> Sample{SampleIcon(Image, (static_cast<float>(X) + 0.5f - Left) / Size, (static_cast<float>(Y) + 0.5f - Top) / Size)};
+                const Core::TStaticArray<float, 4> Sample{SampleIcon(Image, (static_cast<float>(X) + 0.5f - Left) / Size, (static_cast<float>(Y) + 0.5f - Top) / Size)};
                 Uint32& Pixel{mBits[static_cast<std::size_t>(Y) * mWidth + X]};
                 const FColor Under{Unpack(Pixel)};
                 const float Inverse{1.0f - Sample[3]};

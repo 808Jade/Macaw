@@ -14,7 +14,11 @@ namespace Engine {
      * @return 버퍼 시각화 모드이면 true입니다.
      */
     bool IsBufferVisualization(Engine::EViewMode Mode) {
-        return (Mode >= Engine::EViewMode::WorldNormal && Mode <= Engine::EViewMode::ReceiveShadows) || Mode == Engine::EViewMode::SceneStencil;
+        return Mode == Engine::EViewMode::WorldNormal || Mode == Engine::EViewMode::SceneDepth || RequiresDeferredShading(Mode);
+    }
+
+    bool RequiresDeferredShading(Engine::EViewMode Mode) {
+        return (Mode >= Engine::EViewMode::BaseColor && Mode <= Engine::EViewMode::ReceiveShadows) || Mode == Engine::EViewMode::SceneStencil;
     }
 
 }

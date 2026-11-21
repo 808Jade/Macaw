@@ -11,6 +11,7 @@
 #include "CoreUObject/Reflection/FPropertyValue.h"
 #include "CoreUObject/TObjectRef.h"
 #include "Editor/FAssetPicker.h"
+#include "Core/Types.h"
 
 #include <functional>
 #include <optional>
@@ -274,7 +275,7 @@ namespace Editor {
         /**
          * @brief 프로퍼티 검색용 UTF-8 입력 버퍼입니다.
          */
-        std::array<char, 192> mPropertySearch{};
+        Core::TStaticArray<char, 192> mPropertySearch{};
 
         /**
          * @brief 모든 분류의 펼침 상태를 변경할 일회성 요청입니다.
@@ -304,7 +305,7 @@ namespace Editor {
         /**
          * @brief Details 컴포넌트 검색 입력 버퍼입니다.
          */
-        std::array<char, 128> mComponentSearch{};
+        Core::TStaticArray<char, 128> mComponentSearch{};
 
         /**
          * @brief 브라우저와 동일한 에셋 목록입니다.

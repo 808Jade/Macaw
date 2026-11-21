@@ -11,10 +11,10 @@
 #include "FObjectConstants.h"
 #include "RenderCore/TConstantBuffer.h"
 #include "RenderCore/TStructuredBuffer.h"
+#include "Core/Types.h"
 
 #include <d3d11.h>
 #include <wrl/client.h>
-#include <array>
 
 namespace Renderer {
 
@@ -27,7 +27,7 @@ namespace Renderer {
         /**
          * @brief 한 원소가 스키닝 행렬과 법선용 역전치 행렬인 본 팔레트 버퍼입니다.
          */
-        using FSkinBuffer = RenderCore::TStructuredBuffer<std::array<FMatrix, 2>>;
+        using FSkinBuffer = RenderCore::TStructuredBuffer<Core::TStaticArray<FMatrix, 2>>;
 
         /**
          * @brief 엔진에서 복사한 프리미티브 프록시입니다.

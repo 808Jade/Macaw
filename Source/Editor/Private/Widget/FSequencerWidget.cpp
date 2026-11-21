@@ -29,7 +29,6 @@
 #include <imgui_neo_sequencer.h>
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <string>
 
@@ -42,12 +41,12 @@ namespace Editor {
         /**
          * @brief 시퀀서에서 선택할 표시 프레임률입니다.
          */
-        constexpr std::array<Int32, 6> DisplayRates{24, 25, 30, 48, 50, 60};
+        constexpr Core::TStaticArray<Int32, 6> DisplayRates{24, 25, 30, 48, 50, 60};
 
         /**
          * @brief 시퀀서 보간 모드의 표시 이름입니다.
          */
-        constexpr std::array<const char*, 3> InterpolationNames{"Constant", "Linear", "Cubic"};
+        constexpr Core::TStaticArray<const char*, 3> InterpolationNames{"Constant", "Linear", "Cubic"};
 
         /**
          * @brief 시퀀서 UI의 마지막 프레임 상한입니다.
@@ -933,7 +932,7 @@ namespace Editor {
 
         const FTransform& Transform{Component->GetTransform()};
         const FRotator Rotation{Transform.mRotation.Rotator()};
-        const std::array<float, Asset::FSequenceTransformSection::ChannelCount> Values{Transform.mLocation.x, Transform.mLocation.y, Transform.mLocation.z, Rotation.pitch, Rotation.yaw, Rotation.roll, Transform.mScale.x, Transform.mScale.y, Transform.mScale.z};
+        const Core::TStaticArray<float, Asset::FSequenceTransformSection::ChannelCount> Values{Transform.mLocation.x, Transform.mLocation.y, Transform.mLocation.z, Rotation.pitch, Rotation.yaw, Rotation.roll, Transform.mScale.x, Transform.mScale.y, Transform.mScale.z};
         const Int32 Tick{FindCurrentTick(Sequence, mPlayer)};
         Asset::FSequenceTransformSection& Section{Binding.FindOrAddTransformTrack().FindOrAddEditSection()};
         Section.ExpandToInclude(Sequence->GetStartTick());

@@ -13,7 +13,6 @@
 #include "CoreUObject/UObject.h"
 #include "RenderCore/TVertexBuffer.h"
 
-#include <array>
 #include "USkeletalMesh.generated.h"
 
 namespace Asset {
@@ -138,12 +137,12 @@ namespace Asset {
             /**
              * @brief 정점에 영향을 주는 최대 네 개의 본 인덱스입니다.
              */
-            std::array<Uint32, 4> mBoneIndices{};
+            Core::TStaticArray<Uint32, 4> mBoneIndices{};
 
             /**
              * @brief 본 인덱스 순서에 대응하는 정점 스킨 가중치입니다.
              */
-            std::array<float, 4> mWeights{};
+            Core::TStaticArray<float, 4> mWeights{};
         };
 
         /**

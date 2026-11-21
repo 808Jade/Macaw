@@ -10,6 +10,7 @@
 #include "Asset/FAssetManager.h"
 #include "Asset/UTexture2D.h"
 #include "CoreUObject/Reflection/NewObject.h"
+#include "Core/Types.h"
 
 #include <Windows.h>
 #include <algorithm>
@@ -283,7 +284,7 @@ namespace Engine {
             return;
         }
 
-        std::array<wchar_t, 32768> Executable{};
+        Core::TStaticArray<wchar_t, 32768> Executable{};
         const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
         std::filesystem::path Path{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content/Editor/Icon/ExponentialHeightFog_64x.png" : std::filesystem::path{}};
         std::error_code Error{};

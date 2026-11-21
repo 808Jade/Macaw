@@ -17,7 +17,6 @@
 #include "RenderCore/TConstantBuffer.h"
 
 #include <d3d11.h>
-#include <array>
 #include <wrl/client.h>
 #include "UMaterial.generated.h"
 
@@ -469,7 +468,7 @@ namespace Asset {
         /**
          * @brief GPU 상수 버퍼입니다.
          */
-        RenderCore::TConstantBuffer<std::array<float, 28>> mConstantBuffer{};
+        RenderCore::TConstantBuffer<Core::TStaticArray<float, 28>> mConstantBuffer{};
 
         /**
          * @brief GPU 상수 버퍼 갱신 필요 여부입니다.

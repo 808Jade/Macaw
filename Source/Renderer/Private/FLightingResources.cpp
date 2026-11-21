@@ -42,7 +42,7 @@ namespace Renderer {
     /**
      * @brief 현재 뷰의 타일 광원 목록과 카메라 상수를 GPU에 업로드합니다.
      */
-    bool FLightingResources::Upload(ID3D11Device* Device, ID3D11DeviceContext* Context, std::span<const Engine::FLightSceneProxy> Lights, const Engine::FSceneView& View, std::span<const std::array<Uint32, 2>> ShadowRanges) {
+    bool FLightingResources::Upload(ID3D11Device* Device, ID3D11DeviceContext* Context, std::span<const Engine::FLightSceneProxy> Lights, const Engine::FSceneView& View, std::span<const Core::TStaticArray<Uint32, 2>> ShadowRanges) {
         static Core::FStat PrepareTime{"render", "GPU light culling submission CPU", Core::EStatUnit::Milliseconds};
         static Core::FStat SubmittedLights{"render", "Input lights (sum of views)"};
         const Core::FScopedStatTimer StatTimer{PrepareTime};

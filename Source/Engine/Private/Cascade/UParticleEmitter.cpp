@@ -55,7 +55,7 @@ namespace {
      * @throws std::length_error 새 영역을 포함한 크기가 지원하는 오프셋 범위를 넘는 경우입니다.
      */
     Index_t AllocatePayload(Uint32& Size, Uint32 RequiredSize) {
-        const Index_t Offset{static_cast<Index_t>(AlignPayload(Size))};
+        const Uint32 Offset{AlignPayload(Size)};
 
         if (RequiredSize > static_cast<Uint32>(std::numeric_limits<Int32>::max()) - Offset) {
             throw std::length_error{"Particle payload exceeds the supported offset range"};
@@ -154,8 +154,8 @@ void UParticleEmitter::Build() {
 }
 
 void UParticleEmitter::CacheEmitterModuleInfo() {
-    TMap<TObjectRef<const UParticleModule>, Index_t, TObjectRefHash<const UParticleModule>> ParticleOffsets{};
-    TMap<TObjectRef<const UParticleModule>, Index_t, TObjectRefHash<const UParticleModule>> InstanceOffsets{};
+    ObjectHashMap<TObjectRef<const UParticleModule>, Index_t> ParticleOffsets{};
+    ObjectHashMap<TObjectRef<const UParticleModule>, Index_t> InstanceOffsets{};
     Uint32 ParticleSize{static_cast<Uint32>(sizeof(FBaseParticle))};
     Uint32 InstanceSize{};
 
@@ -196,11 +196,11 @@ Uint32 UParticleEmitter::GetInstancePayloadSize() const {
     return mInstancePayloadSize;
 }
 
-const TMap<TObjectRef<const UParticleModule>, Index_t, TObjectRefHash<const UParticleModule>>& UParticleEmitter::GetModuleDataOffsets() const {
+const ObjectHashMap<TObjectRef<const UParticleModule>, Index_t>& UParticleEmitter::GetModuleDataOffsets() const {
     return mModuleDataOffsets;
 }
 
-const TMap<TObjectRef<const UParticleModule>, Index_t, TObjectRefHash<const UParticleModule>>& UParticleEmitter::GetModuleInstanceDataOffsets() const {
+const ObjectHashMap<TObjectRef<const UParticleModule>, Index_t>& UParticleEmitter::GetModuleInstanceDataOffsets() const {
     return mModuleInstanceDataOffsets;
 }
 

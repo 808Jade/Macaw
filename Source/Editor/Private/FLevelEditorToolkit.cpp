@@ -27,9 +27,9 @@
 #include "Engine/Component/ULightComponentBase.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Platform/Window.h"
+#include "Core/Types.h"
 #include <shellapi.h>
 #include <imgui_internal.h>
-#include <array>
 
 using namespace Editor;
 
@@ -63,8 +63,8 @@ bool FLevelEditorToolkit::Initialize(RenderCore::IRendererModule* Renderer, Plat
     mAssetCatalog = std::make_unique<FEditorAssetCatalog>(mContext->GetProject()->GetAssets());
     mThumbnails = std::make_unique<FAssetThumbnailCache>(mContext->GetProject()->GetAssets(), Renderer);
     mWorkspace = std::make_unique<FEditorWorkspace>(mContext, mTopLevelTab, mUIScale);
-    mCommands = std::make_unique<FEditorCommands>(mContext, mPlaySession, mViewportLayout, Platform);
-    mAssetEditors = std::make_unique<FAssetEditorManager>(mContext, Platform, *mAssetCatalog, *mThumbnails, *mWorkspace, *mCommands);
+    mCommands = std::make_unique<FEditorCommands>(mContext, mPlaySession, mViewportLayout, Platform, mMessages);
+    mAssetEditors = std::make_unique<FAssetEditorManager>(mContext, Platform, *mAssetCatalog, *mThumbnails, *mWorkspace, *mCommands, mMessages);
     mImports = std::make_unique<FAssetImportController>(mContext, Platform);
     RegisterTabs();
     mDrawers = std::make_unique<FEditorDrawerManager>(mTabs, mUIScale, *mWorkspace);
@@ -160,8 +160,8 @@ void FLevelEditorToolkit::ConnectServices() {
     mContext->SetSceneSavedHandler([this]() {
         mCommands->CaptureProjectThumbnail();
     });
-    mCommands->SetCanCloseAssets([this]() {
-        return mAssetEditors->CanClose();
+    mCommands->SetCollectAssetSavePrompts([this]() {
+        return mAssetEditors->CollectSavePrompts();
     });
     mAssetEditors->SetChangedHandler([this]() {
         mBrowser->MarkRefresh();
@@ -222,6 +222,13 @@ void FLevelEditorToolkit::Draw(float DeltaTime) {
     mAssetEditors->Draw(DeltaTime);
     mDrawers->Draw(DeltaTime);
     mBrowser->DrawDragPreview();
+
+    if (mCloseRequested) {
+        mCloseRequested = false;
+        mCommands->RequestExit();
+    }
+
+    mMessages.Draw();
     mPlaySession->ProcessInput(DeltaTime, !ImGui::GetIO().WantTextInput && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup));
 }
 
@@ -232,8 +239,10 @@ void FLevelEditorToolkit::Render(float DeltaTime) {
     mDrawers->FinishDragFrame();
 }
 
-bool FLevelEditorToolkit::CanClose() {
-    return mCommands != nullptr && mCommands->ConfirmSceneChange();
+void FLevelEditorToolkit::RequestClose() {
+    if (!mMessages.IsOpen()) {
+        mCloseRequested = true;
+    }
 }
 
 void FLevelEditorToolkit::QueueFileDrop(void* Handle) {
@@ -270,6 +279,8 @@ void FLevelEditorToolkit::Shutdown() {
         }
     }
 
+    mMessages.Reset();
+    mCloseRequested = false;
     mPlaceActorsWidget.ClearIcons();
     mShell.reset();
     mSettings.reset();
@@ -288,12 +299,12 @@ void FLevelEditorToolkit::Shutdown() {
 }
 
 void FLevelEditorToolkit::InstallEditorIcons() {
-    std::array<wchar_t, 32768> Executable{};
+    Core::TStaticArray<wchar_t, 32768> Executable{};
     const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
     const std::filesystem::path Bundled{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content/Editor/Icon" : std::filesystem::path{}};
     Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
 
-    for (const char* Name : {"SpotLight_64x.png", "PointLight_64x.png", "DirectionalLight_64x.png", "SkyLight_64x.png", "Pawn_64x.png", "ExponentialHeightFog_64x.png", "Sources.txt"}) {
+    for (const char* Name : {"SpotLight_64x.png", "PointLight_64x.png", "DirectionalLight_64x.png", "SkyLight_64x.png", "Pawn_64x.png", "ExponentialHeightFog_64x.png", "EmptyActor_64x.png", "DecalActor_64x.png", "LevelSequenceActor_64x.png", "EmptyActor.png", "S_DecalActorIcon.png", "S_LevelSequence.png", "Sources.txt"}) {
         Core::FString Error{};
         const std::filesystem::path Target{Assets->ResolvePath(std::filesystem::path{"Editor/Icon"} / Name, Error)};
         std::error_code Code{};

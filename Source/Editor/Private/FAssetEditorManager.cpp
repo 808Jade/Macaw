@@ -148,7 +148,7 @@ namespace {
          * @param[in] WindowName 탭 콘텐츠에 사용할 고유 ImGui 창 이름입니다.
          * @param[in] Content 호스트 툴킷이 소유할 메시 또는 애니메이션 편집기입니다.
          */
-        FHostedAssetEditorToolkit(FEditorContext* Context, Platform::FWindowsApplication* Platform, const std::filesystem::path& Path, Asset::EAssetType Type, Core::FString WindowName, FContent Content);
+        FHostedAssetEditorToolkit(FEditorContext* Context, Platform::FWindowsApplication* Platform, const std::filesystem::path& Path, Asset::EAssetType Type, Core::FString WindowName, FContent Content, FMessageBox& Messages);
 
         /**
          * @brief 객체를 소멸하고 소유 멤버와 연결 상태를 정리합니다.
@@ -169,12 +169,13 @@ namespace {
         void Draw(float DeltaTime) override;
 
         /**
-         * @brief 애니메이션 시퀀스 편집기의 미저장 변경을 확인하고 다른 편집기는 닫기를 허용합니다.
-         * @return 콘텐츠가 닫기를 허용하면 true입니다.
+         * @brief 애니메이션 시퀀스 편집기의 미저장 변경을 확인할 항목을 반환합니다.
          */
-        bool CanClose() override;
+        std::optional<FMessageBox::FSavePrompt> GetClosePrompt() override;
 
     private:
+        bool RequestTabClose();
+
         /**
          * @brief 에셋 편집기의 프레임별 상태를 갱신합니다.
          * @param[in] DeltaTime 이전 프레임 이후 경과한 시간이며 단위는 초입니다.
@@ -201,13 +202,15 @@ namespace {
          * @brief 호스팅한 메시 또는 애니메이션 편집기의 소유 객체입니다.
          */
         FContent mContent{};
+        FMessageBox& mMessages;
     };
 
-    FHostedAssetEditorToolkit::FHostedAssetEditorToolkit(FEditorContext* Context, Platform::FWindowsApplication* Platform, const std::filesystem::path& Path, Asset::EAssetType Type, Core::FString WindowName, FContent Content)
+    FHostedAssetEditorToolkit::FHostedAssetEditorToolkit(FEditorContext* Context, Platform::FWindowsApplication* Platform, const std::filesystem::path& Path, Asset::EAssetType Type, Core::FString WindowName, FContent Content, FMessageBox& Messages)
 		: FAssetEditorToolkit{Path, Type, std::move(WindowName)},
 		  mContext{Context},
 		  mPlatform{Platform},
-		  mContent{std::move(Content)} {
+		  mContent{std::move(Content)},
+		  mMessages{Messages} {
         std::visit([this](auto& Content) {
             using FContentType = std::remove_reference_t<decltype(*Content)>;
 
@@ -219,7 +222,7 @@ namespace {
         },
             mContent);
         GetTab().SetCanCloseHandler([this]() {
-            return CanClose();
+            return RequestTabClose();
         });
     }
 
@@ -259,17 +262,26 @@ namespace {
             mContent);
     }
 
-    bool FHostedAssetEditorToolkit::CanClose() {
-        return std::visit([](auto& Content) {
-            using FContentType = std::remove_reference_t<decltype(*Content)>;
+    std::optional<FMessageBox::FSavePrompt> FHostedAssetEditorToolkit::GetClosePrompt() {
+        if (auto* Content{std::get_if<std::unique_ptr<FAnimSequenceEditor>>(&mContent)}) {
+            return (*Content)->GetClosePrompt();
+        }
 
-            if constexpr (std::is_same_v<FContentType, FAnimSequenceEditor>) {
-                return Content->RequestClose();
-            } else {
-                return true;
-            }
-        },
-            mContent);
+        return {};
+    }
+
+    bool FHostedAssetEditorToolkit::RequestTabClose() {
+        auto Prompt{GetClosePrompt()};
+
+        if (!Prompt) {
+            return true;
+        }
+
+        mMessages.ConfirmSave({std::move(*Prompt)}, [this]() {
+            GetTab().SetVisible(false);
+        });
+
+        return false;
     }
 
     void FHostedAssetEditorToolkit::CloseRetired(const std::filesystem::path& Absolute) {
@@ -280,7 +292,7 @@ namespace {
     }
 }
 
-FAssetEditorManager::FSourceEditor::FSourceEditor(NativeIDE::EIDELanguage Language, const char* Title, const char* Id, Platform::FWindowsApplication* Platform, NativeIDE::FIDEContent::FValidator Validator, NativeIDE::FIDEContent::FBuildSavedHandler BuildSavedHandler)
+FAssetEditorManager::FSourceEditor::FSourceEditor(NativeIDE::EIDELanguage Language, const char* Title, const char* Id, FEditorContext* Context, FMessageBox& Messages, NativeIDE::FIDEContent::FValidator Validator, NativeIDE::FIDEContent::FBuildSavedHandler BuildSavedHandler)
 	: mIDE{Language, std::move(Validator), std::move(BuildSavedHandler)},
 	  mContent{Id, [this](float) {
           mIDE.Draw();
@@ -292,13 +304,12 @@ FAssetEditorManager::FSourceEditor::FSourceEditor(NativeIDE::EIDELanguage Langua
                   mIDE.Save();
               }
           }
-
-          DrawClosePrompt();
       }},
 	  mTab{Core::FString{Title} + "###" + Id, true, EEditorTabRole::TopLevel},
 	  mTitle{Title},
 	  mId{Id},
-	  mPlatform{Platform} {
+	  mContext{Context},
+	  mMessages{Messages} {
     mTab.SetContent(&mContent);
     mTab.SetContentPadding({});
     mTab.SetVisible(false);
@@ -310,25 +321,33 @@ FAssetEditorManager::FSourceEditor::FSourceEditor(NativeIDE::EIDELanguage Langua
     });
 }
 
-bool FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
+void FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
     if (mTab.IsVisible() && (mIDE.IsDirty() || mIDE.HasUnbuiltChanges()) && Core::FilePath::ToLower(Path) == Core::FilePath::ToLower(mIDE.GetPath())) {
         mTab.Open();
 
-        return true;
+        return;
     }
 
-    if (!CanClose()) {
-        return true;
+    if (auto Prompt{GetClosePrompt()}) {
+        mMessages.ConfirmSave({std::move(*Prompt)}, [this, Path, Workspace]() {
+            OpenNow(Path, Workspace);
+        });
+
+        return;
     }
 
+    OpenNow(Path, Workspace);
+}
+
+void FAssetEditorManager::FSourceEditor::OpenNow(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
     if (!mIDE.Open(Path, Workspace)) {
-        return false;
+        mContext->AddLog("Could not read source file " + Core::FilePath::ToGenericUtf8(Path));
+
+        return;
     }
 
     mTab.SetName(Core::FString{mTitle} + " - " + Core::FilePath::ToUtf8(Path.filename()) + "###" + Core::FString{mId});
     mTab.Open();
-
-    return true;
 }
 
 void FAssetEditorManager::FSourceEditor::Draw(float DeltaTime, FEditorWorkspace& Workspace) {
@@ -342,11 +361,6 @@ void FAssetEditorManager::FSourceEditor::Draw(float DeltaTime, FEditorWorkspace&
     Workspace.BeginTopLevelTab();
     mTab.Draw(DeltaTime);
     Workspace.EndTopLevelTab();
-
-    if (mAllowTabClose) {
-        mTab.SetVisible(false);
-        mAllowTabClose = false;
-    }
 }
 
 bool FAssetEditorManager::FSourceEditor::RequestTabClose() {
@@ -354,50 +368,36 @@ bool FAssetEditorManager::FSourceEditor::RequestTabClose() {
         return true;
     }
 
-    mClosePrompt = true;
-    mTab.Open();
+    mMessages.ConfirmSave({MakeSavePrompt()}, [this]() {
+        mAllowTabClose = true;
+        mTab.SetVisible(false);
+        mAllowTabClose = false;
+    });
 
     return false;
 }
 
-void FAssetEditorManager::FSourceEditor::DrawClosePrompt() {
-    const Core::FString Popup{"Close Source File###" + Core::FString{mId} + "Close"};
-    if (std::exchange(mClosePrompt, false)) {
-        ImGui::OpenPopup(Popup.c_str());
-    }
-
-    if (!ImGui::BeginPopupModal(Popup.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-        return;
-    }
-
-    if (!mIDE.IsDirty() && !mIDE.HasUnbuiltChanges()) {
-        mAllowTabClose = true;
-        ImGui::CloseCurrentPopup();
-        ImGui::EndPopup();
-
-        return;
-    }
-
+FMessageBox::FSavePrompt FAssetEditorManager::FSourceEditor::MakeSavePrompt() {
     const auto Filename{Core::FilePath::ToUtf8(mIDE.GetPath().filename())};
-    ImGui::TextUnformatted(Filename.c_str());
+    FMessageBox::FSavePrompt Prompt{Core::FString{mTitle}, mIDE.IsDirty() ? "Save changes to " + Filename + "?" : "Close " + Filename + "?"};
+
     if (mIDE.HasUnbuiltChanges()) {
-        ImGui::TextUnformatted("This file has unbuilt changes. Press F5 in the editor to build and save.");
+        Prompt.mMessage += "\nThis file has unbuilt changes. To build and save, cancel and press F5 in the editor.";
     }
+
     if (mIDE.IsDirty()) {
-        ImGui::TextUnformatted("Closing the tab discards unsaved edits.");
+        Prompt.mSave = [this]() {
+            if (mIDE.Save()) {
+                return true;
+            }
+
+            mTab.Open();
+
+            return false;
+        };
     }
 
-    const bool KeepEditing{ImGui::Button("Keep Editing")};
-    ImGui::SetItemDefaultFocus();
-    ImGui::SameLine();
-    if (ImGui::Button("Close Tab")) {
-        mAllowTabClose = true;
-        ImGui::CloseCurrentPopup();
-    } else if (KeepEditing || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
-        ImGui::CloseCurrentPopup();
-    }
-
-    ImGui::EndPopup();
+    return Prompt;
 }
 
 void FAssetEditorManager::FSourceEditor::CloseRetired(const std::filesystem::path& Absolute) {
@@ -411,26 +411,12 @@ void FAssetEditorManager::FSourceEditor::CloseRetired(const std::filesystem::pat
     }
 }
 
-bool FAssetEditorManager::FSourceEditor::CanClose() {
-    if (!mTab.IsVisible() || !mIDE.IsDirty()) {
-        return true;
+std::optional<FMessageBox::FSavePrompt> FAssetEditorManager::FSourceEditor::GetClosePrompt() {
+    if (mTab.IsVisible() && mIDE.IsDirty()) {
+        return MakeSavePrompt();
     }
 
-    const std::wstring Message{L"Save changes to " + mIDE.GetPath().filename().wstring() + L"?"};
-    const std::wstring Title{Core::FilePath::FromUtf8(mTitle).wstring()};
-    const Int32 Choice{MessageBoxW(mPlatform->GetWindowHandle(), Message.c_str(), Title.c_str(), MB_YESNOCANCEL | MB_ICONQUESTION)};
-
-    if (Choice != IDYES) {
-        return Choice == IDNO;
-    }
-
-    if (!mIDE.Save()) {
-        mTab.Open();
-
-        return false;
-    }
-
-    return true;
+    return {};
 }
 
 bool FAssetEditorManager::FSourceEditor::IsFocused() const {
@@ -441,15 +427,16 @@ bool FAssetEditorManager::FSourceEditor::HasUnsavedSource(const std::function<bo
     return mTab.IsVisible() && mIDE.IsDirty() && Predicate(mIDE.GetPath());
 }
 
-FAssetEditorManager::FAssetEditorManager(FEditorContext* Context, Platform::FWindowsApplication* Platform, FEditorAssetCatalog& Catalog, FAssetThumbnailCache& Thumbnails, FEditorWorkspace& Workspace, FEditorCommands& Commands)
+FAssetEditorManager::FAssetEditorManager(FEditorContext* Context, Platform::FWindowsApplication* Platform, FEditorAssetCatalog& Catalog, FAssetThumbnailCache& Thumbnails, FEditorWorkspace& Workspace, FEditorCommands& Commands, FMessageBox& Messages)
 	: mContext{Context},
 	  mPlatform{Platform},
 	  mCatalog{Catalog},
 	  mThumbnails{Thumbnails},
 	  mWorkspace{Workspace},
 	  mCommands{Commands},
-	  mLuaEditor{NativeIDE::EIDELanguage::Lua, "Script IDE", "ScriptIDE", Platform},
-	  mShaderEditor{NativeIDE::EIDELanguage::Hlsl, "Shader IDE", "ShaderIDE", Platform, [Context](const std::filesystem::path& Path, std::string_view Source) {
+	  mMessages{Messages},
+	  mLuaEditor{NativeIDE::EIDELanguage::Lua, "Script IDE", "ScriptIDE", Context, Messages},
+	  mShaderEditor{NativeIDE::EIDELanguage::Hlsl, "Shader IDE", "ShaderIDE", Context, Messages, [Context](const std::filesystem::path& Path, std::string_view Source) {
           return ValidateShaderSource(*Context, Path, Source);
       }, [Context]() {
           auto* Renderer{Context->GetRenderer()};
@@ -519,10 +506,26 @@ bool FAssetEditorManager::IsSourceEditorFocused() const {
     return mLuaEditor.IsFocused() || mShaderEditor.IsFocused();
 }
 
-bool FAssetEditorManager::CanClose() {
-    return mLuaEditor.CanClose() && mShaderEditor.CanClose() && std::all_of(mEditors.begin(), mEditors.end(), [](const auto& Editor) {
-        return Editor->CanClose();
-    });
+Core::TArray<FMessageBox::FSavePrompt> FAssetEditorManager::CollectSavePrompts() {
+    Core::TArray<FMessageBox::FSavePrompt> Prompts{};
+
+    for (FSourceEditor* Source : {&mLuaEditor, &mShaderEditor}) {
+        if (auto Prompt{Source->GetClosePrompt()}) {
+            Prompts.push_back(std::move(*Prompt));
+        }
+    }
+
+    for (const auto& Editor : mEditors) {
+        if (auto Prompt{Editor->GetClosePrompt()}) {
+            Prompts.push_back(std::move(*Prompt));
+        }
+    }
+
+    return Prompts;
+}
+
+void FAssetEditorManager::ConfirmClose(std::function<void()> Action) {
+    mMessages.ConfirmSave(CollectSavePrompts(), std::move(Action));
 }
 
 void FAssetEditorManager::CloseRetired(const std::filesystem::path& Absolute) {
@@ -587,16 +590,13 @@ void FAssetEditorManager::OpenSource(const std::filesystem::path& Path, FSourceE
         return;
     }
 
-    if (!Editor.Open(Absolute, Assets->GetContentRoot())) {
-        mContext->AddLog("Could not read source file " + Core::FilePath::ToGenericUtf8(Path));
-    }
+    Editor.Open(Absolute, Assets->GetContentRoot());
 }
 
 void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, Asset::EAssetType Type) {
     if (Type == Asset::EAssetType::Scene) {
-        if (mCommands.ConfirmSceneChange()) {
-            mContext->LoadScene(Path);
-        }
+        mCommands.OpenLevel(Path);
+
         return;
     }
 
@@ -623,7 +623,7 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
     std::unique_ptr<FAssetEditorToolkit> Toolkit{};
     if (Type == Asset::EAssetType::Material) {
         if (auto* Material{Assets->LoadMaterial(Path, Error)}) {
-            Toolkit = std::make_unique<FMaterialEditorToolkit>(mContext, mPlatform, Path, Material, mCatalog, mThumbnails);
+            Toolkit = std::make_unique<FMaterialEditorToolkit>(mContext, Path, Material, mCatalog, mThumbnails, mMessages);
         }
     } else if (Type == Asset::EAssetType::Texture) {
         if (Asset::UTexture2D* Texture{Assets->LoadTexture(Path, Error)}; Texture != nullptr && Texture->CreateResources(static_cast<ID3D11Device*>(mContext->GetRenderer()->GetNativeDevice()))) {
@@ -634,24 +634,24 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         Content->SetWindowId("###Mesh Viewer:" + Key);
         if (Content->Open(Path, Error)) {
             const Core::FString Name{Content->GetWindowId()};
-            Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content));
+            Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);
         }
     } else if (Type == Asset::EAssetType::AnimGraph) {
         auto Content{std::make_unique<FAnimGraphEditor>(Assets, &mCatalog, &mThumbnails)};
         Content->SetWindowId("###AnimGraphEditor:" + Key);
         if (Content->Open(Path, Error)) {
             const Core::FString Name{Content->GetWindowId()};
-            Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content));
+            Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);
         }
     } else if (Type == Asset::EAssetType::BlendSpace) {
         auto Content{std::make_unique<FBlendSpaceEditor>(Assets, &mCatalog, &mThumbnails)};
         Content->SetWindowId("###BlendSpaceEditor:" + Key);
         if (Content->Open(Path, Error)) {
             const Core::FString Name{Content->GetWindowId()};
-            Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content));
+            Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);
         }
     } else if (Type == Asset::EAssetType::AnimSequence) {
-        auto Content{std::make_unique<FAnimSequenceEditor>(mContext->GetRenderer(), Assets, &mCatalog, &mThumbnails)};
+        auto Content{std::make_unique<FAnimSequenceEditor>(mContext->GetRenderer(), Assets, &mCatalog, &mThumbnails, mMessages)};
         Content->SetWindowId("###AnimSequenceEditor:" + Key);
         if (Content->Open(Path, Error)) {
             Core::FString PreviewMesh{};
@@ -662,7 +662,7 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
                 Content->SetPreviewMesh(Component->GetMeshPath(), Component->GetSkeletonPath());
             }
             const Core::FString Name{Content->GetWindowId()};
-            Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content));
+            Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);
         }
     }
 

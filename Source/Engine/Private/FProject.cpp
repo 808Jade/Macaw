@@ -191,6 +191,7 @@ namespace Engine {
         Uint32 Version{};
         Core::FString Name{};
         Core::FString StartupScene{};
+        bool ForwardShading{};
 
         Archive.Serialize("Version", Version);
 
@@ -210,6 +211,10 @@ namespace Engine {
 
         Archive.Serialize("Name", Name);
         Archive.Serialize("StartupScene", StartupScene);
+
+        if (Archive.HasField("ForwardShading")) {
+            Archive.Serialize("ForwardShading", ForwardShading);
+        }
 
         if (Archive.HasError() || Name.empty() || Name.find('\0') != Core::FString::npos || StartupScene.empty() || StartupScene.find('\0') != Core::FString::npos) {
             Error = Archive.HasError() ? Archive.GetError() : "Unsupported or invalid project settings";
@@ -238,6 +243,7 @@ namespace Engine {
         mFilePath = File;
         mName = std::move(Name);
         mStartupScene = RelativePath;
+        mForwardShading = ForwardShading;
         mParticleSystems.reset();
         mAssets = std::move(Assets);
         mParticleSystems = std::move(ParticleSystems);
@@ -261,10 +267,12 @@ namespace Engine {
         Uint32 Version{mVersion};
         Core::FString Name{mName};
         Core::FString StartupScene{mStartupScene};
+        bool ForwardShading{mForwardShading};
 
         Archive.Serialize("Version", Version);
         Archive.Serialize("Name", Name);
         Archive.Serialize("StartupScene", StartupScene);
+        Archive.Serialize("ForwardShading", ForwardShading);
 
         const bool Saved{!Archive.HasError() && Archive.Save(mFilePath)};
 
@@ -295,6 +303,24 @@ namespace Engine {
 
         if (!Save(Error)) {
             mStartupScene = Previous;
+
+            return false;
+        }
+
+        return true;
+    }
+
+    bool Engine::FProject::UsesForwardShading() const {
+        return mForwardShading;
+    }
+
+    bool Engine::FProject::SetForwardShading(bool ForwardShading, Core::FString& Error) {
+        const bool Previous{mForwardShading};
+
+        mForwardShading = ForwardShading;
+
+        if (!Save(Error)) {
+            mForwardShading = Previous;
 
             return false;
         }

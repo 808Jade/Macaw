@@ -8,6 +8,7 @@
 
 #include "Core/ReflectionMacros.h"
 #include "CoreUObject/UObject.h"
+#include "Engine/Tick/FTickFunction.h"
 #include "UActorComponent.generated.h"
 
 namespace Engine {
@@ -59,13 +60,13 @@ namespace Engine {
         Engine::UWorld* GetWorld() const;
 
         /**
-         * @brief 컴포넌트를 월드에 연결하고 필요한 렌더 상태를 등록합니다.
+         * @brief 컴포넌트를 월드에 연결하고 렌더 상태와 Tick 함수를 등록합니다.
          * @param[in,out] World 컴포넌트를 등록할 월드입니다.
          */
         virtual void RegisterComponent(Engine::UWorld* World);
 
         /**
-         * @brief 등록된 렌더 상태와 월드 연결을 해제합니다.
+         * @brief 렌더 상태, Tick 등록과 월드 연결을 해제합니다.
          */
         virtual void UnregisterComponent();
 
@@ -82,8 +83,8 @@ namespace Engine {
         virtual void BeginPlay();
 
         /**
-         * @brief 컴포넌트의 실행 또는 허용된 편집 갱신 시 호출되는 확장 지점입니다.
-         * @param[in] DeltaTime 이번 갱신이 진행하는 초 단위 시간입니다.
+         * @brief 기본 컴포넌트 Tick 함수가 실행 차례에 호출하는 갱신 확장 지점입니다.
+         * @param[in] DeltaTime 호출에 전달된 초 단위 시간 간격입니다.
          */
         virtual void Tick(float DeltaTime);
 
@@ -110,6 +111,26 @@ namespace Engine {
          */
         void SetEditorTickable(bool EditorTickable);
 
+        /** @brief 이 컴포넌트의 Tick()을 호출하는 기본 Tick 함수의 참조를 반환합니다. */
+        Engine::FActorComponentTickFunction& GetPrimaryComponentTick();
+
+        /** @brief 컴포넌트의 기본 Tick에 설정된 그룹을 반환합니다. */
+        Engine::ETickingGroup GetTickGroup() const;
+
+        /**
+         * @brief 컴포넌트의 기본 Tick에 설정할 그룹을 지정합니다.
+         * @param[in] Group 컴포넌트의 기본 Tick이 시작할 수 있는 가장 이른 그룹입니다.
+         * @return 지정할 수 있는 그룹이면 true입니다.
+         */
+        bool SetTickGroup(Engine::ETickingGroup Group);
+
+        /**
+         * @brief 이 컴포넌트의 기본 Tick을 소유 액터의 레벨에 등록하거나 등록을 해제합니다.
+         * @param[in] Register 등록할 때 true이고 해제할 때 false입니다.
+         * @details 별도의 Tick 함수를 소유하는 파생 클래스는 이 함수를 재정의해 함께 등록하고 해제할 수 있습니다.
+         */
+        virtual void RegisterComponentTickFunctions(bool Register);
+
     private:
         /**
          * @brief 월드에 등록된 컴포넌트가 참조하는 에셋과 렌더 상태를 준비합니다.
@@ -131,13 +152,6 @@ namespace Engine {
          * @brief 시작 상태를 설정하고 중복되지 않도록 시작 콜백을 전달합니다.
          */
         void DispatchBeginPlay();
-
-        /**
-         * @brief 등록된 컴포넌트의 실행 상태 또는 편집 Tick 설정에 따라 갱신을 전달합니다.
-         * @param[in] DeltaTime 이번 갱신의 초 단위 시간입니다.
-         * @param[in] EditorTick BeginPlay 없이 편집 Tick 설정을 검사할지 지정합니다.
-         */
-        void DispatchTick(float DeltaTime, bool EditorTick);
 
         /**
          * @brief 시작 상태를 먼저 해제하여 종료 콜백의 중복 전달을 막습니다.
@@ -165,6 +179,10 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize)
         bool mEditorTickable{};
+
+        /** @brief 컴포넌트의 Tick()을 호출하는 기본 함수이며, 설정 그룹을 편집 및 직렬화에 노출합니다. */
+        UPROPERTY(Edit, Serialize, Name = "TickGroup", Getter = GetTickGroup, Setter = SetTickGroup)
+        Engine::FActorComponentTickFunction mPrimaryComponentTick{*this};
     };
 
 }

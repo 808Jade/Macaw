@@ -23,9 +23,9 @@
 #include "Asset/UTexture2D.h"
 #include "Asset/UMaterial.h"
 #include "Renderer/FLineVertex.h"
+#include "Core/Types.h"
 
 #include <d3d11.h>
-#include <array>
 #include <span>
 #include <wrl/client.h>
 
@@ -255,6 +255,7 @@ namespace Renderer {
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
         bool ReloadChangedShaders() override;
+        bool ReloadAllShaders() override;
         Core::TArray<RenderCore::FShaderDescription> GetShaderValidationTargets(const std::filesystem::path& Path) const override;
 
         /**
@@ -294,7 +295,8 @@ namespace Renderer {
          * @param[in] ContentRoot 프로젝트 에셋 경로의 기준 콘텐츠 폴더입니다.
          * @param[in] CacheDirectory 컴파일된 셰이더의 캐시 파일을 보관할 폴더입니다.
          */
-        void SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory);
+        void SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory, bool ForwardShading = false);
+        bool UsesForwardShading() const override;
 
     private:
         /**
@@ -332,6 +334,7 @@ namespace Renderer {
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
         bool CreateShaders();
+        bool ReloadShaders(bool ForceCompile);
 
         /**
          * @brief 고정 에디터 메시의 로컬 정점과 인덱스를 종류별 불변 GPU 버퍼에 업로드합니다.
@@ -468,6 +471,7 @@ namespace Renderer {
          * @brief GBuffer 조명 합성 패스의 소유 포인터입니다.
          */
         std::unique_ptr<Renderer::FDeferredLightingPass> mDeferredLightingPass{};
+        bool mForwardShading{};
 
         /**
          * @brief 머티리얼이 없는 메시 드로에 사용할 기본 머티리얼의 소유 객체입니다.
@@ -627,7 +631,7 @@ namespace Renderer {
         /**
          * @brief 프리미티브 종류별 GPU 메시입니다.
          */
-        std::array<std::unique_ptr<Asset::UStaticMesh>, 3> mMeshes{};
+        Core::TStaticArray<std::unique_ptr<Asset::UStaticMesh>, 3> mMeshes{};
 
         /**
          * @brief 업로드할 보조 선분 정점입니다.
@@ -682,7 +686,7 @@ namespace Renderer {
         /**
          * @brief 렌더러가 초기화 때 생성하고 종료 때 해제하는 enum별 불변 GPU 정점·인덱스 버퍼입니다.
          */
-        std::array<std::unique_ptr<Asset::UStaticMesh>, static_cast<std::size_t>(Engine::EEditorMesh::Count)> mEditorMeshes{};
+        Core::TStaticArray<std::unique_ptr<Asset::UStaticMesh>, static_cast<std::size_t>(Engine::EEditorMesh::Count)> mEditorMeshes{};
     };
 
 }

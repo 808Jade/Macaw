@@ -8,8 +8,8 @@
 
 #include "FMeshPass.h"
 #include "Engine/EShadowBiasPreset.h"
+#include "Core/Types.h"
 
-#include <array>
 #include <wrl/client.h>
 
 namespace Renderer {
@@ -82,7 +82,7 @@ namespace Renderer {
         /**
          * @brief 깊이·경사 바이어스 프리셋 조합별 래스터라이저 상태 캐시입니다.
          */
-        std::array<std::array<Microsoft::WRL::ComPtr<ID3D11RasterizerState>, Engine::ShadowBiasPresetCount>, Engine::ShadowBiasPresetCount> mRasterizers{};
+        Core::TStaticArray<Core::TStaticArray<Microsoft::WRL::ComPtr<ID3D11RasterizerState>, Engine::ShadowBiasPresetCount>, Engine::ShadowBiasPresetCount> mRasterizers{};
     };
 
 }

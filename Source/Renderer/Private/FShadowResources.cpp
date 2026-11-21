@@ -332,7 +332,7 @@ namespace Renderer {
                     PreviousBlend = BlendStart;
                     PreviousSplit = Split;
                 } else {
-                    const std::array<FVector, 6> Directions{{{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}};
+                    const Core::TStaticArray<FVector, 6> Directions{{{1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}}};
                     const FVector Direction{Light.mType == Engine::ELightType::Point ? Directions[Face] : Light.mDirection};
                     const float NearPlane{std::min(0.05f, Light.mAttenuationRadius * 0.01f)};
                     const float FieldOfView{Light.mType == Engine::ELightType::Point ? 90.0f : std::clamp(Light.mOuterConeAngle * 2.0f, 1.0f, 179.0f)};
@@ -506,7 +506,7 @@ namespace Renderer {
 
         Context->OMSetRenderTargets(0, nullptr, nullptr);
 
-        const std::array<FVector4, 3> ViewData{{{Family.mView.mLocation, 0.0f}, {Family.mView.mForward, 0.0f}, {static_cast<float>(mSettings.mFilter), static_cast<float>(mSettings.mPCFSize / 2), mSettings.mPCSSMaxFilterTexels, 0.0f}}};
+        const Core::TStaticArray<FVector4, 3> ViewData{{{Family.mView.mLocation, 0.0f}, {Family.mView.mForward, 0.0f}, {static_cast<float>(mSettings.mFilter), static_cast<float>(mSettings.mPCFSize / 2), mSettings.mPCSSMaxFilterTexels, 0.0f}}};
 
         mViewBuffer.Update(Context, ViewData);
         mEnabled = true;
@@ -595,7 +595,7 @@ namespace Renderer {
     /**
      * @brief 원본 광원별 그림자 맵 구간을 반환합니다.
      */
-    const Core::TArray<std::array<Uint32, 2>>& Renderer::FShadowResources::GetLightRanges() const {
+    const Core::TArray<Core::TStaticArray<Uint32, 2>>& Renderer::FShadowResources::GetLightRanges() const {
         return mLightRanges;
     }
 

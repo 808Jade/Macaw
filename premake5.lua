@@ -38,6 +38,7 @@ workspace "Macaw"
 
 filter "configurations:*Debug"
     symbols "On"
+    debugformat "c7"
     runtime "Debug"
     defines { "_DEBUG" }
 

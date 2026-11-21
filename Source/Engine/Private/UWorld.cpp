@@ -540,12 +540,14 @@ namespace Engine {
     }
 
     /**
-     * @brief Playing 상태의 게임 갱신 또는 정지한 편집 월드의 선택적 갱신을 수행합니다.
+     * @brief 월드 상태에 따라 일반 게임, 편집 또는 일시정지 Tick을 수행합니다.
      */
     bool Engine::UWorld::Tick(float DeltaTime) {
         const bool EditorTick{mPlayState == Engine::EWorldPlayState::Stopped && (mWorldType == Engine::EWorldType::Editor || mWorldType == Engine::EWorldType::EditorPreview)};
 
-        return (mPlayState == Engine::EWorldPlayState::Playing || EditorTick) && TickActors(DeltaTime, EditorTick);
+        const bool PauseTick{mPlayState == Engine::EWorldPlayState::Paused};
+
+        return (mPlayState == Engine::EWorldPlayState::Playing || EditorTick || PauseTick) && TickActors(DeltaTime, EditorTick, PauseTick);
     }
 
     /**
@@ -562,10 +564,10 @@ namespace Engine {
     }
 
     /**
-     * @brief Paused 상태를 유지하면서 게임 갱신을 한 번 수행합니다.
+     * @brief Paused 상태에서 일반 게임 프레임을 한 번 수행합니다.
      */
     bool Engine::UWorld::Step(float DeltaTime) {
-        return mPlayState == Engine::EWorldPlayState::Paused && DeltaTime > 0.0f && TickActors(DeltaTime, false);
+        return mPlayState == Engine::EWorldPlayState::Paused && DeltaTime > 0.0f && TickActors(DeltaTime, false, false);
     }
 
     /**
@@ -662,10 +664,11 @@ namespace Engine {
     }
 
     /**
-     * @brief 시간을 검증하고 액터 핸들 스냅샷으로 갱신을 전달합니다.
+     * @brief 시간과 실행 상태를 검증하고 일반 그룹 또는 일시정지 Tick을 실행합니다.
+     * @details 일시정지는 별도 큐를 실행합니다. 일반 게임 프레임은 PostPhysics 뒤에 겹침과 카메라를 갱신한 다음 나머지 그룹을 처리합니다.
      */
-    bool Engine::UWorld::TickActors(float DeltaTime, bool EditorTick) {
-        if (!std::isfinite(DeltaTime) || DeltaTime < 0.0f || (!EditorTick && !std::isfinite(mTimeSeconds + DeltaTime)) || IsDispatching() || mShuttingDown) {
+    bool Engine::UWorld::TickActors(float DeltaTime, bool EditorTick, bool PauseTick) {
+        if (!std::isfinite(DeltaTime) || DeltaTime < 0.0f || (!EditorTick && !PauseTick && !std::isfinite(mTimeSeconds + DeltaTime)) || IsDispatching() || mShuttingDown) {
             return false;
         }
 
@@ -675,6 +678,10 @@ namespace Engine {
 
         FDispatchScope Scope{this};
 
+        if (PauseTick) {
+            return mTickTaskManager.RunPauseFrame(*this, DeltaTime);
+        }
+
         if (!EditorTick) {
             if (mLuaRuntime != nullptr) {
                 mLuaRuntime->ReloadChangedScripts();
@@ -683,17 +690,16 @@ namespace Engine {
             ++mTickCount;
         }
 
-        const auto Handles{GetActorRefs()};
-
-        for (const CoreUObject::TObjectRef<Engine::AActor> Handle : Handles) {
-            if (mEndPlayRequested || mShutdownRequested) {
-                break;
-            }
-
-            if (Engine::AActor* Actor{ResolveActor(Handle)}; Actor != nullptr && !Actor->IsPendingDestroy()) {
-                Actor->DispatchTick(DeltaTime, EditorTick);
-            }
-        }
+        mTickTaskManager.StartFrame(*this, DeltaTime, EditorTick);
+        mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PrePhysics);
+        mTickTaskManager.RunTickGroup(Engine::ETickingGroup::StartPhysics);
+        mTickTaskManager.RunTickGroup(Engine::ETickingGroup::DuringPhysics);
+        //
+        // ** Week13 ** 
+        // 여기에 물리 엔진 처리를 넣으세요.
+        //
+        mTickTaskManager.RunTickGroup(Engine::ETickingGroup::EndPhysics);
+        mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PostPhysics);
 
         if (!EditorTick && !mEndPlayRequested && !mShutdownRequested) {
             UpdateOverlaps();
@@ -703,6 +709,10 @@ namespace Engine {
         if (Engine::APlayerCameraManager* CameraManager{GetPlayerCameraManager()}; !EditorTick && !mEndPlayRequested && !mShutdownRequested && CameraManager != nullptr) {
             CameraManager->UpdateCamera(DeltaTime);
         }
+
+        mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PostUpdateWork);
+        mTickTaskManager.RunTickGroup(Engine::ETickingGroup::LastDemotable);
+        mTickTaskManager.EndFrame();
 
         if (!EditorTick && mLuaRuntime != nullptr) {
             mLuaRuntime->ClearFrameInput();

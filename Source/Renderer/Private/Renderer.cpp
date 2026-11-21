@@ -79,7 +79,7 @@ namespace Renderer {
                 return ProjectPath;
             }
 
-            std::array<wchar_t, 32768> Executable{};
+            Core::TStaticArray<wchar_t, 32768> Executable{};
             const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
             const std::filesystem::path EnginePath{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content" / RelativePath : ProjectPath};
 
@@ -113,11 +113,16 @@ namespace Renderer {
     /**
      * @brief 프로젝트 콘텐츠의 셰이더 경로와 컴파일 캐시 경로를 설정합니다.
      */
-    void Renderer::FRenderer::SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory) {
+    void Renderer::FRenderer::SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory, bool ForwardShading) {
         mMaterialPipelines.clear();
         mShaderInstances.clear();
         mShaderDirectory = ContentRoot / "Shaders";
         mShaderManager.SetCacheDirectory(CacheDirectory);
+        mForwardShading = ForwardShading;
+    }
+
+    bool Renderer::FRenderer::UsesForwardShading() const {
+        return mForwardShading;
     }
 
     /**
@@ -144,7 +149,7 @@ namespace Renderer {
             Core::ErrorHandler::Fatal("Renderer", "Render pipeline creation failed");
         }
 
-        MACAW_LOG(LogRenderer, Log, "Render pipeline and editor meshes initialized.");
+        MACAW_LOG(LogRenderer, Log, "{} render pipeline and editor meshes initialized.", mForwardShading ? "Forward" : "Deferred");
 
         return true;
     }
@@ -319,7 +324,7 @@ namespace Renderer {
      * @brief 지정한 픽셀 크기의 오프스크린 렌더 타깃을 생성합니다.
      */
     std::unique_ptr<Engine::FRenderTarget> Renderer::FRenderer::CreateRenderTarget(Uint32 Width, Uint32 Height) {
-        auto Target{std::make_unique<Renderer::FDXRenderTarget>()};
+        auto Target{std::make_unique<Renderer::FDXRenderTarget>(mForwardShading)};
 
         return mDevice != nullptr && Target->Resize(mDevice.Get(), Width, Height) ? std::move(Target) : nullptr;
     }
@@ -412,7 +417,7 @@ namespace Renderer {
     /**
      * @brief 지정한 장면 뷰를 타깃에 렌더링하고 에디터 보조 선분을 그립니다.
      */
-    void Renderer::FRenderer::BeginRenderingViewFamily(const Engine::FSceneViewFamily& Family) {
+    void Renderer::FRenderer::BeginRenderingViewFamily(const Engine::FSceneViewFamily& RequestedFamily) {
         static Core::FStat RenderTime{"unit", "Render submission CPU (inclusive)", Core::EStatUnit::Milliseconds};
         static Core::FStat Views{"render", "Rendered views"};
         static Core::FStat DrawCalls{"render", "Scene/editor draw calls"};
@@ -421,6 +426,12 @@ namespace Renderer {
         static Core::FStat GpuBytes{"memory", "GPU buffers/target estimate (last view)", Core::EStatUnit::Bytes, Core::EStatMode::Gauge};
         const Core::FScopedStatTimer StatTimer{RenderTime};
         const RenderCore::FRenderStats PreviousStats{mStats};
+        Engine::FSceneViewFamily Family{RequestedFamily};
+
+        if (mForwardShading && Engine::RequiresDeferredShading(Family.mViewMode)) {
+            Family.mViewMode = Engine::EViewMode::Lit_Phong;
+        }
+
         const auto* Scene{dynamic_cast<const Renderer::FScene*>(Family.mScene)};
         auto* Target{dynamic_cast<Renderer::FDXRenderTarget*>(Family.mTarget)};
 
@@ -449,21 +460,23 @@ namespace Renderer {
         constexpr float ClearColor[]{0.065f, 0.078f, 0.10f, 1.0f};
         const Renderer::FPassTarget SceneTarget{Target->GetSceneColor()->GetRenderTargetView(), Target->GetDepthView(), {0.0f, 0.0f, static_cast<float>(Target->GetWidth()), static_cast<float>(Target->GetHeight()), 0.0f, 1.0f}};
         Renderer::FMeshPassParameters OpaqueParameters{};
-        OpaqueParameters.mTarget.mDepth = SceneTarget.mDepth;
-        OpaqueParameters.mTarget.mViewport = SceneTarget.mViewport;
+        OpaqueParameters.mTarget = SceneTarget;
+        OpaqueParameters.mColorAttachments = {&SceneTarget.mColor, 1};
         OpaqueParameters.mViewProjection = Family.mView.mViewProjection;
-        std::array<ID3D11RenderTargetView*, Renderer::GBuffer::AttachmentCount> Attachments{};
+        Core::TStaticArray<ID3D11RenderTargetView*, Renderer::GBuffer::AttachmentCount> Attachments{};
 
-        for (Index_t Index{}; Index < Attachments.size(); ++Index) {
-            Attachments[Index] = Target->GetGBuffer()[Index]->GetRenderTargetView();
+        if (!mForwardShading) {
+            for (Index_t Index{}; Index < Attachments.size(); ++Index) {
+                Attachments[Index] = Target->GetGBuffer()[Index]->GetRenderTargetView();
+            }
+
+            OpaqueParameters.mColorAttachments = Attachments;
         }
-
-        OpaqueParameters.mColorAttachments = Attachments;
 
         ClearTarget(SceneTarget, ClearColor);
         const bool Visualization{Engine::IsBufferVisualization(Family.mViewMode)};
         const bool ShowDecals{!Visualization || Family.mViewMode == Engine::EViewMode::WorldNormal || Family.mViewMode == Engine::EViewMode::BaseColor || Family.mViewMode == Engine::EViewMode::BaseColorAlpha};
-        const bool DrawDecals{Family.mShowFlags.mPrimitives && !Scene->GetDecals().empty() && ShowDecals && Family.mViewMode != Engine::EViewMode::Wireframe};
+        const bool DrawDecals{!mForwardShading && Family.mShowFlags.mPrimitives && !Scene->GetDecals().empty() && ShowDecals && Family.mViewMode != Engine::EViewMode::Wireframe};
         const bool MarkDecalReceivers{DrawDecals || Family.mViewMode == Engine::EViewMode::SceneStencil};
         const bool NeedsLighting{Family.mViewMode != Engine::EViewMode::Unlit && Family.mViewMode != Engine::EViewMode::WorldNormal};
 
@@ -472,7 +485,7 @@ namespace Renderer {
                 mStats.mDrawCalls += mDecalPass->Render(mDevice.Get(), mContext.Get(), *Target, Family, Scene->GetDecals());
             }
 
-            if (Family.mViewMode != Engine::EViewMode::SceneDepth) {
+            if (mDeferredLightingPass != nullptr && Family.mViewMode != Engine::EViewMode::SceneDepth) {
                 mStats.mDrawCalls += mDeferredLightingPass->Render(mContext.Get(), *Target, SceneTarget, Family, mRasterizer.Get());
             }
         }
@@ -712,13 +725,21 @@ namespace Renderer {
      * @brief 변경된 셰이더를 다시 컴파일하고 필요한 GPU 셰이더를 갱신합니다.
      */
     bool Renderer::FRenderer::ReloadChangedShaders() {
+        return ReloadShaders(false);
+    }
+
+    bool Renderer::FRenderer::ReloadAllShaders() {
+        return ReloadShaders(true);
+    }
+
+    bool Renderer::FRenderer::ReloadShaders(bool ForceCompile) {
         if (mDevice == nullptr) {
             return false;
         }
 
         Core::TArray<CoreUObject::TObjectRef<RenderCore::UShader>> ChangedShaders{};
         Core::FString Diagnostics{};
-        const bool Success{mShaderManager.ReloadChanged(ChangedShaders, Diagnostics)};
+        const bool Success{ForceCompile ? mShaderManager.ReloadAll(ChangedShaders, Diagnostics) : mShaderManager.ReloadChanged(ChangedShaders, Diagnostics)};
 
         mShadersDirty = mShadersDirty || !ChangedShaders.empty();
 
@@ -809,7 +830,7 @@ namespace Renderer {
             return false;
         }
 
-        const std::array<D3D11_INPUT_ELEMENT_DESC, 3> LineElements{{{"START", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mStartAndWidth), D3D11_INPUT_PER_INSTANCE_DATA, 1}, {"END", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mEnd), D3D11_INPUT_PER_INSTANCE_DATA, 1}, {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mColor), D3D11_INPUT_PER_INSTANCE_DATA, 1}}};
+        const Core::TStaticArray<D3D11_INPUT_ELEMENT_DESC, 3> LineElements{{{"START", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mStartAndWidth), D3D11_INPUT_PER_INSTANCE_DATA, 1}, {"END", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mEnd), D3D11_INPUT_PER_INSTANCE_DATA, 1}, {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Renderer::FLineVertex, mColor), D3D11_INPUT_PER_INSTANCE_DATA, 1}}};
 
         if (FAILED(mDevice->CreateVertexShader(VertexCode->GetByteCode().data(), VertexCode->GetByteCode().size(), nullptr, LineVertex.GetAddressOf())) || FAILED(mDevice->CreatePixelShader(PixelCode->GetByteCode().data(), PixelCode->GetByteCode().size(), nullptr, LinePixel.GetAddressOf())) || FAILED(mDevice->CreateInputLayout(LineElements.data(), static_cast<UINT>(LineElements.size()), VertexCode->GetByteCode().data(), VertexCode->GetByteCode().size(), LineLayout.GetAddressOf()))) {
             Core::ErrorHandler::Report("Renderer", "Line pipeline allocation failed", Core::ErrorHandler::EErrorLevel::Error);
@@ -824,7 +845,7 @@ namespace Renderer {
             return false;
         }
 
-        const std::array<D3D11_INPUT_ELEMENT_DESC, 1> OverlayElements{{{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0}}};
+        const Core::TStaticArray<D3D11_INPUT_ELEMENT_DESC, 1> OverlayElements{{{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0}}};
 
         if (FAILED(mDevice->CreateVertexShader(VertexCode->GetByteCode().data(), VertexCode->GetByteCode().size(), nullptr, GizmoVertex.GetAddressOf())) || FAILED(mDevice->CreatePixelShader(PixelCode->GetByteCode().data(), PixelCode->GetByteCode().size(), nullptr, GizmoPixel.GetAddressOf())) || FAILED(mDevice->CreateInputLayout(OverlayElements.data(), static_cast<UINT>(OverlayElements.size()), VertexCode->GetByteCode().data(), VertexCode->GetByteCode().size(), OverlayLayout.GetAddressOf()))) {
             Core::ErrorHandler::Report("Renderer", "Gizmo pipeline allocation failed", Core::ErrorHandler::EErrorLevel::Error);
@@ -844,11 +865,11 @@ namespace Renderer {
             return false;
         }
 
-        if (!Compile("Decal.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("Decal.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mDecalPass->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+        if (mDecalPass != nullptr && (!Compile("Decal.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("Decal.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mDecalPass->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode()))) {
             return false;
         }
 
-        if (!Compile("DeferredLighting.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("DeferredLighting.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mDeferredLightingPass->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+        if (mDeferredLightingPass != nullptr && (!Compile("DeferredLighting.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("DeferredLighting.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mDeferredLightingPass->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode()))) {
             return false;
         }
 
@@ -924,8 +945,6 @@ namespace Renderer {
         mShadowDepthPass = std::make_unique<Renderer::FShadowDepthPass>(*this, mDevice.Get(), mContext.Get(), mMeshes);
         mOpaqueMeshPass = std::make_unique<Renderer::FOpaqueMeshPass>(*this, mDevice.Get(), mContext.Get(), mMeshes);
         mTranslucencyMeshPass = std::make_unique<Renderer::FTranslucencyMeshPass>(*this, mDevice.Get(), mContext.Get(), mMeshes);
-        mDecalPass = std::make_unique<Renderer::FDecalPass>();
-        mDeferredLightingPass = std::make_unique<Renderer::FDeferredLightingPass>();
         mTextRenderer = std::make_unique<Renderer::FTextRenderer>();
         mSpriteRenderer = std::make_unique<Renderer::FSpriteRenderer>();
         mPostProcessResources = std::make_unique<Renderer::FPostProcessResources>();
@@ -939,7 +958,7 @@ namespace Renderer {
         D3D11_BLEND_DESC Blend{};
         Blend.RenderTarget[0] = {true, D3D11_BLEND_SRC_ALPHA, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD, D3D11_BLEND_ONE, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD, D3D11_COLOR_WRITE_ENABLE_ALL};
 
-        if (FAILED(mDevice->CreateBlendState(&Blend, mOverlayBlend.GetAddressOf())) || !mDecalPass->Initialize(mDevice.Get(), Blend)) {
+        if (FAILED(mDevice->CreateBlendState(&Blend, mOverlayBlend.GetAddressOf()))) {
             return false;
         }
 
@@ -947,8 +966,13 @@ namespace Renderer {
             return false;
         }
 
-        if (!mDeferredLightingPass->Initialize(mDevice.Get())) {
-            return false;
+        if (!mForwardShading) {
+            mDecalPass = std::make_unique<Renderer::FDecalPass>();
+            mDeferredLightingPass = std::make_unique<Renderer::FDeferredLightingPass>();
+
+            if (!mDecalPass->Initialize(mDevice.Get(), Blend) || !mDeferredLightingPass->Initialize(mDevice.Get())) {
+                return false;
+            }
         }
 
         if (!mGridResources->Initialize(mDevice.Get())) {
@@ -1045,7 +1069,7 @@ namespace Renderer {
         GBufferDepth.FrontFace = {D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_REPLACE, D3D11_COMPARISON_ALWAYS};
         GBufferDepth.BackFace = GBufferDepth.FrontFace;
 
-        if (FAILED(mDevice->CreateDepthStencilState(&GBufferDepth, mGBufferDepth.GetAddressOf()))) {
+        if (!mForwardShading && FAILED(mDevice->CreateDepthStencilState(&GBufferDepth, mGBufferDepth.GetAddressOf()))) {
             return false;
         }
 
@@ -1262,7 +1286,7 @@ namespace Renderer {
 
         const std::filesystem::path VertexSource{mShaderDirectory / (Skinned ? "SkinnedMesh.vs.hlsl" : "StaticMesh.vs.hlsl")};
         const bool OverridePixel{Mode == Engine::EViewMode::Unlit || Mode == Engine::EViewMode::WorldNormal};
-        const bool WritesGBuffer{!Translucent && (Shader->WritesGBuffer() || OverridePixel)};
+        const bool WritesGBuffer{!mForwardShading && !Translucent && (Shader->WritesGBuffer() || OverridePixel)};
         const std::filesystem::path PixelSource{OverridePixel ? mShaderDirectory / "Lit.hlsl" : mShaderDirectory.parent_path() / RelativePath};
         RenderCore::FShaderDescription VertexDescription{};
         VertexDescription.mSourcePath = VertexSource;
@@ -1398,7 +1422,7 @@ namespace Renderer {
     bool Renderer::FRenderer::PrepareLighting(const Engine::FSceneViewFamily& Family) {
         const auto* Scene{static_cast<const Renderer::FScene*>(Family.mScene)};
 
-        return mLightingResources != nullptr && mLightingResources->Upload(mDevice.Get(), mContext.Get(), Scene->GetLights(), Family.mView, mShadowResources != nullptr ? std::span<const std::array<Uint32, 2>>{mShadowResources->GetLightRanges()} : std::span<const std::array<Uint32, 2>>{});
+        return mLightingResources != nullptr && mLightingResources->Upload(mDevice.Get(), mContext.Get(), Scene->GetLights(), Family.mView, mShadowResources != nullptr ? std::span<const Core::TStaticArray<Uint32, 2>>{mShadowResources->GetLightRanges()} : std::span<const Core::TStaticArray<Uint32, 2>>{});
     }
 
     /**
@@ -1583,7 +1607,7 @@ namespace Renderer {
 
             const Uint32 InstanceCount{static_cast<Uint32>(End - First)};
 
-            if (OpaquePass) {
+            if (OpaquePass && !mForwardShading) {
                 const Uint32 SurfaceStencil{Command.mPipeline->WritesGBuffer() ? Renderer::GBuffer::Surface : Renderer::GBuffer::Prelit};
                 const Uint32 Stencil{SurfaceStencil | (MarkDecalReceivers && ReceivesDecals ? Renderer::GBuffer::ReceivesDecals : 0u)};
 
@@ -1627,8 +1651,8 @@ namespace Renderer {
                 mContext->VSSetShaderResources(1, 1, &NormalResource);
                 mContext->PSSetShaderResources(1, 1, &NormalResource);
 
-                const std::array<Asset::UTexture2D*, 3> LightingTextures{Command.mMaterial->GetSpecularTexture(), Command.mMaterial->GetEmissiveTexture(), Command.mMaterial->GetReflectionTexture()};
-                const std::array<ID3D11ShaderResourceView*, 3> LightingResources{LightingTextures[0] != nullptr ? LightingTextures[0]->GetShaderResourceView() : nullptr, LightingTextures[1] != nullptr ? LightingTextures[1]->GetShaderResourceView() : nullptr, LightingTextures[2] != nullptr ? LightingTextures[2]->GetShaderResourceView() : nullptr};
+                const Core::TStaticArray<Asset::UTexture2D*, 3> LightingTextures{Command.mMaterial->GetSpecularTexture(), Command.mMaterial->GetEmissiveTexture(), Command.mMaterial->GetReflectionTexture()};
+                const Core::TStaticArray<ID3D11ShaderResourceView*, 3> LightingResources{LightingTextures[0] != nullptr ? LightingTextures[0]->GetShaderResourceView() : nullptr, LightingTextures[1] != nullptr ? LightingTextures[1]->GetShaderResourceView() : nullptr, LightingTextures[2] != nullptr ? LightingTextures[2]->GetShaderResourceView() : nullptr};
 
                 mContext->PSSetShaderResources(7, static_cast<UINT>(LightingResources.size()), LightingResources.data());
 
@@ -1648,12 +1672,14 @@ namespace Renderer {
                 LastMesh = Command.mMesh;
             }
 
+            const UINT FirstIndex{static_cast<UINT>(Command.mFirstIndex)};
+
             if (Command.mPipeline->IsInstanced()) {
-                mContext->DrawIndexedInstanced(Command.mIndexCount, InstanceCount, Command.mFirstIndex, 0, static_cast<UINT>(First));
+                mContext->DrawIndexedInstanced(Command.mIndexCount, InstanceCount, FirstIndex, 0, static_cast<UINT>(First));
             } else {
                 Command.mPrimitive->mObjectBuffer.Bind(mContext.Get(), RenderCore::EShaderStage::Vertex | RenderCore::EShaderStage::Pixel, 0);
 
-                mContext->DrawIndexed(Command.mIndexCount, Command.mFirstIndex, 0);
+                mContext->DrawIndexed(Command.mIndexCount, FirstIndex, 0);
             }
 
             if (SurfacePass) {
@@ -1676,7 +1702,7 @@ namespace Renderer {
             mContext->VSSetShaderResources(1, 1, &Empty);
             mContext->PSSetShaderResources(1, 1, &Empty);
 
-            const std::array<ID3D11ShaderResourceView*, 3> EmptyLightingResources{};
+            const Core::TStaticArray<ID3D11ShaderResourceView*, 3> EmptyLightingResources{};
 
             mContext->PSSetShaderResources(7, static_cast<UINT>(EmptyLightingResources.size()), EmptyLightingResources.data());
         }

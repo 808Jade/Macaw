@@ -117,6 +117,24 @@ namespace Editor {
             }
         }});
 
+        mConsoleCommands.Register({"Reload Shader", {}, {}, [this](const Editor::FConsoleInvocation& Invocation) {
+            if (!Invocation.mArguments.empty()) {
+                AddLog(MakeUsage(Invocation));
+
+                return;
+            }
+
+            RenderCore::IRendererModule* Renderer{GetRenderer()};
+
+            if (Renderer == nullptr) {
+                AddLog("Reload Shader: renderer is unavailable.");
+
+                return;
+            }
+
+            AddLog(Renderer->ReloadAllShaders() ? "All loaded shaders reloaded." : "Shader reload failed. See the Console for details.");
+        }});
+
         mConsoleCommands.Register({"Allow Tearing", "[on/off/status]", {"on", "off", "status"}, [this](const Editor::FConsoleInvocation& Invocation) {
             ExecuteAllowTearing(Invocation);
         }});

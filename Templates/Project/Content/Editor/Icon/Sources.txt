@@ -33,3 +33,13 @@ Dependency manifest: https://github.com/chenyong2github/UnrealEngine/blob/5.3/En
 Source pack: https://cdn.unrealengine.com/dependencies/UnrealEngine-25328963/dd96d4839230d33af54b544692ae913c184bbbd0
 Uncompressed pack offset: 1229606, file size: 8021 bytes
 Verified Unreal Engine SHA-1: be4eb3e5a999a1719ff1307db9d546b8b759e88d
+
+Unreal Engine 5.8 Place Actors icons rasterized from Engine/Content/Editor/Slate/Starship/AssetIcons/
+EmptyActor_64x.png: EmptyActor_64.svg
+DecalActor_64x.png: DecalActor_64.svg
+LevelSequenceActor_64x.png: LevelSequenceActor_64.svg
+
+Unreal Engine 5.8 viewport sprites exported from Texture2D assets
+EmptyActor.png: Engine/Content/EditorResources/EmptyActor.uasset
+S_DecalActorIcon.png: Engine/Content/EditorResources/S_DecalActorIcon.uasset
+S_LevelSequence.png: Engine/Content/EditorResources/S_LevelSequence.uasset

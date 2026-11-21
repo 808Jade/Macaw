@@ -6,6 +6,7 @@
 
 #include "RenderTarget.h"
 #include "CoreUObject/Reflection/NewObject.h"
+#include "Core/Types.h"
 
 #include <algorithm>
 
@@ -14,7 +15,9 @@ namespace Renderer {
     /**
      * @brief FDXRenderTarget의 초기 상태와 전달받은 의존성을 구성합니다.
      */
-    Renderer::FDXRenderTarget::FDXRenderTarget() = default;
+    Renderer::FDXRenderTarget::FDXRenderTarget(bool ForwardShading)
+        : mForwardShading(ForwardShading) {
+    }
 
     /**
      * @brief 객체의 수명을 끝내고 소유한 리소스를 정리합니다.
@@ -29,9 +32,11 @@ namespace Renderer {
             return false;
         }
 
-        if (Width == mWidth && Height == mHeight && mColor != nullptr && mDepth != nullptr && mSceneColor != nullptr && mPostProcessColor != nullptr && mReadOnlyDepthView != nullptr && mStencilResource != nullptr && mColor->HasResources() && mDepth->HasResources() && mSceneColor->HasResources() && mPostProcessColor->HasResources() && std::all_of(mGBuffer.begin(), mGBuffer.end(), [](const std::unique_ptr<Asset::UTexture2D>& Attachment) {
+        const bool DeferredResourcesReady{mForwardShading || (mReadOnlyDepthView != nullptr && mStencilResource != nullptr && std::all_of(mGBuffer.begin(), mGBuffer.end(), [](const std::unique_ptr<Asset::UTexture2D>& Attachment) {
             return Attachment != nullptr && Attachment->HasResources();
-        })) {
+        }))};
+
+        if (Width == mWidth && Height == mHeight && mColor != nullptr && mDepth != nullptr && mSceneColor != nullptr && mPostProcessColor != nullptr && mColor->HasResources() && mDepth->HasResources() && mSceneColor->HasResources() && mPostProcessColor->HasResources() && DeferredResourcesReady) {
             Microsoft::WRL::ComPtr<ID3D11Device> ResourceDevice{};
 
             mColor->GetTexture()->GetDevice(ResourceDevice.GetAddressOf());
@@ -50,27 +55,30 @@ namespace Renderer {
             return false;
         }
 
-        D3D11_DEPTH_STENCIL_VIEW_DESC ReadOnlyDescription{};
-        Depth->GetDepthStencilView()->GetDesc(&ReadOnlyDescription);
-        ReadOnlyDescription.Flags = D3D11_DSV_READ_ONLY_DEPTH | D3D11_DSV_READ_ONLY_STENCIL;
         Microsoft::WRL::ComPtr<ID3D11DepthStencilView> ReadOnlyDepthView{};
-        D3D11_SHADER_RESOURCE_VIEW_DESC StencilDescription{};
-        StencilDescription.Format = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
-        StencilDescription.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-        StencilDescription.Texture2D.MipLevels = 1;
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> StencilResource{};
+        Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount> GBuffer{};
 
-        if (FAILED(Device->CreateDepthStencilView(Depth->GetTexture(), &ReadOnlyDescription, ReadOnlyDepthView.GetAddressOf())) || FAILED(Device->CreateShaderResourceView(Depth->GetTexture(), &StencilDescription, StencilResource.GetAddressOf()))) {
-            return false;
-        }
+        if (!mForwardShading) {
+            D3D11_DEPTH_STENCIL_VIEW_DESC ReadOnlyDescription{};
+            Depth->GetDepthStencilView()->GetDesc(&ReadOnlyDescription);
+            ReadOnlyDescription.Flags = D3D11_DSV_READ_ONLY_DEPTH | D3D11_DSV_READ_ONLY_STENCIL;
 
-        std::array<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount> GBuffer{};
+            D3D11_SHADER_RESOURCE_VIEW_DESC StencilDescription{};
+            StencilDescription.Format = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+            StencilDescription.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+            StencilDescription.Texture2D.MipLevels = 1;
 
-        for (auto& Attachment : GBuffer) {
-            Attachment = CoreUObject::NewObject<Asset::UTexture2D>();
-
-            if (!Attachment->Configure(Width, Height, Asset::ETextureFormat::RGBA16Float, Asset::ETextureUsage::ShaderResource | Asset::ETextureUsage::RenderTarget) || !Attachment->CreateResources(Device)) {
+            if (FAILED(Device->CreateDepthStencilView(Depth->GetTexture(), &ReadOnlyDescription, ReadOnlyDepthView.GetAddressOf())) || FAILED(Device->CreateShaderResourceView(Depth->GetTexture(), &StencilDescription, StencilResource.GetAddressOf()))) {
                 return false;
+            }
+
+            for (auto& Attachment : GBuffer) {
+                Attachment = CoreUObject::NewObject<Asset::UTexture2D>();
+
+                if (!Attachment->Configure(Width, Height, Asset::ETextureFormat::RGBA16Float, Asset::ETextureUsage::ShaderResource | Asset::ETextureUsage::RenderTarget) || !Attachment->CreateResources(Device)) {
+                    return false;
+                }
             }
         }
 
@@ -133,7 +141,7 @@ namespace Renderer {
         return mStencilResource.Get();
     }
 
-    const std::array<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount>& Renderer::FDXRenderTarget::GetGBuffer() const {
+    const Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, Renderer::GBuffer::AttachmentCount>& Renderer::FDXRenderTarget::GetGBuffer() const {
         return mGBuffer;
     }
 

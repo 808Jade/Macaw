@@ -8,7 +8,6 @@
 
 #include "Core/Types.h"
 #include "FImGuiThemeCatalog.h"
-#include <array>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -344,12 +343,12 @@ namespace Editor {
         /**
          * @brief 테마 목록 검색 입력 버퍼입니다.
          */
-        std::array<char, 256> mThemeFilter{};
+        Core::TStaticArray<char, 256> mThemeFilter{};
 
         /**
          * @brief 프로젝트를 열 때 로드할 시작 레벨 경로 입력 버퍼입니다.
          */
-        std::array<char, 1024> mStartupScene{};
+        Core::TStaticArray<char, 1024> mStartupScene{};
 
         /**
          * @brief 현재 선택한 테마 인덱스입니다.

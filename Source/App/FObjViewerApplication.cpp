@@ -9,6 +9,7 @@
 #include "Core/FilePath.h"
 #include "Asset/FAssetManager.h"
 #include "Editor/FMeshViewer.h"
+#include "Core/Types.h"
 
 #include <commdlg.h>
 #include <shellapi.h>
@@ -48,7 +49,7 @@ namespace App {
             return 1;
         }
 
-        std::array<wchar_t, 32768> Executable{};
+        Core::TStaticArray<wchar_t, 32768> Executable{};
         const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
 
         if (Length == 0 || Length >= Executable.size()) {
@@ -194,7 +195,7 @@ namespace App {
      * @brief 원본 메시 파일을 선택합니다.
      */
     std::filesystem::path App::FObjViewerApplication::ChooseSource() {
-        std::array<wchar_t, 32768> Buffer{};
+        Core::TStaticArray<wchar_t, 32768> Buffer{};
         OPENFILENAMEW Dialog{};
         Dialog.lStructSize = sizeof(Dialog);
         Dialog.hwndOwner = mPlatform.GetWindowHandle();

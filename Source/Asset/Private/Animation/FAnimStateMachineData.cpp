@@ -383,6 +383,10 @@ namespace Asset {
     }
 
     void FAnimStateMachineData::Serialize(Core::FArchive& Archive) {
+        Serialize(Archive, 0);
+    }
+
+    void FAnimStateMachineData::Serialize(Core::FArchive& Archive, Uint32 Depth) {
         Archive.Serialize("Entry", mEntryState);
         Uint32 Count{static_cast<Uint32>(mStates.size())};
 
@@ -416,7 +420,7 @@ namespace Asset {
             if (State.mGraph == nullptr) {
                 Archive.SetError("Missing state pose graph");
             } else if (Archive.BeginObject("Graph")) {
-                State.mGraph->Serialize(Archive);
+                State.mGraph->SerializeGraph(Archive, Depth);
                 Archive.EndObject();
             }
 

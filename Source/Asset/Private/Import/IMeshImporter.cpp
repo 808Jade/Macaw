@@ -13,7 +13,6 @@
 #include "Core/FilePath.h"
 
 #include <algorithm>
-#include <array>
 #include <d3d11.h>
 #include <limits>
 #include <utility>
@@ -262,7 +261,7 @@ namespace Asset {
      * @brief 원본 파일 확장자에 등록된 임포터 팩토리를 찾습니다.
      */
     Asset::IMeshImporter::FImporterFactory Asset::IMeshImporter::FindFactory(const std::filesystem::path& Source) {
-        static constexpr std::array<FImporterEntry, 4> Importers{FImporterEntry{L".obj", &CreateAssimp}, FImporterEntry{L".fbx", &CreateFBX}, FImporterEntry{L".gltf", &CreateAssimp}, FImporterEntry{L".glb", &CreateAssimp}};
+        static constexpr Core::TStaticArray<FImporterEntry, 4> Importers{FImporterEntry{L".obj", &CreateAssimp}, FImporterEntry{L".fbx", &CreateFBX}, FImporterEntry{L".gltf", &CreateAssimp}, FImporterEntry{L".glb", &CreateAssimp}};
         const std::wstring Extension{Core::FilePath::ToLowerExtension(Source)};
 
         for (const FImporterEntry& Entry : Importers) {

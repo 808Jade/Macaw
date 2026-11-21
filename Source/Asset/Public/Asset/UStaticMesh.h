@@ -13,7 +13,6 @@
 #include "RenderCore/TVertexBuffer.h"
 
 #include <d3d11.h>
-#include <array>
 #include <filesystem>
 #include "UStaticMesh.generated.h"
 
@@ -154,22 +153,22 @@ namespace Asset {
         /**
          * @brief 정점 위치를 보관하는 소유 GPU 버퍼입니다.
          */
-        TMeshVertexBuffer<std::array<float, 3>> mPositionBuffer{};
+        TMeshVertexBuffer<Core::TStaticArray<float, 3>> mPositionBuffer{};
 
         /**
          * @brief 정점 법선과 탄젠트를 보관하는 소유 GPU 버퍼입니다.
          */
-        TMeshVertexBuffer<std::array<float, 7>> mTangentBuffer{};
+        TMeshVertexBuffer<Core::TStaticArray<float, 7>> mTangentBuffer{};
 
         /**
          * @brief 정점별 UV 채널을 보관하는 소유 GPU 버퍼이며 정점 하나가 채널 수만큼의 원소를 차지합니다.
          */
-        TMeshVertexBuffer<std::array<float, 2>> mUVBuffer{};
+        TMeshVertexBuffer<Core::TStaticArray<float, 2>> mUVBuffer{};
 
         /**
          * @brief 정점 색상을 보관하는 소유 GPU 버퍼입니다.
          */
-        TMeshVertexBuffer<std::array<float, 4>> mColorBuffer{};
+        TMeshVertexBuffer<Core::TStaticArray<float, 4>> mColorBuffer{};
 
         /**
          * @brief 삼각형 인덱스를 보관하는 소유 GPU 버퍼입니다.

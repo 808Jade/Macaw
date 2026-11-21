@@ -10,11 +10,11 @@
 #include "Engine/FProject.h"
 #include "Asset/Import/IMeshImporter.h"
 #include "Platform/Window.h"
+#include "Core/Types.h"
 #include <commdlg.h>
 #include <shellapi.h>
 #include <imgui_internal.h>
 #include <algorithm>
-#include <array>
 #include <utility>
 
 using namespace Editor;
@@ -51,7 +51,7 @@ void FAssetImportController::BeginFrame() {
 }
 
 void FAssetImportController::ImportAsset() {
-    std::array<wchar_t, 32768> Buffer{};
+    Core::TStaticArray<wchar_t, 32768> Buffer{};
     OPENFILENAMEW Dialog{};
     Dialog.lStructSize = sizeof(Dialog);
     Dialog.hwndOwner = mPlatform->GetWindowHandle();
@@ -132,8 +132,8 @@ void FAssetImportController::DrawImportOptions() {
     ImGui::Checkbox("Convert Scene Unit", &mImportOption.mConvertSceneUnit);
     ImGui::SetItemTooltip("원본(FBX)에 기록된 길이 단위를 미터로 변환합니다.");
 
-    std::array<float, 3> Translation{mImportOption.mImportTranslation.x, mImportOption.mImportTranslation.y, mImportOption.mImportTranslation.z};
-    std::array<float, 3> Rotation{mImportOption.mImportRotation.pitch, mImportOption.mImportRotation.yaw, mImportOption.mImportRotation.roll};
+    Core::TStaticArray<float, 3> Translation{mImportOption.mImportTranslation.x, mImportOption.mImportTranslation.y, mImportOption.mImportTranslation.z};
+    Core::TStaticArray<float, 3> Rotation{mImportOption.mImportRotation.pitch, mImportOption.mImportRotation.yaw, mImportOption.mImportRotation.roll};
 
     if (ImGui::DragFloat3("Import Translation", Translation.data(), 0.01f, 0.0f, 0.0f, "%.3f m")) {
         mImportOption.mImportTranslation = {Translation[0], Translation[1], Translation[2]};
@@ -156,7 +156,7 @@ void FAssetImportController::DrawImportOptions() {
     ImGui::Checkbox("Import Skeleton", &mImportOption.mImportSkeleton);
     ImGui::SetItemTooltip("원본에 스켈레톤이 있으면 본 계층, 바인드 포즈, 정점별 본 가중치를 읽습니다.\n메시는 스켈레탈 메시 에셋으로 저장되며 배치하거나 메시 뷰어에서 열 수 있습니다.");
 
-    static constexpr std::array<const char*, 3> NormalMethods{"Compute Normals", "Import Normals", "Import Normals and Tangents"};
+    static constexpr Core::TStaticArray<const char*, 3> NormalMethods{"Compute Normals", "Import Normals", "Import Normals and Tangents"};
     int NormalMethod{static_cast<int>(mImportOption.mNormalImportMethod)};
 
     if (ImGui::Combo("Normal Import Method", &NormalMethod, NormalMethods.data(), static_cast<int>(NormalMethods.size()))) {
@@ -175,7 +175,7 @@ void FAssetImportController::DrawImportOptions() {
     ImGui::SetItemTooltip("FBX의 애니메이션 스택마다 본 트랙을 재샘플링해 애니메이션 시퀀스 에셋을 만듭니다.\n애니메이션을 적용할 스켈레톤을 임포트할 때와 같은 축, 단위, 변환 옵션을 사용하세요.");
     ImGui::BeginDisabled(!mImportOption.mImportAnimations);
 
-    static constexpr std::array<const char*, 3> AnimationLengths{"Exported Time", "Animated Key", "Set Range"};
+    static constexpr Core::TStaticArray<const char*, 3> AnimationLengths{"Exported Time", "Animated Key", "Set Range"};
     int AnimationLength{static_cast<int>(mImportOption.mAnimationLength)};
 
     if (ImGui::Combo("Animation Length", &AnimationLength, AnimationLengths.data(), static_cast<int>(AnimationLengths.size()))) {
@@ -185,7 +185,7 @@ void FAssetImportController::DrawImportOptions() {
     ImGui::SetItemTooltip("Exported Time: 애니메이션 스택에 기록된 시간 구간을 사용합니다.\nAnimated Key: 애니메이션 키가 있는 구간을 사용합니다.\nSet Range: 아래에 지정한 프레임 구간을 사용합니다.");
 
     if (mImportOption.mAnimationLength == Asset::EAnimationLengthImportType::SetRange) {
-        std::array<int, 2> Range{mImportOption.mFrameImportRangeStart, mImportOption.mFrameImportRangeEnd};
+        Core::TStaticArray<int, 2> Range{mImportOption.mFrameImportRangeStart, mImportOption.mFrameImportRangeEnd};
 
         if (ImGui::DragInt2("Frame Import Range", Range.data(), 1.0f)) {
             mImportOption.mFrameImportRangeStart = Range[0];

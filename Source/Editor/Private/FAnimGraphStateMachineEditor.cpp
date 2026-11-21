@@ -14,7 +14,6 @@
 #include <imgui_node_editor.h>
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <format>
 #include <utility>
@@ -63,7 +62,7 @@ namespace Editor {
          * @return 입력 문자열이 변경되었으면 true입니다.
          */
         bool EditString(const char* Label, Core::FString& Value) {
-            std::array<char, 256> Buffer{};
+            Core::TStaticArray<char, 256> Buffer{};
             std::copy_n(Value.begin(), std::min(Value.size(), Buffer.size() - 1), Buffer.begin());
 
             if (ImGui::InputText(Label, Buffer.data(), Buffer.size())) {
@@ -349,8 +348,8 @@ namespace Editor {
         }
 
         ed::EndDelete();
-        std::array<ed::NodeId, 1> SelectedNodes{};
-        std::array<ed::LinkId, 1> SelectedLinks{};
+        Core::TStaticArray<ed::NodeId, 1> SelectedNodes{};
+        Core::TStaticArray<ed::LinkId, 1> SelectedLinks{};
 
         if (ed::GetSelectedNodes(SelectedNodes.data(), 1) == 1) {
             mSelectedNode = StateNodeId(SelectedNodes[0].Get());
@@ -637,7 +636,7 @@ namespace Editor {
         }
 
         ed::EndDelete();
-        std::array<ed::NodeId, 1> Selected{};
+        Core::TStaticArray<ed::NodeId, 1> Selected{};
         mSelectedNode = ed::GetSelectedNodes(Selected.data(), 1) == 1 ? StateNodeId(Selected[0].Get()) : -2;
         const ImVec2 Mouse{ImGui::GetMousePos()};
         ed::NodeId ContextNode{};

@@ -24,6 +24,7 @@
 #include "RenderCore/IRendererModule.h"
 #include "Platform/Window.h"
 #include "Platform/WindowResources.h"
+#include "Core/Types.h"
 #include <d3d11.h>
 #include <shellapi.h>
 #include <imgui_internal.h>
@@ -1018,16 +1019,18 @@ void FContentBrowserWidget::DrawContentEntries() {
 }
 
 void FContentBrowserWidget::CreateMaterial() {
-    if (!mAssetEditors.CanClose()) {
-        return;
-    }
+    mAssetEditors.ConfirmClose([this, Directory = mContentDirectory]() {
+        CreateMaterialIn(Directory);
+    });
+}
 
+void FContentBrowserWidget::CreateMaterialIn(const std::filesystem::path& Directory) {
     Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
-    std::filesystem::path Path{mContentDirectory / "Material.masset"};
+    std::filesystem::path Path{Directory / "Material.masset"};
     std::error_code Code{};
 
     for (Index_t Index{1}; std::filesystem::exists(Assets->GetContentRoot() / Path, Code) && !Code; ++Index) {
-        Path = mContentDirectory / ("Material_" + std::to_string(Index) + ".masset");
+        Path = Directory / ("Material_" + std::to_string(Index) + ".masset");
     }
 
     auto Material{CoreUObject::NewObject<Asset::UMaterial>()};
@@ -1096,7 +1099,7 @@ void FContentBrowserWidget::CreateLuaScript() {
     std::error_code Code{};
 
     if (!std::filesystem::is_regular_file(Template, Code)) {
-        std::array<wchar_t, 32768> Executable{};
+        Core::TStaticArray<wchar_t, 32768> Executable{};
         const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
 
         if (Length > 0 && Length < Executable.size()) {
