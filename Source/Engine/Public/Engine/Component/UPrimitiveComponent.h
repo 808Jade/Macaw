@@ -11,6 +11,8 @@
 #include "Core/ReflectionMacros.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Core/Math/FVector2.h"
+#include "PhysicsRuntime/FBodyInstance.h"
+#include "PhysicsRuntime/IPhysicsBodyOwner.h"
 #include "UPrimitiveComponent.generated.h"
 
 namespace Asset {
@@ -30,7 +32,7 @@ namespace Engine {
      * @ingroup Engine
      */
     UCLASS(Abstract)
-    class UPrimitiveComponent : public Engine::USceneComponent {
+    class UPrimitiveComponent : public Engine::USceneComponent, public PhysicsRuntime::IPhysicsBodyOwner {
         GENERATED_BODY()
 
     public:
@@ -186,6 +188,44 @@ namespace Engine {
          */
         void SetReceivesDecals(bool ReceivesDecals);
 
+        /**
+         * @brief 바디를 만들 충돌 모양 설계도를 반환합니다.
+         * @return 설계도의 비소유 주소이며, 충돌 모양이 없으면 nullptr입니다.
+         */
+        virtual PhysicsRuntime::UBodySetup* GetBodySetup();
+
+        /**
+         * @brief 월드에 물리 장면이 있으면 설계도로 바디를 만듭니다.
+         * @note 이미 바디가 있거나 설계도가 없으면 아무것도 하지 않습니다.
+         */
+        void CreatePhysicsState();
+
+        /**
+         * @brief 바디를 물리 장면에서 빼고 해제합니다.
+         */
+        void DestroyPhysicsState();
+
+        /**
+         * @brief 중력과 충돌로 움직이도록 설정되었는지 반환합니다.
+         * @return 움직이는 바디로 설정되었으면 true입니다.
+         */
+        bool IsSimulatingPhysics() const;
+
+        /**
+         * @brief 움직이는 바디인지 고정된 바디인지 설정합니다.
+         * @param[in] Simulate 중력과 충돌로 움직이게 하려면 true입니다.
+         * @return 항상 true입니다.
+         * @note 바디가 이미 있으면 새 설정으로 다시 만듭니다.
+         */
+        bool SetSimulatePhysics(bool Simulate);
+
+        /**
+         * @brief 시뮬레이션으로 바뀐 위치와 회전을 컴포넌트에 적용합니다.
+         * @param[in] NewTransform 바디의 새 월드 변환입니다.
+         * @note 컴포넌트의 스케일은 그대로 유지합니다.
+         */
+        void OnPhysicsTransformUpdated(const FTransform& NewTransform) override;
+
     private:
 
         /**
@@ -247,6 +287,17 @@ namespace Engine {
          * @brief 현재 UV 변환을 제어하는 컴포넌트 핸들입니다.
          */
         CoreUObject::TObjectRef<CoreUObject::UObject> mUVSource{};
+
+        /**
+         * @brief true이면 중력과 충돌로 움직이고, false이면 제자리에 고정된 바디를 만듭니다.
+         */
+        UPROPERTY(Edit, Serialize, Getter = IsSimulatingPhysics, Setter = SetSimulatePhysics)
+        bool mSimulatePhysics{};
+
+        /**
+         * @brief 이 컴포넌트의 물리 바디입니다.
+         */
+        PhysicsRuntime::FBodyInstance mBodyInstance{};
     };
 
 }

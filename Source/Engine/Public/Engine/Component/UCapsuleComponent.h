@@ -87,6 +87,12 @@ namespace Engine {
         void SetCapsuleRadius(float InRadius);
 
     private:
+        /**
+         * @brief 반높이와 반지름으로 설계도의 캡슐 모양을 다시 채웁니다.
+         */
+        void UpdateBodySetup() override;
+
+    private:
         // 반구를 포함한 높이
         /**
          * @brief 반구를 포함한 캡슐 반높이입니다.

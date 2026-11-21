@@ -51,6 +51,12 @@ namespace Engine {
 
     private:
         /**
+         * @brief 반길이를 전체 길이로 바꿔 설계도의 박스 모양을 다시 채웁니다.
+         */
+        void UpdateBodySetup() override;
+
+    private:
+        /**
          * @brief 상자의 로컬 축별 반길이입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetBoxExtent, Setter = SetBoxExtent)

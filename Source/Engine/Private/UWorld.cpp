@@ -221,7 +221,27 @@ namespace Engine {
      * @brief 월드가 소유할 물리 장면을 설정합니다. 기존 장면은 해제됩니다.
      */
     void Engine::UWorld::SetPhysicsScene(std::unique_ptr<PhysicsRuntime::FPhysicsScene> Scene) {
+        const auto ForEachPrimitive{[this](auto&& Function) {
+            if (mPersistentLevel == nullptr) {
+                return;
+            }
+
+            for (const auto& Actor : mPersistentLevel->GetActors()) {
+                for (const auto& Component : Actor->GetComponents()) {
+                    if (auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(Component.get())}) {
+                        Function(*Primitive);
+                    }
+                }
+            }
+        }};
+
+        // 이전 장면의 바디를 먼저 정리합니다.
+        ForEachPrimitive([](Engine::UPrimitiveComponent& Primitive) { Primitive.DestroyPhysicsState(); });
+
         mPhysicsScene = std::move(Scene);
+
+        // 장면보다 먼저 등록된 컴포넌트의 바디를 만듭니다.
+        ForEachPrimitive([](Engine::UPrimitiveComponent& Primitive) { Primitive.CreatePhysicsState(); });
     }
 
     /**

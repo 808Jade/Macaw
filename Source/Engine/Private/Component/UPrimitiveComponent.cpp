@@ -16,6 +16,7 @@
 #include "Engine/FSceneInterface.h"
 #include "Engine/PrimitiveMesh.h"
 #include "CoreUObject/FObjectRegistry.h"
+#include "PhysicsRuntime/UBodySetup.h"
 
 #include <cmath>
 
@@ -47,6 +48,7 @@ namespace Engine {
 
         if (GetWorld() == World) {
             MarkRenderStateDirty();
+            CreatePhysicsState();
         }
     }
 
@@ -55,6 +57,8 @@ namespace Engine {
      */
     void Engine::UPrimitiveComponent::UnregisterComponent() {
         Engine::UWorld::FDispatchScope Scope{GetWorld()};
+
+        DestroyPhysicsState();
 
         if (mRenderStateCreated && GetWorld() != nullptr && GetWorld()->GetScene() != nullptr) {
             GetWorld()->GetScene()->RemovePrimitive(GetGuid());
@@ -66,6 +70,71 @@ namespace Engine {
         mRenderTransformDirty = false;
 
         Engine::UActorComponent::UnregisterComponent();
+    }
+
+    /**
+     * @brief 바디를 만들 충돌 모양 설계도를 반환합니다.
+     */
+    PhysicsRuntime::UBodySetup* Engine::UPrimitiveComponent::GetBodySetup() {
+        return nullptr;
+    }
+
+    /**
+     * @brief 월드에 물리 장면이 있으면 설계도로 바디를 만듭니다.
+     */
+    void Engine::UPrimitiveComponent::CreatePhysicsState() {
+        if (mBodyInstance.IsValidBodyInstance() || GetWorld() == nullptr || GetWorld()->GetPhysicsScene() == nullptr) {
+            return;
+        }
+
+        PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
+
+        if (Setup == nullptr) {
+            return;
+        }
+
+        mBodyInstance.mSimulatePhysics = mSimulatePhysics;
+        mBodyInstance.InitBody(Setup, GetTransform(), this, GetWorld()->GetPhysicsScene());
+    }
+
+    /**
+     * @brief 바디를 물리 장면에서 빼고 해제합니다.
+     */
+    void Engine::UPrimitiveComponent::DestroyPhysicsState() {
+        mBodyInstance.TermBody();
+    }
+
+    /**
+     * @brief 중력과 충돌로 움직이도록 설정되었는지 반환합니다.
+     */
+    bool Engine::UPrimitiveComponent::IsSimulatingPhysics() const {
+        return mSimulatePhysics;
+    }
+
+    /**
+     * @brief 움직이는 바디인지 고정된 바디인지 설정합니다.
+     */
+    bool Engine::UPrimitiveComponent::SetSimulatePhysics(bool Simulate) {
+        if (mSimulatePhysics == Simulate) {
+            return true;
+        }
+
+        mSimulatePhysics = Simulate;
+
+        // 움직이는 바디와 고정된 바디는 PhysX 객체 종류가 달라 새로 만듭니다.
+        if (mBodyInstance.IsValidBodyInstance()) {
+            DestroyPhysicsState();
+            CreatePhysicsState();
+        }
+
+        return true;
+    }
+
+    /**
+     * @brief 시뮬레이션으로 바뀐 위치와 회전을 컴포넌트에 적용합니다.
+     */
+    void Engine::UPrimitiveComponent::OnPhysicsTransformUpdated(const FTransform& NewTransform) {
+        SetTransform(FTransform{NewTransform.mLocation, NewTransform.mRotation, GetTransform().mScale});
     }
 
     /**

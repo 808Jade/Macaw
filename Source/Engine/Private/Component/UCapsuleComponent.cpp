@@ -93,4 +93,15 @@ namespace Engine {
         mCapsuleRadius = std::clamp(InRadius, 0.0f, mCapsuleHalfHeight);
     }
 
+    /**
+     * @brief 반높이와 반지름으로 설계도의 캡슐 모양을 다시 채웁니다.
+     */
+    void Engine::UCapsuleComponent::UpdateBodySetup() {
+        // 반높이는 반구 끝까지이고 설계도의 길이는 원기둥 부분만이므로 반지름을 뺍니다.
+        const float Length{2.0f * std::max(mCapsuleHalfHeight - mCapsuleRadius, 0.0f)};
+
+        mShapeBodySetup->mAggGeom = {};
+        mShapeBodySetup->mAggGeom.mSphylElems.push_back(PhysicsRuntime::FKSphylElem{mCapsuleRadius, Length});
+    }
+
 }

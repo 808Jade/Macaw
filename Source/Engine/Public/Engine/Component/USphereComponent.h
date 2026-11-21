@@ -51,6 +51,12 @@ namespace Engine {
 
     private:
         /**
+         * @brief 현재 반지름으로 설계도의 구 모양을 다시 채웁니다.
+         */
+        void UpdateBodySetup() override;
+
+    private:
+        /**
          * @brief 구의 로컬 반지름입니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetSphereRadius, Setter = SetSphereRadius)

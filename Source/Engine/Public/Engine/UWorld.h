@@ -268,6 +268,7 @@ namespace Engine {
         /**
          * @brief 월드가 소유할 물리 장면을 설정합니다. 기존 장면은 해제됩니다.
          * @param[in] Scene 초기화된 물리 장면입니다.
+         * @note 이미 등록된 컴포넌트의 바디를 새 장면에 다시 만듭니다.
          */
         void SetPhysicsScene(std::unique_ptr<PhysicsRuntime::FPhysicsScene> Scene);
 

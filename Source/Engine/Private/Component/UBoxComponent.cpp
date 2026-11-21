@@ -48,4 +48,21 @@ namespace Engine {
         return mBoxExtent;
     }
 
+    /**
+     * @brief 반길이를 전체 길이로 바꿔 설계도의 박스 모양을 다시 채웁니다.
+     */
+    void Engine::UBoxComponent::UpdateBodySetup() {
+        constexpr float KindaSmallNumber{1.e-4f};
+        constexpr float MinimumExtent{0.01f};
+
+        // 크기가 0인 축은 아주 작은 크기로 바꿔 모양을 만들 수 있게 합니다.
+        const FVector Extent{
+            mBoxExtent.x < KindaSmallNumber ? MinimumExtent : mBoxExtent.x,
+            mBoxExtent.y < KindaSmallNumber ? MinimumExtent : mBoxExtent.y,
+            mBoxExtent.z < KindaSmallNumber ? MinimumExtent : mBoxExtent.z};
+
+        mShapeBodySetup->mAggGeom = {};
+        mShapeBodySetup->mAggGeom.mBoxElems.push_back(PhysicsRuntime::FKBoxElem{Extent.x * 2.0f, Extent.y * 2.0f, Extent.z * 2.0f});
+    }
+
 }

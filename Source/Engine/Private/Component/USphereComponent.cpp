@@ -45,4 +45,18 @@ namespace Engine {
         return mSphereRadius;
     }
 
+    /**
+     * @brief 현재 반지름으로 설계도의 구 모양을 다시 채웁니다.
+     */
+    void Engine::USphereComponent::UpdateBodySetup() {
+        constexpr float KindaSmallNumber{1.e-4f};
+        constexpr float MinimumRadius{0.001f};
+
+        // 반지름이 0이면 아주 작은 반지름으로 바꿔 모양을 만들 수 있게 합니다.
+        const float Radius{mSphereRadius < KindaSmallNumber ? MinimumRadius : mSphereRadius};
+
+        mShapeBodySetup->mAggGeom = {};
+        mShapeBodySetup->mAggGeom.mSphereElems.push_back(PhysicsRuntime::FKSphereElem{Radius});
+    }
+
 }

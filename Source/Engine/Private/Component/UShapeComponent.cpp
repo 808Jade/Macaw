@@ -11,6 +11,7 @@
 #include "Engine/EPrimitiveType.h"
 #include "Core/Math/FBox.h"
 #include "Core/Literals.h"
+#include "CoreUObject/Reflection/NewObject.h"
 
 #include <algorithm>
 #include <cmath>
@@ -224,6 +225,19 @@ namespace Engine {
         FVector Scale{GetTransform().mScale};
 
         return std::min({ std::abs(Scale.x), std::abs(Scale.y), std::abs(Scale.z) });
+    }
+
+    /**
+     * @brief 현재 크기로 갱신한 이 컴포넌트 전용 충돌 모양 설계도를 반환합니다.
+     */
+    PhysicsRuntime::UBodySetup* Engine::UShapeComponent::GetBodySetup() {
+        if (mShapeBodySetup == nullptr) {
+            mShapeBodySetup = CoreUObject::NewObject<PhysicsRuntime::UBodySetup>();
+        }
+
+        UpdateBodySetup();
+
+        return mShapeBodySetup.get();
     }
 
     /**

@@ -12,6 +12,10 @@
 #include "CoreUObject/TDelegate.h"
 #include "Core/Math/FVector4.h"
 #include "Core/Math/FBox.h"
+#include "PhysicsRuntime/UBodySetup.h"
+
+#include <memory>
+
 #include "UShapeComponent.generated.h"
 
 namespace Engine {
@@ -166,6 +170,23 @@ namespace Engine {
          * @return 계산하거나 조회한 값입니다.
          */
         float GetShapeScale() const;
+
+        /**
+         * @brief 현재 크기로 갱신한 이 컴포넌트 전용 충돌 모양 설계도를 반환합니다.
+         * @return 설계도의 비소유 주소입니다.
+         */
+        PhysicsRuntime::UBodySetup* GetBodySetup() override;
+
+    protected:
+        /**
+         * @brief 현재 크기로 설계도의 모양을 다시 채웁니다.
+         */
+        virtual void UpdateBodySetup() = 0;
+
+        /**
+         * @brief 이 컴포넌트 전용 충돌 모양 설계도입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::UBodySetup> mShapeBodySetup{};
 
     private:
         /**
