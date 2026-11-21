@@ -51,4 +51,11 @@ namespace PhysicsRuntime {
         return FTransform{PhysicsRuntime::ToFVector(Transform.p), PhysicsRuntime::ToFQuat(Transform.q), Scale};
     }
 
+    /**
+     * @brief 엔진의 로컬 Z축 캡슐을 PhysX의 로컬 X축 캡슐로 맞추는 회전을 반환합니다.
+     */
+    physx::PxQuat GetSphylBasis() {
+        return physx::PxQuat{-physx::PxHalfPi, physx::PxVec3{0.0f, 1.0f, 0.0f}};
+    }
+
 }
