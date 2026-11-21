@@ -76,6 +76,9 @@ namespace Engine {
          */
         bool SetStartupScene(const std::filesystem::path& Path, Core::FString& Error);
 
+        bool UsesForwardShading() const;
+        bool SetForwardShading(bool ForwardShading, Core::FString& Error);
+
         /**
          * @brief 마지막으로 연 프로젝트 설정의 버전을 반환합니다.
          * @return 프로젝트 파일에서 읽은 버전이며 열기 전에는 0입니다.
@@ -139,6 +142,7 @@ namespace Engine {
          * @brief 콘텐츠 폴더 기준으로 저장하는 시작 장면의 상대 경로입니다.
          */
         Core::FString mStartupScene{"Maps/Main.masset"};
+        bool mForwardShading{};
 
         /**
          * @brief 현재 프로젝트 설정 파일의 절대 경로입니다.

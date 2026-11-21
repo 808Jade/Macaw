@@ -53,6 +53,10 @@ namespace Editor {
          */
         HeightFog,
 
+        EmptyActor,
+        Decal,
+        LevelSequence,
+
         /**
          * @brief 아이콘 캐시 크기에 사용할 종류 수입니다.
          */

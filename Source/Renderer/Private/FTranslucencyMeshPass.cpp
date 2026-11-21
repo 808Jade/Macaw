@@ -96,10 +96,18 @@ namespace Renderer {
             }
         }
 
-        if (EditorIcons && Family.mEditorElements != nullptr && Family.mShowFlags.mText) {
-            for (const Engine::FDrawText& Text : Family.mEditorElements->GetTexts()) {
-                if (Text.mDepthTest) {
-                    Commands.emplace_back(Depth(Text.mPosition, Text.mScreenSpace), FPrimitive{Text});
+        if (EditorIcons && Family.mEditorElements != nullptr) {
+            if (Family.mShowFlags.mSprites) {
+                for (const Engine::FPrimitiveSceneProxy& Sprite : Family.mEditorElements->GetSprites()) {
+                    Commands.emplace_back(Depth(Sprite.mWorld.TransformPosition({}), false), FPrimitive{&Sprite});
+                }
+            }
+
+            if (Family.mShowFlags.mText) {
+                for (const Engine::FDrawText& Text : Family.mEditorElements->GetTexts()) {
+                    if (Text.mDepthTest) {
+                        Commands.emplace_back(Depth(Text.mPosition, Text.mScreenSpace), FPrimitive{Text});
+                    }
                 }
             }
         }

@@ -1065,11 +1065,25 @@ void FEditorSettings::DrawViewportSettings() {
     const auto& BufferNames{Editor::BufferVisualization::Names};
     const auto& BufferModes{Editor::BufferVisualization::Modes};
     const auto SelectedBuffer{std::find(BufferModes.begin(), BufferModes.end(), Client.GetViewMode())};
-    int Buffer{SelectedBuffer == BufferModes.end() ? 0 : static_cast<int>(SelectedBuffer - BufferModes.begin())};
+    const Index_t Buffer{SelectedBuffer == BufferModes.end() ? 0u : static_cast<Index_t>(SelectedBuffer - BufferModes.begin())};
 
-    if (ImGui::Combo("Buffer Visualization", &Buffer, BufferNames.data(), static_cast<int>(BufferNames.size()))) {
-        Client.SetViewMode(Buffer == 0 ? Client.GetColorViewMode() : BufferModes[Buffer]);
-        MarkDirty();
+    if (ImGui::BeginCombo("Buffer Visualization", BufferNames[Buffer])) {
+        for (Index_t Index{}; Index < BufferModes.size(); ++Index) {
+            ImGui::BeginDisabled(!Client.SupportsViewMode(BufferModes[Index]));
+
+            if (ImGui::Selectable(BufferNames[Index], Index == Buffer)) {
+                Client.SetViewMode(Index == 0 ? Client.GetColorViewMode() : BufferModes[Index]);
+                MarkDirty();
+            }
+
+            ImGui::EndDisabled();
+
+            if (Index == Buffer) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
     }
 
     DrawWidget("Grid Spacing");
@@ -1143,6 +1157,10 @@ void FEditorSettings::DrawPanelSettings() {
 
 void FEditorSettings::DrawProjectSettings() {
     Engine::FProject& Project{*mContext->GetProject()};
+    const bool ActiveForwardShading{mContext->GetRenderer()->UsesForwardShading()};
+    const char* ShadingPaths[]{"Deferred", "Forward"};
+    int ShadingPath{Project.UsesForwardShading() ? 1 : 0};
+
     ImGui::TextWrapped("Project: %s", Project.GetName().c_str());
     ImGui::TextWrapped("Location: %s", Core::FilePath::ToUtf8(Project.GetFilePath()).c_str());
     ImGui::SeparatorText("Startup Scene");
@@ -1150,6 +1168,22 @@ void FEditorSettings::DrawProjectSettings() {
     DrawWidget("Content Path");
     DrawWidget("Save Startup Scene");
     ImGui::EndDisabled();
+    ImGui::SeparatorText("Rendering");
+
+    if (ImGui::Combo("Shading Path", &ShadingPath, ShadingPaths, static_cast<int>(std::size(ShadingPaths)))) {
+        Core::FString Error{};
+
+        mSettingsStatus = Project.SetForwardShading(ShadingPath == 1, Error) ? "Shading path saved" : Error;
+    }
+
+    if (Project.UsesForwardShading() != ActiveForwardShading) {
+        ImGui::TextWrapped("Reopen the project to apply this change. Active path: %s", ShadingPaths[ActiveForwardShading ? 1 : 0]);
+    }
+
+    if (Project.UsesForwardShading() || ActiveForwardShading) {
+        ImGui::TextWrapped("Decals and GBuffer visualizations require Deferred shading.");
+    }
+
     ImGui::SeparatorText("Preferences");
     ImGui::TextWrapped("Settings: %s", Core::FilePath::ToUtf8(mSettingsPath).c_str());
     ImGui::TextWrapped("Custom themes: %s", Core::FilePath::ToUtf8(mSettingsPath.parent_path() / "Themes").c_str());

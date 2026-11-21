@@ -241,7 +241,7 @@ namespace Editor {
                 const auto& Names{Editor::BufferVisualization::Names};
 
                 for (Index_t Buffer{}; Buffer < Modes.size(); ++Buffer) {
-                    if (ImGui::MenuItem(Names[Buffer], nullptr, Buffer == Current)) {
+                    if (ImGui::MenuItem(Names[Buffer], nullptr, Buffer == Current, Client->SupportsViewMode(Modes[Buffer]))) {
                         Client->SetViewMode(Buffer == 0 ? Client->GetColorViewMode() : Modes[Buffer]);
                     }
                 }

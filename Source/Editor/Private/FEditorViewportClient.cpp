@@ -22,6 +22,8 @@
 #include "Engine/Component/UShapeComponent.h"
 #include "Engine/ULevel.h"
 #include "Engine/AActor.h"
+#include "Engine/ADecalActor.h"
+#include "Engine/ALevelSequenceActor.h"
 #include "Engine/UWorld.h"
 #include "Engine/FWorldHit.h"
 #include "Core/Math/FVector2.h"
@@ -40,8 +42,10 @@
 #include "Editor/FEditorContext.h"
 #include "Editor/FViewportCommandInfo.h"
 #include "Engine/FProject.h"
+#include "Asset/FAssetManager.h"
 #include "Asset/UStaticMesh.h"
 #include "Asset/USkeletalMesh.h"
+#include "Asset/UTexture2D.h"
 #include "Asset/FAssetFile.h"
 #include "Core/Literals.h"
 
@@ -77,6 +81,7 @@ namespace Editor {
         mGizmo.SetEditorContext(Context);
         mContext = Context;
         mFocusActive = false;
+        mActorIconTextures = {};
     }
 
     /**
@@ -487,6 +492,12 @@ namespace Editor {
                     continue;
                 }
 
+                Engine::FPrimitiveSceneProxy Icon{};
+
+                if (TryCreateActorIcon(*Actor, Icon)) {
+                    mDrawInterface.DrawSprite(Icon);
+                }
+
                 const bool Highlight{std::find(SelectedActors.begin(), SelectedActors.end(), CoreUObject::MakeObjectRef(Actor)) != SelectedActors.end()};
 
                 if (Highlight && Actor->GetRootComponent() != nullptr) {
@@ -576,6 +587,58 @@ namespace Editor {
         const Engine::FSceneViewFamily Family{World->GetScene(), Viewport->GetRenderTarget(), View, &mDrawInterface, mViewMode, mShowFlags, mShowFlags.mGrid ? mGridSpacing : 0.0f};
 
         mContext->GetRenderer()->BeginRenderingViewFamily(Family);
+    }
+
+    bool Editor::FEditorViewportClient::TryCreateActorIcon(const Engine::AActor& Actor, Engine::FPrimitiveSceneProxy& Proxy) const {
+        const Engine::USceneComponent* Root{Actor.GetRootComponent()};
+
+        if (!mShowFlags.mSprites || Actor.IsPendingDestroy() || Root == nullptr) {
+            return false;
+        }
+
+        EActorIcon Icon{};
+
+        if (Actor.IsA<Engine::ADecalActor>()) {
+            Icon = EActorIcon::Decal;
+        } else if (Actor.IsA<Engine::ALevelSequenceActor>()) {
+            Icon = EActorIcon::LevelSequence;
+        } else if (Actor.GetClass() == Engine::AActor::StaticClass() && Root->GetClass() == Engine::USceneComponent::StaticClass()) {
+            for (const auto& Component : Actor.GetComponents()) {
+                if (Component->IsA<Engine::UPrimitiveComponent>()) {
+                    return false;
+                }
+            }
+
+            Icon = EActorIcon::EmptyActor;
+        } else {
+            return false;
+        }
+
+        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"Editor/Icon/EmptyActor.png", "Editor/Icon/S_DecalActorIcon.png", "Editor/Icon/S_LevelSequence.png"};
+        const Index_t Index{static_cast<Index_t>(Icon)};
+        CoreUObject::TObjectRef<Asset::UTexture2D>& Texture{mActorIconTextures[Index]};
+
+        if (Texture == nullptr) {
+            const Engine::UWorld* World{Actor.GetWorld()};
+            Asset::FAssetManager* Assets{World != nullptr ? World->GetAssets() : nullptr};
+
+            if (Assets == nullptr) {
+                return false;
+            }
+
+            Core::FString Error{};
+            Texture = Assets->LoadTexture(Paths[Index], Error);
+
+            if (Texture == nullptr) {
+                return false;
+            }
+        }
+
+        Proxy.mId = Actor.GetGuid();
+        Proxy.mWorld = FTransform{Root->GetTransform().mLocation, {}, {1.0f, 1.0f, 1.0f}}.ToMatrix();
+        Proxy.mSprite = Engine::FDrawSprite{Texture, {1.0f, 1.0f}};
+
+        return true;
     }
 
     /**
@@ -954,6 +1017,12 @@ namespace Editor {
                 continue;
             }
 
+            Engine::FPrimitiveSceneProxy Icon{};
+
+            if (TryCreateActorIcon(*Actor, Icon) && Engine::RaycastMesh(&Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Plane), Engine::MakeSpriteWorld(Icon.mWorld, *Icon.mSprite, View), Ray, Closest)) {
+                Result = {Engine::EHitProxyType::Object, CoreUObject::MakeObjectRef(Actor)};
+            }
+
             for (const auto& Component : Actor->GetComponents()) {
                 if (auto* Light{CoreUObject::Cast<Engine::ULightComponentBase>(Component.get())}; Light != nullptr && mShowFlags.mLightIcons && !Actor->IsPendingDestroy()) {
                     const Engine::FPrimitiveSceneProxy Proxy{Light->CreateLightProxy().CreateIconProxy()};
@@ -1125,12 +1194,24 @@ namespace Editor {
      * @brief 장면의 Lit 또는 Wireframe 표시 모드를 설정합니다.
      */
     void Editor::FEditorViewportClient::SetViewMode(Engine::EViewMode Mode) {
+        if (!SupportsViewMode(Mode)) {
+            mViewMode = mColorViewMode;
+
+            return;
+        }
+
         if (Engine::IsBufferVisualization(Mode)) {
             mViewMode = Mode;
         } else if (Mode == Engine::EViewMode::Lit_Phong || Mode == Engine::EViewMode::Lit_Gouraud || Mode == Engine::EViewMode::Lit_Lambert || Mode == Engine::EViewMode::Unlit || Mode == Engine::EViewMode::Wireframe) {
             mViewMode = Mode;
             mColorViewMode = Mode;
         }
+    }
+
+    bool Editor::FEditorViewportClient::SupportsViewMode(Engine::EViewMode Mode) const {
+        const RenderCore::IRendererModule* Renderer{mContext != nullptr ? mContext->GetRenderer() : nullptr};
+
+        return Renderer == nullptr || !Renderer->UsesForwardShading() || !Engine::RequiresDeferredShading(Mode);
     }
 
     /**

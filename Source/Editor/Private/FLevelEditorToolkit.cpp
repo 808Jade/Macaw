@@ -293,7 +293,7 @@ void FLevelEditorToolkit::InstallEditorIcons() {
     const std::filesystem::path Bundled{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content/Editor/Icon" : std::filesystem::path{}};
     Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
 
-    for (const char* Name : {"SpotLight_64x.png", "PointLight_64x.png", "DirectionalLight_64x.png", "SkyLight_64x.png", "Pawn_64x.png", "ExponentialHeightFog_64x.png", "Sources.txt"}) {
+    for (const char* Name : {"SpotLight_64x.png", "PointLight_64x.png", "DirectionalLight_64x.png", "SkyLight_64x.png", "Pawn_64x.png", "ExponentialHeightFog_64x.png", "EmptyActor_64x.png", "DecalActor_64x.png", "LevelSequenceActor_64x.png", "EmptyActor.png", "S_DecalActorIcon.png", "S_LevelSequence.png", "Sources.txt"}) {
         Core::FString Error{};
         const std::filesystem::path Target{Assets->ResolvePath(std::filesystem::path{"Editor/Icon"} / Name, Error)};
         std::error_code Code{};

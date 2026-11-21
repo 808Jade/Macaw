@@ -27,7 +27,7 @@ namespace Renderer {
         /**
          * @brief FDXRenderTarget의 초기 상태와 전달받은 의존성을 구성합니다.
          */
-        FDXRenderTarget();
+        explicit FDXRenderTarget(bool ForwardShading = false);
 
         /**
          * @brief 객체의 수명을 끝내고 소유한 리소스를 정리합니다.
@@ -145,6 +145,7 @@ namespace Renderer {
          * @brief UI 샘플링에 사용할 셰이더 리소스 뷰입니다.
          */
         std::unique_ptr<Asset::UTexture2D> mColor{};
+        const bool mForwardShading{};
 
         /**
          * @brief 후처리 입력 컬러와 다중 안개 합성의 교대 출력으로 사용하는 텍스처입니다.

@@ -53,6 +53,7 @@ namespace Engine {
     void Engine::FPrimitiveDrawInterface::Clear() {
         mLines.clear();
         mMeshes.clear();
+        mSprites.clear();
         mTexts.clear();
     }
 
@@ -75,6 +76,14 @@ namespace Engine {
      */
     const Core::TArray<Engine::FDrawMesh>& Engine::FPrimitiveDrawInterface::GetMeshes() const {
         return mMeshes;
+    }
+
+    void Engine::FPrimitiveDrawInterface::DrawSprite(const Engine::FPrimitiveSceneProxy& Sprite) {
+        mSprites.push_back(Sprite);
+    }
+
+    const Core::TArray<Engine::FPrimitiveSceneProxy>& Engine::FPrimitiveDrawInterface::GetSprites() const {
+        return mSprites;
     }
 
     /**

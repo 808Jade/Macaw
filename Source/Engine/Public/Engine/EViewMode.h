@@ -105,5 +105,6 @@ namespace Engine {
     };
 
     bool IsBufferVisualization(Engine::EViewMode Mode);
+    bool RequiresDeferredShading(Engine::EViewMode Mode);
 
 }
