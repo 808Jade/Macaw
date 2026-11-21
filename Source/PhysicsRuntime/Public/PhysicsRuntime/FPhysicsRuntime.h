@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "Core/Math/FVector.h"
 #include "PhysicsRuntime/FPhysXRelease.h"
+#include "PhysicsRuntime/FPhysicsSettings.h"
 
 #include <PxPhysicsAPI.h>
 #include <memory>
@@ -37,7 +37,7 @@ namespace PhysicsRuntime {
 
         /**
          * @brief PhysX SDK 객체를 생성하고 PVD 연결을 시도합니다.
-         * @details PVD 연결 실패는 디버깅 기능만 비활성화하므로 초기화를 중단하지 않습니다.
+         * @details 허용 오차, 기본 재질, 작업 스레드 수와 PVD 연결은 FPhysicsSettings의 값을 따릅니다. PVD 연결 실패는 디버깅 기능만 비활성화하므로 초기화를 중단하지 않습니다.
          * @return 이미 초기화되었거나 필수 객체 생성에 성공하면 true, 그렇지 않으면 false입니다.
          */
         bool Initialize();
@@ -67,10 +67,10 @@ namespace PhysicsRuntime {
         const physx::PxTolerancesScale& GetTolerancesScale() const;
 
         /**
-         * @brief 물리 장면에 기본으로 적용할 중력 가속도를 반환합니다.
-         * @return 엔진 Up 축(+Z)의 반대 방향으로 표준 중력 크기를 가진 벡터(m/s²)입니다.
+         * @brief 런타임과 물리 장면이 따르는 정책을 반환합니다.
+         * @return 이 객체가 보관하는 값의 참조입니다.
          */
-        FVector GetDefaultGravity() const;
+        const PhysicsRuntime::FPhysicsSettings& GetSettings() const;
 
         /**
          * @brief PhysX SDK 객체의 비소유 주소를 반환합니다.
@@ -126,6 +126,11 @@ namespace PhysicsRuntime {
          * @brief 엔진 1유닛을 1m로 보는 허용 오차 기준입니다.
          */
         physx::PxTolerancesScale mTolerancesScale{};
+
+        /**
+         * @brief 런타임과 모든 물리 장면이 공유하는 정책입니다.
+         */
+        PhysicsRuntime::FPhysicsSettings mSettings{};
 
         /**
          * @brief 다른 모든 PhysX 객체가 의존하는 Foundation입니다.

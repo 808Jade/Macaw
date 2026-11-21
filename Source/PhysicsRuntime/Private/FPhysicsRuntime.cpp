@@ -14,53 +14,13 @@ using namespace Core::Literals;
 namespace PhysicsRuntime {
 
     /**
-     * @brief PhysX 런타임의 고정 설정과 로그 범주입니다.
+     * @brief PhysX 런타임의 단위 규약과 로그 범주입니다.
      */
     namespace {
         /**
          * @brief 엔진 1유닛에 대응하는 실제 길이입니다.
          */
         constexpr Core::FLength UnitLength{1_m};
-
-        /**
-         * @brief 기본 중력과 허용 오차의 속도 기준으로 사용하는 표준 중력 가속도입니다.
-         */
-        constexpr Core::FAcceleration StandardGravity{9.81_mps2};
-
-        /**
-         * @brief 시뮬레이션 작업을 실행할 CPU 디스패처의 작업 스레드 수입니다.
-         */
-        constexpr physx::PxU32 DispatcherThreadCount{2};
-
-        /**
-         * @brief 기본 재질의 정지 마찰 계수입니다.
-         */
-        constexpr physx::PxReal DefaultStaticFriction{0.5f};
-
-        /**
-         * @brief 기본 재질의 운동 마찰 계수입니다.
-         */
-        constexpr physx::PxReal DefaultDynamicFriction{0.5f};
-
-        /**
-         * @brief 기본 재질의 반발 계수입니다.
-         */
-        constexpr physx::PxReal DefaultRestitution{0.6f};
-
-        /**
-         * @brief PVD 프로그램이 대기하는 호스트 주소입니다.
-         */
-        constexpr const char* PvdHost{"127.0.0.1"};
-
-        /**
-         * @brief PVD 프로그램이 대기하는 기본 포트입니다.
-         */
-        constexpr int PvdPort{5425};
-
-        /**
-         * @brief PVD 연결을 기다리는 최대 시간(밀리초)입니다.
-         */
-        constexpr unsigned int PvdConnectTimeoutMilliseconds{10};
 
         DEFINE_LOG_CATEGORY_STATIC(LogPhysics, Log, All);
     }
@@ -86,7 +46,7 @@ namespace PhysicsRuntime {
         }
 
         mTolerancesScale.length = UnitLength / 1_m;
-        mTolerancesScale.speed = StandardGravity / 1_mps2;
+        mTolerancesScale.speed = mSettings.mTypicalSpeed;
 
         mFoundation.reset(PxCreateFoundation(PX_PHYSICS_VERSION, mAllocator, mErrorCallback));
 
@@ -96,7 +56,9 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        ConnectPvd();
+        if (mSettings.mEnablePvd) {
+            ConnectPvd();
+        }
 
         mPhysics.reset(PxCreatePhysics(PX_PHYSICS_VERSION, *mFoundation, mTolerancesScale, mPvd != nullptr, mPvd.get()));
 
@@ -125,7 +87,7 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        mDefaultMaterial.reset(mPhysics->createMaterial(DefaultStaticFriction, DefaultDynamicFriction, DefaultRestitution));
+        mDefaultMaterial.reset(mPhysics->createMaterial(mSettings.mDefaultStaticFriction, mSettings.mDefaultDynamicFriction, mSettings.mDefaultRestitution));
 
         if (mDefaultMaterial == nullptr) {
             MACAW_LOG(LogPhysics, Error, "Cannot create the default PhysX material.");
@@ -134,7 +96,7 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        mDispatcher.reset(physx::PxDefaultCpuDispatcherCreate(DispatcherThreadCount));
+        mDispatcher.reset(physx::PxDefaultCpuDispatcherCreate(mSettings.mWorkerThreadCount));
 
         if (mDispatcher == nullptr) {
             MACAW_LOG(LogPhysics, Error, "Cannot create the PhysX CPU dispatcher.");
@@ -143,7 +105,7 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        MACAW_LOG(LogPhysics, Log, "PhysX initialized (length scale {}, speed scale {}, {} worker threads, PVD connected {}).", mTolerancesScale.length, mTolerancesScale.speed, DispatcherThreadCount, IsPvdConnected());
+        MACAW_LOG(LogPhysics, Log, "PhysX initialized (length scale {}, speed scale {}, {} worker threads, PVD connected {}).", mTolerancesScale.length, mTolerancesScale.speed, mSettings.mWorkerThreadCount, IsPvdConnected());
 
         return true;
     }
@@ -189,10 +151,10 @@ namespace PhysicsRuntime {
     }
 
     /**
-     * @brief 물리 장면에 기본으로 적용할 중력 가속도를 반환합니다.
+     * @brief 런타임과 물리 장면이 따르는 정책을 반환합니다.
      */
-    FVector PhysicsRuntime::FPhysicsRuntime::GetDefaultGravity() const {
-        return FVector{0.0f, 0.0f, -(StandardGravity / 1_mps2)};
+    const PhysicsRuntime::FPhysicsSettings& PhysicsRuntime::FPhysicsRuntime::GetSettings() const {
+        return mSettings;
     }
 
     /**
@@ -242,7 +204,7 @@ namespace PhysicsRuntime {
             return;
         }
 
-        mPvdTransport.reset(physx::PxDefaultPvdSocketTransportCreate(PvdHost, PvdPort, PvdConnectTimeoutMilliseconds));
+        mPvdTransport.reset(physx::PxDefaultPvdSocketTransportCreate(mSettings.mPvdHost.c_str(), mSettings.mPvdPort, mSettings.mPvdConnectTimeoutMilliseconds));
 
         if (mPvdTransport == nullptr) {
             MACAW_LOG(LogPhysics, Warning, "Cannot create the PhysX Visual Debugger transport.");
@@ -251,9 +213,9 @@ namespace PhysicsRuntime {
         }
 
         if (mPvd->connect(*mPvdTransport, physx::PxPvdInstrumentationFlag::eALL)) {
-            MACAW_LOG(LogPhysics, Log, "Connected to the PhysX Visual Debugger at {}:{}.", PvdHost, PvdPort);
+            MACAW_LOG(LogPhysics, Log, "Connected to the PhysX Visual Debugger at {}:{}.", mSettings.mPvdHost, mSettings.mPvdPort);
         } else {
-            MACAW_LOG(LogPhysics, Log, "PhysX Visual Debugger is not running at {}:{}; continuing without it.", PvdHost, PvdPort);
+            MACAW_LOG(LogPhysics, Log, "PhysX Visual Debugger is not running at {}:{}; continuing without it.", mSettings.mPvdHost, mSettings.mPvdPort);
         }
     }
 

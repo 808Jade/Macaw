@@ -72,12 +72,22 @@ namespace PhysicsRuntime {
             return false;
         }
 
+        const PhysicsRuntime::FPhysicsSettings& Settings{Runtime.GetSettings()};
+
         physx::PxSceneDesc Desc{Runtime.GetTolerancesScale()};
-        Desc.gravity = PhysicsRuntime::ToPxVec3(Runtime.GetDefaultGravity());
+        Desc.gravity = PhysicsRuntime::ToPxVec3(Settings.mGravity);
         Desc.cpuDispatcher = Runtime.GetDispatcher();
         Desc.filterShader = SimulationFilterShader;
         Desc.simulationEventCallback = this;
-        Desc.flags |= physx::PxSceneFlag::eENABLE_ACTIVE_ACTORS | physx::PxSceneFlag::eENABLE_CCD | physx::PxSceneFlag::eENABLE_PCM;
+        Desc.flags |= physx::PxSceneFlag::eENABLE_ACTIVE_ACTORS;
+
+        if (Settings.mEnableCCD) {
+            Desc.flags |= physx::PxSceneFlag::eENABLE_CCD;
+        }
+
+        if (Settings.mEnablePCM) {
+            Desc.flags |= physx::PxSceneFlag::eENABLE_PCM;
+        }
 
         if (!Desc.isValid()) {
             MACAW_LOG(LogPhysics, Error, "Cannot create a physics scene from an invalid scene description.");
