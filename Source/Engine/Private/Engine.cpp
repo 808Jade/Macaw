@@ -272,6 +272,7 @@ namespace Engine {
         }
 
         Context->GetWorld()->SetAssets(mProject != nullptr ? mProject->GetAssets() : nullptr);
+        Context->GetWorld()->SetPhysicsRuntime(&mPhysicsRuntime);
 
         if (mRenderer != nullptr && !Context->GetWorld()->AttachScene(mRenderer->AllocateScene())) {
             return {};

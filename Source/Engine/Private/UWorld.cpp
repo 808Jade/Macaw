@@ -39,6 +39,9 @@
 
 #include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/Reflection/UClass.h"
+#include "Core/Log/Log.h"
+#include "PhysicsRuntime/FPhysicsRuntime.h"
+#include "PhysicsRuntime/FPhysicsScene.h"
 
 #include <algorithm>
 #include <cmath>
@@ -46,6 +49,13 @@
 #include <utility>
 
 namespace Engine {
+
+    /**
+     * @brief 월드의 로그 범주입니다.
+     */
+    namespace {
+        DEFINE_LOG_CATEGORY_STATIC(LogWorld, Log, All);
+    }
 
     /**
      * @brief UWorld의 초기 상태와 전달받은 의존성을 구성합니다.
@@ -120,6 +130,84 @@ namespace Engine {
      */
     Asset::FAssetManager* Engine::UWorld::GetAssets() const {
         return mAssets;
+    }
+
+    /**
+     * @brief 물리 장면 생성에 사용할 PhysX 런타임의 비소유 주소를 설정합니다.
+     */
+    void Engine::UWorld::SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime) {
+        if (mPhysicsRuntime == Runtime) {
+            return;
+        }
+
+        DestroyPhysicsScene();
+        mPhysicsRuntime = Runtime;
+    }
+
+    /**
+     * @brief 물리 장면 생성에 사용할 PhysX 런타임을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsRuntime* Engine::UWorld::GetPhysicsRuntime() const {
+        return mPhysicsRuntime;
+    }
+
+    /**
+     * @brief 월드가 소유한 물리 장면을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsScene* Engine::UWorld::GetPhysicsScene() const {
+        return mPhysicsScene.get();
+    }
+
+    /**
+     * @brief 설정된 런타임으로 물리 장면을 만들고 고정 스텝 누적 시간을 초기화합니다.
+     */
+    bool Engine::UWorld::CreatePhysicsScene() {
+        if (mPhysicsScene != nullptr) {
+            return true;
+        }
+
+        if (mPhysicsRuntime == nullptr) {
+            return false;
+        }
+
+        auto Scene{std::make_unique<PhysicsRuntime::FPhysicsScene>()};
+
+        if (!Scene->Initialize(*mPhysicsRuntime)) {
+            MACAW_LOG(LogWorld, Warning, "Cannot create the physics scene; the world runs without physics.");
+
+            return false;
+        }
+
+        mPhysicsScene = std::move(Scene);
+        mPhysicsTimeAccumulator = 0.0f;
+
+        return true;
+    }
+
+    /**
+     * @brief 물리 장면을 해제합니다.
+     */
+    void Engine::UWorld::DestroyPhysicsScene() {
+        mPhysicsScene.reset();
+        mPhysicsTimeAccumulator = 0.0f;
+    }
+
+    /**
+     * @brief 프레임 시간을 고정 스텝으로 나누어 물리 장면을 진행합니다.
+     */
+    void Engine::UWorld::StepPhysics(float DeltaTime) {
+        if (mPhysicsScene == nullptr || !std::isfinite(DeltaTime) || DeltaTime <= 0.0f) {
+            return;
+        }
+
+        const PhysicsRuntime::FPhysicsSettings& Settings{mPhysicsRuntime->GetSettings()};
+        const float StepSeconds{Settings.mFixedStepSeconds};
+
+        mPhysicsTimeAccumulator = std::min(mPhysicsTimeAccumulator + DeltaTime, StepSeconds * static_cast<float>(Settings.mMaxStepsPerFrame));
+
+        while (mPhysicsTimeAccumulator >= StepSeconds && mPhysicsScene->Simulate(StepSeconds)) {
+            mPhysicsTimeAccumulator -= StepSeconds;
+        }
     }
 
     /**
@@ -394,6 +482,7 @@ namespace Engine {
         mShutdownRequested = false;
 
         EndPlay();
+        DestroyPhysicsScene();
 
         mShuttingDown = true;
 
@@ -463,6 +552,9 @@ namespace Engine {
         mPlayState = Engine::EWorldPlayState::Starting;
         mTimeSeconds = 0.0f;
         mTickCount = 0;
+
+        // 액터의 BeginPlay에서 강체를 다룰 수 있도록 물리 장면을 먼저 만듭니다. 실패하면 물리 없이 진행합니다.
+        CreatePhysicsScene();
 
         // 액터의 BeginPlay에서 카메라 관리자를 조회할 수 있도록 먼저 만듭니다.
         if (auto CameraManager{CoreUObject::NewObject<Engine::APlayerCameraManager>()}; CameraManager != nullptr && CameraManager->InitializeDefaultComponents() && mPersistentLevel != nullptr) {
@@ -536,6 +628,7 @@ namespace Engine {
         DestroyActor(mPlayerCameraManager);
         mPlayerCameraManager = {};
         mLuaRuntime.reset();
+        DestroyPhysicsScene();
         mPlayState = Engine::EWorldPlayState::Stopped;
     }
 
@@ -694,10 +787,12 @@ namespace Engine {
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PrePhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::StartPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::DuringPhysics);
-        //
-        // ** Week13 ** 
-        // 여기에 물리 엔진 처리를 넣으세요.
-        //
+
+        // StartPhysics·EndPhysics는 사용자 Tick이 없는 경계 그룹이므로 그 사이에서 물리 장면을 동기로 진행합니다.
+        if (!EditorTick && !mEndPlayRequested && !mShutdownRequested) {
+            StepPhysics(DeltaTime);
+        }
+
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::EndPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PostPhysics);
 
