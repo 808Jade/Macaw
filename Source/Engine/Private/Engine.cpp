@@ -16,6 +16,7 @@
 #include "Engine/UWorld.h"
 #include "Engine/FWorldContext.h"
 #include "Engine/FWorldCloner.h"
+#include "PhysicsRuntime/FPhysicsScene.h"
 #include "Engine/EPrimitiveType.h"
 #include "CoreUObject/FObjectDuplicationContext.h"
 #include "RenderCore/IRendererModule.h"
@@ -275,6 +276,15 @@ namespace Engine {
 
         if (mRenderer != nullptr && !Context->GetWorld()->AttachScene(mRenderer->AllocateScene())) {
             return {};
+        }
+
+        // 물리 장면을 만들지 못해도 월드는 물리 없이 동작합니다.
+        if (Context->GetWorld()->GetPhysicsScene() == nullptr) {
+            auto PhysicsScene{std::make_unique<PhysicsRuntime::FPhysicsScene>()};
+
+            if (PhysicsScene->InitPhysScene(mPhysicsRuntime)) {
+                Context->GetWorld()->SetPhysicsScene(std::move(PhysicsScene));
+            }
         }
 
         Index_t Index{};

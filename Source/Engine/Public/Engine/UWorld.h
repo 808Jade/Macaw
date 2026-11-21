@@ -27,6 +27,10 @@ namespace Core {
     class FInput;
 }
 
+namespace PhysicsRuntime {
+    class FPhysicsScene;
+}
+
 namespace Engine {
 
     class ULevel;
@@ -262,6 +266,18 @@ namespace Engine {
         Engine::FSceneInterface* GetScene() const;
 
         /**
+         * @brief 월드가 소유할 물리 장면을 설정합니다. 기존 장면은 해제됩니다.
+         * @param[in] Scene 초기화된 물리 장면입니다.
+         */
+        void SetPhysicsScene(std::unique_ptr<PhysicsRuntime::FPhysicsScene> Scene);
+
+        /**
+         * @brief 월드의 물리 장면을 반환합니다.
+         * @return 물리 장면의 비소유 주소이며, 없으면 nullptr입니다.
+         */
+        PhysicsRuntime::FPhysicsScene* GetPhysicsScene() const;
+
+        /**
          * @brief 월드의 에셋 로드에 사용할 관리자의 비소유 주소를 설정합니다.
          * @param[in] Assets 월드가 사용할 에셋 관리자의 비소유 주소입니다.
          */
@@ -421,6 +437,18 @@ namespace Engine {
         bool TickActors(float DeltaTime, bool EditorTick, bool PauseTick);
 
         /**
+         * @brief 이번 프레임의 중력과 시간을 물리 장면에 전달합니다.
+         * @param[in] DeltaSeconds 이번 프레임의 초 단위 시간입니다.
+         */
+        void SetupPhysicsTickFunctions(float DeltaSeconds);
+
+        /** @brief 물리 시뮬레이션을 시작합니다. */
+        void StartPhysicsSim();
+
+        /** @brief 물리 시뮬레이션이 끝날 때까지 기다려 결과를 확정합니다. */
+        void FinishPhysicsSim();
+
+        /**
          * @brief 컨테이너 변경에 영향받지 않는 액터 핸들 스냅샷을 만듭니다.
          * @return 영속 레벨에 속한 액터의 전역 핸들 목록입니다.
          */
@@ -489,6 +517,11 @@ namespace Engine {
          * @brief 월드가 소유한 렌더 장면입니다.
          */
         std::unique_ptr<Engine::FSceneInterface> mScene{};
+
+        /**
+         * @brief 월드가 소유한 물리 장면입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::FPhysicsScene> mPhysicsScene{};
 
         /**
          * @brief 프레임 말 갱신을 기다리는 컴포넌트 핸들입니다.

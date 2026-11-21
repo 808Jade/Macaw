@@ -36,6 +36,7 @@
 #include "CoreUObject/Reflection/Cast.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Engine/PrimitiveMesh.h"
+#include "PhysicsRuntime/FPhysicsScene.h"
 
 #include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/Reflection/UClass.h"
@@ -214,6 +215,20 @@ namespace Engine {
      */
     Engine::FSceneInterface* Engine::UWorld::GetScene() const {
         return mScene.get();
+    }
+
+    /**
+     * @brief 월드가 소유할 물리 장면을 설정합니다. 기존 장면은 해제됩니다.
+     */
+    void Engine::UWorld::SetPhysicsScene(std::unique_ptr<PhysicsRuntime::FPhysicsScene> Scene) {
+        mPhysicsScene = std::move(Scene);
+    }
+
+    /**
+     * @brief 월드의 물리 장면을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsScene* Engine::UWorld::GetPhysicsScene() const {
+        return mPhysicsScene.get();
     }
 
     /**
@@ -407,6 +422,8 @@ namespace Engine {
         mInputTarget = {};
         mPlayerCameraManager = {};
         mPersistentLevel.reset();
+        // 바디를 가진 컴포넌트가 먼저 정리된 뒤 물리 장면을 해제합니다.
+        mPhysicsScene.reset();
         mScene.reset();
     }
 
@@ -690,14 +707,28 @@ namespace Engine {
             ++mTickCount;
         }
 
+        // 편집 중인 월드는 물리를 진행하지 않습니다.
+        const bool SimulatePhysics{!EditorTick};
+
         mTickTaskManager.StartFrame(*this, DeltaTime, EditorTick);
+
+        if (SimulatePhysics) {
+            SetupPhysicsTickFunctions(DeltaTime);
+        }
+
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PrePhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::StartPhysics);
+
+        if (SimulatePhysics) {
+            StartPhysicsSim();
+        }
+
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::DuringPhysics);
-        //
-        // ** Week13 ** 
-        // 여기에 물리 엔진 처리를 넣으세요.
-        //
+
+        if (SimulatePhysics) {
+            FinishPhysicsSim();
+        }
+
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::EndPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PostPhysics);
 
@@ -719,6 +750,37 @@ namespace Engine {
         }
 
         return true;
+    }
+
+    /**
+     * @brief 이번 프레임의 중력과 시간을 물리 장면에 전달합니다.
+     */
+    void Engine::UWorld::SetupPhysicsTickFunctions(float DeltaSeconds) {
+        if (mPhysicsScene == nullptr) {
+            return;
+        }
+
+        constexpr float GravityZ{-9.81f};
+
+        mPhysicsScene->SetUpForFrame(FVector{0.0f, 0.0f, GravityZ}, DeltaSeconds);
+    }
+
+    /**
+     * @brief 물리 시뮬레이션을 시작합니다.
+     */
+    void Engine::UWorld::StartPhysicsSim() {
+        if (mPhysicsScene != nullptr) {
+            mPhysicsScene->StartFrame();
+        }
+    }
+
+    /**
+     * @brief 물리 시뮬레이션이 끝날 때까지 기다려 결과를 확정합니다.
+     */
+    void Engine::UWorld::FinishPhysicsSim() {
+        if (mPhysicsScene != nullptr) {
+            mPhysicsScene->EndFrame();
+        }
     }
 
     /**
