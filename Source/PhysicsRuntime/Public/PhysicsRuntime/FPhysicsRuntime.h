@@ -31,6 +31,12 @@ namespace PhysicsRuntime {
          */
         physx::PxCpuDispatcher* GetDispatcher() const;
 
+        /**
+         * @brief 재질을 지정하지 않은 모양에 쓰는 기본 재질을 반환합니다.
+         * @return 기본 재질의 비소유 주소이며, 초기화 전이면 nullptr입니다.
+         */
+        physx::PxMaterial* GetDefaultMaterial() const;
+
     private:
         physx::PxDefaultAllocator mAllocator{};
         physx::PxDefaultErrorCallback mErrorCallback{};
@@ -38,6 +44,11 @@ namespace PhysicsRuntime {
         std::unique_ptr<physx::PxFoundation, FRelease> mFoundation{};
         std::unique_ptr<physx::PxPhysics, FRelease> mPhysics{};
         std::unique_ptr<physx::PxDefaultCpuDispatcher, FRelease> mDispatcher{};
+
+        /**
+         * @brief 마찰 0.7, 반발 0.3인 기본 재질입니다.
+         */
+        std::unique_ptr<physx::PxMaterial, FRelease> mDefaultMaterial{};
 
         bool mExtensionsInitialized{};
     };

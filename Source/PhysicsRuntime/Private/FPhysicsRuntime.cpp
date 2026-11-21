@@ -50,12 +50,23 @@ namespace PhysicsRuntime {
             return false;
         }
 
+        // 정지 마찰, 운동 마찰, 반발 계수 순서입니다.
+        mDefaultMaterial.reset(mPhysics->createMaterial(0.7f, 0.7f, 0.3f));
+
+        if (mDefaultMaterial == nullptr) {
+            MACAW_LOG(LogPhysics, Error, "Cannot create the default PhysX material.");
+            Shutdown();
+
+            return false;
+        }
+
         MACAW_LOG(LogPhysics, Log, "PhysX initialized.");
 
         return true;
     }
 
     void FPhysicsRuntime::Shutdown() {
+        mDefaultMaterial.reset();
         mDispatcher.reset();
 
         if (mExtensionsInitialized) {
@@ -79,5 +90,12 @@ namespace PhysicsRuntime {
      */
     physx::PxCpuDispatcher* FPhysicsRuntime::GetDispatcher() const {
         return mDispatcher.get();
+    }
+
+    /**
+     * @brief 재질을 지정하지 않은 모양에 쓰는 기본 재질을 반환합니다.
+     */
+    physx::PxMaterial* FPhysicsRuntime::GetDefaultMaterial() const {
+        return mDefaultMaterial.get();
     }
 }
