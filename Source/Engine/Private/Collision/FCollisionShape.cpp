@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <limits>
 
 namespace Engine {
 
@@ -433,13 +434,14 @@ namespace Engine {
         if (DeltaLen < 1e-8f || Targets.size() == 0)
             return Result;
 
+        const Int32 TargetCount{static_cast<Int32>(std::min(Targets.size(), static_cast<Index_t>(std::numeric_limits<Int32>::max())))};
         Core::TArray<Uint8> Ignored{};
-        Ignored.resize(Targets.size());
+        Ignored.resize(TargetCount);
 
         const auto FirstOverlapAt{[&](float T, Engine::FCollisionContact* OutContact) -> Int32 {
             const FVector Pos{Start + Delta * T};
 
-            for (Index_t Index{0}; Index < static_cast<Int32>(Targets.size()); ++Index) {
+            for (Int32 Index{}; Index < TargetCount; ++Index) {
                 if (Ignored[Index])
                     continue;
                 const Engine::FSweepTarget& Target{Targets[Index]};
@@ -451,7 +453,7 @@ namespace Engine {
             return -1;
         }};
 
-        for (Index_t Index{0}; Index < static_cast<Int32>(Targets.size()); ++Index) {
+        for (Int32 Index{}; Index < TargetCount; ++Index) {
             Engine::FCollisionContact Contact{};
             const Engine::FSweepTarget& Target{Targets[Index]};
 

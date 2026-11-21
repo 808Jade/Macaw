@@ -55,7 +55,7 @@ namespace {
      * @throws std::length_error 새 영역을 포함한 크기가 지원하는 오프셋 범위를 넘는 경우입니다.
      */
     Index_t AllocatePayload(Uint32& Size, Uint32 RequiredSize) {
-        const Index_t Offset{static_cast<Index_t>(AlignPayload(Size))};
+        const Uint32 Offset{AlignPayload(Size)};
 
         if (RequiredSize > static_cast<Uint32>(std::numeric_limits<Int32>::max()) - Offset) {
             throw std::length_error{"Particle payload exceeds the supported offset range"};

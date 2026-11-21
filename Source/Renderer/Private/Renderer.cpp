@@ -1648,12 +1648,14 @@ namespace Renderer {
                 LastMesh = Command.mMesh;
             }
 
+            const UINT FirstIndex{static_cast<UINT>(Command.mFirstIndex)};
+
             if (Command.mPipeline->IsInstanced()) {
-                mContext->DrawIndexedInstanced(Command.mIndexCount, InstanceCount, Command.mFirstIndex, 0, static_cast<UINT>(First));
+                mContext->DrawIndexedInstanced(Command.mIndexCount, InstanceCount, FirstIndex, 0, static_cast<UINT>(First));
             } else {
                 Command.mPrimitive->mObjectBuffer.Bind(mContext.Get(), RenderCore::EShaderStage::Vertex | RenderCore::EShaderStage::Pixel, 0);
 
-                mContext->DrawIndexed(Command.mIndexCount, Command.mFirstIndex, 0);
+                mContext->DrawIndexed(Command.mIndexCount, FirstIndex, 0);
             }
 
             if (SurfacePass) {

@@ -33,11 +33,13 @@ namespace Engine {
             const FVector Start{(Corner & 1) != 0 ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Corner & 2) != 0 ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Corner & 4) != 0 ? Bounds.mMaximum.z : Bounds.mMinimum.z};
 
             for (Index_t Axis{}; Axis < 3; ++Axis) {
-                if ((Corner & (1 << Axis)) != 0) {
+                const Index_t Mask{Index_t{1} << Axis};
+
+                if ((Corner & Mask) != 0) {
                     continue;
                 }
 
-                const Index_t Other{Corner | (Index_t{1} << Axis)};
+                const Index_t Other{Corner | Mask};
                 const FVector End{(Other & 1) != 0 ? Bounds.mMaximum.x : Bounds.mMinimum.x, (Other & 2) != 0 ? Bounds.mMaximum.y : Bounds.mMinimum.y, (Other & 4) != 0 ? Bounds.mMaximum.z : Bounds.mMinimum.z};
 
                 DrawLine(Start, End, Color, DepthTest, Thickness);
