@@ -75,11 +75,22 @@ namespace PhysicsRuntime {
          */
         physx::PxScene* GetPxScene() const;
 
+        /**
+         * @brief 재질을 지정하지 않은 모양에 쓰는 기본 재질을 반환합니다.
+         * @return 런타임이 소유한 기본 재질의 비소유 주소이며, 장면 생성 전이면 nullptr입니다.
+         */
+        physx::PxMaterial* GetDefaultMaterial() const;
+
     private:
         /**
          * @brief 소유한 PhysX 장면입니다.
          */
         physx::PxScene* mPhysXScene{};
+
+        /**
+         * @brief 런타임이 소유한 기본 재질의 비소유 주소입니다.
+         */
+        physx::PxMaterial* mDefaultMaterial{};
 
         /**
          * @brief SetUpForFrame으로 받은 이번 프레임의 초 단위 시간입니다.

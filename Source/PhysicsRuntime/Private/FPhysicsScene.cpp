@@ -36,8 +36,9 @@ namespace PhysicsRuntime {
 
         physx::PxPhysics* Physics{Runtime.GetPhysics()};
         physx::PxCpuDispatcher* Dispatcher{Runtime.GetDispatcher()};
+        physx::PxMaterial* DefaultMaterial{Runtime.GetDefaultMaterial()};
 
-        if (Physics == nullptr || Dispatcher == nullptr) {
+        if (Physics == nullptr || Dispatcher == nullptr || DefaultMaterial == nullptr) {
             MACAW_LOG(LogPhysics, Error, "Cannot create a physics scene before the PhysX runtime is initialized.");
 
             return false;
@@ -62,6 +63,8 @@ namespace PhysicsRuntime {
             return false;
         }
 
+        mDefaultMaterial = DefaultMaterial;
+
         return true;
     }
 
@@ -81,6 +84,7 @@ namespace PhysicsRuntime {
 
         mPhysXScene->release();
         mPhysXScene = nullptr;
+        mDefaultMaterial = nullptr;
     }
 
     /**
@@ -147,5 +151,12 @@ namespace PhysicsRuntime {
      */
     physx::PxScene* FPhysicsScene::GetPxScene() const {
         return mPhysXScene;
+    }
+
+    /**
+     * @brief 재질을 지정하지 않은 모양에 쓰는 기본 재질을 반환합니다.
+     */
+    physx::PxMaterial* FPhysicsScene::GetDefaultMaterial() const {
+        return mDefaultMaterial;
     }
 }
