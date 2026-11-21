@@ -5,11 +5,16 @@
  */
 
 #include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/FBodyInstance.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
+#include "PhysicsRuntime/IPhysicsBodyOwner.h"
 #include "PhysicsRuntime/PhysXPublicCore.h"
+#include "PhysicsRuntime/PhysxUserData.h"
 #include "Core/Log/Log.h"
+#include "Core/Types.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace PhysicsRuntime {
     DEFINE_LOG_CATEGORY_STATIC(LogPhysics, Log, All);
@@ -48,6 +53,8 @@ namespace PhysicsRuntime {
         SceneDesc.gravity = physx::PxVec3{0.0f, 0.0f, -9.81f};
         SceneDesc.cpuDispatcher = Dispatcher;
         SceneDesc.filterShader = physx::PxDefaultSimulationFilterShader;
+        // 스텝마다 움직인 액터 목록을 만들어 그 액터만 동기화합니다.
+        SceneDesc.flags |= physx::PxSceneFlag::eENABLE_ACTIVE_ACTORS;
 
         if (!SceneDesc.isValid()) {
             MACAW_LOG(LogPhysics, Error, "Invalid PxSceneDesc.");
@@ -144,6 +151,38 @@ namespace PhysicsRuntime {
         }
 
         mPhysXSceneExecuting = false;
+
+        SyncComponentsToBodies();
+    }
+
+    /**
+     * @brief 이번 스텝에 움직인 바디의 위치와 회전을 주인에게 알립니다.
+     */
+    void FPhysicsScene::SyncComponentsToBodies() {
+        physx::PxU32 ActiveActorCount{};
+        physx::PxActor** ActiveActors{mPhysXScene->getActiveActors(ActiveActorCount)};
+
+        // 주인을 옮기다가 다른 바디가 해제될 수 있으므로 먼저 목록만 모읍니다.
+        Core::TArray<std::pair<IPhysicsBodyOwner*, FTransform>> PendingTransforms{};
+        PendingTransforms.reserve(ActiveActorCount);
+
+        for (physx::PxU32 Index{}; Index < ActiveActorCount; ++Index) {
+            const physx::PxRigidActor* RigidActor{ActiveActors[Index]->is<physx::PxRigidActor>()};
+
+            if (RigidActor == nullptr) {
+                continue;
+            }
+
+            const FBodyInstance* Body{FPhysxUserData::Get<FBodyInstance>(RigidActor->userData)};
+
+            if (Body != nullptr && Body->GetOwner() != nullptr) {
+                PendingTransforms.emplace_back(Body->GetOwner(), P2UTransform(RigidActor->getGlobalPose()));
+            }
+        }
+
+        for (const auto& [Owner, Transform] : PendingTransforms) {
+            Owner->OnPhysicsTransformUpdated(Transform);
+        }
     }
 
     /**

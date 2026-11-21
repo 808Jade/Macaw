@@ -65,7 +65,7 @@ namespace PhysicsRuntime {
         void StartFrame();
 
         /**
-         * @brief 시뮬레이션이 끝날 때까지 기다려 결과를 확정합니다.
+         * @brief 시뮬레이션이 끝날 때까지 기다려 결과를 확정하고, 움직인 바디를 주인에게 알립니다.
          */
         void EndFrame();
 
@@ -80,6 +80,12 @@ namespace PhysicsRuntime {
          * @return 런타임이 소유한 기본 재질의 비소유 주소이며, 장면 생성 전이면 nullptr입니다.
          */
         physx::PxMaterial* GetDefaultMaterial() const;
+
+    private:
+        /**
+         * @brief 이번 스텝에 움직인 바디의 위치와 회전을 주인에게 알립니다.
+         */
+        void SyncComponentsToBodies();
 
     private:
         /**
