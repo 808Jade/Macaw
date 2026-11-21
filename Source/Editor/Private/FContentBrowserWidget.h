@@ -219,6 +219,7 @@ namespace Editor {
          * @brief 현재 폴더에 이름이 충돌하지 않는 머티리얼 에셋을 만듭니다.
          */
         void CreateMaterial();
+        void CreateMaterialIn(const std::filesystem::path& Directory);
 
         /**
          * @brief 현재 폴더에 새 애니메이션 그래프 에셋을 만듭니다.

@@ -1019,16 +1019,18 @@ void FContentBrowserWidget::DrawContentEntries() {
 }
 
 void FContentBrowserWidget::CreateMaterial() {
-    if (!mAssetEditors.CanClose()) {
-        return;
-    }
+    mAssetEditors.ConfirmClose([this, Directory = mContentDirectory]() {
+        CreateMaterialIn(Directory);
+    });
+}
 
+void FContentBrowserWidget::CreateMaterialIn(const std::filesystem::path& Directory) {
     Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
-    std::filesystem::path Path{mContentDirectory / "Material.masset"};
+    std::filesystem::path Path{Directory / "Material.masset"};
     std::error_code Code{};
 
     for (Index_t Index{1}; std::filesystem::exists(Assets->GetContentRoot() / Path, Code) && !Code; ++Index) {
-        Path = mContentDirectory / ("Material_" + std::to_string(Index) + ".masset");
+        Path = Directory / ("Material_" + std::to_string(Index) + ".masset");
     }
 
     auto Material{CoreUObject::NewObject<Asset::UMaterial>()};

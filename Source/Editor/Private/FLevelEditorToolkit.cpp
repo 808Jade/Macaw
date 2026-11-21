@@ -63,8 +63,8 @@ bool FLevelEditorToolkit::Initialize(RenderCore::IRendererModule* Renderer, Plat
     mAssetCatalog = std::make_unique<FEditorAssetCatalog>(mContext->GetProject()->GetAssets());
     mThumbnails = std::make_unique<FAssetThumbnailCache>(mContext->GetProject()->GetAssets(), Renderer);
     mWorkspace = std::make_unique<FEditorWorkspace>(mContext, mTopLevelTab, mUIScale);
-    mCommands = std::make_unique<FEditorCommands>(mContext, mPlaySession, mViewportLayout, Platform);
-    mAssetEditors = std::make_unique<FAssetEditorManager>(mContext, Platform, *mAssetCatalog, *mThumbnails, *mWorkspace, *mCommands);
+    mCommands = std::make_unique<FEditorCommands>(mContext, mPlaySession, mViewportLayout, Platform, mMessages);
+    mAssetEditors = std::make_unique<FAssetEditorManager>(mContext, Platform, *mAssetCatalog, *mThumbnails, *mWorkspace, *mCommands, mMessages);
     mImports = std::make_unique<FAssetImportController>(mContext, Platform);
     RegisterTabs();
     mDrawers = std::make_unique<FEditorDrawerManager>(mTabs, mUIScale, *mWorkspace);
@@ -160,8 +160,8 @@ void FLevelEditorToolkit::ConnectServices() {
     mContext->SetSceneSavedHandler([this]() {
         mCommands->CaptureProjectThumbnail();
     });
-    mCommands->SetCanCloseAssets([this]() {
-        return mAssetEditors->CanClose();
+    mCommands->SetCollectAssetSavePrompts([this]() {
+        return mAssetEditors->CollectSavePrompts();
     });
     mAssetEditors->SetChangedHandler([this]() {
         mBrowser->MarkRefresh();
@@ -222,6 +222,13 @@ void FLevelEditorToolkit::Draw(float DeltaTime) {
     mAssetEditors->Draw(DeltaTime);
     mDrawers->Draw(DeltaTime);
     mBrowser->DrawDragPreview();
+
+    if (mCloseRequested) {
+        mCloseRequested = false;
+        mCommands->RequestExit();
+    }
+
+    mMessages.Draw();
     mPlaySession->ProcessInput(DeltaTime, !ImGui::GetIO().WantTextInput && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup));
 }
 
@@ -232,8 +239,10 @@ void FLevelEditorToolkit::Render(float DeltaTime) {
     mDrawers->FinishDragFrame();
 }
 
-bool FLevelEditorToolkit::CanClose() {
-    return mCommands != nullptr && mCommands->ConfirmSceneChange();
+void FLevelEditorToolkit::RequestClose() {
+    if (!mMessages.IsOpen()) {
+        mCloseRequested = true;
+    }
 }
 
 void FLevelEditorToolkit::QueueFileDrop(void* Handle) {
@@ -270,6 +279,8 @@ void FLevelEditorToolkit::Shutdown() {
         }
     }
 
+    mMessages.Reset();
+    mCloseRequested = false;
     mPlaceActorsWidget.ClearIcons();
     mShell.reset();
     mSettings.reset();

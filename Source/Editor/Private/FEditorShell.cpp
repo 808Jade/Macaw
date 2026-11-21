@@ -161,9 +161,7 @@ void FEditorShell::DrawMenu() {
             ImGui::BeginDisabled(!mContext->CanEditWorld());
 
             if (ImGui::MenuItem("New Level", "Ctrl+N")) {
-                if (mCommands.ConfirmSceneChange()) {
-                    mContext->NewScene();
-                }
+                mCommands.NewLevel();
             }
 
             if (ImGui::MenuItem("Open Level...", "Ctrl+O")) {
@@ -207,7 +205,7 @@ void FEditorShell::DrawMenu() {
             ImGui::EndDisabled();
             ImGui::Separator();
 
-            if (ImGui::MenuItem("Exit") && mCommands.ConfirmSceneChange()) {
+            if (ImGui::MenuItem("Exit")) {
                 mCommands.RequestExit();
             }
 
@@ -306,8 +304,8 @@ void FEditorShell::DrawMenu() {
 
     const Core::FInput& Input{mPlatform->GetInput()};
 
-    if (Input.IsDown(EKey::Control)) {
-        if (Input.WasPressed(EKey::Space) && !mAssetEditors.IsSourceEditorFocused() && ImGui::GetTopMostPopupModal() == nullptr) {
+    if (Input.IsDown(EKey::Control) && ImGui::GetTopMostPopupModal() == nullptr) {
+        if (Input.WasPressed(EKey::Space) && !mAssetEditors.IsSourceEditorFocused()) {
             mDrawers.ToggleDrawer("Content");
         } else if (Input.WasPressed(EKey::Comma) && !ImGui::GetIO().WantTextInput) {
             mSettings.OpenSettings(0);
@@ -322,7 +320,7 @@ void FEditorShell::DrawMenu() {
         }
     }
 
-    if (Input.IsDown(EKey::Control) && !ImGui::GetIO().WantTextInput && mContext->CanEditWorld()) {
+    if (Input.IsDown(EKey::Control) && !ImGui::GetIO().WantTextInput && ImGui::GetTopMostPopupModal() == nullptr && mContext->CanEditWorld()) {
         const bool AssetEditorFocused{mAssetEditors.IsFocused()};
         const ImGuiWindow* Focused{ImGui::GetCurrentContext()->NavWindow};
         const ImGuiWindow* Root{Focused != nullptr ? Focused->RootWindow : nullptr};
@@ -341,9 +339,7 @@ void FEditorShell::DrawMenu() {
         } else if (Input.WasPressed(EKey::O)) {
             mCommands.OpenLevel();
         } else if (Input.WasPressed(EKey::N)) {
-            if (mCommands.ConfirmSceneChange()) {
-                mContext->NewScene();
-            }
+            mCommands.NewLevel();
         }
     }
 }
