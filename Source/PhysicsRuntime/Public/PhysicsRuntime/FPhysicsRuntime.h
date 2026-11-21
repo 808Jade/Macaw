@@ -19,6 +19,10 @@ namespace PhysicsRuntime {
         bool Initialize();
         void Shutdown();
 
+        // 초기화 전이면 nullptr
+        physx::PxPhysics* GetPhysics() const;
+        physx::PxCpuDispatcher* GetDispatcher() const;
+
     private:
         physx::PxDefaultAllocator mAllocator{};
         physx::PxDefaultErrorCallback mErrorCallback{};

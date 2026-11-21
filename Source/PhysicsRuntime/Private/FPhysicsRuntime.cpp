@@ -66,4 +66,12 @@ namespace PhysicsRuntime {
         mPhysics.reset();
         mFoundation.reset();
     }
+
+    physx::PxPhysics* FPhysicsRuntime::GetPhysics() const {
+        return mPhysics.get();
+    }
+
+    physx::PxCpuDispatcher* FPhysicsRuntime::GetDispatcher() const {
+        return mDispatcher.get();
+    }
 }
