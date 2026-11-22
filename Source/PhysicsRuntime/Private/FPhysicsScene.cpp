@@ -109,6 +109,8 @@ namespace PhysicsRuntime {
             PvdClient->setScenePvdFlag(physx::PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
         }
 
+        mRuntime = &Runtime;
+
         return true;
     }
 
@@ -118,6 +120,14 @@ namespace PhysicsRuntime {
     void PhysicsRuntime::FPhysicsScene::Shutdown() {
         mContacts.clear();
         mScene.reset();
+        mRuntime = nullptr;
+    }
+
+    /**
+     * @brief 장면을 만들 때 사용한 PhysX 런타임을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsRuntime* PhysicsRuntime::FPhysicsScene::GetRuntime() const {
+        return mRuntime;
     }
 
     /**

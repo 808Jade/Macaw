@@ -45,6 +45,11 @@ namespace PhysicsRuntime {
         float mDefaultRestitution{0.6f};
 
         /**
+         * @brief 질량을 지정하지 않은 동적 바디의 질량을 형상 부피로 계산할 때 쓰는 밀도(kg/m³)입니다.
+         */
+        float mDefaultDensity{1000.0f};
+
+        /**
          * @brief PhysX Visual Debugger 연결을 시도할지 여부입니다.
          */
         bool mEnablePvd{true};

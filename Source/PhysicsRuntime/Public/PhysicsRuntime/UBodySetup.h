@@ -69,9 +69,8 @@ namespace PhysicsRuntime {
 
         /**
          * @brief 바디를 이루는 충돌 형상 묶음입니다.
-         * @note 현재 리플렉션은 구조체 배열만 직렬화하고 단일 구조체 멤버는 저장하지 않으므로 프로퍼티로 등록하지 않습니다.
-         *       형상은 메시 경계 등에서 생성하며, 피직스 에셋 편집에서 저장이 필요해지면 단일 구조체 직렬화를 함께 지원해야 합니다.
          */
+        UPROPERTY(Serialize)
         PhysicsRuntime::FKAggregateGeom mAggGeom{};
     };
 

@@ -59,7 +59,7 @@ namespace PhysicsRuntime {
 
         /**
          * @brief PhysX 장면과 보관한 시뮬레이션 결과를 해제합니다.
-         * @note 여러 번 호출해도 안전합니다.
+         * @note 여러 번 호출해도 안전하며, 이 장면에 바디를 추가한 FBodyInstance는 먼저 해제되어야 합니다.
          */
         void Shutdown();
 
@@ -68,6 +68,12 @@ namespace PhysicsRuntime {
          * @return 장면이 있으면 true입니다.
          */
         bool IsInitialized() const;
+
+        /**
+         * @brief 장면을 만들 때 사용한 PhysX 런타임을 반환합니다.
+         * @return 조회한 값의 비소유 주소이며, 초기화 전이면 nullptr입니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime* GetRuntime() const;
 
         /**
          * @brief 장면을 한 스텝 진행하고 결과를 받을 때까지 기다립니다.
@@ -136,6 +142,11 @@ namespace PhysicsRuntime {
          * @brief 이 객체가 단독 소유하는 PhysX 장면입니다.
          */
         std::unique_ptr<physx::PxScene, PhysicsRuntime::FPhysXRelease> mScene{};
+
+        /**
+         * @brief 장면과 바디가 SDK 객체를 빌리는 PhysX 런타임이며, 장면보다 오래 유지됩니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime* mRuntime{};
 
         /**
          * @brief 마지막 스텝에서 새로 시작된 접촉 목록입니다.
