@@ -8,6 +8,7 @@
 #include "PhysicsRuntime/FPhysicsScene.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
+#include "PhysicsRuntime/PhysicsStats.h"
 #include "Core/Log/Log.h"
 
 #include <cmath>
@@ -145,9 +146,22 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        mContacts.clear();
-        mScene->simulate(StepSeconds);
-        mScene->fetchResults(true);
+        {
+            const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::Simulate};
+
+            mContacts.clear();
+            mScene->simulate(StepSeconds);
+            mScene->fetchResults(true);
+        }
+
+        physx::PxU32 MovedCount{};
+        mScene->getActiveActors(MovedCount);
+
+        PhysicsRuntime::PhysicsStats::Steps.Add();
+        PhysicsRuntime::PhysicsStats::MovedBodies.Add(static_cast<double>(MovedCount));
+        PhysicsRuntime::PhysicsStats::Contacts.Add(static_cast<double>(mContacts.size()));
+        PhysicsRuntime::PhysicsStats::DynamicBodies.Set(static_cast<double>(mScene->getNbActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC)));
+        PhysicsRuntime::PhysicsStats::StaticBodies.Set(static_cast<double>(mScene->getNbActors(physx::PxActorTypeFlag::eRIGID_STATIC)));
 
         return true;
     }

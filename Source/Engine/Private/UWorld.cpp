@@ -43,6 +43,7 @@
 #include "Core/Log/Log.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/PhysicsStats.h"
 
 #include <algorithm>
 #include <cmath>
@@ -244,6 +245,8 @@ namespace Engine {
      * @brief 마지막 물리 스텝에서 움직인 바디를 컴포넌트에 반영하고 새 접촉을 충돌 이벤트로 전달합니다.
      */
     void Engine::UWorld::DispatchPhysicsResults() {
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::Dispatch};
+
         /**
          * @brief 컴포넌트 핸들로 바꾼 접촉 한 건입니다.
          */
