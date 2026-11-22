@@ -545,6 +545,10 @@ namespace Editor {
                         mDrawInterface.DrawBox(CalcComponentBounds(Primitive, View), Highlight ? FVector{1.0f, 0.65f, 0.15f} : FVector{0.25f, 0.8f, 0.95f}, DepthTest, mLineThickness);
                     }
 
+                    if (Primitive != nullptr && mShowFlags.mCollision) {
+                        Primitive->DrawCollision(mDrawInterface, Highlight, mLineThickness);
+                    }
+
                     if (auto* Light{CoreUObject::Cast<Engine::ULightComponentBase>(Component.get())}; Light != nullptr && mShowFlags.mLightVisualizers) {
                         Light->DrawVisualization(mDrawInterface, Highlight);
                     }

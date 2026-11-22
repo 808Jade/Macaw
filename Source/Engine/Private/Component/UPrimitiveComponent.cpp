@@ -17,8 +17,14 @@
 #include "Engine/FSceneInterface.h"
 #include "Engine/PrimitiveMesh.h"
 #include "CoreUObject/FObjectRegistry.h"
+#include "Engine/FPrimitiveDrawInterface.h"
+#include "PhysicsRuntime/UBodySetup.h"
+#include "Core/Math/FQuat.h"
+#include "Core/Literals.h"
 
 #include <cmath>
+
+using namespace Core::Literals;
 
 namespace Engine {
 
@@ -481,6 +487,69 @@ namespace Engine {
         }
 
         mSyncingFromPhysics = false;
+    }
+
+    /**
+     * @brief 바디 셋업의 충돌 형상을 현재 트랜스폼에 맞춰 선분으로 수집합니다.
+     */
+    void Engine::UPrimitiveComponent::DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight, float Thickness) const {
+        const PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
+
+        if (Setup == nullptr) {
+            return;
+        }
+
+        const FVector Color{Highlight ? FVector{1.0f, 0.65f, 0.15f} : mBodyInstance.ShouldSimulatePhysics() ? FVector{0.35f, 1.0f, 0.35f} : FVector{0.35f, 0.6f, 1.0f}};
+        const FTransform& Transform{GetTransform()};
+        const PhysicsRuntime::FKAggregateGeom& Geometry{Setup->GetAggGeom()};
+
+        // 형상 중심은 스케일을 반영한 바디 로컬 위치이고, 바디 자세는 컴포넌트의 위치·회전과 같습니다.
+        const auto ToWorld{[&Transform](const FVector& Local) {
+            return Transform.mLocation + Transform.mRotation.RotateVector(Local);
+        }};
+
+        for (const PhysicsRuntime::FKSphereElem& Element : Geometry.mSphereElems) {
+            const PhysicsRuntime::FKSphereElem Scaled{Element.GetScaled(Transform.mScale)};
+            const FVector Center{ToWorld(Scaled.mCenter)};
+            const FVector Forward{Transform.mRotation.ForwardVector()};
+            const FVector Right{Transform.mRotation.RightVector()};
+            const FVector Up{Transform.mRotation.UpVector()};
+
+            DrawInterface.DrawArc(Center, Forward, Right, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Center, Forward, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Center, Right, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
+        }
+
+        for (const PhysicsRuntime::FKBoxElem& Element : Geometry.mBoxElems) {
+            const PhysicsRuntime::FKBoxElem Scaled{Element.GetScaled(Transform.mScale)};
+
+            DrawInterface.DrawOrientedBox(ToWorld(Scaled.mCenter), Transform.mRotation * Scaled.mRotation.Quaternion(), Scaled.mHalfExtent, Color, true, Thickness);
+        }
+
+        for (const PhysicsRuntime::FKSphylElem& Element : Geometry.mSphylElems) {
+            const PhysicsRuntime::FKSphylElem Scaled{Element.GetScaled(Transform.mScale)};
+            const FQuat Rotation{Transform.mRotation * Scaled.mRotation.Quaternion()};
+            const FVector Center{ToWorld(Scaled.mCenter)};
+            const FVector Forward{Rotation.ForwardVector()};
+            const FVector Right{Rotation.RightVector()};
+            const FVector Up{Rotation.UpVector()};
+            const float Radius{Scaled.mRadius};
+
+            // 캡슐 축은 형상 로컬 Z이며 길이는 양 끝 반구 중심 사이의 거리입니다.
+            const FVector Bottom{Center - Up * (Scaled.mLength * 0.5f)};
+            const FVector Top{Center + Up * (Scaled.mLength * 0.5f)};
+
+            DrawInterface.DrawArc(Bottom, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Top, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawLine(Bottom + Forward * Radius, Top + Forward * Radius, Color, true, Thickness);
+            DrawInterface.DrawLine(Bottom - Forward * Radius, Top - Forward * Radius, Color, true, Thickness);
+            DrawInterface.DrawLine(Bottom + Right * Radius, Top + Right * Radius, Color, true, Thickness);
+            DrawInterface.DrawLine(Bottom - Right * Radius, Top - Right * Radius, Color, true, Thickness);
+            DrawInterface.DrawArc(Top, Forward, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Top, Right, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Bottom, Forward, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Bottom, Right, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+        }
     }
 
     /**

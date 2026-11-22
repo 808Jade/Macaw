@@ -21,7 +21,7 @@ using namespace Core::Literals;
 namespace Engine {
 
     /**
-     * @brief 충돌 도형의 접촉 검사와 디버그 형상 생성 보조 함수입니다.
+     * @brief 충돌 도형의 접촉 검사 보조 함수입니다.
      */
     namespace {
         /**
@@ -32,38 +32,6 @@ namespace Engine {
          */
         bool BoundsOverlap(const FBox& A, const FBox& B) {
             return A.mMinimum.x <= B.mMaximum.x && A.mMaximum.x >= B.mMinimum.x && A.mMinimum.y <= B.mMaximum.y && A.mMaximum.y >= B.mMinimum.y && A.mMinimum.z <= B.mMaximum.z && A.mMaximum.z >= B.mMinimum.z;
-        }
-
-        /**
-         * @brief 충돌 도형 원호를 분할할 선분 개수입니다.
-         */
-        constexpr Int32 CircleSegment{32};
-
-        /**
-         * @brief 두 기저 방향의 평면에서 원호를 선분으로 수집합니다.
-         * @param[in] DrawInterface 보조 선분을 추가할 프레임 수집기입니다.
-         * @param[in] C 원호의 중심입니다.
-         * @param[in] U 원호 평면의 첫 기저입니다.
-         * @param[in] V 원호 평면의 둘째 기저입니다.
-         * @param[in] R 원호의 반지름입니다.
-         * @param[in] StartAngle 시작 각도입니다.
-         * @param[in] EndAngle 끝 각도입니다.
-         * @param[in] Color 적용할 색상입니다.
-         */
-        void AddArc(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& C, const FVector& U, const FVector& V, float R, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color) {
-            const Int32 Segments{std::max(1, static_cast<Int32>(CircleSegment * ((EndAngle - StartAngle) / 1_turn)))};
-            const Core::FAngle Step{(EndAngle - StartAngle) / Segments};
-
-            FVector Prev{C + U * (Core::Math::Cos(StartAngle) * R) + V * (Core::Math::Sin(StartAngle) * R)};
-
-            for (Index_t Index{1}; Index <= Segments; ++Index) {
-                const Core::FAngle Angle{StartAngle + Step * Index};
-                const FVector Point{C + U * (Core::Math::Cos(Angle) * R) + V * (Core::Math::Sin(Angle) * R)};
-
-                DrawInterface.DrawLine(Prev, Point, Color, true);
-
-                Prev = Point;
-            }
         }
     }
 
@@ -129,9 +97,9 @@ namespace Engine {
             const FVector Up{Rot.UpVector()};
             const float R{Sphere.GetRadius()};
 
-            AddArc(DrawInterface, Sphere.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
-            AddArc(DrawInterface, Sphere.GetA(), F, Up, R, 0_rad, 1_turn, Color);
-            AddArc(DrawInterface, Sphere.GetA(), Rt, Up, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Sphere.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Sphere.GetA(), F, Up, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Sphere.GetA(), Rt, Up, R, 0_rad, 1_turn, Color);
         }
         else if (Shape.IsCapsule()) {
             Engine::FCapsuleSegment Capsule{Engine::Collision::ToCapsuleSegment(Shape, Pos, Rot)};
@@ -141,18 +109,18 @@ namespace Engine {
             const FVector Up{Rot.UpVector()};
             const float R{Capsule.GetRadius()};
 
-            AddArc(DrawInterface, Capsule.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
-            AddArc(DrawInterface, Capsule.GetB(), F, Rt, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetB(), F, Rt, R, 0_rad, 1_turn, Color);
 
             DrawInterface.DrawLine(Capsule.GetA() + F * R, Capsule.GetB() + F * R, Color, true);
             DrawInterface.DrawLine(Capsule.GetA() - F * R, Capsule.GetB() - F * R, Color, true);
             DrawInterface.DrawLine(Capsule.GetA() + Rt * R, Capsule.GetB() + Rt * R, Color, true);
             DrawInterface.DrawLine(Capsule.GetA() - Rt * R, Capsule.GetB() - Rt * R, Color, true);
 
-            AddArc(DrawInterface, Capsule.GetB(), F, Up, R, 0_rad, 0.5_turn, Color);
-            AddArc(DrawInterface, Capsule.GetB(), Rt, Up, R, 0_rad, 0.5_turn, Color);
-            AddArc(DrawInterface, Capsule.GetA(), F, -Up, R, 0_rad, 0.5_turn, Color);
-            AddArc(DrawInterface, Capsule.GetA(), Rt, -Up, R, 0_rad, 0.5_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetB(), F, Up, R, 0_rad, 0.5_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetB(), Rt, Up, R, 0_rad, 0.5_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetA(), F, -Up, R, 0_rad, 0.5_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetA(), Rt, -Up, R, 0_rad, 0.5_turn, Color);
         }
     }
 

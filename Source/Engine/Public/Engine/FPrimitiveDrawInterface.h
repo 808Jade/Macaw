@@ -7,12 +7,14 @@
 #pragma once
 
 #include "Core/ReflectionMacros.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Engine/FDrawLine.h"
 #include "Engine/FDrawMesh.h"
 #include "Engine/FDrawText.h"
 #include "Engine/FPrimitiveSceneProxy.h"
 
 struct FBox;
+struct FQuat;
 
 namespace Engine {
 
@@ -40,6 +42,32 @@ namespace Engine {
          * @param[in] Thickness 픽셀 단위 선 두께입니다.
          */
         void DrawBox(const FBox& Bounds, const FVector& Color, bool DepthTest = true, float Thickness = 1.5f);
+
+        /**
+         * @brief 회전한 상자의 열두 모서리를 선분으로 수집합니다.
+         * @param[in] Center 상자 중심의 월드 위치입니다.
+         * @param[in] Rotation 상자의 월드 회전입니다.
+         * @param[in] HalfExtent 상자 로컬 축별 절반 크기입니다.
+         * @param[in] Color 적용할 색상입니다.
+         * @param[in] DepthTest 장면 깊이 검사를 적용할지 지정합니다.
+         * @param[in] Thickness 픽셀 단위 선 두께입니다.
+         */
+        void DrawOrientedBox(const FVector& Center, const FQuat& Rotation, const FVector& HalfExtent, const FVector& Color, bool DepthTest = true, float Thickness = 1.0f);
+
+        /**
+         * @brief 두 기저 방향이 이루는 평면에서 원호를 선분으로 수집합니다.
+         * @param[in] Center 원호의 중심입니다.
+         * @param[in] AxisU 각도 0을 향하는 단위 기저입니다.
+         * @param[in] AxisV 각도 90도를 향하는 단위 기저입니다.
+         * @param[in] Radius 원호의 반지름입니다.
+         * @param[in] StartAngle 시작 각도입니다.
+         * @param[in] EndAngle 끝 각도입니다.
+         * @param[in] Color 적용할 색상입니다.
+         * @param[in] DepthTest 장면 깊이 검사를 적용할지 지정합니다.
+         * @param[in] Thickness 픽셀 단위 선 두께입니다.
+         * @note 한 바퀴를 32개 선분으로 나누는 밀도로 분할합니다.
+         */
+        void DrawArc(const FVector& Center, const FVector& AxisU, const FVector& AxisV, float Radius, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color, bool DepthTest = true, float Thickness = 1.0f);
 
         /**
          * @brief 현재 프레임의 보조 선분과 메시 목록을 비웁니다.

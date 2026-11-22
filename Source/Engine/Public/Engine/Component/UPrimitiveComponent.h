@@ -30,6 +30,7 @@ namespace Engine {
 
     class AActor;
     enum class EPrimitiveType : Uint8;
+    class FPrimitiveDrawInterface;
     struct FHitResult;
     struct FPrimitiveSceneProxy;
 
@@ -347,6 +348,17 @@ namespace Engine {
          *          반영하는 동안에는 바디를 다시 순간 이동하지 않습니다.
          */
         void SyncComponentToBody();
+
+        /**
+         * @brief 바디 셋업의 충돌 형상을 현재 트랜스폼에 맞춰 선분으로 수집합니다.
+         * @details 물리 바디와 같은 스케일 규칙을 쓰므로 편집 월드에서도 시뮬레이션할 때의 형상을 그대로 보여 줍니다.
+         *          선택하면 주황색, 시뮬레이션 설정이면 초록색, 그 밖에는 파란색으로 그립니다.
+         * @param[in,out] DrawInterface 선분을 추가할 프레임 수집기입니다.
+         * @param[in] Highlight 선택 강조 색상으로 그릴지 여부입니다.
+         * @param[in] Thickness 픽셀 단위 선 두께입니다.
+         * @note 바디 셋업이 없으면 아무것도 그리지 않습니다.
+         */
+        void DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight, float Thickness = 1.0f) const;
 
     private:
 
