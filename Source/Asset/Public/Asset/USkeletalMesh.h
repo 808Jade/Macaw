@@ -110,6 +110,13 @@ namespace Asset {
         const FBox& GetBounds() const;
 
         /**
+         * @brief 메시 전체를 하나의 바디로 다룰 때 사용할 충돌 형상을 반환합니다.
+         * @return 바인드 포즈 경계를 감싸는 바디 셋업의 비소유 주소이며, 메시 데이터가 없으면 nullptr입니다.
+         * @note 본마다 바디를 두는 피직스 에셋을 도입하기 전까지 사용하는 단일 바디 형상입니다.
+         */
+        const PhysicsRuntime::UBodySetup* GetBodySetup() const;
+
+        /**
          * @brief 정점 수를 반환합니다.
          * @return 바인드 형상의 정점 수입니다.
          */

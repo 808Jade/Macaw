@@ -150,6 +150,14 @@ namespace Asset {
     }
 
     /**
+     * @brief 메시 전체를 하나의 바디로 다룰 때 사용할 충돌 형상을 반환합니다.
+     */
+    const PhysicsRuntime::UBodySetup* Asset::USkeletalMesh::GetBodySetup() const {
+        // 바인드 형상을 보관하는 정적 메시가 경계 상자 바디 셋업을 함께 만듭니다.
+        return mGeometry.GetBodySetup();
+    }
+
+    /**
      * @brief 정점 수를 반환합니다.
      */
     Uint32 Asset::USkeletalMesh::GetVertexCount() const {

@@ -195,6 +195,7 @@ namespace Engine {
         }
 
         MarkRenderStateDirty();
+        RecreatePhysicsState();
 
         return true;
     }
@@ -238,6 +239,7 @@ namespace Engine {
             }
 
             MarkRenderStateDirty();
+            RecreatePhysicsState();
         }
 
         return (mMeshPath.empty() || mSkeletalMesh != nullptr) && (mSkeletonPath.empty() || mSkeleton != nullptr);
@@ -297,6 +299,13 @@ namespace Engine {
      */
     bool USkeletalMeshComponent::ShouldCreateRenderState() const {
         return mSkeletalMesh != nullptr;
+    }
+
+    /**
+     * @brief 메시 전체를 하나의 바디로 다룰 충돌 형상을 반환합니다.
+     */
+    const PhysicsRuntime::UBodySetup* USkeletalMeshComponent::GetBodySetup() const {
+        return mSkeletalMesh != nullptr ? mSkeletalMesh->GetBodySetup() : nullptr;
     }
 
     /**
@@ -543,7 +552,12 @@ namespace Engine {
             MarkRenderStateDirty();
 
             if (mApplyRootMotionToActor) {
-                ApplyRootMotion(mAnimInstance->ConsumeExtractedRootMotion());
+                // 시뮬레이션 중에는 물리가 트랜스폼을 결정하므로, 루트 모션이 쌓이지 않도록 소비만 하고 적용하지 않습니다.
+                const FTransform RootMotion{mAnimInstance->ConsumeExtractedRootMotion()};
+
+                if (!IsSimulatingPhysics()) {
+                    ApplyRootMotion(RootMotion);
+                }
             }
         } else {
             mAnimInstance->ResetRootMotion();

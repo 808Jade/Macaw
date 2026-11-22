@@ -171,6 +171,13 @@ namespace Engine {
         bool ShouldCreateRenderState() const override;
 
         /**
+         * @brief 메시 전체를 하나의 바디로 다룰 충돌 형상을 반환합니다.
+         * @return 불러온 스켈레탈 메시의 바인드 포즈 경계 바디 셋업이며, 메시가 없으면 nullptr입니다.
+         * @note 바디는 애니메이션 포즈를 따라가지 않습니다. 본별 바디는 피직스 에셋에서 다룹니다.
+         */
+        const PhysicsRuntime::UBodySetup* GetBodySetup() const override;
+
+        /**
          * @brief 재등록 때 재해석하도록 에셋 참조를 해제합니다.
          */
         void UnregisterComponent() override;
@@ -321,6 +328,7 @@ namespace Engine {
         /**
          * @brief 추출한 루트 모션을 액터에 자동 적용하는지 확인합니다.
          * @return 자동 적용을 사용하면 true입니다.
+         * @note 물리 시뮬레이션 중에는 이 설정과 관계없이 루트 모션을 소비만 하고 적용하지 않습니다.
          */
         bool IsRootMotionAppliedToActor() const;
 
