@@ -14,12 +14,18 @@
 
 #include <d3d11.h>
 #include <filesystem>
+#include <memory>
 #include "UStaticMesh.generated.h"
+
+namespace PhysicsRuntime {
+    class UBodySetup;
+}
 
 namespace Asset {
 
     /**
      * @brief CPU 메시 데이터와 Direct3D 정점·인덱스 버퍼 관리를 담당합니다.
+     * @details 메시 경계를 감싸는 상자 하나로 물리 바디의 충돌 형상(바디 셋업)도 함께 보관합니다.
      */
     UCLASS()
     class UStaticMesh final : public CoreUObject::UObject {
@@ -62,8 +68,15 @@ namespace Asset {
          * @brief CPU 메시 데이터의 유효성과 경계를 검사하여 교체하고 GPU 버퍼를 해제합니다.
          * @param[in] MeshData 검증 후 소유할 새 CPU 메시 데이터입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
+         * @note 바디 셋업도 새 경계로 다시 만듭니다. 이미 만든 물리 바디는 컴포넌트가 물리 상태를 다시 만들 때 반영됩니다.
          */
         bool SetMeshData(Asset::FMeshData MeshData);
+
+        /**
+         * @brief 이 메시로 물리 바디를 만들 때 사용할 충돌 형상을 반환합니다.
+         * @return 메시가 소유한 바디 셋업의 비소유 주소이며, 메시 데이터가 없으면 nullptr입니다.
+         */
+        const PhysicsRuntime::UBodySetup* GetBodySetup() const;
 
         /**
          * @brief 메시의 CPU 정점 속성·인덱스 데이터 참조를 반환합니다.
@@ -146,9 +159,21 @@ namespace Asset {
 
     private:
         /**
+         * @brief 메시 경계로 충돌 형상을 다시 만듭니다.
+         */
+        void RebuildBodySetup();
+
+    private:
+        /**
          * @brief 메시의 CPU 정점 속성·인덱스·경계 데이터입니다.
          */
         Asset::FMeshData mMeshData{};
+
+        /**
+         * @brief 메시 경계를 감싸는 단순 충돌 형상이며, 메시 데이터를 바꿀 때마다 다시 만듭니다.
+         * @note 메시 데이터에서 만들 수 있으므로 에셋 파일에 저장하지 않습니다.
+         */
+        std::unique_ptr<PhysicsRuntime::UBodySetup> mBodySetup{};
 
         /**
          * @brief 정점 위치를 보관하는 소유 GPU 버퍼입니다.

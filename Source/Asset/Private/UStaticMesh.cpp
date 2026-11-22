@@ -9,6 +9,8 @@
 #include "Core/FilePath.h"
 #include "Asset/Import/IMeshImporter.h"
 #include "Asset/Import/FMeshImportResult.h"
+#include "PhysicsRuntime/UBodySetup.h"
+#include "CoreUObject/Reflection/NewObject.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,6 +19,17 @@
 #include <utility>
 
 namespace Asset {
+
+    /**
+     * @brief 메시 충돌 형상을 만드는 고정 설정입니다.
+     */
+    namespace {
+        /**
+         * @brief 평면처럼 두께가 없는 메시의 충돌 상자가 가질 최소 절반 두께입니다.
+         * @note 두께가 0인 상자는 PhysX 형상으로 만들 수 없으므로 얇은 상자로 근사합니다.
+         */
+        constexpr float MinimumBoxHalfExtent{0.01f};
+    }
 
     /**
      * @brief UStaticMesh의 초기 상태를 구성합니다.
@@ -80,8 +93,43 @@ namespace Asset {
         mMeshData = std::move(MeshData);
 
         ReleaseResources();
+        RebuildBodySetup();
 
         return true;
+    }
+
+    /**
+     * @brief 이 메시로 물리 바디를 만들 때 사용할 충돌 형상을 반환합니다.
+     */
+    const PhysicsRuntime::UBodySetup* Asset::UStaticMesh::GetBodySetup() const {
+        return mBodySetup.get();
+    }
+
+    /**
+     * @brief 메시 경계로 충돌 형상을 다시 만듭니다.
+     */
+    void Asset::UStaticMesh::RebuildBodySetup() {
+        if (!IsValid()) {
+            mBodySetup.reset();
+
+            return;
+        }
+
+        if (mBodySetup == nullptr) {
+            mBodySetup = CoreUObject::NewObject<PhysicsRuntime::UBodySetup>();
+            mBodySetup->SetName("BodySetup");
+            mBodySetup->SetOuter(this);
+        }
+
+        // 메시 경계를 감싸는 상자 하나를 단순 충돌 형상으로 사용합니다.
+        PhysicsRuntime::FKAggregateGeom& Geometry{mBodySetup->GetAggGeom()};
+        Geometry = PhysicsRuntime::FKAggregateGeom{};
+
+        const FBox& Bounds{GetBounds()};
+        const FVector HalfExtent{(Bounds.mMaximum - Bounds.mMinimum) * 0.5f};
+        PhysicsRuntime::FKBoxElem& Box{Geometry.mBoxElems.emplace_back()};
+        Box.mCenter = (Bounds.mMinimum + Bounds.mMaximum) * 0.5f;
+        Box.mHalfExtent = FVector{std::max(HalfExtent.x, MinimumBoxHalfExtent), std::max(HalfExtent.y, MinimumBoxHalfExtent), std::max(HalfExtent.z, MinimumBoxHalfExtent)};
     }
 
     /**

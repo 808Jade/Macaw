@@ -164,8 +164,11 @@ namespace Engine {
      * @brief 표시 중인 메시에 맞는 충돌 형상을 반환합니다.
      */
     const PhysicsRuntime::UBodySetup* Engine::UStaticMeshComponent::GetBodySetup() const {
-        // 메시 에셋은 아직 충돌 형상을 갖지 않으므로 기본 프리미티브를 표시할 때만 바디를 만듭니다.
-        return mMeshPath.empty() ? Engine::GetPrimitiveBodySetup(mPrimitive) : nullptr;
+        if (mMeshPath.empty()) {
+            return Engine::GetPrimitiveBodySetup(mPrimitive);
+        }
+
+        return mStaticMesh != nullptr ? mStaticMesh->GetBodySetup() : nullptr;
     }
 
     /**
