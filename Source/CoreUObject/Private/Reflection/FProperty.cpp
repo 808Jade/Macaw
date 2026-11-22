@@ -14,6 +14,7 @@
 #include "Core/Reflection/EPropertyFlags.h"
 #include "CoreUObject/Reflection/FPropertyValue.h"
 #include "CoreUObject/Reflection/UStruct.h"
+#include "CoreUObject/Reflection/UScriptStruct.h"
 #include "Core/Base/ErrorHandler.h"
 
 #include <algorithm>
@@ -126,7 +127,8 @@ namespace CoreUObject {
 
         const CoreUObject::FPropertyValue Value{ReadValue(Source)};
 
-        if (std::holds_alternative<const void*>(Value)) {
+        // 구조체 멤버의 쓰기 함수는 같은 타입 구조체의 주소를 받으므로 원본 주소를 그대로 전달합니다.
+        if (std::holds_alternative<const void*>(Value) && mType != CoreUObject::EPropertyType::Struct) {
             return false;
         }
 
@@ -176,7 +178,10 @@ namespace CoreUObject {
         }
 
         if (mType == CoreUObject::EPropertyType::Struct) {
-            if (Archive.BeginObject(Name)) {
+            if (mReader != nullptr) {
+                SerializeStruct(Name, Container, Archive);
+            } else if (Archive.BeginObject(Name)) {
+                // 배열 원소는 읽기 함수 없이 원소 주소가 곧 구조체 주소입니다.
                 mStruct->SerializeProperties(Container, Archive);
 
                 Archive.EndObject();
@@ -262,6 +267,43 @@ namespace CoreUObject {
     }
 
     /**
+     * @brief 구조체 멤버를 직렬화합니다. 로드는 현재 값의 사본을 채운 뒤 한 번에 커밋합니다.
+     */
+    void CoreUObject::FProperty::SerializeStruct(std::string_view Name, void* Container, Core::FArchive& Archive) const {
+        const void* Current{std::get<const void*>(ReadValue(Container))};
+
+        if (!Archive.IsLoading()) {
+            // 저장 경로는 필드를 읽기만 하므로 getter가 돌려준 주소를 그대로 사용합니다.
+            if (Archive.BeginObject(Name)) {
+                mStruct->SerializeProperties(const_cast<void*>(Current), Archive);
+
+                Archive.EndObject();
+            }
+
+            return;
+        }
+
+        // 아카이브에 없는 필드는 현재 값을 유지하도록 현재 값을 복제해 작업용 사본으로 사용합니다.
+        const CoreUObject::UScriptStruct::FValuePtr Working{static_cast<const CoreUObject::UScriptStruct*>(mStruct)->CloneValue(Current)};
+
+        if (Working == nullptr) {
+            Archive.SetError("Cannot load a struct property that cannot be copied: " + mName);
+
+            return;
+        }
+
+        if (Archive.BeginObject(Name)) {
+            mStruct->SerializeProperties(Working.get(), Archive);
+
+            Archive.EndObject();
+        }
+
+        if (!Archive.HasError() && !WriteValue(Container, CoreUObject::FPropertyValue{static_cast<const void*>(Working.get())}, mLoader)) {
+            Archive.SetError("Property validation failed: " + mName);
+        }
+    }
+
+    /**
      * @brief 이 프로퍼티와 하위 원소의 객체 참조에 핸들을 연결합니다.
      */
     void CoreUObject::FProperty::BindObjectReferences(void* Container, const CoreUObject::FObjectGuidMap& Objects) const {
@@ -281,7 +323,10 @@ namespace CoreUObject {
                 }
             }
         } else if (mType == CoreUObject::EPropertyType::Struct) {
-            mStruct->BindObjectReferences(Container, Objects);
+            // 배열 원소는 원소 주소를, 멤버는 읽기 함수가 돌려준 주소를 사용하며 핸들은 캐시이므로 setter를 거치지 않습니다.
+            void* Struct{mReader != nullptr ? const_cast<void*>(std::get<const void*>(ReadValue(Container))) : Container};
+
+            mStruct->BindObjectReferences(Struct, Objects);
         } else if (mType == CoreUObject::EPropertyType::ObjectReference) {
             CoreUObject::FPropertyValue Value{ReadValue(Container)};
 
