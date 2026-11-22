@@ -79,6 +79,15 @@ namespace Engine {
 
         MarkRenderTransformDirty();
 
+        // 시뮬레이션 결과를 반영하는 중이 아니면 바디를 새 트랜스폼으로 옮깁니다. 스케일은 형상 크기에 반영되어 있으므로 바뀌면 다시 만듭니다.
+        if (!mSyncingFromPhysics && mBodyInstance.IsValidBodyInstance()) {
+            if (Transform.mScale.Equals(mBodyInstance.GetBodyScale())) {
+                mBodyInstance.SetBodyTransform(Transform);
+            } else {
+                RecreatePhysicsState();
+            }
+        }
+
         return true;
     }
 
@@ -356,6 +365,141 @@ namespace Engine {
         if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
             Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::Hit, this, OtherActor, OtherComp, &Hit);
         }
+    }
+
+    /**
+     * @brief 바디를 만들 충돌 형상이 있으면 물리 상태가 필요하다고 반환합니다.
+     */
+    bool Engine::UPrimitiveComponent::ShouldCreatePhysicsState() const {
+        return GetBodySetup() != nullptr;
+    }
+
+    /**
+     * @brief 물리 바디를 만들 때 사용할 충돌 형상을 반환하는 확장 지점입니다.
+     */
+    const PhysicsRuntime::UBodySetup* Engine::UPrimitiveComponent::GetBodySetup() const {
+        return nullptr;
+    }
+
+    /**
+     * @brief 물리 시뮬레이션 설정과 실제 바디를 가진 바디 인스턴스를 반환합니다.
+     */
+    const PhysicsRuntime::FBodyInstance& Engine::UPrimitiveComponent::GetBodyInstance() const {
+        return mBodyInstance;
+    }
+
+    /**
+     * @brief 바디 인스턴스 설정을 바꾸고 물리 상태를 다시 만듭니다.
+     */
+    bool Engine::UPrimitiveComponent::SetBodyInstance(const PhysicsRuntime::FBodyInstance& BodyInstance) {
+        // 대입은 실제 바디를 해제하므로 물리 상태 표시와 어긋나지 않도록 상태를 먼저 해제하고 다시 만듭니다.
+        DestroyPhysicsState();
+        mBodyInstance = BodyInstance;
+        CreatePhysicsState();
+
+        return true;
+    }
+
+    /**
+     * @brief 실제 바디가 동적 강체로 시뮬레이션되고 있는지 반환합니다.
+     */
+    bool Engine::UPrimitiveComponent::IsSimulatingPhysics() const {
+        return mBodyInstance.IsDynamic();
+    }
+
+    /**
+     * @brief 물리 시뮬레이션 여부를 바꾸고 물리 상태를 다시 만듭니다.
+     */
+    void Engine::UPrimitiveComponent::SetSimulatePhysics(bool Simulate) {
+        if (mBodyInstance.ShouldSimulatePhysics() == Simulate) {
+            return;
+        }
+
+        mBodyInstance.SetSimulatePhysics(Simulate);
+        RecreatePhysicsState();
+    }
+
+    /**
+     * @brief 동적 강체의 질량 중심에 힘을 더합니다.
+     */
+    bool Engine::UPrimitiveComponent::AddForce(const FVector& Force, bool AccelChange) {
+        return mBodyInstance.AddForce(Force, AccelChange);
+    }
+
+    /**
+     * @brief 동적 강체의 질량 중심에 충격량을 더합니다.
+     */
+    bool Engine::UPrimitiveComponent::AddImpulse(const FVector& Impulse, bool VelocityChange) {
+        return mBodyInstance.AddImpulse(Impulse, VelocityChange);
+    }
+
+    /**
+     * @brief 동적 강체의 선속도를 반환합니다.
+     */
+    FVector Engine::UPrimitiveComponent::GetPhysicsLinearVelocity() const {
+        return mBodyInstance.GetLinearVelocity();
+    }
+
+    /**
+     * @brief 동적 강체의 선속도를 설정합니다.
+     */
+    bool Engine::UPrimitiveComponent::SetPhysicsLinearVelocity(const FVector& Velocity) {
+        return mBodyInstance.SetLinearVelocity(Velocity);
+    }
+
+    /**
+     * @brief 동적 강체의 각속도를 반환합니다.
+     */
+    FVector Engine::UPrimitiveComponent::GetPhysicsAngularVelocity() const {
+        return mBodyInstance.GetAngularVelocity();
+    }
+
+    /**
+     * @brief 동적 강체의 각속도를 설정합니다.
+     */
+    bool Engine::UPrimitiveComponent::SetPhysicsAngularVelocity(const FVector& Velocity) {
+        return mBodyInstance.SetAngularVelocity(Velocity);
+    }
+
+    /**
+     * @brief 시뮬레이션한 동적 강체의 자세를 컴포넌트 트랜스폼에 반영합니다.
+     */
+    void Engine::UPrimitiveComponent::SyncComponentToBody() {
+        if (!mBodyInstance.IsDynamic()) {
+            return;
+        }
+
+        const FTransform Transform{mBodyInstance.GetBodyTransform()};
+        Engine::AActor* Owner{GetOwner()};
+
+        mSyncingFromPhysics = true;
+
+        if (Owner != nullptr && Owner->GetRootComponent() == this) {
+            Owner->SetActorTransform(Transform);
+        } else {
+            SetTransform(Transform);
+        }
+
+        mSyncingFromPhysics = false;
+    }
+
+    /**
+     * @brief 바디 셋업의 형상으로 월드 물리 장면에 바디를 만듭니다.
+     */
+    void Engine::UPrimitiveComponent::OnCreatePhysicsState() {
+        const PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
+        PhysicsRuntime::FPhysicsScene* Scene{GetWorld() != nullptr ? GetWorld()->GetPhysicsScene() : nullptr};
+
+        if (Setup != nullptr && Scene != nullptr) {
+            mBodyInstance.InitBody(*Setup, GetTransform(), this, *Scene);
+        }
+    }
+
+    /**
+     * @brief 바디를 물리 장면에서 해제합니다.
+     */
+    void Engine::UPrimitiveComponent::OnDestroyPhysicsState() {
+        mBodyInstance.TermBody();
     }
 
 }

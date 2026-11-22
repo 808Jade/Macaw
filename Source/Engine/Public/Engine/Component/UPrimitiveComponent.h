@@ -12,11 +12,16 @@
 #include "Core/ReflectionMacros.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Core/Math/FVector2.h"
+#include "PhysicsRuntime/FBodyInstance.h"
 #include "UPrimitiveComponent.generated.h"
 
 namespace Asset {
     struct FMeshData;
     class UStaticMesh;
+}
+
+namespace PhysicsRuntime {
+    class UBodySetup;
 }
 
 struct FBox;
@@ -33,6 +38,8 @@ namespace Engine {
      * @details 렌더 장면 프록시의 생성과 지연 갱신, 월드 경계, 그림자·데칼 같은 렌더 속성을 제공합니다.
      *          겹침·충돌 이벤트와 이동 차단 여부도 함께 제공하며, 구체적인 형상은 파생 클래스가 정의합니다.
      *          렌더 프록시가 필요 없는 파생 클래스는 ShouldCreateRenderState()에서 false를 반환합니다.
+     *          GetBodySetup()이 충돌 형상을 반환하는 파생 클래스는 월드에 물리 장면이 있을 때 바디 인스턴스로 PhysX 바디를 만들고,
+     *          동적 바디의 시뮬레이션 결과를 트랜스폼에 반영합니다.
      * @ingroup Engine
      */
     UCLASS(Abstract)
@@ -254,12 +261,109 @@ namespace Engine {
          */
         void OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit);
 
+        /**
+         * @brief 바디를 만들 충돌 형상이 있으면 물리 상태가 필요하다고 반환합니다.
+         * @return GetBodySetup()이 바디 셋업을 반환하면 true입니다.
+         */
+        bool ShouldCreatePhysicsState() const override;
+
+        /**
+         * @brief 물리 바디를 만들 때 사용할 충돌 형상을 반환하는 확장 지점입니다.
+         * @return 조회한 값의 비소유 주소이며, 충돌 형상이 없으면 nullptr입니다. 기본 구현은 nullptr입니다.
+         * @note 반환한 바디 셋업은 물리 상태가 유지되는 동안 살아 있어야 합니다.
+         */
+        virtual const PhysicsRuntime::UBodySetup* GetBodySetup() const;
+
+        /**
+         * @brief 물리 시뮬레이션 설정과 실제 바디를 가진 바디 인스턴스를 반환합니다.
+         * @return 이 객체가 보관하는 값의 참조입니다.
+         */
+        const PhysicsRuntime::FBodyInstance& GetBodyInstance() const;
+
+        /**
+         * @brief 바디 인스턴스 설정을 바꾸고 물리 상태를 다시 만듭니다.
+         * @param[in] BodyInstance 설정을 복사할 바디 인스턴스이며, 실제 바디는 복사하지 않습니다.
+         * @return 항상 true입니다.
+         */
+        bool SetBodyInstance(const PhysicsRuntime::FBodyInstance& BodyInstance);
+
+        /**
+         * @brief 실제 바디가 동적 강체로 시뮬레이션되고 있는지 반환합니다.
+         * @return 동적 강체가 있으면 true입니다.
+         */
+        bool IsSimulatingPhysics() const;
+
+        /**
+         * @brief 물리 시뮬레이션 여부를 바꾸고 물리 상태를 다시 만듭니다.
+         * @param[in] Simulate 동적 강체로 시뮬레이션할지 여부입니다.
+         */
+        void SetSimulatePhysics(bool Simulate);
+
+        /**
+         * @brief 동적 강체의 질량 중심에 힘을 더합니다.
+         * @param[in] Force 더할 힘(N)이며, AccelChange가 true이면 가속도(m/s²)입니다.
+         * @param[in] AccelChange 질량과 무관하게 가속도로 적용할지 여부입니다.
+         * @return 동적 강체가 있어 적용했으면 true입니다.
+         */
+        bool AddForce(const FVector& Force, bool AccelChange = false);
+
+        /**
+         * @brief 동적 강체의 질량 중심에 충격량을 더합니다.
+         * @param[in] Impulse 더할 충격량(N·s)이며, VelocityChange가 true이면 속도 변화량(m/s)입니다.
+         * @param[in] VelocityChange 질량과 무관하게 속도 변화량으로 적용할지 여부입니다.
+         * @return 동적 강체가 있어 적용했으면 true입니다.
+         */
+        bool AddImpulse(const FVector& Impulse, bool VelocityChange = false);
+
+        /**
+         * @brief 동적 강체의 선속도를 반환합니다.
+         * @return 선속도(m/s)이며, 동적 강체가 없으면 영벡터입니다.
+         */
+        FVector GetPhysicsLinearVelocity() const;
+
+        /**
+         * @brief 동적 강체의 선속도를 설정합니다.
+         * @param[in] Velocity 새 선속도(m/s)입니다.
+         * @return 동적 강체가 있어 적용했으면 true입니다.
+         */
+        bool SetPhysicsLinearVelocity(const FVector& Velocity);
+
+        /**
+         * @brief 동적 강체의 각속도를 반환합니다.
+         * @return 각속도(rad/s)이며, 동적 강체가 없으면 영벡터입니다.
+         */
+        FVector GetPhysicsAngularVelocity() const;
+
+        /**
+         * @brief 동적 강체의 각속도를 설정합니다.
+         * @param[in] Velocity 새 각속도(rad/s)입니다.
+         * @return 동적 강체가 있어 적용했으면 true입니다.
+         */
+        bool SetPhysicsAngularVelocity(const FVector& Velocity);
+
+        /**
+         * @brief 시뮬레이션한 동적 강체의 자세를 컴포넌트 트랜스폼에 반영합니다.
+         * @details 액터의 루트 컴포넌트이면 액터 전체를 옮기고, 아니면 이 컴포넌트만 옮깁니다.
+         *          반영하는 동안에는 바디를 다시 순간 이동하지 않습니다.
+         */
+        void SyncComponentToBody();
+
     private:
 
         /**
          * @brief 같은 컴포넌트를 중복 예약하지 않고 월드의 갱신 큐에 넣습니다.
          */
         void QueueUpdate();
+
+        /**
+         * @brief 바디 셋업의 형상으로 월드 물리 장면에 바디를 만듭니다.
+         */
+        void OnCreatePhysicsState() override;
+
+        /**
+         * @brief 바디를 물리 장면에서 해제합니다.
+         */
+        void OnDestroyPhysicsState() override;
 
     private:
 
@@ -321,6 +425,17 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Getter = BlocksMovement, Setter = SetBlocksMovement)
         bool mBlocksMovement{};
+
+        /**
+         * @brief 물리 시뮬레이션 설정과 실제 바디입니다.
+         */
+        UPROPERTY(Edit, Serialize, Getter = GetBodyInstance, Setter = SetBodyInstance)
+        PhysicsRuntime::FBodyInstance mBodyInstance{};
+
+        /**
+         * @brief 시뮬레이션 결과를 트랜스폼에 반영하는 중이라 바디를 순간 이동하지 않아야 하는지 여부입니다.
+         */
+        bool mSyncingFromPhysics{};
 
         /**
          * @brief 컴포넌트 겹침 시작 이벤트입니다.

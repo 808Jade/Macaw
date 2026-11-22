@@ -135,6 +135,10 @@ namespace Editor {
                 return "Materials";
             }
 
+            if (Name == "BodyInstance") {
+                return "Physics";
+            }
+
             if (Name == "Mesh" || Name == "SkeletalMesh" || Name == "Skeleton" || Name == "PrimitiveType") {
                 return "Mesh";
             }
@@ -835,7 +839,7 @@ namespace Editor {
             });
         }
 
-        constexpr Core::TStaticArray<const char*, 14> Categories{"Script", "Transform", "Animation", "Mesh", "Materials", "Light", "Camera", "Fog", "Shape", "Movement", "Rendering", "General", "Settings", "Component Tick"};
+        constexpr Core::TStaticArray<const char*, 15> Categories{"Script", "Transform", "Animation", "Mesh", "Materials", "Physics", "Light", "Camera", "Fog", "Shape", "Movement", "Rendering", "General", "Settings", "Component Tick"};
         const bool Searching{mPropertySearch.front() != '\0'};
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, {5.0f, 2.0f});

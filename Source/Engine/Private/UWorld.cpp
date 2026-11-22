@@ -24,6 +24,7 @@
 #include "Core/Math.h"
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Engine/Component/UShapeComponent.h"
+#include "Engine/Collision/FHitResult.h"
 #include "Engine/AStaticMeshActor.h"
 #include "Engine/ULevel.h"
 #include "Engine/FWorldHit.h"
@@ -181,15 +182,41 @@ namespace Engine {
         mPhysicsScene = std::move(Scene);
         mPhysicsTimeAccumulator = 0.0f;
 
+        // 장면보다 먼저 등록된 컴포넌트는 등록 시점에 바디를 만들지 못했으므로 여기서 만듭니다.
+        UpdateComponentPhysicsStates(true);
+
         return true;
     }
 
     /**
-     * @brief 물리 장면을 해제합니다.
+     * @brief 컴포넌트의 물리 상태를 먼저 해제한 뒤 물리 장면을 해제합니다.
      */
     void Engine::UWorld::DestroyPhysicsScene() {
+        if (mPhysicsScene != nullptr) {
+            UpdateComponentPhysicsStates(false);
+        }
+
         mPhysicsScene.reset();
         mPhysicsTimeAccumulator = 0.0f;
+    }
+
+    /**
+     * @brief 영속 레벨의 모든 액터 컴포넌트에 물리 상태 생성 또는 해제를 요청합니다.
+     */
+    void Engine::UWorld::UpdateComponentPhysicsStates(bool Create) {
+        if (mPersistentLevel == nullptr) {
+            return;
+        }
+
+        for (const auto& Actor : mPersistentLevel->GetActors()) {
+            for (const auto& Component : Actor->GetComponents()) {
+                if (Create) {
+                    Component->CreatePhysicsState();
+                } else {
+                    Component->DestroyPhysicsState();
+                }
+            }
+        }
     }
 
     /**
@@ -205,8 +232,85 @@ namespace Engine {
 
         mPhysicsTimeAccumulator = std::min(mPhysicsTimeAccumulator + DeltaTime, StepSeconds * static_cast<float>(Settings.mMaxStepsPerFrame));
 
-        while (mPhysicsTimeAccumulator >= StepSeconds && mPhysicsScene->Simulate(StepSeconds)) {
+        // 접촉 목록과 움직인 바디 목록은 다음 Simulate에서 바뀌므로 스텝마다 결과를 전달합니다.
+        while (mPhysicsScene != nullptr && !mEndPlayRequested && !mShutdownRequested && mPhysicsTimeAccumulator >= StepSeconds && mPhysicsScene->Simulate(StepSeconds)) {
             mPhysicsTimeAccumulator -= StepSeconds;
+
+            DispatchPhysicsResults();
+        }
+    }
+
+    /**
+     * @brief 마지막 물리 스텝에서 움직인 바디를 컴포넌트에 반영하고 새 접촉을 충돌 이벤트로 전달합니다.
+     */
+    void Engine::UWorld::DispatchPhysicsResults() {
+        /**
+         * @brief 컴포넌트 핸들로 바꾼 접촉 한 건입니다.
+         */
+        struct FPhysicsHit {
+            CoreUObject::TObjectRef<Engine::UPrimitiveComponent> mFirst{};
+            CoreUObject::TObjectRef<Engine::UPrimitiveComponent> mSecond{};
+            FVector mPoint{};
+            FVector mNormal{};
+        };
+
+        const auto OwnerOf{[](const physx::PxActor* Actor) -> Engine::UPrimitiveComponent* {
+            const PhysicsRuntime::FBodyInstance* Body{Actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Actor) : nullptr};
+
+            return Body != nullptr ? Body->GetOwnerComponent() : nullptr;
+        }};
+
+        // 이벤트 처리 중 바디가 다시 만들어지면 PhysX 주소가 무효화되므로 전달 전에 모두 핸들로 바꿉니다.
+        Core::TArray<CoreUObject::TObjectRef<Engine::UPrimitiveComponent>> Moved{};
+        Core::TArray<FPhysicsHit> Hits{};
+
+        for (const physx::PxActor* Actor : mPhysicsScene->GetActiveActors()) {
+            if (Engine::UPrimitiveComponent* Component{OwnerOf(Actor)}) {
+                Moved.push_back(CoreUObject::MakeObjectRef(Component));
+            }
+        }
+
+        for (const PhysicsRuntime::FPhysicsContact& Contact : mPhysicsScene->GetContacts()) {
+            Engine::UPrimitiveComponent* First{OwnerOf(Contact.mActor0)};
+            Engine::UPrimitiveComponent* Second{OwnerOf(Contact.mActor1)};
+
+            if (First != nullptr && Second != nullptr) {
+                Hits.push_back({CoreUObject::MakeObjectRef(First), CoreUObject::MakeObjectRef(Second), Contact.mPoint, Contact.mNormal});
+            }
+        }
+
+        for (const CoreUObject::TObjectRef<Engine::UPrimitiveComponent> Handle : Moved) {
+            if (Engine::UPrimitiveComponent* Component{Handle.Get()}) {
+                Component->SyncComponentToBody();
+            }
+        }
+
+        for (const FPhysicsHit& Contact : Hits) {
+            Engine::UPrimitiveComponent* First{Contact.mFirst.Get()};
+            Engine::UPrimitiveComponent* Second{Contact.mSecond.Get()};
+
+            if (First == nullptr || Second == nullptr) {
+                continue;
+            }
+
+            // 접촉 법선은 두 번째 바디에서 첫 번째 바디를 향하므로 첫 번째 컴포넌트가 받은 충격면의 법선과 같습니다.
+            Engine::FHitResult Hit{0.0f};
+            Hit.mBlockingHit = true;
+            Hit.mLocation = Contact.mPoint;
+            Hit.mImpactPoint = Contact.mPoint;
+            Hit.mNormal = Contact.mNormal;
+            Hit.mImpactNormal = Contact.mNormal;
+            Hit.SetComponent(Second);
+            Hit.SetActor(Second->GetOwner());
+            First->OnHit(Second->GetOwner(), Second, Hit);
+
+            // 첫 번째 이벤트 처리 중 상대가 사라졌을 수 있으므로 핸들을 다시 해석합니다.
+            First = Contact.mFirst.Get();
+            Second = Contact.mSecond.Get();
+
+            if (First != nullptr && Second != nullptr) {
+                Second->OnHit(First->GetOwner(), First, Engine::FHitResult::GetReversedHit(Hit, First, First->GetOwner()));
+            }
         }
     }
 
