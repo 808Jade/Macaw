@@ -11,8 +11,6 @@
 
 #include <PxPhysicsAPI.h>
 
-#include <algorithm>
-
 namespace PhysicsRuntime {
 
     /**
@@ -72,16 +70,15 @@ namespace PhysicsRuntime {
 
     /**
      * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
-     * @details 구는 가장 작은 축 스케일, 캡슐 반지름은 X·Y 중 큰 스케일, 캡슐 길이는 Z 스케일을 따릅니다.
+     * @details 형상 크기와 중심은 각 형상의 GetScaled 규칙으로 스케일을 반영합니다.
      */
     Index_t PhysicsRuntime::UBodySetup::AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const physx::PxMaterial& Material) const {
-        const FVector AbsoluteScale{Scale.Abs()};
         Index_t Attached{};
 
         for (Index_t Index{}; Index < mAggGeom.mSphereElems.size(); ++Index) {
-            const PhysicsRuntime::FKSphereElem& Element{mAggGeom.mSphereElems[Index]};
-            const physx::PxSphereGeometry Geometry{Element.mRadius * std::min({AbsoluteScale.x, AbsoluteScale.y, AbsoluteScale.z})};
-            const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter * Scale)};
+            const PhysicsRuntime::FKSphereElem Element{mAggGeom.mSphereElems[Index].GetScaled(Scale)};
+            const physx::PxSphereGeometry Geometry{Element.mRadius};
+            const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter)};
 
             if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, Material)) {
                 ++Attached;
@@ -91,9 +88,9 @@ namespace PhysicsRuntime {
         }
 
         for (Index_t Index{}; Index < mAggGeom.mBoxElems.size(); ++Index) {
-            const PhysicsRuntime::FKBoxElem& Element{mAggGeom.mBoxElems[Index]};
-            const physx::PxBoxGeometry Geometry{PhysicsRuntime::ToPxVec3(Element.mHalfExtent * AbsoluteScale)};
-            const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter * Scale), PhysicsRuntime::ToPxQuat(Element.mRotation.Quaternion())};
+            const PhysicsRuntime::FKBoxElem Element{mAggGeom.mBoxElems[Index].GetScaled(Scale)};
+            const physx::PxBoxGeometry Geometry{PhysicsRuntime::ToPxVec3(Element.mHalfExtent)};
+            const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter), PhysicsRuntime::ToPxQuat(Element.mRotation.Quaternion())};
 
             if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, Material)) {
                 ++Attached;
@@ -103,9 +100,9 @@ namespace PhysicsRuntime {
         }
 
         for (Index_t Index{}; Index < mAggGeom.mSphylElems.size(); ++Index) {
-            const PhysicsRuntime::FKSphylElem& Element{mAggGeom.mSphylElems[Index]};
-            const physx::PxCapsuleGeometry Geometry{Element.mRadius * std::max(AbsoluteScale.x, AbsoluteScale.y), Element.mLength * 0.5f * AbsoluteScale.z};
-            const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter * Scale), PhysicsRuntime::ToPxQuat(Element.mRotation.Quaternion()) * PhysicsRuntime::GetSphylBasis()};
+            const PhysicsRuntime::FKSphylElem Element{mAggGeom.mSphylElems[Index].GetScaled(Scale)};
+            const physx::PxCapsuleGeometry Geometry{Element.mRadius, Element.mLength * 0.5f};
+            const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter), PhysicsRuntime::ToPxQuat(Element.mRotation.Quaternion()) * PhysicsRuntime::GetSphylBasis()};
 
             if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, Material)) {
                 ++Attached;

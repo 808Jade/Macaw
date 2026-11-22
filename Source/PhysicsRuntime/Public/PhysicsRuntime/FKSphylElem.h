@@ -26,6 +26,16 @@ namespace PhysicsRuntime {
     public:
 
         /**
+         * @brief 컴포넌트 스케일을 반영한 캡슐 형상을 반환합니다.
+         * @param[in] Scale 바디에 적용할 컴포넌트 스케일입니다.
+         * @return 중심은 축별 스케일을, 반지름은 X·Y 중 큰 스케일, 길이는 Z 스케일의 절댓값을 따릅니다.
+         * @note 물리 형상 생성과 디버그 표시가 같은 규칙을 쓰도록 이 함수로 스케일을 적용합니다.
+         */
+        PhysicsRuntime::FKSphylElem GetScaled(const FVector& Scale) const;
+
+    public:
+
+        /**
          * @brief 바디 로컬 공간에서의 캡슐 중심입니다.
          */
         UPROPERTY(Edit, Serialize)
