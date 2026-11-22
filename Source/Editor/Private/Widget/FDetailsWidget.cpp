@@ -876,6 +876,8 @@ namespace Editor {
                         DrawTransform(Row);
                     } else if (Row.mProperty->GetName() == "AnimClass") {
                         DrawAnimationMode(Row);
+                    } else if (Row.mProperty->GetType() == CoreUObject::EPropertyType::Struct) {
+                        DrawStructRow(Row);
                     } else {
                         DrawPropertyRow(Row);
                     }
@@ -1178,6 +1180,100 @@ namespace Editor {
         }
 
         ImGui::EndDisabled();
+        ImGui::PopID();
+        ImGui::PopID();
+    }
+
+    void Editor::FDetailsWidget::DrawStructRow(const FDetailRow& Row) {
+        Editor::FEditorContext* Context{GetEditorContext()};
+        const CoreUObject::UObject* Object{Context->ResolveObject(Row.mTargets.front())};
+        const auto* Struct{static_cast<const CoreUObject::UScriptStruct*>(Row.mProperty->GetStruct())};
+
+        if (Object == nullptr || Struct == nullptr) {
+            return;
+        }
+
+        const auto ReadStruct{[&Row](const CoreUObject::UObject* Target) {
+            return std::get<const void*>(Row.mProperty->ReadValue(Target));
+        }};
+        const bool Editable{std::all_of(Row.mTargets.begin(), Row.mTargets.end(), [Context, &Row](CoreUObject::TObjectRef<CoreUObject::UObject> Target) {
+            return Context->CanEditProperty(Target, Row.mProperty);
+        })};
+
+        ImGui::PushID(Row.mProperty);
+        ImGui::PushID(Object);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+
+        if (ImGui::TreeNodeEx(Row.mLabel.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAllColumns)) {
+            for (const CoreUObject::FProperty* Child : Struct->GetProperties()) {
+                if (!IsVisibleProperty(Child)) {
+                    continue;
+                }
+
+                ImGui::PushID(Child);
+                BeginPropertyRow(PropertyLabel(Child).c_str());
+                ImGui::TableSetColumnIndex(1);
+
+                if (Child->GetType() == CoreUObject::EPropertyType::Struct || Child->GetArrayOps() != nullptr) {
+                    ImGui::TextDisabled("Not editable here");
+                    ImGui::PopID();
+
+                    continue;
+                }
+
+                CoreUObject::FPropertyValue Value{Child->ReadValue(ReadStruct(Object))};
+                bool Mixed{};
+
+                for (CoreUObject::TObjectRef<CoreUObject::UObject> Target : Row.mTargets) {
+                    if (const CoreUObject::UObject* Current{Context->ResolveObject(Target)}) {
+                        Mixed = Mixed || !EqualValues(Value, Child->ReadValue(ReadStruct(Current)));
+                    }
+                }
+
+                const bool ChildEditable{Editable && !Child->HasFlag(Core::EPropertyFlags::ReadOnly)};
+                ImGui::BeginDisabled(!ChildEditable);
+
+                if (Mixed) {
+                    ImGui::TextDisabled("Multiple Values");
+                }
+
+                ImGui::SetNextItemWidth(-1.0f);
+
+                if (DrawPropertyValue(Child, Value, "##Value") && ChildEditable) {
+                    const bool Interactive{ImGui::IsItemActive()};
+
+                    if (Interactive) {
+                        BeginItemSceneEdit();
+                    }
+
+                    const Uint64 Token{Context->BeginSceneEdit()};
+
+                    for (CoreUObject::TObjectRef<CoreUObject::UObject> Target : Row.mTargets) {
+                        const CoreUObject::UObject* Current{Context->ResolveObject(Target)};
+
+                        if (Current == nullptr || EqualValues(Child->ReadValue(ReadStruct(Current)), Value)) {
+                            continue;
+                        }
+
+                        // 다른 필드는 대상마다 유지하도록 대상의 현재 구조체 사본에 바뀐 필드만 쓴 뒤 전체를 적용합니다.
+                        const CoreUObject::UScriptStruct::FValuePtr Working{Struct->CloneValue(ReadStruct(Current))};
+
+                        if (Working != nullptr && Child->WriteValue(Working.get(), Value)) {
+                            Context->EditProperty(Target, Row.mProperty, CoreUObject::FPropertyValue{static_cast<const void*>(Working.get())}, Interactive);
+                        }
+                    }
+
+                    Context->EndSceneEdit(Token);
+                }
+
+                ImGui::EndDisabled();
+                ImGui::PopID();
+            }
+
+            ImGui::TreePop();
+        }
+
         ImGui::PopID();
         ImGui::PopID();
     }
@@ -1488,7 +1584,8 @@ namespace Editor {
         } else if (auto* Reference{std::get_if<CoreUObject::FObjectReference>(&Value)}) {
 
             ImGui::TextWrapped("%s", Reference->GetGuid().ToString().c_str());
-        } else if (const CoreUObject::UStruct* Struct{Property->GetStruct()}) {
+        } else if (const CoreUObject::UStruct* Struct{Property->GetStruct()}; Struct != nullptr && !std::holds_alternative<const void*>(Value)) {
+            // 주소로 전달되는 구조체 멤버는 값이 variant 안에 없으므로 DrawStructRow에서 따로 편집합니다.
             bool Changed{};
 
             if (ImGui::TreeNodeEx(Label, ImGuiTreeNodeFlags_DefaultOpen)) {
