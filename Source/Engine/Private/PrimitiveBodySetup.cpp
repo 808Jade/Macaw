@@ -1,0 +1,64 @@
+/**
+ * @file PrimitiveBodySetup.cpp
+ * @brief Plane, Cube와 Sphere 기본 메시가 공유하는 충돌 형상을 제공합니다.
+ * @ingroup Engine
+ */
+
+#include "Core/Types.h"
+#include "Engine/PrimitiveBodySetup.h"
+#include "Engine/PrimitiveMesh.h"
+#include "PhysicsRuntime/UBodySetup.h"
+#include "CoreUObject/Reflection/NewObject.h"
+
+#include <memory>
+
+namespace Engine {
+
+    /**
+     * @brief 기본 프리미티브 바디 셋업을 만드는 보조 함수입니다.
+     */
+    namespace {
+        /**
+         * @brief 두께가 없는 Plane을 근사하는 상자의 절반 두께입니다.
+         * @note 너무 얇으면 빠른 물체가 통과하므로 기본 메시 경계(0.001)보다 두껍게 잡습니다.
+         */
+        constexpr float PlaneHalfThickness{0.01f};
+
+        /**
+         * @brief 기본 프리미티브 종류에 맞는 충돌 형상을 가진 바디 셋업을 만듭니다.
+         * @param[in] Type 기본 프리미티브 종류입니다.
+         * @return 새로 만든 바디 셋업입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::UBodySetup> BuildPrimitiveBodySetup(Engine::EPrimitiveType Type) {
+            auto Setup{CoreUObject::NewObject<PhysicsRuntime::UBodySetup>()};
+            Setup->SetName(Engine::PrimitiveName(Type) + "BodySetup");
+
+            PhysicsRuntime::FKAggregateGeom& Geometry{Setup->GetAggGeom()};
+
+            if (Type == Engine::EPrimitiveType::Sphere) {
+                PhysicsRuntime::FKSphereElem& Sphere{Geometry.mSphereElems.emplace_back()};
+                Sphere.mRadius = 0.5f;
+            } else {
+                PhysicsRuntime::FKBoxElem& Box{Geometry.mBoxElems.emplace_back()};
+                Box.mHalfExtent = Type == Engine::EPrimitiveType::Plane ? FVector{0.5f, 0.5f, PlaneHalfThickness} : FVector{0.5f, 0.5f, 0.5f};
+            }
+
+            return Setup;
+        }
+    }
+
+    /**
+     * @brief 기본 프리미티브 종류별로 공유하는 읽기 전용 바디 셋업을 반환합니다.
+     */
+    const PhysicsRuntime::UBodySetup* GetPrimitiveBodySetup(Engine::EPrimitiveType Type) {
+        if (Type >= Engine::EPrimitiveType::Count) {
+            return nullptr;
+        }
+
+        // 객체 레지스트리는 첫 객체를 만들 때 생성되므로 이 캐시보다 먼저 만들어지고 나중에 해제됩니다.
+        static const Core::TStaticArray<std::unique_ptr<PhysicsRuntime::UBodySetup>, 3> Setups{BuildPrimitiveBodySetup(Engine::EPrimitiveType::Plane), BuildPrimitiveBodySetup(Engine::EPrimitiveType::Cube), BuildPrimitiveBodySetup(Engine::EPrimitiveType::Sphere)};
+
+        return Setups[static_cast<Index_t>(Type)].get();
+    }
+
+}
