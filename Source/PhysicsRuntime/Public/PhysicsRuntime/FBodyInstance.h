@@ -34,6 +34,19 @@ namespace PhysicsRuntime {
 namespace PhysicsRuntime {
 
     /**
+     * @brief 바디를 만들 때 강체 종류를 정하는 옵션입니다.
+     * @ingroup PhysicsRuntime
+     */
+    struct FInitBodySpawnParams {
+    public:
+        /**
+         * @brief true이면 고정된 강체를 만들고, false이면 움직이는 강체를 만듭니다.
+         * @note 움직이는 강체가 시뮬레이션하지 않으면 코드로만 옮기는 키네마틱 강체가 됩니다.
+         */
+        bool mStaticPhysics{true};
+    };
+
+    /**
      * @brief 컴포넌트 하나에 대응하는 PhysX 강체와 그 시뮬레이션 설정을 관리합니다.
      * @details 물리 시뮬레이션을 켜면 동적 강체를, 끄면 움직이지 않는 정적 강체를 만듭니다.
      *          만든 강체의 userData에 이 객체의 주소를 넣어 시뮬레이션 결과와 접촉에서 소유 컴포넌트를 찾을 수 있게 합니다.
@@ -82,6 +95,18 @@ namespace PhysicsRuntime {
          * @note 이미 바디가 있으면 먼저 해제합니다. 장면은 이 바디가 해제될 때까지 유지되어야 합니다.
          */
         bool InitBody(const PhysicsRuntime::UBodySetup& Setup, const FTransform& Transform, Engine::UPrimitiveComponent* OwnerComponent, PhysicsRuntime::FPhysicsScene& Scene);
+
+        /**
+         * @brief 강체 종류를 직접 정해 바디 셋업의 충돌 형상으로 PhysX 강체를 만들어 장면에 추가합니다.
+         * @param[in] Setup 강체에 붙일 충돌 형상을 가진 바디 셋업입니다.
+         * @param[in] Transform 바디의 월드 위치·회전과 형상에 반영할 스케일입니다.
+         * @param[in] OwnerComponent 바디를 소유하는 컴포넌트이며, 이 객체는 주소만 보관합니다.
+         * @param[in,out] Scene 강체를 추가할 초기화된 물리 장면입니다.
+         * @param[in] SpawnParams 정적 강체로 만들지 정하는 옵션입니다.
+         * @return 강체를 만들어 장면에 추가했으면 true, 형상이 없거나 생성에 실패하면 false입니다.
+         * @note 움직이는 강체는 시뮬레이션 설정이 꺼져 있으면 키네마틱으로 만듭니다.
+         */
+        bool InitBody(const PhysicsRuntime::UBodySetup& Setup, const FTransform& Transform, Engine::UPrimitiveComponent* OwnerComponent, PhysicsRuntime::FPhysicsScene& Scene, const PhysicsRuntime::FInitBodySpawnParams& SpawnParams);
 
         /**
          * @brief 실제 바디를 장면에서 제거하고 해제합니다.
@@ -267,6 +292,26 @@ namespace PhysicsRuntime {
          * @return 0 이상의 유한값이어서 적용했으면 true입니다.
          */
         bool SetAngularDamping(float Damping);
+
+        /**
+         * @brief 이미 만든 움직이는 강체의 시뮬레이션 여부를 다시 만들지 않고 바꿉니다.
+         * @param[in] Simulate true이면 시뮬레이션하고, false이면 키네마틱으로 바꿉니다.
+         * @note 정적 강체는 설정만 바꾸고 실제 강체에는 반영하지 않습니다.
+         */
+        void SetInstanceSimulatePhysics(bool Simulate);
+
+    public:
+
+        /**
+         * @brief 물리 에셋 안에서 이 바디의 설계도 번호입니다.
+         * @note InvalidIndex가 아니면 뼈 바디이므로 시뮬레이션 결과를 컴포넌트 트랜스폼에 바로 반영하지 않습니다.
+         */
+        Index_t mInstanceBodyIndex{InvalidIndex};
+
+        /**
+         * @brief 이 바디가 붙은 뼈 번호입니다.
+         */
+        Index_t mInstanceBoneIndex{InvalidIndex};
 
     private:
 

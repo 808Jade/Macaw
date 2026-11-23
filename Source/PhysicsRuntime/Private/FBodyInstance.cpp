@@ -82,6 +82,13 @@ namespace PhysicsRuntime {
      * @brief 바디 셋업의 충돌 형상으로 PhysX 강체를 만들어 장면에 추가합니다.
      */
     bool PhysicsRuntime::FBodyInstance::InitBody(const PhysicsRuntime::UBodySetup& Setup, const FTransform& Transform, Engine::UPrimitiveComponent* OwnerComponent, PhysicsRuntime::FPhysicsScene& Scene) {
+        return InitBody(Setup, Transform, OwnerComponent, Scene, PhysicsRuntime::FInitBodySpawnParams{!mSimulatePhysics});
+    }
+
+    /**
+     * @brief 강체 종류를 직접 정해 바디 셋업의 충돌 형상으로 PhysX 강체를 만들어 장면에 추가합니다.
+     */
+    bool PhysicsRuntime::FBodyInstance::InitBody(const PhysicsRuntime::UBodySetup& Setup, const FTransform& Transform, Engine::UPrimitiveComponent* OwnerComponent, PhysicsRuntime::FPhysicsScene& Scene, const PhysicsRuntime::FInitBodySpawnParams& SpawnParams) {
         TermBody();
 
         PhysicsRuntime::FPhysicsRuntime* Runtime{Scene.GetRuntime()};
@@ -107,10 +114,12 @@ namespace PhysicsRuntime {
         physx::PxPhysics& Physics{*Runtime->GetPhysics()};
         std::unique_ptr<physx::PxRigidActor, PhysicsRuntime::FPhysXRelease> Actor{};
 
-        if (mSimulatePhysics) {
-            Actor.reset(Physics.createRigidDynamic(Pose));
-        } else {
+        if (SpawnParams.mStaticPhysics) {
             Actor.reset(Physics.createRigidStatic(Pose));
+        } else if (physx::PxRigidDynamic* Dynamic{Physics.createRigidDynamic(Pose)}) {
+            // 시뮬레이션하지 않는 움직이는 강체는 코드가 옮기는 위치로만 갑니다.
+            Dynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, !mSimulatePhysics);
+            Actor.reset(Dynamic);
         }
 
         if (Actor == nullptr) {
@@ -216,7 +225,14 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        mActor->setGlobalPose(Pose);
+        physx::PxRigidDynamic* Dynamic{GetPxRigidDynamic()};
+
+        // 키네마틱 강체는 목표 위치를 주어야 다음 스텝에서 닿은 물체를 밀어냅니다.
+        if (Dynamic != nullptr && Dynamic->getScene() != nullptr && Dynamic->getRigidBodyFlags().isSet(physx::PxRigidBodyFlag::eKINEMATIC)) {
+            Dynamic->setKinematicTarget(Pose);
+        } else {
+            mActor->setGlobalPose(Pose);
+        }
 
         return true;
     }
@@ -339,7 +355,11 @@ namespace PhysicsRuntime {
 
         if (physx::PxRigidDynamic* Dynamic{GetPxRigidDynamic()}) {
             Dynamic->setActorFlag(physx::PxActorFlag::eDISABLE_GRAVITY, !mEnableGravity);
-            Dynamic->wakeUp();
+
+            // 키네마틱 강체는 깨울 수 없으므로 시뮬레이션하는 강체만 깨웁니다.
+            if (Dynamic->getScene() != nullptr && !Dynamic->getRigidBodyFlags().isSet(physx::PxRigidBodyFlag::eKINEMATIC)) {
+                Dynamic->wakeUp();
+            }
         }
     }
 
@@ -357,7 +377,7 @@ namespace PhysicsRuntime {
         mUseCCD = Enabled;
 
         if (physx::PxRigidDynamic* Dynamic{GetPxRigidDynamic()}) {
-            Dynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eENABLE_CCD, mUseCCD);
+            Dynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eENABLE_CCD, mUseCCD && mSimulatePhysics);
         }
     }
 
@@ -434,13 +454,37 @@ namespace PhysicsRuntime {
     }
 
     /**
+     * @brief 이미 만든 움직이는 강체의 시뮬레이션 여부를 다시 만들지 않고 바꿉니다.
+     */
+    void PhysicsRuntime::FBodyInstance::SetInstanceSimulatePhysics(bool Simulate) {
+        mSimulatePhysics = Simulate;
+
+        physx::PxRigidDynamic* Dynamic{GetPxRigidDynamic()};
+
+        if (Dynamic == nullptr) {
+            return;
+        }
+
+        // CCD가 켜진 채로 키네마틱이 될 수 없으므로 CCD를 먼저 끄고 마지막에 다시 맞춥니다.
+        Dynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eENABLE_CCD, false);
+        Dynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, !Simulate);
+        Dynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eENABLE_CCD, mUseCCD && Simulate);
+
+        // 키네마틱에서 풀려난 강체가 잠든 채로 멈춰 있지 않게 깨웁니다.
+        if (Simulate && Dynamic->getScene() != nullptr) {
+            Dynamic->wakeUp();
+        }
+    }
+
+    /**
      * @brief 질량·감쇠·중력·CCD 설정을 동적 강체에 반영합니다.
      */
     void PhysicsRuntime::FBodyInstance::ApplyDynamicSettings(physx::PxRigidDynamic& Dynamic) const {
         Dynamic.setLinearDamping(mLinearDamping);
         Dynamic.setAngularDamping(mAngularDamping);
         Dynamic.setActorFlag(physx::PxActorFlag::eDISABLE_GRAVITY, !mEnableGravity);
-        Dynamic.setRigidBodyFlag(physx::PxRigidBodyFlag::eENABLE_CCD, mUseCCD);
+        // 키네마틱 강체에는 CCD를 켤 수 없으므로 시뮬레이션할 때만 켭니다.
+        Dynamic.setRigidBodyFlag(physx::PxRigidBodyFlag::eENABLE_CCD, mUseCCD && mSimulatePhysics);
         UpdateMassProperties(Dynamic);
     }
 
