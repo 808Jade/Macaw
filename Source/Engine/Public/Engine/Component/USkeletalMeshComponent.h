@@ -641,19 +641,19 @@ namespace Engine {
         /**
          * @brief Content 기준 스켈레탈 메시 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "SkeletalMesh", Getter = GetMeshPath, Setter = SetMeshPath)
+        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "SkeletalMesh", Meta = (AssetType = "SkeletalMesh"), Getter = GetMeshPath, Setter = SetMeshPath)
         Core::FString mMeshPath{};
 
         /**
          * @brief 스켈레톤 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "Skeleton", Getter = GetSkeletonPath, Setter = SetSkeletonPath)
+        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "Skeleton", Meta = (AssetType = "Skeleton"), Getter = GetSkeletonPath, Setter = SetSkeletonPath)
         Core::FString mSkeletonPath{};
 
         /**
          * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Category = "Physics", Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
+        UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Category = "Physics", Meta = (AssetType = "PhysicsAsset", EmptyLabel = "Use mesh physics asset"), Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
         Core::FString mPhysicsAssetOverride{};
 
         /**
@@ -677,7 +677,7 @@ namespace Engine {
         /**
          * @brief 플레이를 시작하면 재생할 Content 기준 애니메이션 시퀀스 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "Animation", Getter = GetAnimationPath, Setter = SetAnimationPath)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "Animation", Meta = (AssetType = "AnimSequence"), Getter = GetAnimationPath, Setter = SetAnimationPath)
         Core::FString mAnimationPath{};
 
         /**

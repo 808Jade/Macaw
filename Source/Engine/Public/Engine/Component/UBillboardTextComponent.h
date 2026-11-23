@@ -120,7 +120,7 @@ namespace Engine {
         /**
          * @brief UTF-8 문자열입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetText, Setter = SetText)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Meta = (MultiLine), Getter = GetText, Setter = SetText)
         Core::FString mText{"Text"};
 
         /**

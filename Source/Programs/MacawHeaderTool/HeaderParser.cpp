@@ -173,6 +173,85 @@ namespace HeaderTool {
         }
 
         /**
+         * @brief Meta = (...) 지정자의 괄호 안을 키와 값 리터럴 목록으로 나눕니다.
+         * @param[in] Text 괄호를 포함한 지정자 값 원문입니다.
+         * @param[out] Entries 키와 따옴표를 포함한 값 리터럴을 적은 순서대로 추가합니다.
+         * @return 모든 항목이 올바르면 true, 괄호·키·값 형식이 잘못되었으면 false입니다.
+         * @details 값은 따옴표 문자열을 그대로 쓰고, 식별자·숫자는 따옴표로 감쌉니다. 값을 생략하면 "true"입니다.
+         */
+        bool ParseMetaData(std::string_view Text, std::vector<std::pair<std::string, std::string>>& Entries) {
+            const std::string Inner{Trim(Text)};
+
+            if (Inner.size() < 2 || Inner.front() != '(' || Inner.back() != ')') {
+                return false;
+            }
+
+            std::vector<std::string> Items;
+            std::string Current;
+            bool Quoted{};
+
+            for (Index_t Index{1}; Index + 1 < Inner.size(); ++Index) {
+                const char Character{Inner[Index]};
+
+                if (Quoted && Character == '\\' && Index + 2 < Inner.size()) {
+                    Current += Character;
+                    Current += Inner[++Index];
+
+                    continue;
+                }
+
+                if (Character == '"') {
+                    Quoted = !Quoted;
+                } else if (Character == ',' && !Quoted) {
+                    Items.push_back(Trim(Current));
+                    Current.clear();
+
+                    continue;
+                }
+
+                Current += Character;
+            }
+
+            if (Quoted) {
+                return false;
+            }
+
+            Items.push_back(Trim(Current));
+
+            for (const std::string& Item : Items) {
+                if (Item.empty()) {
+                    continue;
+                }
+
+                const FArgument Entry{SplitSpecifier(Item)};
+
+                if (Entry.Key.empty() || !std::all_of(Entry.Key.begin(), Entry.Key.end(), IsIdentifierCharacter)) {
+                    return false;
+                }
+
+                std::string Value{Entry.Value};
+
+                if (Value.empty()) {
+                    Value = "\"true\"";
+                } else if (Value.front() == '"') {
+                    if (Value.size() < 2 || Value.back() != '"') {
+                        return false;
+                    }
+                } else if (std::all_of(Value.begin(), Value.end(), [](char Character) {
+                    return IsIdentifierCharacter(Character) || Character == '.' || Character == '-';
+                })) {
+                    Value = "\"" + Value + "\"";
+                } else {
+                    return false;
+                }
+
+                Entries.emplace_back(Entry.Key, std::move(Value));
+            }
+
+            return true;
+        }
+
+        /**
          * @brief 식별자에 사용할 수 없는 문자를 밑줄로 바꿉니다.
          * @param[in] Text 해석·변환·탐색할 원문 문자열입니다.
          * @return 해석·변환한 문자열입니다.
@@ -592,7 +671,11 @@ namespace HeaderTool {
                     } else if (Specifier.Key == "Name" && Specifier.Value.size() > 1 && Specifier.Value.front() == '"' && Specifier.Value.back() == '"') {
                         Property.Name = Specifier.Value;
                     } else if (Specifier.Key == "Category" && Specifier.Value.size() > 2 && Specifier.Value.front() == '"' && Specifier.Value.back() == '"') {
-                        Property.Category = Specifier.Value;
+                        Property.MetaData.emplace_back("Category", Specifier.Value);
+                    } else if (Specifier.Key == "Meta" && !Specifier.Value.empty()) {
+                        if (!ParseMetaData(Specifier.Value, Property.MetaData)) {
+                            mSource.Fail(Annotation.Token, "UPROPERTY Meta must be (Key = \"Value\", ...) " + Quote(Argument));
+                        }
                     } else if (Specifier.Key == "Array" && Specifier.Value.empty()) {
                         Property.Array = true;
                     } else if (Specifier.Value.empty() && Contains(sPropertyFlags, Specifier.Key)) {
@@ -612,6 +695,14 @@ namespace HeaderTool {
 
                 if (Property.Name.empty()) {
                     Property.Name = "\"" + DerivedName(Property.Member) + "\"";
+                }
+
+                for (Index_t Entry{}; Entry < Property.MetaData.size(); ++Entry) {
+                    for (Index_t Other{}; Other < Entry; ++Other) {
+                        if (Property.MetaData[Other].first == Property.MetaData[Entry].first) {
+                            mSource.Fail(Annotation.Token, "Duplicate UPROPERTY metadata key " + Quote(Property.MetaData[Entry].first));
+                        }
+                    }
                 }
 
                 for (const FProperty& Existing : Owner.Properties) {

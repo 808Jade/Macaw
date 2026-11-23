@@ -124,7 +124,7 @@ namespace Engine {
         /**
          * @brief 프로젝트 콘텐츠 폴더 기준 메시 에셋의 상대 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "Mesh", Getter = GetMeshPath, Setter = SetMeshPath)
+        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "Mesh", Meta = (AssetType = "Mesh", EmptyLabel = "Primitive mesh"), Getter = GetMeshPath, Setter = SetMeshPath)
         Core::FString mMeshPath{};
 
         UPROPERTY(Edit, Serialize, Name = "CollisionEnabled", Getter = IsCollisionEnabled, Setter = SetCollisionEnabled)

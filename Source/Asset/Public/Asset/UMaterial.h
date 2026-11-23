@@ -365,7 +365,7 @@ namespace Asset {
         /**
          * @brief Content 상대 노멀 맵 텍스처 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "NormalMap", Getter = GetNormalMapTexturePath, Setter = SetNormalMapTexturePath)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "NormalMap", Meta = (AssetType = "Texture"), Getter = GetNormalMapTexturePath, Setter = SetNormalMapTexturePath)
         Core::FString mNormalMapTexturePath{};
 
         /**

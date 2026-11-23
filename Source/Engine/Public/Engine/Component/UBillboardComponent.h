@@ -172,7 +172,7 @@ namespace Engine {
         /**
          * @brief Content 기준 텍스처 에셋 경로이며 빈 경로는 기본 아틀라스입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "Sprite", Getter = GetTexturePath, Setter = SetTexturePath)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "Sprite", Meta = (AssetType = "Texture", EmptyLabel = "Default atlas"), Getter = GetTexturePath, Setter = SetTexturePath)
         Core::FString mTexturePath{};
 
         /**

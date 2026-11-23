@@ -1503,41 +1503,21 @@ namespace Editor {
                 return true;
             }
         } else if (auto* String{std::get_if<Core::FString>(&Value)}) {
-            const std::string_view Name{Property->GetName()};
+            if (const Core::FString& AssetTypeName{Property->GetMetaData("AssetType")}; !AssetTypeName.empty()) {
+                // AssetType 메타데이터는 EAssetType 값 이름이므로 리플렉션 열거형에서 값을 찾습니다.
+                const auto& AssetTypes{Asset::StaticEnumEAssetType()->GetValues()};
+                const auto Found{std::find_if(AssetTypes.begin(), AssetTypes.end(), [&AssetTypeName](const CoreUObject::FEnumValue& Entry) {
+                    return Entry.mName == AssetTypeName;
+                })};
 
-            if (Name == "SkeletalMesh") {
-                return DrawAssetPicker(Label, *String, Asset::EAssetType::SkeletalMesh, "None");
+                if (Found != AssetTypes.end()) {
+                    const Core::FString& EmptyLabel{Property->GetMetaData("EmptyLabel")};
+
+                    return DrawAssetPicker(Label, *String, static_cast<Asset::EAssetType>(Found->mValue), EmptyLabel.empty() ? "None" : EmptyLabel.c_str());
+                }
             }
 
-            if (Name == "Skeleton") {
-                return DrawAssetPicker(Label, *String, Asset::EAssetType::Skeleton, "None");
-            }
-
-            if (Name == "PhysicsAssetOverride") {
-                return DrawAssetPicker(Label, *String, Asset::EAssetType::PhysicsAsset, "Use mesh physics asset");
-            }
-
-            if (Name == "Animation") {
-                return DrawAssetPicker(Label, *String, Asset::EAssetType::AnimSequence, "None");
-            }
-
-            if (Name == "AnimGraph") {
-                return DrawAssetPicker(Label, *String, Asset::EAssetType::AnimGraph, "None");
-            }
-
-            if (Name == "Mesh") {
-                return DrawAssetPicker(Label, *String, Asset::EAssetType::Mesh, "Primitive mesh");
-            }
-
-            if (Name == "Material") {
-                return DrawAssetPicker(Label, *String, Asset::EAssetType::Material, "Use mesh materials");
-            }
-
-            if (Name == "Texture" || Name == "NormalMap" || Name == "Sprite") {
-                return DrawAssetPicker(Label, *String, Asset::EAssetType::Texture, Name == "Sprite" ? "Default atlas" : "None");
-            }
-
-            if (Property->GetName() == "Text") {
+            if (Property->HasMetaData("MultiLine")) {
                 Core::TArray<char> TextBuffer{};
                 TextBuffer.resize(std::max<std::size_t>(4096, String->size() + 1024));
                 std::copy(String->begin(), String->end(), TextBuffer.begin());

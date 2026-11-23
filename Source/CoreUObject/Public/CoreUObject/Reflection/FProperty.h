@@ -10,6 +10,7 @@
 #include "CoreUObject/Reflection/FPropertyValue.h"
 #include "CoreUObject/Reflection/EPropertyType.h"
 #include "Core/Reflection/EPropertyFlags.h"
+#include "Core/Reflection/FPropertyMetaData.h"
 #include "CoreUObject/Reflection/FEnumValue.h"
 
 #include <string_view>
@@ -64,16 +65,36 @@ namespace CoreUObject {
         const Core::FString& GetName() const;
 
         /**
-         * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 반환합니다.
-         * @return 소유 객체가 유지하는 값의 참조이며, 지정하지 않았으면 빈 문자열입니다.
+         * @brief 키에 해당하는 메타데이터 값을 반환합니다.
+         * @param[in] Key 조회할 메타데이터 키입니다.
+         * @return 소유 객체가 유지하는 값의 참조이며, 키가 없으면 빈 문자열입니다.
          */
-        const Core::FString& GetCategory() const;
+        const Core::FString& GetMetaData(std::string_view Key) const;
 
         /**
-         * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 설정합니다.
-         * @param[in] Category 카테고리 이름이며, 비우면 에디터가 정합니다.
+         * @brief 키에 해당하는 메타데이터가 있는지 검사합니다.
+         * @param[in] Key 조회할 메타데이터 키입니다.
+         * @return 키가 있으면 값이 비어 있어도 true입니다.
          */
-        void SetCategory(Core::FString Category);
+        bool HasMetaData(std::string_view Key) const;
+
+        /**
+         * @brief 메타데이터 목록 전체를 반환합니다.
+         * @return 적은 순서대로 담긴 키·값 목록의 참조입니다.
+         */
+        const Core::FPropertyMetaData& GetMetaDataMap() const;
+
+        /**
+         * @brief 메타데이터 목록 전체를 바꿉니다.
+         * @param[in] MetaData 적은 순서대로 담긴 키·값 목록입니다.
+         */
+        void SetMetaData(Core::FPropertyMetaData MetaData);
+
+        /**
+         * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 반환합니다.
+         * @return Category 메타데이터 값의 참조이며, 지정하지 않았으면 빈 문자열입니다.
+         */
+        const Core::FString& GetCategory() const;
 
         /**
          * @brief 프로퍼티 저장 타입을 반환합니다.
@@ -194,9 +215,9 @@ namespace CoreUObject {
         Core::FString mName{};
 
         /**
-         * @brief 에디터 표시 카테고리이며, 비어 있으면 에디터가 정합니다.
+         * @brief Category를 포함한 에디터용 키·값 메타데이터입니다.
          */
-        Core::FString mCategory{};
+        Core::FPropertyMetaData mMetaData{};
 
         /**
          * @brief 프로퍼티 저장 타입입니다.

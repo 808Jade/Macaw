@@ -58,17 +58,46 @@ namespace CoreUObject {
     }
 
     /**
-     * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 반환합니다.
+     * @brief 키에 해당하는 메타데이터 값을 반환합니다.
      */
-    const Core::FString& CoreUObject::FProperty::GetCategory() const {
-        return mCategory;
+    const Core::FString& CoreUObject::FProperty::GetMetaData(std::string_view Key) const {
+        static const Core::FString Empty{};
+
+        const auto Found{std::find_if(mMetaData.begin(), mMetaData.end(), [Key](const auto& Entry) {
+            return Entry.first == Key;
+        })};
+
+        return Found != mMetaData.end() ? Found->second : Empty;
     }
 
     /**
-     * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 설정합니다.
+     * @brief 키에 해당하는 메타데이터가 있는지 검사합니다.
      */
-    void CoreUObject::FProperty::SetCategory(Core::FString Category) {
-        mCategory = std::move(Category);
+    bool CoreUObject::FProperty::HasMetaData(std::string_view Key) const {
+        return std::any_of(mMetaData.begin(), mMetaData.end(), [Key](const auto& Entry) {
+            return Entry.first == Key;
+        });
+    }
+
+    /**
+     * @brief 메타데이터 목록 전체를 반환합니다.
+     */
+    const Core::FPropertyMetaData& CoreUObject::FProperty::GetMetaDataMap() const {
+        return mMetaData;
+    }
+
+    /**
+     * @brief 메타데이터 목록 전체를 바꿉니다.
+     */
+    void CoreUObject::FProperty::SetMetaData(Core::FPropertyMetaData MetaData) {
+        mMetaData = std::move(MetaData);
+    }
+
+    /**
+     * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 반환합니다.
+     */
+    const Core::FString& CoreUObject::FProperty::GetCategory() const {
+        return GetMetaData("Category");
     }
 
     /**

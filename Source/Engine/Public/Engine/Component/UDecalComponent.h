@@ -155,13 +155,13 @@ namespace Engine {
         /**
          * @brief 데칼 색상 텍스처의 Content 기준 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "Texture", Getter = GetTexturePath, Setter = SetTexturePath)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "Texture", Meta = (AssetType = "Texture"), Getter = GetTexturePath, Setter = SetTexturePath)
         Core::FString mTexturePath{};
 
         /**
          * @brief 데칼 노멀 텍스처의 Content 기준 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "NormalMap", Getter = GetNormalMapPath, Setter = SetNormalMapPath)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "NormalMap", Meta = (AssetType = "Texture"), Getter = GetNormalMapPath, Setter = SetNormalMapPath)
         Core::FString mNormalMapPath{};
 
         /**

@@ -8,6 +8,7 @@
 #include "Core/Types.h"
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "SourceText.h"
@@ -54,9 +55,10 @@ namespace HeaderTool {
         std::string Name;
 
         /**
-         * @brief 따옴표를 포함한 에디터 표시 카테고리 리터럴입니다. 없으면 비어 있습니다.
+         * @brief 적은 순서의 메타데이터 키와 따옴표를 포함한 값 리터럴입니다.
+         * @note Category 지정자도 Category 키로 여기에 담습니다.
          */
-        std::string Category;
+        std::vector<std::pair<std::string, std::string>> MetaData;
 
         /**
          * @brief getter 멤버 함수 이름입니다. 없으면 비어 있습니다.

@@ -146,7 +146,7 @@ namespace Engine {
         /**
          * @brief 프로젝트 상대 머티리얼 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Materials", Name = "Material", Getter = GetMaterialPath, Setter = SetMaterialPath)
+        UPROPERTY(Edit, Serialize, Category = "Materials", Name = "Material", Meta = (AssetType = "Material", EmptyLabel = "Use mesh materials"), Getter = GetMaterialPath, Setter = SetMaterialPath)
         Core::FString mMaterialPath{};
 
         /**
