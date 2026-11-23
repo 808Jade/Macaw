@@ -205,6 +205,8 @@ namespace RenderCore {
          */
         static RenderCore::UShader* FindBuiltin(const Core::FString& SourcePath);
 
+        static void ReleaseBuiltins();
+
     private:
         /**
          * @brief 셰이더 관리자가 컴파일 결과를 교체하도록 접근을 허용합니다.

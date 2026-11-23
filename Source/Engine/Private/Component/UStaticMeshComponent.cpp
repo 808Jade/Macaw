@@ -42,6 +42,7 @@ namespace Engine {
 
         if (mPrimitive != Type) {
             mPrimitive = Type;
+            mPrimitiveBodySetup.reset();
 
             MarkRenderStateDirty();
             RecreatePhysicsState();
@@ -90,6 +91,7 @@ namespace Engine {
         if (mMeshPath != Path || mStaticMesh != Mesh) {
             if (mMeshPath != Path) {
                 ClearMaterialOverrides();
+                mPrimitiveBodySetup.reset();
             }
 
             mMeshPath = Path;
@@ -180,7 +182,11 @@ namespace Engine {
         }
 
         if (mMeshPath.empty()) {
-            return Engine::GetPrimitiveBodySetup(mPrimitive);
+            if (mPrimitiveBodySetup == nullptr) {
+                mPrimitiveBodySetup = Engine::AcquirePrimitiveBodySetup(mPrimitive);
+            }
+
+            return mPrimitiveBodySetup.get();
         }
 
         return mStaticMesh != nullptr ? mStaticMesh->GetBodySetup() : nullptr;

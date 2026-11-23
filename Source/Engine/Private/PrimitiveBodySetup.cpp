@@ -50,15 +50,21 @@ namespace Engine {
     /**
      * @brief 기본 프리미티브 종류별로 공유하는 읽기 전용 바디 셋업을 반환합니다.
      */
-    const PhysicsRuntime::UBodySetup* GetPrimitiveBodySetup(Engine::EPrimitiveType Type) {
+    std::shared_ptr<const PhysicsRuntime::UBodySetup> AcquirePrimitiveBodySetup(Engine::EPrimitiveType Type) {
         if (Type >= Engine::EPrimitiveType::Count) {
-            return nullptr;
+            return {};
         }
 
-        // 객체 레지스트리는 첫 객체를 만들 때 생성되므로 이 캐시보다 먼저 만들어지고 나중에 해제됩니다.
-        static const Core::TStaticArray<std::unique_ptr<PhysicsRuntime::UBodySetup>, 3> Setups{BuildPrimitiveBodySetup(Engine::EPrimitiveType::Plane), BuildPrimitiveBodySetup(Engine::EPrimitiveType::Cube), BuildPrimitiveBodySetup(Engine::EPrimitiveType::Sphere)};
+        static Core::TStaticArray<std::weak_ptr<const PhysicsRuntime::UBodySetup>, static_cast<Index_t>(Engine::EPrimitiveType::Count)> Setups{};
+        auto& CachedSetup{Setups[static_cast<Index_t>(Type)]};
+        auto Setup{CachedSetup.lock()};
 
-        return Setups[static_cast<Index_t>(Type)].get();
+        if (Setup == nullptr) {
+            Setup = BuildPrimitiveBodySetup(Type);
+            CachedSetup = Setup;
+        }
+
+        return Setup;
     }
 
 }

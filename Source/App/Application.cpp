@@ -16,6 +16,7 @@
 #include "Editor/FProjectBrowser.h"
 #include "Editor/FPlayInEditorSession.h"
 #include "Platform/SplashWindow.h"
+#include "RenderCore/Shader/UShader.h"
 #include "Core/Types.h"
 
 namespace App {
@@ -113,6 +114,7 @@ namespace App {
         mRenderer.Shutdown();
         mEngine.SetProject(nullptr);
         mProject.reset();
+        RenderCore::UShader::ReleaseBuiltins();
         mPlatform.Shutdown();
     }
 

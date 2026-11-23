@@ -8,6 +8,7 @@
 
 #include "Core/FilePath.h"
 #include "Core/FRevision.h"
+#include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/Reflection/NewObject.h"
 
 #include <algorithm>
@@ -18,6 +19,18 @@
 using namespace RenderCore;
 
 namespace {
+
+    struct FBuiltinShaders {
+        std::unique_ptr<UShader> mLit{};
+        std::unique_ptr<UShader> mUnlit{};
+    };
+
+    FBuiltinShaders& GetBuiltinShaders() {
+        CoreUObject::FObjectRegistry::Get();
+        static FBuiltinShaders Shaders{};
+
+        return Shaders;
+    }
 
     /**
      * @brief 고정 GUID와 소스 설정으로 공유 내장 셰이더 객체를 생성합니다.
@@ -255,7 +268,11 @@ bool UShader::IsBuiltin() const {
  * @brief 기본 Lit 셰이더 객체를 반환합니다.
  */
 UShader* UShader::GetDefault() {
-    static const auto Shader{CreateBuiltin("6D414341-5753-4844-8000-000000000001", "Lit", "Shaders/Lit.hlsl", false)};
+    auto& Shader{GetBuiltinShaders().mLit};
+
+    if (Shader == nullptr) {
+        Shader = CreateBuiltin("6D414341-5753-4844-8000-000000000001", "Lit", "Shaders/Lit.hlsl", false);
+    }
 
     return Shader.get();
 }
@@ -264,9 +281,20 @@ UShader* UShader::GetDefault() {
  * @brief 내장 Unlit 셰이더 객체를 반환합니다.
  */
 UShader* UShader::GetUnlit() {
-    static const auto Shader{CreateBuiltin("6D414341-5753-4844-8000-000000000002", "Unlit", "Shaders/Unlit.hlsl", true)};
+    auto& Shader{GetBuiltinShaders().mUnlit};
+
+    if (Shader == nullptr) {
+        Shader = CreateBuiltin("6D414341-5753-4844-8000-000000000002", "Unlit", "Shaders/Unlit.hlsl", true);
+    }
 
     return Shader.get();
+}
+
+void UShader::ReleaseBuiltins() {
+    auto& Shaders{GetBuiltinShaders()};
+
+    Shaders.mLit.reset();
+    Shaders.mUnlit.reset();
 }
 
 /**
