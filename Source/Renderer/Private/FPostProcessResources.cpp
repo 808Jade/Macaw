@@ -134,7 +134,7 @@ namespace Renderer {
             }
         }
 
-        if (mCompositeDepthOfField != nullptr && DepthOfField.mEnabled && BlurRadius > 0.0f &&
+        if (mCompositeDepthOfField != nullptr && Family.mShowFlags.mDepthOfField && DepthOfField.mEnabled && BlurRadius > 0.0f &&
             !Family.mView.mOrthographic && !Visualization && Family.mViewMode != Engine::EViewMode::Wireframe) {
             switch (DepthOfField.mApertureShape) {
             case Engine::EDepthOfFieldApertureShape::Pentagon:

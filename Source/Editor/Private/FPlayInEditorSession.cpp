@@ -92,6 +92,9 @@ namespace Editor {
         mContext->mPlayLocked = true;
         mPreviousWorld = mEngine->GetWorldHandle();
 
+        const Editor::FEditorViewportClient* ViewportClient{mViewport->GetClient()};
+        mGameClient.SetDepthOfFieldShowFlag(ViewportClient->GetShowFlags().mDepthOfField);
+
         Engine::UWorld* Source{mContext->GetWorld()};
         Core::TArray<std::pair<const CoreUObject::UObject*, CoreUObject::TObjectRef<CoreUObject::UObject>>> Originals{{Source, CoreUObject::MakeObjectRef(Source)}, {Source->GetPersistentLevel(), CoreUObject::MakeObjectRef(Source->GetPersistentLevel())}};
 
@@ -136,7 +139,7 @@ namespace Editor {
 
             if (Playing && mOptions.mStartAtEditorCamera) {
                 Engine::UCameraComponent* Camera{World->GetActiveCamera()};
-                const Engine::FEditorCameraState& EditorCamera{mViewport->GetClient()->GetPerspectiveCamera()};
+                const Engine::FEditorCameraState EditorCamera{ViewportClient->GetPerspectiveCamera()};
 
                 Ready = Camera != nullptr && Camera->SetTransform(FTransform{EditorCamera.GetLocation(), FQuat{EditorCamera.GetRotation()}, {1.0f, 1.0f, 1.0f}}) && Camera->SetFieldOfView(EditorCamera.GetFieldOfView());
             }
@@ -293,6 +296,10 @@ namespace Editor {
             Stop();
 
             return;
+        }
+
+        if (Playing) {
+            mGameClient.SetDepthOfFieldShowFlag(mViewport->GetClient()->GetShowFlags().mDepthOfField);
         }
 
         Engine::FWorldHandle Replacement{};

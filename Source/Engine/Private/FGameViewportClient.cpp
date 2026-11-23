@@ -61,6 +61,10 @@ namespace Engine {
         return Camera != nullptr && Camera->GetCameraView(Size, View);
     }
 
+    void Engine::FGameViewportClient::SetDepthOfFieldShowFlag(bool Enabled) {
+        mShowDepthOfField = Enabled;
+    }
+
     /**
      * @brief 게임 뷰포트가 연결된 월드에 프레임 입력을 전달합니다.
      */
@@ -84,7 +88,8 @@ namespace Engine {
             return;
         }
 
-        const Engine::FSceneViewFamily Family{World->GetScene(), Viewport->GetRenderTarget(), View, nullptr};
+        Engine::FSceneViewFamily Family{World->GetScene(), Viewport->GetRenderTarget(), View, nullptr};
+        Family.mShowFlags.mDepthOfField = mShowDepthOfField;
 
         Renderer->BeginRenderingViewFamily(Family);
     }

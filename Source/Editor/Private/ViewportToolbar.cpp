@@ -262,6 +262,7 @@ namespace Editor {
             Changed = ImGui::Checkbox("Shadows", &Flags.mShadows) || Changed;
             Changed = ImGui::Checkbox("Sky", &Flags.mSky) || Changed;
             Changed = ImGui::Checkbox("Fog", &Flags.mFog) || Changed;
+            Changed = ImGui::Checkbox("Depth of Field", &Flags.mDepthOfField) || Changed;
             Changed = ImGui::Checkbox("FXAA", &Flags.mFXAA) || Changed;
             Changed = ImGui::Checkbox("Fog Icons", &Flags.mFogIcons) || Changed;
             Changed = ImGui::Checkbox("Light Visualizers", &Flags.mLightVisualizers) || Changed;

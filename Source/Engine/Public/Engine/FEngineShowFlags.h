@@ -21,6 +21,11 @@ namespace Engine {
         bool mFog{true};
 
         /**
+         * @brief 현재 뷰의 피사계 심도 후처리를 허용합니다.
+         */
+        bool mDepthOfField{true};
+
+        /**
          * @brief 원근 뷰의 빈 배경에 기본 하늘을 그릴지 나타냅니다.
          */
         bool mSky{true};

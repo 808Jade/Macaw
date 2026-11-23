@@ -44,12 +44,13 @@ namespace {
     /**
      * @brief 뷰포트 설정 UI와 직렬화에서 공유하는 표시 이름·ShowFlag 멤버 포인터 목록입니다.
      */
-    const Core::TStaticArray<std::pair<const char*, bool Engine::FEngineShowFlags::*>, 14> ShowOptions{{{"Primitives", &Engine::FEngineShowFlags::mPrimitives},
+    const Core::TStaticArray<std::pair<const char*, bool Engine::FEngineShowFlags::*>, 15> ShowOptions{{{"Primitives", &Engine::FEngineShowFlags::mPrimitives},
         {"Sprites", &Engine::FEngineShowFlags::mSprites},
         {"Text", &Engine::FEngineShowFlags::mText},
         {"Shadows", &Engine::FEngineShowFlags::mShadows},
         {"Sky", &Engine::FEngineShowFlags::mSky},
         {"Fog", &Engine::FEngineShowFlags::mFog},
+        {"Depth of Field", &Engine::FEngineShowFlags::mDepthOfField},
         {"FXAA", &Engine::FEngineShowFlags::mFXAA},
         {"Fog Icons", &Engine::FEngineShowFlags::mFogIcons},
         {"Light Icons", &Engine::FEngineShowFlags::mLightIcons},

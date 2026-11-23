@@ -20,6 +20,7 @@
 
 namespace Engine {
     class AActor;
+    class UCameraComponent;
     class UPrimitiveComponent;
 }
 
@@ -375,6 +376,9 @@ namespace Editor {
          * @note 자유 시점 조작은 피벗까지의 거리를 유지하며 갱신한 카메라의 시선 앞에 피벗을 배치합니다.
          */
         bool NavigateCamera(const Engine::FViewportInput& Input, const FVector2& Size, float DeltaTime);
+
+        /** @brief 원근 뷰에서 미리 보는 시퀀서 카메라 컷을 조회합니다. */
+        const Engine::UCameraComponent* GetPreviewCamera() const;
 
         void UpdateCameraFocus(float DeltaTime);
 
