@@ -367,8 +367,11 @@ namespace Engine {
          */
         void QueueUpdate();
 
+    protected:
+
         /**
          * @brief 바디 셋업의 형상으로 월드 물리 장면에 바디를 만듭니다.
+         * @note 바디를 여러 개 만드는 하위 클래스는 재정의하고, 바디 하나로 충분할 때 이 구현을 호출합니다.
          */
         void OnCreatePhysicsState() override;
 
