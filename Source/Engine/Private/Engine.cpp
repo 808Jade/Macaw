@@ -90,6 +90,12 @@ namespace Engine {
             return false;
         }
 
+        if (!mClothingSystem.StartupModule()) {
+            mPhysicsRuntime.Shutdown();
+
+            return false;
+        }
+
         mInitialized = true;
         mShutdownRequested = false;
         mCurrentWorld = CreateWorld(Engine::EWorldType::Editor);
@@ -172,6 +178,7 @@ namespace Engine {
             Assets->SetPhysicsRuntime(nullptr);
         }
 
+        mClothingSystem.ShutdownModule();
         mPhysicsRuntime.Shutdown();
 
         mUpdating = false;

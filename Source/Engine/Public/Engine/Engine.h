@@ -12,6 +12,7 @@
 #include "CoreUObject/UObject.h"
 #include "Engine/EWorldType.h"
 #include "Engine/FWorldHandle.h"
+#include "PhysicsRuntime/FClothingSystemRuntimeModuleNv.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "Engine.generated.h"
 
@@ -247,6 +248,12 @@ namespace Engine {
          * @note 월드 컨텍스트를 모두 정리한 뒤 종료합니다.
          */
         PhysicsRuntime::FPhysicsRuntime mPhysicsRuntime{};
+
+        /**
+         * @brief 모든 천 시뮬레이션이 공유하는 NvCloth 팩토리입니다.
+         * @note 월드 컨텍스트를 모두 정리한 뒤 종료합니다.
+         */
+        PhysicsRuntime::FClothingSystemRuntimeModuleNv mClothingSystem{};
 
         /**
          * @brief 월드를 각각 소유하는 컨텍스트 슬롯입니다.

@@ -28,6 +28,7 @@
     "lua-language-server",
     "luajit",
     "nvapi",
+    "nvcloth",
     "physx",
     "range-v3",
     "rapidjson",
