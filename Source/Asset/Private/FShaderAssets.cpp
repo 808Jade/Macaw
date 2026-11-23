@@ -11,6 +11,7 @@
 #include "Asset/Animation/UBlendSpace1D.h"
 #include "Asset/Animation/UAnimGraph.h"
 #include "Asset/Sequence/ULevelSequence.h"
+#include "PhysicsRuntime/UPhysicsAsset.h"
 #include "Core/FilePath.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "FAssetImportScope.h"
@@ -140,7 +141,7 @@ CoreUObject::UObject* FAssetManager::LoadAsset(const Core::FGuid& Guid, Core::FS
     }
 
     CoreUObject::UObject* Object{};
-    const CoreUObject::UClass* ActualClass{Type == EAssetType::Shader ? UShader::StaticClass() : Type == EAssetType::Material ? UMaterial::StaticClass() : Type == EAssetType::Mesh ? UStaticMesh::StaticClass() : Type == EAssetType::SkeletalMesh ? USkeletalMesh::StaticClass() : Type == EAssetType::Skeleton ? USkeleton::StaticClass() : Type == EAssetType::Texture ? UTexture2D::StaticClass() : Type == EAssetType::AnimSequence ? UAnimSequence::StaticClass() : Type == EAssetType::Sequence ? ULevelSequence::StaticClass() : Type == EAssetType::BlendSpace ? UBlendSpace1D::StaticClass() : Type == EAssetType::AnimGraph ? UAnimGraph::StaticClass() : nullptr};
+    const CoreUObject::UClass* ActualClass{Type == EAssetType::Shader ? UShader::StaticClass() : Type == EAssetType::Material ? UMaterial::StaticClass() : Type == EAssetType::Mesh ? UStaticMesh::StaticClass() : Type == EAssetType::SkeletalMesh ? USkeletalMesh::StaticClass() : Type == EAssetType::Skeleton ? USkeleton::StaticClass() : Type == EAssetType::Texture ? UTexture2D::StaticClass() : Type == EAssetType::AnimSequence ? UAnimSequence::StaticClass() : Type == EAssetType::Sequence ? ULevelSequence::StaticClass() : Type == EAssetType::BlendSpace ? UBlendSpace1D::StaticClass() : Type == EAssetType::AnimGraph ? UAnimGraph::StaticClass() : Type == EAssetType::PhysicsAsset ? PhysicsRuntime::UPhysicsAsset::StaticClass() : nullptr};
 
     if (ExpectedClass != nullptr && (ActualClass == nullptr || !ActualClass->IsChildOf(ExpectedClass))) {
         Error = "The asset type does not match the object reference";
@@ -178,6 +179,9 @@ CoreUObject::UObject* FAssetManager::LoadAsset(const Core::FGuid& Guid, Core::FS
         break;
     case EAssetType::AnimGraph:
         Object = LoadAnimGraph(Path, Error);
+        break;
+    case EAssetType::PhysicsAsset:
+        Object = LoadPhysicsAsset(Path, Error);
         break;
     default:
         Error = "This asset type requires its owning module's loader";
