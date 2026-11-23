@@ -7,7 +7,6 @@
 #pragma once
 
 #include "Engine/Component/UPrimitiveComponent.h"
-#include "Engine/Collision/FCollisionShape.h"
 #include "Core/Math/FVector4.h"
 #include "Core/Math/FBox.h"
 #include "UShapeComponent.generated.h"
@@ -24,18 +23,6 @@ namespace Engine {
         GENERATED_BODY()
 
     public:
-        /**
-         * @brief 전달된 설정과 기본값으로 UShapeComponent 객체를 생성합니다.
-         */
-        UShapeComponent();
-
-    public:
-        /**
-         * @brief 검사에 사용할 충돌 형상 값을 반환합니다.
-         * @return 계산하거나 조회한 값입니다.
-         */
-        virtual Engine::FCollisionShape GetCollisionShape() const = 0;
-
         /**
          * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
          * @return 계산하거나 조회한 값입니다.
@@ -68,21 +55,6 @@ namespace Engine {
         void DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight) const;
 
         /**
-         * @brief 두 컴포넌트의 월드 충돌 형상이 겹치는지 검사합니다.
-         * @param[in] Other 비교할 상대 값입니다.
-         * @return 조건을 만족하면 true입니다.
-         */
-        bool IsOverlapping(const Engine::UShapeComponent& Other) const;
-
-        /**
-         * @brief 두 형상의 월드 접촉 법선·깊이·위치를 계산합니다.
-         * @param[in] Other 비교할 상대 값입니다.
-         * @param[out] OutContact 접촉 정보를 기록할 선택적 출력 주소입니다.
-         * @return 두 형상이 겹쳐 접촉 정보를 계산했으면 true입니다.
-         */
-        bool ComputeContact(const Engine::UShapeComponent& Other, Engine::FCollisionContact& OutContact) const;
-
-        /**
          * @brief 충돌 도형을 표시할 RGBA 색상을 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
@@ -112,6 +84,14 @@ namespace Engine {
          * @return 계산하거나 조회한 값입니다.
          */
         float GetShapeScale() const;
+
+    protected:
+        /**
+         * @brief 월드 트랜스폼을 적용한 형상의 윤곽선을 수집합니다.
+         * @param[in] DrawInterface 보조 선분을 추가할 프레임 수집기입니다.
+         * @param[in] Color 선 색상입니다.
+         */
+        virtual void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const = 0;
 
     private:
         /**

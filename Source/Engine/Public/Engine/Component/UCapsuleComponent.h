@@ -20,12 +20,6 @@ namespace Engine {
 
     public:
         /**
-         * @brief 검사에 사용할 충돌 형상 값을 반환합니다.
-         * @return 계산하거나 조회한 값입니다.
-         */
-        Engine::FCollisionShape GetCollisionShape() const override;
-
-        /**
          * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
          * @return 계산하거나 조회한 값입니다.
          */
@@ -85,6 +79,14 @@ namespace Engine {
          * @param[in] InRadius 형상의 반지름입니다.
          */
         void SetCapsuleRadius(float InRadius);
+
+    protected:
+        /**
+         * @brief 월드 트랜스폼을 적용한 형상의 윤곽선을 수집합니다.
+         * @param[in] DrawInterface 보조 선분을 추가할 프레임 수집기입니다.
+         * @param[in] Color 선 색상입니다.
+         */
+        void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const override;
 
     private:
         // 반구를 포함한 높이

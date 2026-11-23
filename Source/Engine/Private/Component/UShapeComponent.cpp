@@ -10,43 +10,11 @@
 #include "Engine/FPrimitiveDrawInterface.h"
 #include "Engine/EPrimitiveType.h"
 #include "Core/Math/FBox.h"
-#include "Core/Literals.h"
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
-
-using namespace Core::Literals;
 
 namespace Engine {
-
-    /**
-     * @brief 충돌 도형의 접촉 검사 보조 함수입니다.
-     */
-    namespace {
-        /**
-         * @brief 두 AABB의 모든 축 구간이 겹치는지 검사합니다.
-         * @param[in] A 첫 번째 검사 대상입니다.
-         * @param[in] B 두 번째 검사 대상입니다.
-         * @return 두 형상이 겹치면 true입니다.
-         */
-        bool BoundsOverlap(const FBox& A, const FBox& B) {
-            return A.mMinimum.x <= B.mMaximum.x && A.mMaximum.x >= B.mMinimum.x && A.mMinimum.y <= B.mMaximum.y && A.mMaximum.y >= B.mMinimum.y && A.mMinimum.z <= B.mMaximum.z && A.mMaximum.z >= B.mMinimum.z;
-        }
-    }
-
-    /**
-     * @brief 전달된 설정과 기본값으로 UShapeComponent 객체를 생성합니다.
-     */
-    Engine::UShapeComponent::UShapeComponent() {
-        GetOnComponentBeginOverlap().Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
-            std::clog << "BeginOverlap\n";
-        });
-
-        GetOnComponentEndOverlap().Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
-            std::clog << "EndOverlap\n";
-        });
-    }
 
     /**
      * @brief 현재 표시·에셋 상태에서 렌더 프록시를 생성할지 판정합니다.
@@ -59,91 +27,9 @@ namespace Engine {
      * @brief 충돌 형상을 선택 강조 색상 또는 기본 색상의 선으로 수집합니다.
      */
     void Engine::UShapeComponent::DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight) const {
-        Engine::FCollisionShape Shape{GetCollisionShape()};
-        FVector Pos{GetTransform().mLocation};
-        FQuat Rot{GetTransform().mRotation};
-        FVector Color{Highlight ? FVector{1.0f, 0.0f, 0.0f} : FVector{mShapeColor.x, mShapeColor.y, mShapeColor.z}};
+        const FVector Color{Highlight ? FVector{1.0f, 0.0f, 0.0f} : FVector{mShapeColor.x, mShapeColor.y, mShapeColor.z}};
 
-        if (Shape.IsBox()) {
-            Engine::FOrientedBox Box{Engine::Collision::ToOrientedBox(Shape, Pos, Rot)};
-
-            FVector V0{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
-            FVector V1{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
-            FVector V2{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
-            FVector V3{Box.GetCenter() + Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
-            FVector V4{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
-            FVector V5{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y + Box.GetAxis()[2] * Box.GetExtent().z};
-            FVector V6{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x - Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
-            FVector V7{Box.GetCenter() - Box.GetAxis()[0] * Box.GetExtent().x + Box.GetAxis()[1] * Box.GetExtent().y - Box.GetAxis()[2] * Box.GetExtent().z};
-
-            DrawInterface.DrawLine(V0, V1, Color, true);
-            DrawInterface.DrawLine(V1, V2, Color, true);
-            DrawInterface.DrawLine(V2, V3, Color, true);
-            DrawInterface.DrawLine(V3, V0, Color, true);
-            DrawInterface.DrawLine(V4, V5, Color, true);
-            DrawInterface.DrawLine(V5, V6, Color, true);
-            DrawInterface.DrawLine(V6, V7, Color, true);
-            DrawInterface.DrawLine(V7, V4, Color, true);
-            DrawInterface.DrawLine(V0, V4, Color, true);
-            DrawInterface.DrawLine(V1, V5, Color, true);
-            DrawInterface.DrawLine(V2, V6, Color, true);
-            DrawInterface.DrawLine(V3, V7, Color, true);
-        }
-        else if (Shape.IsSphere()) {
-            Engine::FCapsuleSegment Sphere{Engine::Collision::ToCapsuleSegment(Shape, Pos, Rot)};
-
-            const FVector F{Rot.ForwardVector()};
-            const FVector Rt{Rot.RightVector()};
-            const FVector Up{Rot.UpVector()};
-            const float R{Sphere.GetRadius()};
-
-            DrawInterface.DrawArc(Sphere.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
-            DrawInterface.DrawArc(Sphere.GetA(), F, Up, R, 0_rad, 1_turn, Color);
-            DrawInterface.DrawArc(Sphere.GetA(), Rt, Up, R, 0_rad, 1_turn, Color);
-        }
-        else if (Shape.IsCapsule()) {
-            Engine::FCapsuleSegment Capsule{Engine::Collision::ToCapsuleSegment(Shape, Pos, Rot)};
-
-            const FVector F{Rot.ForwardVector()};
-            const FVector Rt{Rot.RightVector()};
-            const FVector Up{Rot.UpVector()};
-            const float R{Capsule.GetRadius()};
-
-            DrawInterface.DrawArc(Capsule.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
-            DrawInterface.DrawArc(Capsule.GetB(), F, Rt, R, 0_rad, 1_turn, Color);
-
-            DrawInterface.DrawLine(Capsule.GetA() + F * R, Capsule.GetB() + F * R, Color, true);
-            DrawInterface.DrawLine(Capsule.GetA() - F * R, Capsule.GetB() - F * R, Color, true);
-            DrawInterface.DrawLine(Capsule.GetA() + Rt * R, Capsule.GetB() + Rt * R, Color, true);
-            DrawInterface.DrawLine(Capsule.GetA() - Rt * R, Capsule.GetB() - Rt * R, Color, true);
-
-            DrawInterface.DrawArc(Capsule.GetB(), F, Up, R, 0_rad, 0.5_turn, Color);
-            DrawInterface.DrawArc(Capsule.GetB(), Rt, Up, R, 0_rad, 0.5_turn, Color);
-            DrawInterface.DrawArc(Capsule.GetA(), F, -Up, R, 0_rad, 0.5_turn, Color);
-            DrawInterface.DrawArc(Capsule.GetA(), Rt, -Up, R, 0_rad, 0.5_turn, Color);
-        }
-    }
-
-    /**
-     * @brief 두 컴포넌트의 월드 충돌 형상이 겹치는지 검사합니다.
-     */
-    bool Engine::UShapeComponent::IsOverlapping(const Engine::UShapeComponent& Other) const {
-        if (&Other == this || !BoundsOverlap(CalcBounds(), Other.CalcBounds())) {
-            return false;
-        }
-
-        return Engine::Collision::Overlap(GetCollisionShape(), GetTransform().mLocation, GetTransform().mRotation, Other.GetCollisionShape(), Other.GetTransform().mLocation, Other.GetTransform().mRotation);
-    }
-
-    /**
-     * @brief 두 형상의 월드 접촉 법선·깊이·위치를 계산합니다.
-     */
-    bool Engine::UShapeComponent::ComputeContact(const Engine::UShapeComponent& Other, Engine::FCollisionContact& OutContact) const {
-        if (&Other == this || !BoundsOverlap(CalcBounds(), Other.CalcBounds())) {
-            return false;
-        }
-
-        return Engine::Collision::Overlap(GetCollisionShape(), GetTransform().mLocation, GetTransform().mRotation, Other.GetCollisionShape(), Other.GetTransform().mLocation, Other.GetTransform().mRotation, &OutContact);
+        DrawShape(DrawInterface, Color);
     }
 
     /**

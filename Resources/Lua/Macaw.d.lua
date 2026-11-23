@@ -312,10 +312,6 @@ function Actor:GetCameraComponent() end
 
 function Actor:PrintLocation() end
 
----@param Delta MacawVector
----@return MacawHitResult
-function Actor:MoveSwept(Delta) end
-
 ---@class MacawTasks
 Tasks = {}
 

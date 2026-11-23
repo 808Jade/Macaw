@@ -5,17 +5,39 @@
  */
 
 #include "Engine/Component/UCapsuleComponent.h"
+#include "Engine/FPrimitiveDrawInterface.h"
 #include "Core/Archive.h"
+#include "Core/Literals.h"
 
 #include <algorithm>
 
+using namespace Core::Literals;
+
 namespace Engine {
 
-    /**
-     * @brief 검사에 사용할 충돌 형상 값을 반환합니다.
-     */
-    Engine::FCollisionShape Engine::UCapsuleComponent::GetCollisionShape() const {
-        return Engine::FCollisionShape::MakeCapsule(GetScaledCapsuleRadius(), GetScaledCapsuleHalfHeight());
+    void Engine::UCapsuleComponent::DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const {
+        const FVector Center{GetTransform().mLocation};
+        const FQuat& Rot{GetTransform().mRotation};
+        const FVector F{Rot.ForwardVector()};
+        const FVector Rt{Rot.RightVector()};
+        const FVector Up{Rot.UpVector()};
+        const float R{GetScaledCapsuleRadius()};
+        const float AxisHalfLength{std::max(0.0f, GetScaledCapsuleHalfHeightWithoutHemisphere())};
+        const FVector A{Center - Up * AxisHalfLength};
+        const FVector B{Center + Up * AxisHalfLength};
+
+        DrawInterface.DrawArc(A, F, Rt, R, 0_rad, 1_turn, Color);
+        DrawInterface.DrawArc(B, F, Rt, R, 0_rad, 1_turn, Color);
+
+        DrawInterface.DrawLine(A + F * R, B + F * R, Color, true);
+        DrawInterface.DrawLine(A - F * R, B - F * R, Color, true);
+        DrawInterface.DrawLine(A + Rt * R, B + Rt * R, Color, true);
+        DrawInterface.DrawLine(A - Rt * R, B - Rt * R, Color, true);
+
+        DrawInterface.DrawArc(B, F, Up, R, 0_rad, 0.5_turn, Color);
+        DrawInterface.DrawArc(B, Rt, Up, R, 0_rad, 0.5_turn, Color);
+        DrawInterface.DrawArc(A, F, -Up, R, 0_rad, 0.5_turn, Color);
+        DrawInterface.DrawArc(A, Rt, -Up, R, 0_rad, 0.5_turn, Color);
     }
 
     /**

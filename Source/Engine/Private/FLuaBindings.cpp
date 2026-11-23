@@ -400,13 +400,6 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         const auto Location{Target.GetActorTransform().mLocation};
         std::clog << Target.GetName() << " Location " << Location.x << ' ' << Location.y << ' ' << Location.z << '\n';
     };
-    Actor["MoveSwept"] = [](const FActorRef& Ref, const FVector& Delta) {
-        auto& Target{Ref.Resolve()};
-        if (Target.GetWorld() == nullptr || !Delta.IsFinite()) {
-            throw sol::error{"Invalid sweep movement"};
-        }
-        return Target.GetWorld()->MoveActorSwept(Target, Delta);
-    };
 
     auto World{Lua.create_named_table("World")};
     World["FindActor"] = [this](const Core::FString& Name) -> sol::optional<FActorRef> {

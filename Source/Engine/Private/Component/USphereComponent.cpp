@@ -5,16 +5,26 @@
  */
 
 #include "Engine/Component/USphereComponent.h"
+#include "Engine/FPrimitiveDrawInterface.h"
+#include "Core/Literals.h"
 
 #include <algorithm>
 
+using namespace Core::Literals;
+
 namespace Engine {
 
-    /**
-     * @brief 검사에 사용할 충돌 형상 값을 반환합니다.
-     */
-    Engine::FCollisionShape Engine::USphereComponent::GetCollisionShape() const {
-        return Engine::FCollisionShape::MakeSphere(GetScaledSphereRadius());
+    void Engine::USphereComponent::DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const {
+        const FVector Center{GetTransform().mLocation};
+        const FQuat& Rot{GetTransform().mRotation};
+        const FVector F{Rot.ForwardVector()};
+        const FVector Rt{Rot.RightVector()};
+        const FVector Up{Rot.UpVector()};
+        const float R{GetScaledSphereRadius()};
+
+        DrawInterface.DrawArc(Center, F, Rt, R, 0_rad, 1_turn, Color);
+        DrawInterface.DrawArc(Center, F, Up, R, 0_rad, 1_turn, Color);
+        DrawInterface.DrawArc(Center, Rt, Up, R, 0_rad, 1_turn, Color);
     }
 
     /**

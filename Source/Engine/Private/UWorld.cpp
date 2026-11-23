@@ -23,7 +23,6 @@
 #include "Core/Input.h"
 #include "Core/Math.h"
 #include "Engine/Component/UPrimitiveComponent.h"
-#include "Engine/Component/UShapeComponent.h"
 #include "Engine/Collision/FHitResult.h"
 #include "Engine/AStaticMeshActor.h"
 #include "Engine/ULevel.h"
@@ -932,11 +931,7 @@ namespace Engine {
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::EndPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PostPhysics);
 
-        if (!EditorTick && !mEndPlayRequested && !mShutdownRequested) {
-            UpdateOverlaps();
-        }
-
-        // 카메라는 이번 프레임의 이동과 겹침 처리가 모두 끝난 뒤에 갱신합니다.
+        // 카메라는 이번 프레임의 이동과 물리 처리가 모두 끝난 뒤에 갱신합니다.
         if (Engine::APlayerCameraManager* CameraManager{GetPlayerCameraManager()}; !EditorTick && !mEndPlayRequested && !mShutdownRequested && CameraManager != nullptr) {
             CameraManager->UpdateCamera(DeltaTime);
         }
@@ -950,75 +945,6 @@ namespace Engine {
         }
 
         return true;
-    }
-
-    /**
-     * @brief 충돌 도형의 겹침을 갱신하고 시작과 끝 이벤트를 전달합니다.
-     */
-    void Engine::UWorld::UpdateOverlaps() {
-        Core::TArray<Engine::UShapeComponent*> Shapes{};
-
-        if (mPersistentLevel != nullptr) {
-            for (const auto& Actor : mPersistentLevel->GetActors()) {
-                if (!Actor->IsPendingDestroy()) {
-                    for (const auto& Component : Actor->GetComponents()) {
-                        if (auto* Shape{CoreUObject::Cast<Engine::UShapeComponent>(Component.get())}) {
-                            Shapes.push_back(Shape);
-                        }
-                    }
-                }
-            }
-        }
-
-        Core::TArray<std::pair<CoreUObject::TObjectRef<Engine::UShapeComponent>, CoreUObject::TObjectRef<Engine::UShapeComponent>>> Current{};
-
-        for (Index_t First{}; First < Shapes.size(); ++First) {
-            for (Index_t Second{static_cast<Index_t>(First + 1)}; Second < Shapes.size(); ++Second) {
-                if (Shapes[First]->GetOwner() != Shapes[Second]->GetOwner() && Shapes[First]->IsOverlapping(*Shapes[Second])) {
-                    Current.emplace_back(Shapes[First], Shapes[Second]);
-                }
-            }
-        }
-
-        const auto Contains{[](const auto& Pairs, const auto& Pair) {
-            return std::find(Pairs.begin(), Pairs.end(), Pair) != Pairs.end();
-        }};
-        const auto Resolve{[](CoreUObject::TObjectRef<Engine::UShapeComponent> Handle) {
-            return CoreUObject::Cast<Engine::UShapeComponent>(Handle.Get());
-        }};
-
-        // 이벤트 안에서 액터가 파괴될 수 있으므로 호출할 때마다 핸들을 다시 해석합니다.
-        const auto Previous{std::exchange(mOverlaps, Current)};
-
-        for (const auto& Pair : Previous) {
-            if (!Contains(Current, Pair)) {
-                if (Engine::UShapeComponent* Shape{Resolve(Pair.first)}) {
-                    Shape->OnEndOverlap(Resolve(Pair.second));
-                }
-
-                if (Engine::UShapeComponent* Shape{Resolve(Pair.second)}) {
-                    Shape->OnEndOverlap(Resolve(Pair.first));
-                }
-            }
-        }
-
-        for (const auto& Pair : Current) {
-            if (!Contains(Previous, Pair)) {
-                Engine::UShapeComponent* First{Resolve(Pair.first)};
-                Engine::UShapeComponent* Second{Resolve(Pair.second)};
-
-                if (First != nullptr && Second != nullptr) {
-                    First->OnBeginOverlap(Second);
-                }
-
-                First = Resolve(Pair.first);
-                Second = Resolve(Pair.second);
-
-                if (First != nullptr && Second != nullptr) {
-                    Second->OnBeginOverlap(First);
-                }
-            }
-        }
     }
 
     /**
