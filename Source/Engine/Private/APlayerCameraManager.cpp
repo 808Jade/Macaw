@@ -190,6 +190,7 @@ namespace Engine {
         ViewInfo.mLocation = Transform.mLocation;
         ViewInfo.mRotation = Transform.mRotation;
         ViewInfo.mFieldOfView = mDefaultFieldOfView;
+        ViewInfo.mDepthOfFieldSettings = {};
 
         return true;
     }

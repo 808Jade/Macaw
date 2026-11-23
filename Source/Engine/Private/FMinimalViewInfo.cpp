@@ -16,6 +16,7 @@ namespace Engine {
         Result.mLocation = mLocation.Lerp(Other.mLocation, Alpha);
         Result.mRotation = mRotation.Slerp(Other.mRotation, Alpha);
         Result.mFieldOfView = mFieldOfView + (Other.mFieldOfView - mFieldOfView) * Alpha;
+        Result.mDepthOfFieldSettings = Alpha < 0.5f ? mDepthOfFieldSettings : Other.mDepthOfFieldSettings;
 
         return Result;
     }
@@ -30,6 +31,7 @@ namespace Engine {
         CameraView.mForward = mRotation.ForwardVector();
         CameraView.mSize = Size;
         CameraView.mFieldOfView = mFieldOfView;
+        CameraView.mDepthOfFieldSettings = mDepthOfFieldSettings;
         CameraView.mView = FMatrix::LookTo(CameraView.mLocation, CameraView.mForward, mRotation.UpVector());
         CameraView.mProjection = FMatrix::Perspective(mFieldOfView, Size.x / Size.y, 0.05f, 10000.0f);
         CameraView.mViewProjection = CameraView.mView * CameraView.mProjection;

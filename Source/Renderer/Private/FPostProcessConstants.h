@@ -1,6 +1,6 @@
 /**
  * @file FPostProcessConstants.h
- * @brief 월드 위치 복원·높이 안개·깊이 시각화·FXAA에 사용하는 224바이트 GPU 상수입니다.
+ * @brief 월드 위치 복원·높이 안개·깊이 시각화·FXAA에 사용하는 GPU 상수입니다.
  * @ingroup Renderer
  */
 
@@ -12,7 +12,7 @@
 namespace Renderer {
 
     /**
-     * @brief 월드 위치 복원·높이 안개·깊이 시각화·FXAA에 사용하는 224바이트 GPU 상수입니다.
+     * @brief 후처리 픽셀 셰이더와 공유하는 256바이트 상수 버퍼입니다.
      */
     struct alignas(16) FPostProcessConstants {
     public:
@@ -22,7 +22,7 @@ namespace Renderer {
         FMatrix mInverseViewProjection{};
 
         /**
-         * @brief 복원된 월드 위치를 카메라 공간으로 변환하는 행 우선 뷰 행렬입니다.
+         * @brief 정사영에서 안개 광선의 시작 평면을 계산하는 행 우선 뷰 행렬입니다.
          */
         FMatrix mView{};
 
@@ -52,11 +52,21 @@ namespace Renderer {
         FVector4 mFogDistances{};
 
         /**
-         * @brief X에 복사 0·안개 1·깊이 2·FXAA 3 중 패스 종류를 저장하고 나머지는 예약합니다.
+         * @brief X에 복사 0·안개 1·깊이 2·FXAA 3·DOF 가중치 4 중 패스 종류를 저장합니다.
          */
         FVector4 mSettings{};
+
+        /**
+         * @brief 장치 깊이 복원에 사용하는 0부터 시작하는 투영 행렬 성분 P22·P32·P23·P33입니다.
+         */
+        FVector4 mProjectionDepth{};
+
+        /**
+         * @brief 초점 거리·초점 구간의 절반 폭·전이 거리(m)와 예약값입니다.
+         */
+        FVector4 mDepthOfFieldParameters{};
     };
 
-    static_assert(sizeof(Renderer::FPostProcessConstants) == 224);
+    static_assert(sizeof(Renderer::FPostProcessConstants) == 256);
 
 }

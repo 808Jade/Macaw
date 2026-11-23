@@ -99,6 +99,11 @@ namespace Engine {
         SceneStencil = 16,
 
         /**
+         * @brief 피사계 심도의 전경·초점·배경 가중치를 RGB로 표시합니다.
+         */
+        DepthOfFieldWeights = 17,
+
+        /**
          * @brief 재질과 기본 조명을 사용하여 면을 채웁니다.
          */
         Lit = Lit_Phong UMETA(Hidden)

@@ -9,6 +9,7 @@
 #include "Core/ReflectionMacros.h"
 #include "Core/Math/FVector2.h"
 #include "Core/Math/FMatrix.h"
+#include "Engine/FDepthOfFieldSettings.h"
 
 struct FRay;
 
@@ -73,6 +74,8 @@ namespace Engine {
          * @brief 정사영 가로 가시 범위의 월드 길이입니다.
          */
         float mOrthographicWidth{20.0f};
+
+        Engine::FDepthOfFieldSettings mDepthOfFieldSettings{};
     };
 
 }

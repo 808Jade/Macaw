@@ -675,6 +675,13 @@ namespace Editor {
         View.mProjection = View.mOrthographic ? FMatrix::Orthographic(mOrthographicWidth, mOrthographicWidth / Aspect, 0.05f, 10000.0f) : FMatrix::Perspective(mFieldOfView, Aspect, mNearClip, mFarClip);
         View.mViewProjection = View.mView * View.mProjection;
 
+        if (mViewMode == Engine::EViewMode::DepthOfFieldWeights && mContext != nullptr) {
+            // 자유 시점을 유지하면서 Details에서 편집 중인 카메라의 초점 구간을 확인합니다.
+            if (const Engine::UCameraComponent* Camera{mContext->GetSelectedCamera()}) {
+                View.mDepthOfFieldSettings = Camera->GetDepthOfFieldSettings();
+            }
+        }
+
         return View;
     }
 

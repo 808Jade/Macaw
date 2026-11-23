@@ -1,10 +1,10 @@
 /**
  * @file PostProcess.hlsl
- * @brief 장면 컬러와 깊이로 높이 안개·깊이 시각화·FXAA를 처리하는 전체 화면 후처리 셰이더입니다.
+ * @brief 장면 컬러와 깊이로 높이 안개·깊이 및 DOF 가중치 시각화·FXAA를 처리하는 셰이더입니다.
  */
 
 /**
- * @brief FPostProcessConstants와 같은 224바이트 레이아웃으로 픽셀 셰이더 b0에 전달하는 상수입니다.
+ * @brief FPostProcessConstants와 같은 256바이트 레이아웃으로 픽셀 셰이더 b0에 전달하는 상수입니다.
  */
 cbuffer PostProcessConstants : register(b0) {
     /**
@@ -13,7 +13,7 @@ cbuffer PostProcessConstants : register(b0) {
     row_major float4x4 InverseViewProjection;
 
     /**
-     * @brief 복원한 월드 위치를 카메라 공간의 선형 깊이로 변환하는 행 우선 뷰 행렬입니다.
+     * @brief 정사영에서 안개 광선의 시작 평면을 계산하는 행 우선 뷰 행렬입니다.
      */
     row_major float4x4 View;
 
@@ -43,9 +43,19 @@ cbuffer PostProcessConstants : register(b0) {
     float4 FogDistances;
 
     /**
-     * @brief X는 복사 0·안개 1·깊이 2·FXAA 3 패스 선택값이며 나머지는 예약합니다.
+     * @brief X는 복사 0·안개 1·깊이 2·FXAA 3·DOF 가중치 4 패스 선택값입니다.
      */
     float4 Settings;
+
+    /**
+     * @brief 장치 깊이 복원에 사용하는 0부터 시작하는 투영 행렬 성분 P22·P32·P23·P33입니다.
+     */
+    float4 ProjectionDepth;
+
+    /**
+     * @brief 초점 거리·초점 구간의 절반 폭·전이 거리(m)와 예약값입니다.
+     */
+    float4 DepthOfFieldParameters;
 };
 
 /**
@@ -101,6 +111,24 @@ float3 ReconstructWorld(float2 UV, float Depth) {
     float4 World = {mul(float4(UV * float2(2.0f, -2.0f) + float2(-1.0f, 1.0f), Depth, 1.0f), InverseViewProjection)};
 
     return World.xyz / World.w;
+}
+
+/** @brief 장치 깊이를 원근·정사영 투영 전의 뷰 공간 Z로 복원합니다. */
+float ReconstructViewDepth(float Depth) {
+    // Depth = ClipZ / ClipW 관계를 투영 전 ViewZ에 대해 풉니다.
+    return (ProjectionDepth.y - Depth * ProjectionDepth.w) / (Depth * ProjectionDepth.z - ProjectionDepth.x);
+}
+
+/** @brief X에 전경 가중치, Y에 배경 가중치를 반환합니다. */
+float2 ComputeDepthOfFieldWeights(float ViewDepth, float FocalDistance, float HalfFocusWidth, float TransitionDistance) {
+    float FocusOffset = {ViewDepth - FocalDistance};
+    float2 DistanceOutsideFocus = {float2(-FocusOffset, FocusOffset) - HalfFocusWidth};
+
+    if (TransitionDistance <= 0.0f) {
+        return float2(DistanceOutsideFocus.x > 0.0f ? 1.0f : 0.0f, DistanceOutsideFocus.y > 0.0f ? 1.0f : 0.0f);
+    }
+
+    return saturate(DistanceOutsideFocus / TransitionDistance);
 }
 
 /**
@@ -185,7 +213,7 @@ float4 ApplyFXAA(float2 UV) {
 }
 
 /**
- * @brief Settings.x에 따라 컬러 복사·안개 합성·선형 깊이 시각화·FXAA 중 한 패스를 실행합니다.
+ * @brief Settings.x에 따라 컬러 복사·안개 합성·깊이 또는 DOF 가중치 시각화·FXAA를 실행합니다.
  * @param[in] Input 화면 픽셀 위치와 보간된 장면 UV입니다.
  * @return 최종 출력 타깃에 기록할 RGBA 색상입니다.
  * @note 깊이 시각화는 뷰 공간 Z에 1-exp(-Z*0.01)을 적용하며 깊이 1의 빈 배경은 흰색입니다.
@@ -199,8 +227,7 @@ float4 PixelMain(FVertexOutput Input) : SV_TARGET {
     }
 
     if (Settings.x == 2.0f) {
-        float3 World = {ReconstructWorld(Input.mUV, min(Depth, 0.999999f))};
-        float ViewDepth = {max(mul(float4(World, 1.0f), View).z, 0.0f)};
+        float ViewDepth = {max(ReconstructViewDepth(Depth), 0.0f)};
         float Value = {Depth >= 1.0f ? 1.0f : 1.0f - exp(-ViewDepth * 0.01f)};
 
         return float4(Value, Value, Value, 1.0f);
@@ -208,6 +235,17 @@ float4 PixelMain(FVertexOutput Input) : SV_TARGET {
 
     if (Settings.x == 3.0f) {
         return ApplyFXAA(Input.mUV);
+    }
+
+    if (Settings.x == 4.0f) {
+        if (Depth >= 1.0f) {
+            return float4(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+
+        float ViewDepth = {ReconstructViewDepth(Depth)};
+        float2 Weights = {ComputeDepthOfFieldWeights(ViewDepth, DepthOfFieldParameters.x, DepthOfFieldParameters.y, DepthOfFieldParameters.z)};
+
+        return float4(Weights.x, 1.0f - max(Weights.x, Weights.y), Weights.y, 1.0f);
     }
 
     return Color;

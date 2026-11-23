@@ -67,7 +67,7 @@ namespace Renderer {
     }
 
     /**
-     * @brief 가시 안개를 교대 타깃에 합성한 뒤 복사·깊이 시각화·FXAA 중 최종 패스를 실행합니다.
+     * @brief 가시 안개를 교대 타깃에 합성한 뒤 복사·깊이 또는 DOF 가중치 시각화·FXAA를 실행합니다.
      */
     Uint32 Renderer::FPostProcessResources::Render(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FHeightFogSceneProxy> Fogs) {
         Renderer::FPostProcessConstants Constants{};
@@ -82,6 +82,9 @@ namespace Renderer {
         Constants.mView = Family.mView.mView;
         Constants.mCameraPosition = FVector4{Family.mView.mLocation, Family.mView.mOrthographic ? 1.0f : 0.0f};
         Constants.mScreenSize = {static_cast<float>(Target.GetWidth()), static_cast<float>(Target.GetHeight()), 1.0f / static_cast<float>(Target.GetWidth()), 1.0f / static_cast<float>(Target.GetHeight())};
+
+        const FMatrix& Projection{Family.mView.mProjection};
+        Constants.mProjectionDepth = {Projection(2, 2), Projection(3, 2), Projection(2, 3), Projection(3, 3)};
 
         Asset::UTexture2D* Source{Target.GetSceneColor()};
         Uint32 DrawCalls{};
@@ -109,7 +112,13 @@ namespace Renderer {
             }
         }
 
-        Constants.mSettings = {Family.mViewMode == Engine::EViewMode::SceneDepth ? 2.0f : !Visualization && Family.mShowFlags.mFXAA ? 3.0f : 0.0f, 0.0f, 0.0f, 0.0f};
+        if (Family.mViewMode == Engine::EViewMode::DepthOfFieldWeights) {
+            const Engine::FDepthOfFieldSettings& DepthOfField{Family.mView.mDepthOfFieldSettings};
+            Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance, DepthOfField.mFocusWidth * 0.5f, DepthOfField.mTransitionDistance, 0.0f};
+            Constants.mSettings.x = 4.0f;
+        } else {
+            Constants.mSettings.x = Family.mViewMode == Engine::EViewMode::SceneDepth ? 2.0f : !Visualization && Family.mShowFlags.mFXAA ? 3.0f : 0.0f;
+        }
 
         mConstants.Update(Context, Constants);
         Draw(Context, Source, Target.GetOutputColor(), Target.GetSceneDepth());
