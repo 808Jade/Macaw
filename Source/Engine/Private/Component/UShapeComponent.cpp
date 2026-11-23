@@ -10,6 +10,8 @@
 #include "Engine/FPrimitiveDrawInterface.h"
 #include "Engine/EPrimitiveType.h"
 #include "Core/Math/FBox.h"
+#include "PhysicsRuntime/UBodySetup.h"
+#include "CoreUObject/Reflection/NewObject.h"
 
 #include <algorithm>
 #include <cmath>
@@ -30,6 +32,28 @@ namespace Engine {
         const FVector Color{Highlight ? FVector{1.0f, 0.0f, 0.0f} : FVector{mShapeColor.x, mShapeColor.y, mShapeColor.z}};
 
         DrawShape(DrawInterface, Color);
+    }
+
+    /**
+     * @brief 컴포넌트의 형상 크기로 만든 충돌 형상을 반환합니다.
+     */
+    const PhysicsRuntime::UBodySetup* Engine::UShapeComponent::GetBodySetup() const {
+        if (mShapeBodySetup == nullptr) {
+            std::shared_ptr<PhysicsRuntime::UBodySetup> Setup{CoreUObject::NewObject<PhysicsRuntime::UBodySetup>()};
+            Setup->SetName(GetName() + "BodySetup");
+            UpdateBodySetup(Setup->GetAggGeom());
+            mShapeBodySetup = std::move(Setup);
+        }
+
+        return mShapeBodySetup.get();
+    }
+
+    /**
+     * @brief 형상 크기가 바뀌었을 때 바디 셋업을 버리고 물리 바디를 다시 만듭니다.
+     */
+    void Engine::UShapeComponent::MarkBodySetupDirty() {
+        mShapeBodySetup.reset();
+        RecreatePhysicsState();
     }
 
     /**

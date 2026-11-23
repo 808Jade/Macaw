@@ -6,6 +6,7 @@
 
 #include "Engine/Component/USphereComponent.h"
 #include "Engine/FPrimitiveDrawInterface.h"
+#include "PhysicsRuntime/FKAggregateGeom.h"
 #include "Core/Literals.h"
 
 #include <algorithm>
@@ -28,6 +29,13 @@ namespace Engine {
     }
 
     /**
+     * @brief 구 반지름으로 구 형상 하나를 채웁니다.
+     */
+    void Engine::USphereComponent::UpdateBodySetup(PhysicsRuntime::FKAggregateGeom& Geometry) const {
+        Geometry.mSphereElems.emplace_back().mRadius = mSphereRadius;
+    }
+
+    /**
      * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
      */
     FBox Engine::USphereComponent::CalcLocalBounds() const {
@@ -38,7 +46,12 @@ namespace Engine {
      * @brief 구의 로컬 반지름을 설정합니다.
      */
     void Engine::USphereComponent::SetSphereRadius(float InRadius) {
-        mSphereRadius = std::max(0.0f, InRadius);
+        const float Radius{std::max(0.0f, InRadius)};
+
+        if (mSphereRadius != Radius) {
+            mSphereRadius = Radius;
+            MarkBodySetupDirty();
+        }
     }
 
     /**

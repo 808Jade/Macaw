@@ -6,6 +6,7 @@
 
 #include "Engine/Component/UCapsuleComponent.h"
 #include "Engine/FPrimitiveDrawInterface.h"
+#include "PhysicsRuntime/FKAggregateGeom.h"
 #include "Core/Archive.h"
 #include "Core/Literals.h"
 
@@ -41,6 +42,16 @@ namespace Engine {
     }
 
     /**
+     * @brief 캡슐 반지름과 반높이로 캡슐 형상 하나를 채웁니다.
+     */
+    void Engine::UCapsuleComponent::UpdateBodySetup(PhysicsRuntime::FKAggregateGeom& Geometry) const {
+        PhysicsRuntime::FKSphylElem& Sphyl{Geometry.mSphylElems.emplace_back()};
+        Sphyl.mRadius = mCapsuleRadius;
+        // 캡슐 형상의 길이는 반구를 뺀 원기둥 부분의 전체 길이입니다.
+        Sphyl.mLength = std::max(0.0f, mCapsuleHalfHeight - mCapsuleRadius) * 2.0f;
+    }
+
+    /**
      * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
      */
     FBox Engine::UCapsuleComponent::CalcLocalBounds() const {
@@ -62,8 +73,14 @@ namespace Engine {
      * @brief 캡슐의 로컬 반지름과 반높이를 함께 설정합니다.
      */
     void Engine::UCapsuleComponent::SetCapsuleSize(float InRadius, float InHalfHeight) {
-        mCapsuleRadius = std::max(0.0f, InRadius);
-        mCapsuleHalfHeight = std::max({ 0.0f, InHalfHeight, InRadius });
+        const float Radius{std::max(0.0f, InRadius)};
+        const float HalfHeight{std::max({ 0.0f, InHalfHeight, InRadius })};
+
+        if (mCapsuleRadius != Radius || mCapsuleHalfHeight != HalfHeight) {
+            mCapsuleRadius = Radius;
+            mCapsuleHalfHeight = HalfHeight;
+            MarkBodySetupDirty();
+        }
     }
 
     /**
@@ -98,7 +115,12 @@ namespace Engine {
      * @brief 반구를 포함한 캡슐 반높이를 설정합니다.
      */
     void Engine::UCapsuleComponent::SetCapsuleHalfHeight(float InHalfHeight) {
-        mCapsuleHalfHeight = std::max(InHalfHeight, mCapsuleRadius);
+        const float HalfHeight{std::max(InHalfHeight, mCapsuleRadius)};
+
+        if (mCapsuleHalfHeight != HalfHeight) {
+            mCapsuleHalfHeight = HalfHeight;
+            MarkBodySetupDirty();
+        }
     }
 
     /**
@@ -112,7 +134,12 @@ namespace Engine {
      * @brief 캡슐의 로컬 반지름을 설정합니다.
      */
     void Engine::UCapsuleComponent::SetCapsuleRadius(float InRadius) {
-        mCapsuleRadius = std::clamp(InRadius, 0.0f, mCapsuleHalfHeight);
+        const float Radius{std::clamp(InRadius, 0.0f, mCapsuleHalfHeight)};
+
+        if (mCapsuleRadius != Radius) {
+            mCapsuleRadius = Radius;
+            MarkBodySetupDirty();
+        }
     }
 
 }

@@ -51,6 +51,12 @@ namespace Engine {
          */
         void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const override;
 
+        /**
+         * @brief 상자 반길이로 상자 형상 하나를 채웁니다.
+         * @param[out] Geometry 비어 있는 상태로 전달되는 바디 셋업의 형상 목록입니다.
+         */
+        void UpdateBodySetup(PhysicsRuntime::FKAggregateGeom& Geometry) const override;
+
     private:
         /**
          * @brief 상자의 로컬 축별 반길이입니다.

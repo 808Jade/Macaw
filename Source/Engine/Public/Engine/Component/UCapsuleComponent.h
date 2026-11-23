@@ -88,6 +88,12 @@ namespace Engine {
          */
         void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const override;
 
+        /**
+         * @brief 캡슐 반지름과 반높이로 캡슐 형상 하나를 채웁니다.
+         * @param[out] Geometry 비어 있는 상태로 전달되는 바디 셋업의 형상 목록입니다.
+         */
+        void UpdateBodySetup(PhysicsRuntime::FKAggregateGeom& Geometry) const override;
+
     private:
         // 반구를 포함한 높이
         /**

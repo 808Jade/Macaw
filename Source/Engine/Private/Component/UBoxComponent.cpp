@@ -6,6 +6,7 @@
 
 #include "Engine/Component/UBoxComponent.h"
 #include "Engine/FPrimitiveDrawInterface.h"
+#include "PhysicsRuntime/FKAggregateGeom.h"
 
 #include <algorithm>
 #include <cmath>
@@ -44,6 +45,13 @@ namespace Engine {
     }
 
     /**
+     * @brief 상자 반길이로 상자 형상 하나를 채웁니다.
+     */
+    void Engine::UBoxComponent::UpdateBodySetup(PhysicsRuntime::FKAggregateGeom& Geometry) const {
+        Geometry.mBoxElems.emplace_back().mHalfExtent = mBoxExtent;
+    }
+
+    /**
      * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
      */
     FBox Engine::UBoxComponent::CalcLocalBounds() const {
@@ -54,7 +62,12 @@ namespace Engine {
      * @brief 상자의 로컬 축별 반길이를 설정합니다.
      */
     void Engine::UBoxComponent::SetBoxExtent(const FVector& InExtent) {
-        mBoxExtent = FVector{ std::max(InExtent.x, 0.0f), std::max(InExtent.y, 0.0f), std::max(InExtent.z, 0.0f) };
+        const FVector Extent{ std::max(InExtent.x, 0.0f), std::max(InExtent.y, 0.0f), std::max(InExtent.z, 0.0f) };
+
+        if (!(mBoxExtent == Extent)) {
+            mBoxExtent = Extent;
+            MarkBodySetupDirty();
+        }
     }
 
     /**

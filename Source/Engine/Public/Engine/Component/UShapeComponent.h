@@ -9,7 +9,14 @@
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Core/Math/FVector4.h"
 #include "Core/Math/FBox.h"
+
+#include <memory>
+
 #include "UShapeComponent.generated.h"
+
+namespace PhysicsRuntime {
+    struct FKAggregateGeom;
+}
 
 namespace Engine {
 
@@ -46,6 +53,13 @@ namespace Engine {
          * @return 표시할 프리미티브 메시 종류입니다.
          */
         Engine::EPrimitiveType GetPrimitiveType() const override;
+
+        /**
+         * @brief 컴포넌트의 형상 크기로 만든 충돌 형상을 반환합니다.
+         * @return 이 컴포넌트가 소유한 바디 셋업이며, 형상 크기가 바뀌면 새로 만듭니다.
+         * @note 형상은 스케일을 적용하지 않은 크기이며, 컴포넌트 스케일은 바디를 만들 때 반영합니다.
+         */
+        const PhysicsRuntime::UBodySetup* GetBodySetup() const override;
 
         /**
          * @brief 충돌 형상을 선택 강조 색상 또는 기본 색상의 선으로 수집합니다.
@@ -93,6 +107,17 @@ namespace Engine {
          */
         virtual void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const = 0;
 
+        /**
+         * @brief 스케일을 적용하지 않은 형상 크기로 충돌 형상 요소를 채웁니다.
+         * @param[out] Geometry 비어 있는 상태로 전달되는 바디 셋업의 형상 목록입니다.
+         */
+        virtual void UpdateBodySetup(PhysicsRuntime::FKAggregateGeom& Geometry) const = 0;
+
+        /**
+         * @brief 형상 크기가 바뀌었을 때 바디 셋업을 버리고 물리 바디를 다시 만듭니다.
+         */
+        void MarkBodySetupDirty();
+
     private:
         /**
          * @brief 현재 표시·에셋 상태에서 렌더 프록시를 생성할지 판정합니다.
@@ -112,6 +137,11 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Getter = ShouldDrawOnlyIfSelected, Setter = SetDrawOnlyIfSelected)
         bool mDrawOnlyIfSelected{};
+
+        /**
+         * @brief 형상 크기로 만든 바디 셋업이며, 처음 요청할 때 만듭니다.
+         */
+        mutable std::shared_ptr<PhysicsRuntime::UBodySetup> mShapeBodySetup{};
     };
 
 }
