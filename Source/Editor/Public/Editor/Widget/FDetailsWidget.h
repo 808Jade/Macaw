@@ -128,6 +128,19 @@ namespace Editor {
         void DrawToolbar(Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>>& Targets);
 
         /**
+         * @brief 표시할 카테고리가 있는 섹션만 필터 버튼으로 표시하고 선택을 바꿉니다.
+         * @note 버튼 목록은 직전 프레임에 표시할 내용이 있던 카테고리로 정합니다.
+         */
+        void DrawSectionBar();
+
+        /**
+         * @brief 선택한 섹션이 현재 대상에서 표시할 카테고리를 가지면 그 섹션을, 아니면 All을 반환합니다.
+         * @param AvailableCategories 표시할 내용이 있는 카테고리 목록입니다.
+         * @return 실제로 적용할 섹션 이름입니다.
+         */
+        std::string_view GetEffectiveSection(const Core::TArray<Core::FString>& AvailableCategories) const;
+
+        /**
          * @brief 프로퍼티 분류·표시 이름·내부 이름에 검색어가 일치하는지 확인합니다.
          * @param Category 검색하거나 표시할 프로퍼티 분류입니다.
          * @param Label UI 항목의 표시 이름입니다.
@@ -299,6 +312,16 @@ namespace Editor {
          * @brief 고급 프로퍼티 표시 여부입니다.
          */
         bool mShowAdvanced{};
+
+        /**
+         * @brief 사용자가 고른 섹션 이름이며, 대상이 바뀌어도 유지합니다.
+         */
+        Core::FString mSelectedSection{"All"};
+
+        /**
+         * @brief 마지막으로 그린 대상에서 표시할 내용이 있던 카테고리 목록입니다.
+         */
+        Core::TArray<Core::FString> mAvailableCategories{};
 
         /**
          * @brief 브라우저의 현재 선택 경로를 얻는 콜백입니다.
