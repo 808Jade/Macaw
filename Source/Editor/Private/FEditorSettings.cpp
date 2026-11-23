@@ -24,7 +24,6 @@
 #include "Editor/FPlayInEditorSession.h"
 #include "Engine/FProject.h"
 #include "Platform/Window.h"
-#include "PhysicsRuntime/FPhysicsSettings.h"
 #include "RenderCore/IRendererModule.h"
 #include "Serialization/JsonArchive.h"
 #include "Core/Types.h"
@@ -825,40 +824,6 @@ void FEditorSettings::SerializeSettings(Serialization::FJsonArchive& Archive) {
         Input.KeyRepeatRate = std::isfinite(RepeatRate) ? std::clamp(RepeatRate, 0.02f, 0.3f) : 0.05f;
     }
 
-    // 물리 시간 진행 설정입니다. 프레임을 인위적으로 늦추는 디버그 옵션은 의도치 않게 남지 않도록 저장하지 않습니다.
-    if ((!Archive.IsLoading() || Archive.HasField("Physics")) && Archive.BeginObject("Physics")) {
-        PhysicsRuntime::FPhysicsSettings& Physics{mContext->GetPhysicsSettings()};
-        Int32 Mode{static_cast<Int32>(Physics.mMode)};
-        float MaxFrameDt{Physics.mMaxFrameDt};
-        float MaxSubstepDt{Physics.mMaxSubstepDt};
-        Int32 MaxSubsteps{Physics.mMaxSubsteps};
-        float FixedDt{Physics.mFixedDt};
-        Int32 MaxFixedSteps{Physics.mMaxFixedSteps};
-        bool Interpolate{Physics.mInterpolate};
-
-        Archive.Serialize("TimeStepMode", Mode);
-        Archive.Serialize("MaxFrameDt", MaxFrameDt);
-        Archive.Serialize("MaxSubstepDt", MaxSubstepDt);
-        Archive.Serialize("MaxSubsteps", MaxSubsteps);
-        Archive.Serialize("FixedDt", FixedDt);
-        Archive.Serialize("MaxFixedSteps", MaxFixedSteps);
-        Archive.Serialize("Interpolate", Interpolate);
-        Archive.EndObject();
-
-        if (Archive.IsLoading() && !Archive.HasError()) {
-            const PhysicsRuntime::FPhysicsSettings Defaults{};
-            const auto ValidDt = [](float Value, float Fallback) { return std::isfinite(Value) ? std::clamp(Value, 0.001f, 0.1f) : Fallback; };
-
-            Physics.mMode = Mode >= 0 && Mode <= static_cast<Int32>(PhysicsRuntime::EPhysicsTimeStepMode::Fixed) ? static_cast<PhysicsRuntime::EPhysicsTimeStepMode>(Mode) : Defaults.mMode;
-            Physics.mMaxFrameDt = ValidDt(MaxFrameDt, Defaults.mMaxFrameDt);
-            Physics.mMaxSubstepDt = ValidDt(MaxSubstepDt, Defaults.mMaxSubstepDt);
-            Physics.mMaxSubsteps = std::clamp(MaxSubsteps, 1, 16);
-            Physics.mFixedDt = ValidDt(FixedDt, Defaults.mFixedDt);
-            Physics.mMaxFixedSteps = std::clamp(MaxFixedSteps, 1, 16);
-            Physics.mInterpolate = Interpolate;
-        }
-    }
-
     mDrawers.SerializeSettings(Archive);
 
     for (Index_t Index{}; Index < 4; ++Index) {
@@ -930,7 +895,7 @@ void FEditorSettings::DrawSettings() {
     }
 
     if (ImGui::Begin("Settings", &mSettingsOpen, ImGuiWindowFlags_NoDocking)) {
-        const char* Sections[]{"Interface", "Viewport & Camera", "Gizmo & Snapping", "Rendering", "Panels & Statistics", "Project", "Physics"};
+        const char* Sections[]{"Interface", "Viewport & Camera", "Gizmo & Snapping", "Rendering", "Panels & Statistics", "Project"};
         const float FooterHeight{ImGui::GetFrameHeightWithSpacing() * 2.0f};
 
         if (ImGui::BeginChild("SettingsNavigation", {170.0f * Scale, -FooterHeight}, ImGuiChildFlags_Borders)) {
@@ -970,10 +935,8 @@ void FEditorSettings::DrawSettings() {
                 }
             } else if (mSettingsSection == 3) {
                 DrawRenderingSettings();
-            } else if (mSettingsSection == 5) {
-                DrawProjectSettings();
             } else {
-                DrawPhysicsSettings();
+                DrawProjectSettings();
             }
 
             ImGui::PopItemWidth();
@@ -1193,48 +1156,6 @@ void FEditorSettings::DrawPanelSettings() {
     }
 }
 
-void FEditorSettings::DrawPhysicsSettings() {
-    PhysicsRuntime::FPhysicsSettings& Settings{mContext->GetPhysicsSettings()};
-    const char* Modes[]{"Variable", "Substep", "Fixed"};
-    const PhysicsRuntime::EPhysicsTimeStepMode Mode{Settings.mMode};
-    bool Changed{};
-
-    ImGui::SeparatorText("Time Step");
-
-    Int32 Selected{static_cast<Int32>(Mode)};
-
-    if (ImGui::Combo("Mode", &Selected, Modes, static_cast<int>(std::size(Modes)))) {
-        Settings.mMode = static_cast<PhysicsRuntime::EPhysicsTimeStepMode>(Selected);
-        Changed = true;
-    }
-
-    // 현재 모드에서 쓰지 않는 값은 비활성으로 보여 줍니다.
-    ImGui::BeginDisabled(Mode != PhysicsRuntime::EPhysicsTimeStepMode::Variable);
-    Changed |= ImGui::SliderFloat("Max Frame Dt", &Settings.mMaxFrameDt, 0.005f, 0.1f, "%.4f s");
-    ImGui::EndDisabled();
-
-    ImGui::BeginDisabled(Mode != PhysicsRuntime::EPhysicsTimeStepMode::Substep);
-    Changed |= ImGui::SliderFloat("Max Substep Dt", &Settings.mMaxSubstepDt, 0.002f, 0.05f, "%.4f s");
-    Changed |= ImGui::SliderInt("Max Substeps", &Settings.mMaxSubsteps, 1, 16);
-    ImGui::EndDisabled();
-
-    ImGui::BeginDisabled(Mode != PhysicsRuntime::EPhysicsTimeStepMode::Fixed);
-    Changed |= ImGui::SliderFloat("Fixed Dt", &Settings.mFixedDt, 0.002f, 0.05f, "%.4f s");
-    Changed |= ImGui::SliderInt("Max Fixed Steps", &Settings.mMaxFixedSteps, 1, 16);
-    Changed |= ImGui::Checkbox("Interpolate", &Settings.mInterpolate);
-    ImGui::EndDisabled();
-
-    if (Changed) {
-        MarkDirty();
-    }
-
-    ImGui::SeparatorText("Debug (not saved)");
-    ImGui::Checkbox("Log Step Stats", &Settings.mLogStepStats);
-    ImGui::SliderFloat("Target Frame", &Settings.mTargetFrameMs, 0.0f, 200.0f, "%.1f ms");
-    ImGui::SliderFloat("Jitter", &Settings.mJitterMs, 0.0f, 100.0f, "%.1f ms");
-    ImGui::TextWrapped("Target Frame slows every physics-enabled frame to compare time step modes. Set it to 0 to disable.");
-}
-
 void FEditorSettings::DrawProjectSettings() {
     Engine::FProject& Project{*mContext->GetProject()};
     const bool ActiveForwardShading{mContext->GetRenderer()->UsesForwardShading()};
@@ -1331,7 +1252,6 @@ void FEditorSettings::ResetSettings() {
     mTabs.SetVisible("Content", false);
     mTabs.SetVisible("Console", false);
     mShowStatistics = false;
-    mContext->GetPhysicsSettings() = PhysicsRuntime::FPhysicsSettings{};
 
     ImGuiIO& Input{ImGui::GetIO()};
     Input.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;

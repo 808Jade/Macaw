@@ -45,10 +45,6 @@ namespace RenderCore {
     class IRendererModule;
 }
 
-namespace PhysicsRuntime {
-    struct FPhysicsSettings;
-}
-
 namespace Editor {
 
     class FEditorViewport;
@@ -311,12 +307,6 @@ namespace Editor {
          * @return 렌더러의 비소유 주소이며 헤드리스 환경에서는 nullptr입니다.
          */
         RenderCore::IRendererModule* GetRenderer() const;
-
-        /**
-         * @brief 엔진이 소유한 물리 시간 진행 설정을 조회합니다.
-         * @return 설정의 참조입니다. 엔진이 없으면 기본값을 담은 임시 저장소의 참조입니다.
-         */
-        PhysicsRuntime::FPhysicsSettings& GetPhysicsSettings();
 
         /**
          * @brief 편집 월드에서 살아 있는 액터 핸들의 스냅샷을 만듭니다.
