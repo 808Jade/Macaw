@@ -27,6 +27,10 @@ namespace RenderCore {
     class UShader;
 }
 
+namespace PhysicsRuntime {
+    class FPhysicsRuntime;
+}
+
 namespace Asset {
 
     class UStaticMesh;
@@ -86,6 +90,13 @@ namespace Asset {
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
         const std::filesystem::path& GetContentRoot() const;
+
+        /**
+         * @brief 메시를 임포트할 때 볼록 충돌 형상을 계산할 PhysX 런타임을 설정합니다.
+         * @param[in] Runtime 엔진이 소유한 런타임의 비소유 주소이며, nullptr이면 볼록 형상을 만들지 않고 경계 상자를 사용합니다.
+         * @note 런타임은 이 관리자가 임포트하는 동안 유지되어야 하며, 엔진은 런타임을 종료하기 전에 nullptr로 되돌립니다.
+         */
+        void SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime);
 
         /**
          * @brief 이 관리자가 보유한 메시의 경로를 조회합니다.
@@ -425,6 +436,11 @@ namespace Asset {
          * @brief 에셋 접근을 제한하는 프로젝트 콘텐츠 폴더의 절대 경로입니다.
          */
         std::filesystem::path mContentRoot{};
+
+        /**
+         * @brief 메시 임포트 때 볼록 충돌 형상을 계산하는 PhysX 런타임이며, 엔진이 주입하지 않으면 nullptr입니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime* mPhysicsRuntime{};
 
         /**
          * @brief 정규화한 상대 경로별로 소유하는 메시 에셋 캐시입니다.

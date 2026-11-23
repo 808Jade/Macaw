@@ -119,7 +119,7 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        if (Setup.AddShapesToRigidActor(*Actor, Transform.mScale, *Runtime->GetDefaultMaterial()) == 0) {
+        if (Setup.AddShapesToRigidActor(*Actor, Transform.mScale, *Runtime) == 0) {
             MACAW_LOG(LogPhysics, Warning, "Body setup '{}' has no valid collision shape at scale ({}, {}, {}).", Setup.GetName(), Transform.mScale.x, Transform.mScale.y, Transform.mScale.z);
 
             return false;

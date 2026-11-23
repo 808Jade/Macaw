@@ -14,7 +14,10 @@
 
 namespace physx {
     class PxRigidActor;
-    class PxMaterial;
+}
+
+namespace PhysicsRuntime {
+    class FPhysicsRuntime;
 }
 
 namespace PhysicsRuntime {
@@ -59,11 +62,12 @@ namespace PhysicsRuntime {
          * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
          * @param[in,out] Actor 형상을 붙일 PhysX 강체입니다.
          * @param[in] Scale 형상 크기와 중심에 반영할 컴포넌트 스케일입니다.
-         * @param[in] Material 만든 형상에 지정할 재질입니다.
+         * @param[in] Runtime 형상에 지정할 기본 재질과 볼록 메시 쿠킹을 제공하는 PhysX 런타임입니다.
          * @return 강체에 붙인 형상의 개수입니다.
          * @note 스케일을 반영한 크기가 유효하지 않은 형상은 건너뜁니다. 회전한 상자·캡슐에 비균등 스케일을 주면 근사합니다.
+         *       볼록 형상은 호출할 때마다 쿠킹하며, 쿠킹한 메시는 형상만 참조하므로 바디가 해제될 때 함께 해제됩니다.
          */
-        Index_t AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const physx::PxMaterial& Material) const;
+        Index_t AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const PhysicsRuntime::FPhysicsRuntime& Runtime) const;
 
     private:
 

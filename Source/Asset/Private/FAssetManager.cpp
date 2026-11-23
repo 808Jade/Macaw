@@ -29,6 +29,7 @@
 #include "FAssetImportScope.h"
 #include "Asset/Import/IMeshImporter.h"
 #include "Asset/Import/FMeshImportResult.h"
+#include "PhysicsRuntime/FPhysicsRuntime.h"
 
 #include <algorithm>
 #include <limits>
@@ -308,6 +309,45 @@ namespace Asset {
         }
 
         /**
+         * @brief 정적 메시의 볼록 충돌 형상을 바이너리로 직렬화합니다.
+         * @details 정적 메시 에셋에서 메시 데이터 뒤에 붙는 섹션입니다. 이 섹션이 없는 이전 에셋은 경계 상자를 사용합니다.
+         *          스켈레탈 메시는 메시 데이터 뒤에 본 데이터가 이어지므로 이 섹션을 쓰지 않습니다.
+         * @param[in,out] Archive 모드에 따라 값을 읽거나 쓸 아카이브입니다.
+         * @param[in,out] ConvexElems 읽거나 직렬화할 볼록 충돌 형상 목록입니다.
+         */
+        void SerializeCollision(Serialization::FMemoryArchive& Archive, Core::TArray<PhysicsRuntime::FKConvexElem>& ConvexElems) {
+            Uint32 Version{1};
+
+            Archive.Serialize("CollisionVersion", Version);
+
+            if (Archive.HasError() || Version != 1) {
+                Archive.SetError("Unsupported mesh collision version");
+
+                return;
+            }
+
+            Uint32 Count{Archive.IsLoading() ? 0 : static_cast<Uint32>(ConvexElems.size())};
+
+            if (!Archive.BeginArray("ConvexElems", Count) || (Archive.IsLoading() && Count > Archive.GetRemainingBytes() / 8)) {
+                Archive.SetError("Invalid convex collision count");
+
+                return;
+            }
+
+            if (Archive.IsLoading()) {
+                ConvexElems.clear();
+                ConvexElems.resize(Count);
+            }
+
+            for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+                Asset::FAssetSerialization::SerializeValues(Archive, ConvexElems[Index].mVertices);
+                Asset::FAssetSerialization::SerializeValues(Archive, ConvexElems[Index].mIndices);
+            }
+
+            Archive.EndArray();
+        }
+
+        /**
          * @brief 본 이름·부모·바인드 변환을 바이너리 아카이브에 직렬화합니다.
          * @param Archive 저장·로드 방향과 오류 상태를 제공하는 아카이브입니다.
          * @param Bones 부모 인덱스와 바인드 변환을 가진 본 배열입니다.
@@ -551,6 +591,13 @@ namespace Asset {
     }
 
     /**
+     * @brief 메시를 임포트할 때 볼록 충돌 형상을 계산할 PhysX 런타임을 설정합니다.
+     */
+    void Asset::FAssetManager::SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime) {
+        mPhysicsRuntime = Runtime;
+    }
+
+    /**
      * @brief 이 관리자가 보유한 메시의 경로를 조회합니다.
      */
     Core::FString Asset::FAssetManager::GetMeshPath(const Asset::UStaticMesh* Mesh) const {
@@ -730,12 +777,19 @@ namespace Asset {
 
         Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Asset::FMeshData Data{};
+        Core::TArray<PhysicsRuntime::FKConvexElem> ConvexElems{};
 
         SerializeMesh(Archive, Data);
 
+        // 충돌 섹션은 이후 버전에서 추가했으므로 없으면 경계 상자를 사용합니다.
+        if (!Archive.HasError() && Archive.GetRemainingBytes() != 0) {
+            SerializeCollision(Archive, ConvexElems);
+        }
+
         auto Mesh{CoreUObject::NewObject<Asset::UStaticMesh>()};
 
-        if (Archive.HasError() || Archive.GetRemainingBytes() != 0 || !Mesh->SetMeshData(std::move(Data))) {
+        // 메시 데이터를 설정하면 볼록 형상이 지워지므로 볼록 형상은 그 뒤에 설정합니다.
+        if (Archive.HasError() || Archive.GetRemainingBytes() != 0 || !Mesh->SetMeshData(std::move(Data)) || !Mesh->SetConvexElems(std::move(ConvexElems))) {
             Error = Archive.HasError() ? Archive.GetError() : "Invalid mesh asset data";
 
             return nullptr;
@@ -1027,8 +1081,10 @@ namespace Asset {
         Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FMeshData Data{Mesh.GetMeshData()};
+        Core::TArray<PhysicsRuntime::FKConvexElem> ConvexElems{Mesh.GetConvexElems()};
 
         SerializeMesh(Archive, Data);
+        SerializeCollision(Archive, ConvexElems);
 
         if (Archive.HasError()) {
             Error = Archive.GetError();
@@ -1551,6 +1607,17 @@ namespace Asset {
                     Error = "Invalid imported mesh sections: " + ImportedMesh.GetName();
 
                     return false;
+                }
+
+                // 메시 형태를 감싸는 볼록 외곽을 충돌 형상으로 저장합니다. 만들 수 없으면 경계 상자를 사용합니다.
+                if (Option.mGenerateConvexCollision) {
+                    PhysicsRuntime::FKConvexElem Hull{};
+
+                    if (mPhysicsRuntime != nullptr && mPhysicsRuntime->ComputeConvexHull(Mesh->GetMeshData().GetPositions(), Hull)) {
+                        Mesh->SetConvexElems({std::move(Hull)});
+                    } else {
+                        Core::ErrorHandler::Report("Asset", "Cannot generate convex collision for '" + ImportedMesh.GetName() + "'; using the mesh bounds box", Core::ErrorHandler::EErrorLevel::Warning);
+                    }
                 }
 
                 if (!SaveMesh(MeshTarget, *Mesh, Error)) {

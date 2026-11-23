@@ -22,7 +22,9 @@
 #include "Core/Math/FQuat.h"
 #include "Core/Literals.h"
 
+#include <algorithm>
 #include <cmath>
+#include <utility>
 
 using namespace Core::Literals;
 
@@ -549,6 +551,34 @@ namespace Engine {
             DrawInterface.DrawArc(Top, Right, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
             DrawInterface.DrawArc(Bottom, Forward, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
             DrawInterface.DrawArc(Bottom, Right, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+        }
+
+        for (const PhysicsRuntime::FKConvexElem& Element : Geometry.mConvexElems) {
+            const PhysicsRuntime::FKConvexElem Scaled{Element.GetScaled(Transform.mScale)};
+
+            if (!Scaled.IsValid()) {
+                continue;
+            }
+
+            // 이웃한 삼각형이 공유하는 모서리는 한 번만 그립니다.
+            Core::TArray<std::pair<Uint32, Uint32>> Edges{};
+            Edges.reserve(Scaled.mIndices.size());
+
+            for (Index_t Triangle{}; Triangle + 2 < Scaled.mIndices.size(); Triangle += 3) {
+                for (Index_t Corner{}; Corner < 3; ++Corner) {
+                    const Uint32 First{Scaled.mIndices[Triangle + Corner]};
+                    const Uint32 Second{Scaled.mIndices[Triangle + (Corner + 1) % 3]};
+
+                    Edges.emplace_back(std::min(First, Second), std::max(First, Second));
+                }
+            }
+
+            std::sort(Edges.begin(), Edges.end());
+            Edges.erase(std::unique(Edges.begin(), Edges.end()), Edges.end());
+
+            for (const auto& [First, Second] : Edges) {
+                DrawInterface.DrawLine(ToWorld(Scaled.mVertices[First]), ToWorld(Scaled.mVertices[Second]), Color, true, Thickness);
+            }
         }
     }
 

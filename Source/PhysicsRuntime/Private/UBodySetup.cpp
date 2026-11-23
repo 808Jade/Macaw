@@ -6,10 +6,12 @@
 
 #include "Core/Types.h"
 #include "PhysicsRuntime/UBodySetup.h"
+#include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
 #include "Core/Log/Log.h"
 
 #include <PxPhysicsAPI.h>
+#include <memory>
 
 namespace PhysicsRuntime {
 
@@ -72,7 +74,8 @@ namespace PhysicsRuntime {
      * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
      * @details 형상 크기와 중심은 각 형상의 GetScaled 규칙으로 스케일을 반영합니다.
      */
-    Index_t PhysicsRuntime::UBodySetup::AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const physx::PxMaterial& Material) const {
+    Index_t PhysicsRuntime::UBodySetup::AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const PhysicsRuntime::FPhysicsRuntime& Runtime) const {
+        const physx::PxMaterial& Material{*Runtime.GetDefaultMaterial()};
         Index_t Attached{};
 
         for (Index_t Index{}; Index < mAggGeom.mSphereElems.size(); ++Index) {
@@ -108,6 +111,18 @@ namespace PhysicsRuntime {
                 ++Attached;
             } else {
                 MACAW_LOG(LogPhysics, Warning, "Skipped invalid capsule element {} of body setup '{}'.", Index, GetName());
+            }
+        }
+
+        for (Index_t Index{}; Index < mAggGeom.mConvexElems.size(); ++Index) {
+            // 형상이 메시 참조를 하나 더 가지므로 쿠킹한 참조는 붙인 뒤 놓습니다. 바디가 해제되면 메시도 함께 해제됩니다.
+            const std::unique_ptr<physx::PxConvexMesh, PhysicsRuntime::FPhysXRelease> Mesh{Runtime.CreateConvexMesh(mAggGeom.mConvexElems[Index])};
+            const physx::PxConvexMeshGeometry Geometry{Mesh.get(), physx::PxMeshScale{PhysicsRuntime::ToPxVec3(Scale)}};
+
+            if (Mesh != nullptr && Geometry.isValid() && AttachShape(Actor, Geometry, physx::PxTransform{physx::PxIdentity}, Material)) {
+                ++Attached;
+            } else {
+                MACAW_LOG(LogPhysics, Warning, "Skipped invalid convex element {} of body setup '{}'.", Index, GetName());
             }
         }
 

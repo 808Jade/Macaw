@@ -11,8 +11,11 @@
 
 #include <PxPhysicsAPI.h>
 #include <memory>
+#include <span>
 
 namespace PhysicsRuntime {
+
+    struct FKConvexElem;
 
     /**
      * @brief 프로세스 전체에서 공유하는 PhysX SDK 객체의 수명을 관리합니다.
@@ -101,6 +104,23 @@ namespace PhysicsRuntime {
          * @return 조회한 값의 비소유 주소이며, PVD를 만들지 못했으면 nullptr입니다.
          */
         physx::PxPvd* GetPvd() const;
+
+        /**
+         * @brief 점 집합을 감싸는 볼록 외곽을 계산해 볼록 충돌 형상으로 만듭니다.
+         * @param[in] Points 외곽을 계산할 바디 로컬 공간의 점들입니다.
+         * @param[out] Element 계산한 외곽 꼭짓점과 면을 나눈 삼각형 인덱스를 받을 형상입니다.
+         * @return 외곽을 계산했으면 true이며, 초기화 전이거나 점이 4개 미만이거나 쿠킹에 실패하면 false입니다.
+         * @note 외곽 꼭짓점은 PhysX 제한에 따라 최대 255개입니다. 점이 한 평면에 놓이면 PhysX가 법선 방향으로 얇게(두께 약 0.1) 늘린 외곽을 만듭니다.
+         */
+        bool ComputeConvexHull(std::span<const FVector> Points, PhysicsRuntime::FKConvexElem& Element) const;
+
+        /**
+         * @brief 볼록 충돌 형상의 꼭짓점으로 PhysX 볼록 메시를 쿠킹합니다.
+         * @param[in] Element 쿠킹할 볼록 충돌 형상입니다.
+         * @return 새 볼록 메시의 소유 주소이며, 쿠킹에 실패하면 nullptr입니다.
+         * @note 형상에 메시를 붙인 뒤 호출자가 release()로 자기 참조를 놓아야 합니다. 형상이 남은 참조를 유지합니다.
+         */
+        physx::PxConvexMesh* CreateConvexMesh(const PhysicsRuntime::FKConvexElem& Element) const;
 
     private:
 
