@@ -11,6 +11,10 @@
 #include "Asset/FAssetManager.h"
 #include "Asset/UStaticMesh.h"
 #include "Engine/UWorld.h"
+#include "CoreUObject/Reflection/NewObject.h"
+#include "Core/Math/FBox.h"
+
+#include <algorithm>
 
 namespace Engine {
 
@@ -43,6 +47,7 @@ namespace Engine {
             mPrimitive = Type;
 
             MarkRenderStateDirty();
+            RecreatePhysicsState();
         }
 
         return true;
@@ -94,6 +99,7 @@ namespace Engine {
             mStaticMesh = Mesh;
 
             MarkRenderStateDirty();
+            RecreatePhysicsState();
         }
 
         return true;
@@ -144,9 +150,59 @@ namespace Engine {
             mStaticMesh = Mesh;
 
             MarkRenderStateDirty();
+            RecreatePhysicsState();
         }
 
         return mMeshPath.empty() || mStaticMesh != nullptr;
+    }
+
+    /**
+     * @brief 메시에 맞는 충돌 모양 설계도를 반환합니다.
+     */
+    PhysicsRuntime::UBodySetup* Engine::UStaticMeshComponent::GetBodySetup() {
+        if (mStaticMesh != nullptr) {
+            return mStaticMesh->GetBodySetup();
+        }
+
+        // 에셋 경로가 있는데 아직 불러오지 못했으면 바디를 만들지 않습니다.
+        if (!mMeshPath.empty()) {
+            return nullptr;
+        }
+
+        if (mPrimitiveBodySetup == nullptr) {
+            mPrimitiveBodySetup = CoreUObject::NewObject<PhysicsRuntime::UBodySetup>();
+        }
+
+        UpdatePrimitiveBodySetup();
+
+        return mPrimitiveBodySetup.get();
+    }
+
+    /**
+     * @brief 기본 도형 종류에 맞는 모양으로 이 컴포넌트의 설계도를 채웁니다.
+     */
+    void Engine::UStaticMeshComponent::UpdatePrimitiveBodySetup() {
+        constexpr float MinimumSize{0.02f};
+
+        const FBox& Bounds{GetMeshData().GetBounds()};
+        const FVector Center{(Bounds.mMinimum + Bounds.mMaximum) * 0.5f};
+        const FVector Size{Bounds.mMaximum - Bounds.mMinimum};
+
+        mPrimitiveBodySetup->mAggGeom = {};
+
+        if (mPrimitive == Engine::EPrimitiveType::Sphere) {
+            // 구는 박스로 근사하면 구르지 않으므로 구 모양을 씁니다.
+            PhysicsRuntime::FKSphereElem SphereElem{std::max({Size.x, Size.y, Size.z}) * 0.5f};
+            SphereElem.mCenter = Center;
+            mPrimitiveBodySetup->mAggGeom.mSphereElems.push_back(SphereElem);
+
+            return;
+        }
+
+        // 두께가 없는 평면도 부딪힐 수 있도록 최소 두께를 줍니다.
+        PhysicsRuntime::FKBoxElem BoxElem{std::max(Size.x, MinimumSize), std::max(Size.y, MinimumSize), std::max(Size.z, MinimumSize)};
+        BoxElem.mCenter = Center;
+        mPrimitiveBodySetup->mAggGeom.mBoxElems.push_back(BoxElem);
     }
 
     /**

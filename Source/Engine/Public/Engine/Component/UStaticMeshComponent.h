@@ -11,6 +11,10 @@
 #include "Core/ReflectionMacros.h"
 #include "Engine/Component/UMeshComponent.h"
 #include "Engine/EPrimitiveType.h"
+#include "PhysicsRuntime/UBodySetup.h"
+
+#include <memory>
+
 #include "UStaticMeshComponent.generated.h"
 
 namespace Engine {
@@ -90,7 +94,18 @@ namespace Engine {
          */
         bool ShouldCreateRenderState() const override;
 
+        /**
+         * @brief 메시에 맞는 충돌 모양 설계도를 반환합니다.
+         * @return 에셋 메시는 메시가 공유하는 설계도, 기본 도형은 이 컴포넌트의 설계도이며, 메시를 아직 불러오지 못했으면 nullptr입니다.
+         */
+        PhysicsRuntime::UBodySetup* GetBodySetup() override;
+
     private:
+        /**
+         * @brief 기본 도형 종류에 맞는 모양으로 이 컴포넌트의 설계도를 채웁니다.
+         */
+        void UpdatePrimitiveBodySetup();
+
         /**
          * @brief Content 상대 경로의 메시를 에셋 관리자에서 조회합니다.
          * @param[in] Path Content 기준 메시 에셋 경로입니다.
@@ -115,6 +130,11 @@ namespace Engine {
          * @brief 에셋 관리자가 보유한 정적 메시의 비소유 주소입니다.
          */
         CoreUObject::TObjectRef<Asset::UStaticMesh> mStaticMesh{};
+
+        /**
+         * @brief 기본 도형일 때 쓰는 이 컴포넌트 전용 충돌 모양 설계도입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::UBodySetup> mPrimitiveBodySetup{};
     };
 
 }

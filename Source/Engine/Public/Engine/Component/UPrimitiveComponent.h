@@ -206,6 +206,12 @@ namespace Engine {
         void DestroyPhysicsState();
 
         /**
+         * @brief 바디가 있으면 지우고 현재 설정으로 다시 만듭니다.
+         * @note 충돌 모양이나 바디 종류가 바뀌었을 때 사용합니다.
+         */
+        void RecreatePhysicsState();
+
+        /**
          * @brief 중력과 충돌로 움직이도록 설정되었는지 반환합니다.
          * @return 움직이는 바디로 설정되었으면 true입니다.
          */

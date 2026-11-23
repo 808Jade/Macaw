@@ -9,11 +9,13 @@
 #include "Core/Types.h"
 #include "CoreUObject/UObject.h"
 #include "Asset/FMeshData.h"
+#include "PhysicsRuntime/UBodySetup.h"
 #include "RenderCore/TIndexBuffer.h"
 #include "RenderCore/TVertexBuffer.h"
 
 #include <d3d11.h>
 #include <filesystem>
+#include <memory>
 #include "UStaticMesh.generated.h"
 
 namespace Asset {
@@ -137,6 +139,19 @@ namespace Asset {
          */
         std::size_t GetResourceBytes() const;
 
+        /**
+         * @brief 이 메시를 쓰는 바디들이 공유하는 충돌 모양 설계도를 반환합니다.
+         * @return 설계도의 비소유 주소입니다.
+         * @note 처음 호출할 때 메시 경계 상자 크기의 박스 하나로 만듭니다.
+         */
+        PhysicsRuntime::UBodySetup* GetBodySetup();
+
+    private:
+        /**
+         * @brief 메시 경계 상자와 같은 크기의 박스로 충돌 모양을 채웁니다.
+         */
+        void GenerateBoxAsSimpleCollision();
+
     private:
         /**
          * @brief 원소 타입 T를 담는 불변 정점 버퍼입니다.
@@ -174,6 +189,11 @@ namespace Asset {
          * @brief 삼각형 인덱스를 보관하는 소유 GPU 버퍼입니다.
          */
         RenderCore::TIndexBuffer<Uint32> mIndexBuffer{};
+
+        /**
+         * @brief 이 메시를 쓰는 바디들이 공유하는 충돌 모양 설계도입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::UBodySetup> mBodySetup{};
     };
 
 }

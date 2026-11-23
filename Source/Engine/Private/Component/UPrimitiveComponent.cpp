@@ -105,6 +105,14 @@ namespace Engine {
     }
 
     /**
+     * @brief 바디가 있으면 지우고 현재 설정으로 다시 만듭니다.
+     */
+    void Engine::UPrimitiveComponent::RecreatePhysicsState() {
+        DestroyPhysicsState();
+        CreatePhysicsState();
+    }
+
+    /**
      * @brief 중력과 충돌로 움직이도록 설정되었는지 반환합니다.
      */
     bool Engine::UPrimitiveComponent::IsSimulatingPhysics() const {
@@ -123,8 +131,7 @@ namespace Engine {
 
         // 움직이는 바디와 고정된 바디는 PhysX 객체 종류가 달라 새로 만듭니다.
         if (mBodyInstance.IsValidBodyInstance()) {
-            DestroyPhysicsState();
-            CreatePhysicsState();
+            RecreatePhysicsState();
         }
 
         return true;

@@ -9,6 +9,7 @@
 #include "Core/FilePath.h"
 #include "Asset/Import/IMeshImporter.h"
 #include "Asset/Import/FMeshImportResult.h"
+#include "CoreUObject/Reflection/NewObject.h"
 
 #include <algorithm>
 #include <cmath>
@@ -81,7 +82,37 @@ namespace Asset {
 
         ReleaseResources();
 
+        // 메시가 바뀌면 충돌 모양도 새 경계로 다시 만듭니다.
+        mBodySetup.reset();
+
         return true;
+    }
+
+    /**
+     * @brief 이 메시를 쓰는 바디들이 공유하는 충돌 모양 설계도를 반환합니다.
+     */
+    PhysicsRuntime::UBodySetup* Asset::UStaticMesh::GetBodySetup() {
+        if (mBodySetup == nullptr) {
+            mBodySetup = CoreUObject::NewObject<PhysicsRuntime::UBodySetup>();
+            GenerateBoxAsSimpleCollision();
+        }
+
+        return mBodySetup.get();
+    }
+
+    /**
+     * @brief 메시 경계 상자와 같은 크기의 박스로 충돌 모양을 채웁니다.
+     */
+    void Asset::UStaticMesh::GenerateBoxAsSimpleCollision() {
+        const FBox& Bounds{GetBounds()};
+        const FVector Center{(Bounds.mMinimum + Bounds.mMaximum) * 0.5f};
+        const FVector Size{Bounds.mMaximum - Bounds.mMinimum};
+
+        PhysicsRuntime::FKBoxElem BoxElem{Size.x, Size.y, Size.z};
+        BoxElem.mCenter = Center;
+
+        mBodySetup->mAggGeom = {};
+        mBodySetup->mAggGeom.mBoxElems.push_back(BoxElem);
     }
 
     /**
