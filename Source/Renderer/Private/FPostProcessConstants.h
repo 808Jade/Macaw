@@ -52,7 +52,7 @@ namespace Renderer {
         FVector4 mFogDistances{};
 
         /**
-         * @brief X에 복사 0·안개 1·깊이 2·FXAA 3·DOF 가중치 4 중 패스 종류를 저장합니다.
+         * @brief X는 후처리 패스 번호이며 Y는 조리개 변의 수입니다. 원형은 Y가 0입니다.
          */
         FVector4 mSettings{};
 
@@ -62,7 +62,7 @@ namespace Renderer {
         FVector4 mProjectionDepth{};
 
         /**
-         * @brief 초점 거리·초점 구간의 절반 폭·전이 거리(m)와 전체 해상도 블러 반경(px)입니다.
+         * @brief 초점 거리·초점 구간의 절반 폭·전이 거리(m)와 F-stop이 반영된 블러 반경(px)입니다.
          */
         FVector4 mDepthOfFieldParameters{};
     };

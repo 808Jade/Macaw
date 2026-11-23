@@ -11,6 +11,8 @@
 #include "Engine/FHeightFogSceneProxy.h"
 #include "Core/Types.h"
 
+#include <algorithm>
+
 namespace Renderer {
 
     /**
@@ -102,7 +104,9 @@ namespace Renderer {
         Constants.mProjectionDepth = {Projection(2, 2), Projection(3, 2), Projection(2, 3), Projection(3, 3)};
 
         const Engine::FDepthOfFieldSettings& DepthOfField{Family.mView.mDepthOfFieldSettings};
-        Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance, DepthOfField.mFocusWidth * 0.5f, DepthOfField.mTransitionDistance, DepthOfField.mMaxBlurRadius};
+        constexpr float FullBlurFStop{1.4f};
+        const float BlurRadius{DepthOfField.mMaxBlurRadius * (FullBlurFStop / std::max(FullBlurFStop, DepthOfField.mFStop))};
+        Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance, DepthOfField.mFocusWidth * 0.5f, DepthOfField.mTransitionDistance, BlurRadius};
 
         Asset::UTexture2D* Source{Target.GetSceneColor()};
         Uint32 DrawCalls{};
@@ -130,8 +134,19 @@ namespace Renderer {
             }
         }
 
-        if (mCompositeDepthOfField != nullptr && DepthOfField.mEnabled && DepthOfField.mMaxBlurRadius > 0.0f &&
+        if (mCompositeDepthOfField != nullptr && DepthOfField.mEnabled && BlurRadius > 0.0f &&
             !Family.mView.mOrthographic && !Visualization && Family.mViewMode != Engine::EViewMode::Wireframe) {
+            switch (DepthOfField.mApertureShape) {
+            case Engine::EDepthOfFieldApertureShape::Pentagon:
+                Constants.mSettings.y = 5.0f;
+                break;
+            case Engine::EDepthOfFieldApertureShape::Hexagon:
+                Constants.mSettings.y = 6.0f;
+                break;
+            case Engine::EDepthOfFieldApertureShape::Circle:
+                break;
+            }
+
             Asset::UTexture2D* Destination{Source == Target.GetSceneColor() ? Target.GetPostProcessColor() : Target.GetSceneColor()};
             mConstants.Update(Context, Constants);
 
@@ -139,6 +154,8 @@ namespace Renderer {
                 Source = Destination;
                 DrawCalls += 3;
             }
+
+            Constants.mSettings.y = 0.0f;
         }
 
         if (Family.mViewMode == Engine::EViewMode::DepthOfFieldWeights) {

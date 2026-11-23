@@ -13,33 +13,29 @@ struct FDepthOfFieldLayers {
     float4 mBackground : SV_TARGET1;
 };
 
-// 원판에서 반경 제곱이 일정하게 증가하도록 배치한 표본입니다. 중심 표본은 별도로 읽습니다.
-static const float2 DiskOffsets[24] = {
-    float2(-0.15051f, 0.13788f),
-    float2(0.02524f, -0.28757f),
-    float2(0.21512f, 0.28058f),
-    float2(-0.40201f, -0.07111f),
-    float2(0.38512f, -0.24498f),
-    float2(-0.12980f, 0.48286f),
-    float2(-0.24892f, -0.47928f),
-    float2(0.54232f, 0.19805f),
-    float2(-0.56604f, 0.23365f),
-    float2(0.27359f, -0.58465f),
-    float2(0.20262f, 0.64597f),
-    float2(-0.61180f, -0.35455f),
-    float2(0.71881f, -0.15803f),
-    float2(-0.43926f, 0.62481f),
-    float2(-0.10160f, -0.78401f),
-    float2(0.62433f, 0.52619f),
-    float2(-0.84091f, 0.03477f),
-    float2(0.61386f, -0.61088f),
-    float2(-0.04110f, 0.88881f),
-    float2(-0.58488f, -0.70089f),
-    float2(0.92706f, 0.12473f),
-    float2(-0.78591f, 0.54682f),
-    float2(0.21486f, -0.95508f),
-    float2(0.49718f, 0.86765f)
-};
+// 외접원 반경 1인 조리개에서 화면 좌표 Y의 가로 반폭을 계산합니다.
+static const float2 PentagonShoulder = {0.9510565f, -0.3090170f};
+static const float2 PentagonBaseCorner = {0.5877853f, 0.8090170f};
+
+float ApertureHalfWidth(float Y, float Sides) {
+    if (Sides == 5.0f) {
+        const float UpperWidth = {PentagonShoulder.x * (Y + 1.0f) / (PentagonShoulder.y + 1.0f)};
+        const float LowerT = {saturate((Y - PentagonShoulder.y) / (PentagonBaseCorner.y - PentagonShoulder.y))};
+        const float LowerWidth = {lerp(PentagonShoulder.x, PentagonBaseCorner.x, LowerT)};
+
+        return min(UpperWidth, LowerWidth);
+    }
+
+    if (Sides == 6.0f) {
+        return 0.8660254f * saturate(2.0f * (1.0f - abs(Y)));
+    }
+
+    return sqrt(saturate(1.0f - Y * Y));
+}
+
+float ApertureSampleCoverage(float X, float HalfWidth) {
+    return max(min(X + 0.5f, HalfWidth) - max(X - 0.5f, -HalfWidth), 0.0f);
+}
 
 float2 GetLayerWeights(float Depth) {
     if (Depth >= 1.0f) {
@@ -76,20 +72,49 @@ FDepthOfFieldLayers SeparateDepthOfField(FVertexOutput Input) {
 
 FDepthOfFieldLayers BlurDepthOfField(FVertexOutput Input) {
     const float2 HalfSize = {ceil(ScreenSize.xy * 0.5f)};
-    const float2 RadiusUV = {0.5f * DepthOfFieldParameters.w / HalfSize};
+    const float HalfRadius = {max(0.5f * DepthOfFieldParameters.w, 0.001f)};
+    // 큰 반경에서는 표본 간격을 넓혀 커널이 읽는 텍셀 수를 제한합니다.
+    const float SampleSpacing = {max(1.0f, HalfRadius / 10.0f)};
+    const float Radius = {HalfRadius / SampleSpacing};
+    const float ApertureBottom = {Radius * (Settings.y == 5.0f ? PentagonBaseCorner.y : 1.0f)};
+    const float2 SampleStepUV = {SampleSpacing / HalfSize};
+    const int RowExtent = {(int)ceil(Radius)};
+    const bool PairSamples = {SampleSpacing == 1.0f};
+    const int ColumnStep = {PairSamples ? 2 : 1};
     FDepthOfFieldLayers Output = {(FDepthOfFieldLayers)0};
-    Output.mForeground = ForegroundLayer.SampleLevel(LinearClamp, Input.mUV, 0.0f);
-    Output.mBackground = BackgroundLayer.SampleLevel(LinearClamp, Input.mUV, 0.0f);
+    float TotalCoverage = {0.0f};
 
-    [unroll]
-    for (int Index = 0; Index < 24; ++Index) {
-        const float2 UV = {Input.mUV + DiskOffsets[Index] * RadiusUV};
-        Output.mForeground += ForegroundLayer.SampleLevel(LinearClamp, UV, 0.0f);
-        Output.mBackground += BackgroundLayer.SampleLevel(LinearClamp, UV, 0.0f);
+    [loop]
+    for (int Y = -RowExtent; Y <= RowExtent; ++Y) {
+        const float Top = {max(Y - 0.5f, -Radius)};
+        const float Bottom = {min(Y + 0.5f, ApertureBottom)};
+        const float RowCoverage = {Bottom - Top};
+
+        if (RowCoverage <= 0.0f) {
+            continue;
+        }
+
+        const float HalfWidth = {Radius * ApertureHalfWidth((Top + Bottom) * 0.5f / Radius, Settings.y)};
+        const int ColumnExtent = {(int)ceil(HalfWidth - 0.5f)};
+
+        [loop]
+        for (int X = -ColumnExtent; X <= ColumnExtent; X += ColumnStep) {
+            const float First = {ApertureSampleCoverage(X, HalfWidth)};
+            const float Second = {PairSamples ? ApertureSampleCoverage(X + 1, HalfWidth) : 0.0f};
+            const float Coverage = {First + Second};
+            const float Weight = {RowCoverage * Coverage};
+
+            // 한 텍셀 간격의 두 표본을 선형 필터로 묶어 같은 가중합을 한 번에 읽습니다.
+            const float SampleX = {X + Second / max(Coverage, 0.000001f)};
+            const float2 UV = {Input.mUV - float2(SampleX, Y) * SampleStepUV};
+            Output.mForeground += ForegroundLayer.SampleLevel(LinearClamp, UV, 0.0f) * Weight;
+            Output.mBackground += BackgroundLayer.SampleLevel(LinearClamp, UV, 0.0f) * Weight;
+            TotalCoverage += Weight;
+        }
     }
 
-    Output.mForeground /= 25.0f;
-    Output.mBackground /= 25.0f;
+    Output.mForeground /= TotalCoverage;
+    Output.mBackground /= TotalCoverage;
 
     return Output;
 }
