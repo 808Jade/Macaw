@@ -479,14 +479,15 @@ namespace Asset {
          * @param Archive 저장·로드 방향과 오류 상태를 제공하는 아카이브입니다.
          * @param Mesh 호출자가 수명을 보장하는 미리보기 메시입니다.
          * @param SkinWeights 정점별 본 인덱스·가중치 배열입니다.
+         * @param PhysicsAssetPath 메시가 참조하는 물리 에셋 경로입니다.
          * @param LegacyBones 구형 파일의 본 데이터를 받을 선택 출력 배열입니다.
          */
-        void SerializeSkeletalMesh(Serialization::FMemoryArchive& Archive, Asset::FMeshData& Mesh, Core::TArray<Asset::FMeshImportSkinWeight>& SkinWeights, Core::TArray<Asset::FMeshImportBone>* LegacyBones = nullptr) {
-            Uint32 Version{2};
+        void SerializeSkeletalMesh(Serialization::FMemoryArchive& Archive, Asset::FMeshData& Mesh, Core::TArray<Asset::FMeshImportSkinWeight>& SkinWeights, Core::FString& PhysicsAssetPath, Core::TArray<Asset::FMeshImportBone>* LegacyBones = nullptr) {
+            Uint32 Version{3};
 
             Archive.Serialize("SkeletalMeshVersion", Version);
 
-            if (Archive.HasError() || (Version != 2 && (Version != 1 || LegacyBones == nullptr))) {
+            if (Archive.HasError() || (Version != 3 && Version != 2 && (Version != 1 || LegacyBones == nullptr))) {
                 Archive.SetError("Unsupported skeletal mesh version");
 
                 return;
@@ -527,6 +528,11 @@ namespace Asset {
                 if (Archive.IsLoading() && !Archive.HasError()) {
                     SkinWeights.emplace_back(BoneIndices, Weights);
                 }
+            }
+
+            // 버전 3부터 메시가 참조하는 물리 에셋 경로를 함께 저장합니다.
+            if (Version >= 3) {
+                Archive.Serialize("PhysicsAsset", PhysicsAssetPath);
             }
         }
 
@@ -916,8 +922,9 @@ namespace Asset {
         Asset::FMeshData Data{};
         Core::TArray<Asset::FMeshImportBone> LegacyBones{};
         Core::TArray<Asset::FMeshImportSkinWeight> SkinWeights{};
+        Core::FString PhysicsAssetPath{};
 
-        SerializeSkeletalMesh(Archive, Data, SkinWeights, &LegacyBones);
+        SerializeSkeletalMesh(Archive, Data, SkinWeights, PhysicsAssetPath, &LegacyBones);
 
         auto Mesh{CoreUObject::NewObject<Asset::USkeletalMesh>()};
 
@@ -926,6 +933,8 @@ namespace Asset {
 
             return nullptr;
         }
+
+        Mesh->SetPhysicsAssetPath(std::move(PhysicsAssetPath));
 
         if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Mesh, Error)) {
             return nullptr;
@@ -1250,8 +1259,9 @@ namespace Asset {
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FMeshData Data{Mesh.GetMeshData()};
         Core::TArray<Asset::FMeshImportSkinWeight> SkinWeights{Mesh.GetSkinWeights()};
+        Core::FString PhysicsAssetPath{Mesh.GetPhysicsAssetPath()};
 
-        SerializeSkeletalMesh(Archive, Data, SkinWeights);
+        SerializeSkeletalMesh(Archive, Data, SkinWeights, PhysicsAssetPath);
 
         if (Archive.HasError()) {
             Error = Archive.GetError();

@@ -135,6 +135,51 @@ namespace PhysicsRuntime {
     }
 
     /**
+     * @brief 이미 만든 강체의 시뮬레이션 여부를 바꿉니다.
+     */
+    void FBodyInstance::SetInstanceSimulatePhysics(bool Simulate) {
+        mSimulatePhysics = Simulate;
+
+        physx::PxRigidDynamic* Dynamic{mActorHandle != nullptr ? mActorHandle->is<physx::PxRigidDynamic>() : nullptr};
+
+        if (Dynamic == nullptr) {
+            return;
+        }
+
+        Dynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, !Simulate);
+
+        // 키네마틱에서 풀려난 강체가 잠든 채로 멈춰 있지 않게 깨웁니다.
+        if (Simulate && Dynamic->getScene() != nullptr) {
+            Dynamic->wakeUp();
+        }
+    }
+
+    /**
+     * @brief 강체를 지정한 월드 변환으로 옮깁니다.
+     */
+    void FBodyInstance::SetBodyTransform(const FTransform& NewTransform) {
+        if (mActorHandle == nullptr) {
+            return;
+        }
+
+        const physx::PxTransform PNewPose{U2PTransform(NewTransform)};
+        physx::PxRigidDynamic* Dynamic{mActorHandle->is<physx::PxRigidDynamic>()};
+
+        if (Dynamic != nullptr && Dynamic->getScene() != nullptr && (Dynamic->getRigidBodyFlags() & physx::PxRigidBodyFlag::eKINEMATIC)) {
+            Dynamic->setKinematicTarget(PNewPose);
+        } else {
+            mActorHandle->setGlobalPose(PNewPose);
+        }
+    }
+
+    /**
+     * @brief 강체의 현재 월드 변환을 반환합니다.
+     */
+    FTransform FBodyInstance::GetUnrealWorldTransform() const {
+        return mActorHandle != nullptr ? P2UTransform(mActorHandle->getGlobalPose()) : FTransform{};
+    }
+
+    /**
      * @brief 강체 질량을 모양의 부피와 밀도로 계산해 설정합니다.
      */
     void FBodyInstance::UpdateMassProperties() {

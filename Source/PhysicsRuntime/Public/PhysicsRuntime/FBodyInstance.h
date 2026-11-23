@@ -95,6 +95,26 @@ namespace PhysicsRuntime {
          */
         IPhysicsBodyOwner* GetOwner() const;
 
+        /**
+         * @brief 이미 만든 강체의 시뮬레이션 여부를 바꿉니다.
+         * @param[in] Simulate true이면 물리로 움직이고, false이면 코드가 옮기는 키네마틱이 됩니다.
+         * @note 고정된 강체는 바꿀 수 없으므로 mSimulatePhysics만 기록합니다.
+         */
+        void SetInstanceSimulatePhysics(bool Simulate);
+
+        /**
+         * @brief 강체를 지정한 월드 변환으로 옮깁니다.
+         * @param[in] NewTransform 옮길 월드 변환이며 스케일은 무시합니다.
+         * @note 키네마틱 강체는 다음 스텝 동안 그 위치로 이동하고, 그 밖의 강체는 바로 순간 이동합니다.
+         */
+        void SetBodyTransform(const FTransform& NewTransform);
+
+        /**
+         * @brief 강체의 현재 월드 변환을 반환합니다.
+         * @return 위치와 회전이며 스케일은 1입니다. 강체가 없으면 기본 변환입니다.
+         */
+        FTransform GetUnrealWorldTransform() const;
+
     public:
         /**
          * @brief true이면 중력과 충돌로 움직이고, false이면 제자리에 고정됩니다.

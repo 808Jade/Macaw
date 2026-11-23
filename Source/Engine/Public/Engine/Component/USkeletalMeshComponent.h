@@ -126,22 +126,22 @@ namespace Engine {
 
         /**
          * @brief 뼈별 바디와 관절을 만들 물리 에셋을 반환합니다.
-         * @return 에셋 관리자가 소유하는 물리 에셋이며, 경로가 없거나 로드에 실패하면 nullptr입니다.
+         * @return 덮어쓰기 에셋, 메시의 에셋, 메시가 만든 에셋 순으로 찾은 물리 에셋이며, 없으면 nullptr입니다.
          */
         PhysicsRuntime::UPhysicsAsset* GetPhysicsAsset() const;
 
         /**
-         * @brief 물리 에셋 경로를 반환합니다.
-         * @return Content 상대 경로입니다.
+         * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로를 반환합니다.
+         * @return Content 상대 경로이며, 메시의 것을 쓰면 빈 문자열입니다.
          */
-        const Core::FString& GetPhysicsAssetPath() const;
+        const Core::FString& GetPhysicsAssetOverride() const;
 
         /**
-         * @brief 물리 에셋 경로를 설정하고 뼈별 바디를 다시 만듭니다.
-         * @param[in] Path Content 상대 경로이며, 비우면 바디를 만들지 않습니다.
+         * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로를 설정하고 뼈별 바디를 다시 만듭니다.
+         * @param[in] Path Content 상대 경로이며, 비우면 메시의 물리 에셋을 씁니다.
          * @return 경로가 올바르고 에셋을 불러왔으면 true입니다.
          */
-        bool SetPhysicsAssetPath(const Core::FString& Path);
+        bool SetPhysicsAssetOverride(const Core::FString& Path);
 
         /**
          * @brief 뼈 이름으로 뼈 번호를 찾습니다.
@@ -157,6 +157,19 @@ namespace Engine {
          * @return 포즈가 준비되어 변환을 구했으면 true입니다.
          */
         bool GetBoneWorldTransform(Index_t BoneIndex, FTransform& OutTransform) const;
+
+        /**
+         * @brief 컴포넌트와 모든 뼈별 바디의 시뮬레이션 여부를 바꿉니다.
+         * @param[in] Simulate true이면 뼈별 바디가 물리로 움직이고, false이면 애니메이션을 따라갑니다.
+         * @return 항상 true입니다.
+         */
+        bool SetSimulatePhysics(bool Simulate) override;
+
+        /**
+         * @brief 모든 뼈별 바디의 시뮬레이션 여부를 바꿉니다.
+         * @param[in] Simulate true이면 물리로 움직이고, false이면 키네마틱으로 애니메이션을 따라갑니다.
+         */
+        void SetAllBodiesSimulatePhysics(bool Simulate);
 
         /**
          * @brief 현재 본 포즈를 반환합니다.
@@ -408,6 +421,17 @@ namespace Engine {
         void TermArticulated();
 
         /**
+         * @brief 키네마틱 바디를 현재 애니메이션 포즈의 뼈 위치로 옮깁니다.
+         */
+        void UpdateKinematicBonesToAnim();
+
+        /**
+         * @brief 시뮬레이션한 바디 위치를 읽어 뼈 포즈에 씁니다.
+         * @note 바디가 없는 뼈는 부모 뼈 기준 위치를 그대로 유지합니다.
+         */
+        void BlendInPhysics();
+
+        /**
          * @brief 메시 경로를 에셋 관리자에서 해석합니다.
          * @param Path Content 상대 경로입니다.
          * @return 로드 실패 시 nullptr입니다.
@@ -420,6 +444,13 @@ namespace Engine {
          * @return 관리자가 소유하는 스켈레톤이며 실패하면 nullptr입니다.
          */
         Asset::USkeleton* LoadSkeleton(const Core::FString& Path) const;
+
+        /**
+         * @brief 월드의 에셋 관리자를 통해 물리 에셋을 로드합니다.
+         * @param[in] Path Content 상대 경로입니다.
+         * @return 관리자가 소유하는 물리 에셋이며 실패하면 nullptr입니다.
+         */
+        PhysicsRuntime::UPhysicsAsset* LoadPhysicsAsset(const Core::FString& Path) const;
 
         /**
          * @brief 월드의 에셋 관리자를 통해 시퀀스를 로드합니다.
@@ -460,10 +491,10 @@ namespace Engine {
         Core::FString mSkeletonPath{};
 
         /**
-         * @brief 뼈별 충돌 모양과 관절을 담은 물리 에셋 경로입니다.
+         * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "PhysicsAsset", Getter = GetPhysicsAssetPath, Setter = SetPhysicsAssetPath)
-        Core::FString mPhysicsAssetPath{};
+        UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
+        Core::FString mPhysicsAssetOverride{};
 
         /**
          * @brief 애니메이션 그래프를 만드는 UAnimInstance 파생 클래스 이름입니다. 비어 있으면 Animation을 단일 노드로 재생합니다.

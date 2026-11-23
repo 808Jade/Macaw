@@ -223,7 +223,7 @@ namespace Engine {
          * @return 항상 true입니다.
          * @note 바디가 이미 있으면 새 설정으로 다시 만듭니다.
          */
-        bool SetSimulatePhysics(bool Simulate);
+        virtual bool SetSimulatePhysics(bool Simulate);
 
         /**
          * @brief 시뮬레이션으로 바뀐 위치와 회전을 컴포넌트에 적용합니다.

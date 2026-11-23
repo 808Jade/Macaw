@@ -254,50 +254,46 @@ namespace Engine {
      * @brief 뼈별 바디와 관절을 만들 물리 에셋을 반환합니다.
      */
     PhysicsRuntime::UPhysicsAsset* USkeletalMeshComponent::GetPhysicsAsset() const {
-        Asset::FAssetManager* Assets{GetWorld() != nullptr ? GetWorld()->GetAssets() : nullptr};
+        if (!mPhysicsAssetOverride.empty()) {
+            return LoadPhysicsAsset(mPhysicsAssetOverride);
+        }
 
-        if (Assets == nullptr || mPhysicsAssetPath.empty()) {
+        if (mSkeletalMesh == nullptr) {
             return nullptr;
         }
 
-        Core::FString Error{};
-        PhysicsRuntime::UPhysicsAsset* PhysicsAsset{Assets->LoadPhysicsAsset(Core::FilePath::FromUtf8(mPhysicsAssetPath), Error)};
-
-        if (PhysicsAsset == nullptr) {
-            Core::ErrorHandler::Report("PhysicsAsset", "Cannot load physics asset '" + mPhysicsAssetPath + "': " + Error, Core::ErrorHandler::EErrorLevel::Warning);
+        if (!mSkeletalMesh->GetPhysicsAssetPath().empty()) {
+            return LoadPhysicsAsset(mSkeletalMesh->GetPhysicsAssetPath());
         }
 
-        return PhysicsAsset;
+        // 지정된 물리 에셋이 없으면 메시가 뼈와 정점으로 만든 것을 임시로 씁니다.
+        return mSkeleton != nullptr ? mSkeletalMesh->GetGeneratedPhysicsAsset(*mSkeleton) : nullptr;
     }
 
     /**
-     * @brief 물리 에셋 경로를 반환합니다.
+     * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로를 반환합니다.
      */
-    const Core::FString& USkeletalMeshComponent::GetPhysicsAssetPath() const {
-        return mPhysicsAssetPath;
+    const Core::FString& USkeletalMeshComponent::GetPhysicsAssetOverride() const {
+        return mPhysicsAssetOverride;
     }
 
     /**
-     * @brief 물리 에셋 경로를 설정하고 뼈별 바디를 다시 만듭니다.
+     * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로를 설정하고 뼈별 바디를 다시 만듭니다.
      */
-    bool USkeletalMeshComponent::SetPhysicsAssetPath(const Core::FString& Path) {
+    bool USkeletalMeshComponent::SetPhysicsAssetOverride(const Core::FString& Path) {
         if (!IsAssetPath(Path)) {
             return false;
         }
 
-        if (mPhysicsAssetPath == Path) {
+        if (mPhysicsAssetOverride == Path) {
             return true;
         }
 
-        const Core::FString PreviousPath{mPhysicsAssetPath};
-        mPhysicsAssetPath = Path;
-
-        if (!Path.empty() && GetWorld() != nullptr && GetWorld()->GetAssets() != nullptr && GetPhysicsAsset() == nullptr) {
-            mPhysicsAssetPath = PreviousPath;
-
+        if (!Path.empty() && GetWorld() != nullptr && GetWorld()->GetAssets() != nullptr && LoadPhysicsAsset(Path) == nullptr) {
             return false;
         }
 
+        mPhysicsAssetOverride = Path;
         RecreatePhysicsState();
 
         return true;
@@ -424,6 +420,104 @@ namespace Engine {
                 mConstraints[ConstraintIndex] = std::move(Constraint);
             }
         }
+
+        // 관절까지 이은 뒤 컴포넌트 설정대로 시뮬레이션을 켭니다.
+        SetAllBodiesSimulatePhysics(IsSimulatingPhysics());
+    }
+
+    /**
+     * @brief 컴포넌트와 모든 뼈별 바디의 시뮬레이션 여부를 바꿉니다.
+     */
+    bool USkeletalMeshComponent::SetSimulatePhysics(bool Simulate) {
+        Engine::UMeshComponent::SetSimulatePhysics(Simulate);
+        SetAllBodiesSimulatePhysics(Simulate);
+
+        return true;
+    }
+
+    /**
+     * @brief 모든 뼈별 바디의 시뮬레이션 여부를 바꿉니다.
+     */
+    void USkeletalMeshComponent::SetAllBodiesSimulatePhysics(bool Simulate) {
+        for (const auto& Body : mBodies) {
+            if (Body != nullptr) {
+                Body->SetInstanceSimulatePhysics(Simulate);
+            }
+        }
+    }
+
+    /**
+     * @brief 키네마틱 바디를 현재 애니메이션 포즈의 뼈 위치로 옮깁니다.
+     */
+    void USkeletalMeshComponent::UpdateKinematicBonesToAnim() {
+        for (const auto& Body : mBodies) {
+            FTransform BoneTransform{};
+
+            if (Body != nullptr && !Body->mSimulatePhysics && GetBoneWorldTransform(Body->mInstanceBoneIndex, BoneTransform)) {
+                Body->SetBodyTransform(BoneTransform);
+            }
+        }
+    }
+
+    /**
+     * @brief 시뮬레이션한 바디 위치를 읽어 뼈 포즈에 씁니다.
+     */
+    void USkeletalMeshComponent::BlendInPhysics() {
+        if (mSkeletalMesh == nullptr || mSkeleton == nullptr) {
+            return;
+        }
+
+        const Core::TArray<Asset::FMeshImportBone>& Bones{mSkeleton->GetBones()};
+        const Core::TArray<FMatrix>& OldGlobals{mPose.GetGlobalTransforms()};
+        Core::TArray<FMatrix> Locals{mPose.GetLocalTransforms()};
+        const FMatrix ComponentToWorld{GetTransform().ToMatrix()};
+        FMatrix WorldToComponent{};
+
+        if (Locals.size() != Bones.size() || OldGlobals.size() != Bones.size() || !ComponentToWorld.TryInverse(WorldToComponent)) {
+            return;
+        }
+
+        // 뼈마다 시뮬레이션 중인 바디를 찾아 둡니다.
+        Core::TArray<const PhysicsRuntime::FBodyInstance*> BoneToBody(Bones.size(), nullptr);
+
+        for (const auto& Body : mBodies) {
+            if (Body != nullptr && Body->mSimulatePhysics && Body->IsValidBodyInstance() && Body->mInstanceBoneIndex < Bones.size()) {
+                BoneToBody[Body->mInstanceBoneIndex] = Body.get();
+            }
+        }
+
+        // 부모부터 내려가며 바디가 있는 뼈는 바디 위치로, 없는 뼈는 부모를 따라가게 합니다.
+        Core::TArray<FMatrix> NewGlobals(Bones.size(), FMatrix::Identity());
+
+        for (Index_t BoneIndex{}; BoneIndex < Bones.size(); ++BoneIndex) {
+            const Int32 ParentIndex{Bones[BoneIndex].GetParentIndex()};
+            const FMatrix ParentGlobal{ParentIndex >= 0 ? NewGlobals[ParentIndex] : FMatrix::Identity()};
+
+            if (BoneToBody[BoneIndex] == nullptr) {
+                NewGlobals[BoneIndex] = Locals[BoneIndex] * ParentGlobal;
+                continue;
+            }
+
+            // 바디에는 스케일이 없으므로 뼈의 기존 월드 스케일을 그대로 씁니다.
+            FTransform OldWorld{};
+            (OldGlobals[BoneIndex] * ComponentToWorld).TryGetTransform(OldWorld);
+
+            const FTransform BodyWorld{BoneToBody[BoneIndex]->GetUnrealWorldTransform()};
+            const FTransform NewWorld{BodyWorld.mLocation, BodyWorld.mRotation, OldWorld.mScale};
+            FMatrix ParentInverse{};
+
+            NewGlobals[BoneIndex] = NewWorld.ToMatrix() * WorldToComponent;
+
+            if (ParentIndex < 0) {
+                Locals[BoneIndex] = NewGlobals[BoneIndex];
+            } else if (ParentGlobal.TryInverse(ParentInverse)) {
+                Locals[BoneIndex] = NewGlobals[BoneIndex] * ParentInverse;
+            }
+        }
+
+        if (mPose.SetAnimatedLocalTransforms(*mSkeletalMesh, *mSkeleton, std::move(Locals))) {
+            MarkRenderStateDirty();
+        }
     }
 
     /**
@@ -524,8 +618,16 @@ namespace Engine {
         Engine::UMeshComponent::Tick(DeltaTime);
 
         // 에디터 월드는 BeginPlay를 받지 않으므로 애니메이션은 PIE와 게임에서만 진행됩니다.
-        if (HasBegunPlay()) {
+        if (!HasBegunPlay()) {
+            return;
+        }
+
+        // 시뮬레이션 중이면 물리 결과가 포즈를 정하고, 아니면 애니메이션 포즈를 바디가 따라갑니다.
+        if (IsSimulatingPhysics() && !mBodies.empty()) {
+            BlendInPhysics();
+        } else {
             TickAnimation(DeltaTime);
+            UpdateKinematicBonesToAnim();
         }
     }
 
@@ -851,6 +953,26 @@ namespace Engine {
         }
 
         return Skeleton;
+    }
+
+    /**
+     * @brief 월드의 에셋 관리자를 통해 물리 에셋을 로드합니다.
+     */
+    PhysicsRuntime::UPhysicsAsset* USkeletalMeshComponent::LoadPhysicsAsset(const Core::FString& Path) const {
+        Asset::FAssetManager* Assets{GetWorld() != nullptr ? GetWorld()->GetAssets() : nullptr};
+
+        if (Assets == nullptr || Path.empty()) {
+            return nullptr;
+        }
+
+        Core::FString Error{};
+        PhysicsRuntime::UPhysicsAsset* PhysicsAsset{Assets->LoadPhysicsAsset(Core::FilePath::FromUtf8(Path), Error)};
+
+        if (PhysicsAsset == nullptr) {
+            Core::ErrorHandler::Report("PhysicsAsset", "Cannot load physics asset '" + Path + "': " + Error, Core::ErrorHandler::EErrorLevel::Warning);
+        }
+
+        return PhysicsAsset;
     }
 
     Asset::UAnimSequence* USkeletalMeshComponent::LoadAnimation(const Core::FString& Path) const {
