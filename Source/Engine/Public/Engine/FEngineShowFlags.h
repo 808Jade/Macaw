@@ -71,6 +71,11 @@ namespace Engine {
         bool mBounds{};
 
         /**
+         * @brief 물리 바디의 충돌 형상 표시 여부입니다.
+         */
+        bool mCollision{};
+
+        /**
          * @brief 월드 그리드 표시 여부입니다.
          */
         bool mGrid{true};

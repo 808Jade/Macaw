@@ -20,6 +20,11 @@ namespace Asset {
     class FAssetManager;
 }
 
+namespace PhysicsRuntime {
+    class FPhysicsRuntime;
+    class FPhysicsScene;
+}
+
 struct FRay;
 struct FVector;
 
@@ -274,6 +279,46 @@ namespace Engine {
         Asset::FAssetManager* GetAssets() const;
 
         /**
+         * @brief 물리 장면 생성에 사용할 PhysX 런타임의 비소유 주소를 설정합니다.
+         * @param[in] Runtime 월드보다 오래 유지되는 런타임의 비소유 주소이며, nullptr이면 물리를 사용하지 않습니다.
+         * @note 런타임을 바꾸면 기존 물리 장면을 먼저 해제합니다.
+         */
+        void SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime);
+
+        /**
+         * @brief 물리 장면 생성에 사용할 PhysX 런타임을 반환합니다.
+         * @return 대상의 비소유 주소이며, 설정되지 않았으면 nullptr입니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime* GetPhysicsRuntime() const;
+
+        /**
+         * @brief 월드가 소유한 물리 장면을 반환합니다.
+         * @return 조회한 값의 비소유 주소이며, 장면이 없으면 nullptr입니다.
+         */
+        PhysicsRuntime::FPhysicsScene* GetPhysicsScene() const;
+
+        /**
+         * @brief 설정된 런타임으로 물리 장면을 만들고 이미 등록된 컴포넌트의 물리 상태를 만듭니다.
+         * @return 이미 장면이 있거나 생성에 성공하면 true, 런타임이 없거나 생성에 실패하면 false입니다.
+         * @note Game·PIE 월드는 BeginPlay에서 호출합니다. BeginPlay를 거치지 않는 미리보기 월드도 직접 호출할 수 있습니다.
+         */
+        bool CreatePhysicsScene();
+
+        /**
+         * @brief 컴포넌트의 물리 상태를 먼저 해제한 뒤 물리 장면을 해제합니다.
+         * @note Game·PIE 월드는 EndPlay와 Shutdown에서 호출하며, 장면이 없으면 아무 작업도 하지 않습니다.
+         */
+        void DestroyPhysicsScene();
+
+        /**
+         * @brief 프레임 시간을 고정 스텝으로 나누어 물리 장면을 진행합니다.
+         * @param[in] DeltaTime 이번 프레임에 경과한 시간(초)입니다.
+         * @note 한 프레임의 스텝 수를 제한하며, 제한을 넘는 시간은 버려 느린 프레임이 누적되지 않게 합니다.
+         *       스텝마다 움직인 바디의 자세를 컴포넌트에 반영하고 새 접촉을 충돌 이벤트로 전달합니다.
+         */
+        void StepPhysics(float DeltaTime);
+
+        /**
          * @brief 지정한 액터 클래스의 기본 컴포넌트를 생성하고 영속 레벨에 추가합니다.
          * @param[in] Class 팩터리를 제공하는 AActor 파생 클래스 메타데이터입니다.
          * @return 생성 후 살아 있는 액터의 비소유 주소이며 실패하거나 시작 콜백에서 삭제되면 nullptr입니다.
@@ -389,6 +434,18 @@ namespace Engine {
         void UpdateOverlaps();
 
         /**
+         * @brief 영속 레벨의 모든 액터 컴포넌트에 물리 상태 생성 또는 해제를 요청합니다.
+         * @param[in] Create 만들면 true, 해제하면 false입니다.
+         */
+        void UpdateComponentPhysicsStates(bool Create);
+
+        /**
+         * @brief 마지막 물리 스텝에서 움직인 바디를 컴포넌트에 반영하고 새 접촉을 충돌 이벤트로 전달합니다.
+         * @note 이벤트 처리 중 바디가 다시 만들어질 수 있으므로 PhysX 주소를 먼저 컴포넌트 핸들로 바꾼 뒤 전달합니다.
+         */
+        void DispatchPhysicsResults();
+
+        /**
          * @brief 가장 바깥 전달 범위 이후 종료 요청과 액터 삭제 및 월드 종료를 처리합니다.
          */
         void FlushPendingActors();
@@ -489,6 +546,22 @@ namespace Engine {
          * @brief 월드가 소유한 렌더 장면입니다.
          */
         std::unique_ptr<Engine::FSceneInterface> mScene{};
+
+        /**
+         * @brief 물리 장면 생성에 빌려 쓰는 PhysX 런타임입니다.
+         * @note 엔진이 월드 컨텍스트를 모두 정리한 뒤 런타임을 종료하므로 월드 수명 동안 유효합니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime* mPhysicsRuntime{};
+
+        /**
+         * @brief 월드가 소유한 물리 장면입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::FPhysicsScene> mPhysicsScene{};
+
+        /**
+         * @brief 아직 고정 스텝으로 진행하지 않은 물리 시간(초)입니다.
+         */
+        float mPhysicsTimeAccumulator{};
 
         /**
          * @brief 프레임 말 갱신을 기다리는 컴포넌트 핸들입니다.

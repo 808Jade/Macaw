@@ -27,6 +27,11 @@ namespace RenderCore {
     class UShader;
 }
 
+namespace PhysicsRuntime {
+    class FPhysicsRuntime;
+    class UPhysicsAsset;
+}
+
 namespace Asset {
 
     class UStaticMesh;
@@ -86,6 +91,13 @@ namespace Asset {
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
         const std::filesystem::path& GetContentRoot() const;
+
+        /**
+         * @brief 메시를 임포트할 때 볼록 충돌 형상을 계산할 PhysX 런타임을 설정합니다.
+         * @param[in] Runtime 엔진이 소유한 런타임의 비소유 주소이며, nullptr이면 볼록 형상을 만들지 않고 경계 상자를 사용합니다.
+         * @note 런타임은 이 관리자가 임포트하는 동안 유지되어야 하며, 엔진은 런타임을 종료하기 전에 nullptr로 되돌립니다.
+         */
+        void SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime);
 
         /**
          * @brief 이 관리자가 보유한 메시의 경로를 조회합니다.
@@ -177,6 +189,14 @@ namespace Asset {
          * @return 캐시 소유의 비소유 포인터이며 없으면 nullptr입니다.
          */
         Asset::USkeleton* FindLegacySkeleton(const std::filesystem::path& MeshPath) const;
+
+        /**
+         * @brief 물리 에셋을 캐시에서 찾거나 파일에서 읽어 캐시에 보관합니다.
+         * @param Path 처리할 에셋 또는 파일 경로입니다.
+         * @param Error 실패 원인을 기록할 출력 문자열입니다.
+         * @return 관리자가 소유하는 물리 에셋이며 실패하면 nullptr입니다.
+         */
+        PhysicsRuntime::UPhysicsAsset* LoadPhysicsAsset(const std::filesystem::path& Path, Core::FString& Error);
 
         /**
          * @brief 애니메이션 시퀀스 에셋을 캐시에서 조회하거나 파일에서 로드하여 보관합니다.
@@ -336,6 +356,15 @@ namespace Asset {
         bool SaveSkeleton(const std::filesystem::path& Path, const Asset::USkeleton& Skeleton, Core::FString& Error);
 
         /**
+         * @brief 물리 에셋의 바디 설계도와 관절 설정을 지정한 에셋 파일에 저장합니다.
+         * @param Path 처리할 에셋 또는 파일 경로입니다.
+         * @param PhysicsAsset 호출자가 수명을 보장하는 물리 에셋입니다.
+         * @param Error 실패 원인을 기록할 출력 문자열입니다.
+         * @return 저장에 성공하면 true이며 실패 원인은 Error에 기록합니다.
+         */
+        bool SavePhysicsAsset(const std::filesystem::path& Path, const PhysicsRuntime::UPhysicsAsset& PhysicsAsset, Core::FString& Error);
+
+        /**
          * @brief 애니메이션 시퀀스의 트랙과 시간 정보를 에셋 파일에 저장하고 같은 경로의 캐시 객체를 갱신합니다.
          * @param[in] Path 저장할 시퀀스 에셋의 경로입니다.
          * @param[in] Sequence 저장할 시퀀스입니다.
@@ -427,6 +456,11 @@ namespace Asset {
         std::filesystem::path mContentRoot{};
 
         /**
+         * @brief 메시 임포트 때 볼록 충돌 형상을 계산하는 PhysX 런타임이며, 엔진이 주입하지 않으면 nullptr입니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime* mPhysicsRuntime{};
+
+        /**
          * @brief 정규화한 상대 경로별로 소유하는 메시 에셋 캐시입니다.
          */
         Core::TMap<Core::FString, std::unique_ptr<Asset::UStaticMesh>> mMeshes{};
@@ -445,6 +479,11 @@ namespace Asset {
          * @brief 구형 스켈레탈 메시에서 분리한 스켈레톤의 소유 캐시입니다.
          */
         Core::TMap<Core::FString, std::unique_ptr<Asset::USkeleton>> mLegacySkeletons{};
+
+        /**
+         * @brief 경로별로 로드한 물리 에셋의 소유 캐시입니다.
+         */
+        Core::TMap<Core::FString, std::unique_ptr<PhysicsRuntime::UPhysicsAsset>> mPhysicsAssets{};
 
         /**
          * @brief 프로젝트 상대 경로별로 소유하는 애니메이션 시퀀스 캐시입니다.

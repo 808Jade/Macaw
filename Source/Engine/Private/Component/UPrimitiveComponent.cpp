@@ -1,11 +1,12 @@
 /**
  * @file UPrimitiveComponent.cpp
- * @brief 장면 프록시 생성과 지연된 렌더 상태 및 변환 갱신을 제공하는 기반 클래스입니다.
+ * @brief 렌더링과 충돌에 쓰이는 기하 형태를 가진 컴포넌트의 기반 클래스입니다.
  * @ingroup Engine
  */
 
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Asset/UStaticMesh.h"
+#include "Engine/AActor.h"
 #include "Engine/Component/UActorComponent.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/UWorld.h"
@@ -16,8 +17,16 @@
 #include "Engine/FSceneInterface.h"
 #include "Engine/PrimitiveMesh.h"
 #include "CoreUObject/FObjectRegistry.h"
+#include "Engine/FPrimitiveDrawInterface.h"
+#include "PhysicsRuntime/UBodySetup.h"
+#include "Core/Math/FQuat.h"
+#include "Core/Literals.h"
 
+#include <algorithm>
 #include <cmath>
+#include <utility>
+
+using namespace Core::Literals;
 
 namespace Engine {
 
@@ -77,6 +86,15 @@ namespace Engine {
         }
 
         MarkRenderTransformDirty();
+
+        // 시뮬레이션 결과를 반영하는 중이 아니면 바디를 새 트랜스폼으로 옮깁니다. 스케일은 형상 크기에 반영되어 있으므로 바뀌면 다시 만듭니다.
+        if (!mSyncingFromPhysics && mBodyInstance.IsValidBodyInstance()) {
+            if (Transform.mScale.Equals(mBodyInstance.GetBodyScale())) {
+                mBodyInstance.SetBodyTransform(Transform);
+            } else {
+                RecreatePhysicsState();
+            }
+        }
 
         return true;
     }
@@ -288,6 +306,299 @@ namespace Engine {
         MarkRenderStateDirty();
 
         return true;
+    }
+
+    /**
+     * @brief 컴포넌트 겹침 시작 이벤트를 반환합니다.
+     */
+    Engine::UPrimitiveComponent::FOverlapDelegate& Engine::UPrimitiveComponent::GetOnComponentBeginOverlap() {
+        return mOnComponentBeginOverlap;
+    }
+
+    /**
+     * @brief 컴포넌트 겹침 종료 이벤트를 반환합니다.
+     */
+    Engine::UPrimitiveComponent::FOverlapDelegate& Engine::UPrimitiveComponent::GetOnComponentEndOverlap() {
+        return mOnComponentEndOverlap;
+    }
+
+    /**
+     * @brief 컴포넌트 충돌 이벤트를 반환합니다.
+     */
+    Engine::UPrimitiveComponent::FHitDelegate& Engine::UPrimitiveComponent::GetOnComponentHit() {
+        return mOnComponentHit;
+    }
+
+    /**
+     * @brief 다른 컴포넌트의 이동을 막는지 반환합니다.
+     */
+    bool Engine::UPrimitiveComponent::BlocksMovement() const {
+        return mBlocksMovement;
+    }
+
+    /**
+     * @brief 다른 컴포넌트의 이동을 막을지 설정합니다.
+     */
+    void Engine::UPrimitiveComponent::SetBlocksMovement(bool Blocks) {
+        mBlocksMovement = Blocks;
+    }
+
+    /**
+     * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
+     */
+    void Engine::UPrimitiveComponent::OnBeginOverlap(Engine::UPrimitiveComponent* Other) {
+        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
+        mOnComponentBeginOverlap.Broadcast(this, OtherActor, Other);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::BeginOverlap, this, OtherActor, Other, nullptr);
+        }
+    }
+
+    /**
+     * @brief 겹침 종료 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
+     */
+    void Engine::UPrimitiveComponent::OnEndOverlap(Engine::UPrimitiveComponent* Other) {
+        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
+        mOnComponentEndOverlap.Broadcast(this, OtherActor, Other);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::EndOverlap, this, OtherActor, Other, nullptr);
+        }
+    }
+
+    /**
+     * @brief 적중 액터·컴포넌트와 충돌 정보를 델리게이트와 소유 액터의 충돌 이벤트로 전달합니다.
+     */
+    void Engine::UPrimitiveComponent::OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit) {
+        mOnComponentHit.Broadcast(this, OtherActor, OtherComp, Hit);
+        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
+            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::Hit, this, OtherActor, OtherComp, &Hit);
+        }
+    }
+
+    /**
+     * @brief 바디를 만들 충돌 형상이 있으면 물리 상태가 필요하다고 반환합니다.
+     */
+    bool Engine::UPrimitiveComponent::ShouldCreatePhysicsState() const {
+        return GetBodySetup() != nullptr;
+    }
+
+    /**
+     * @brief 물리 바디를 만들 때 사용할 충돌 형상을 반환하는 확장 지점입니다.
+     */
+    const PhysicsRuntime::UBodySetup* Engine::UPrimitiveComponent::GetBodySetup() const {
+        return nullptr;
+    }
+
+    /**
+     * @brief 물리 시뮬레이션 설정과 실제 바디를 가진 바디 인스턴스를 반환합니다.
+     */
+    const PhysicsRuntime::FBodyInstance& Engine::UPrimitiveComponent::GetBodyInstance() const {
+        return mBodyInstance;
+    }
+
+    /**
+     * @brief 바디 인스턴스 설정을 바꾸고 물리 상태를 다시 만듭니다.
+     */
+    bool Engine::UPrimitiveComponent::SetBodyInstance(const PhysicsRuntime::FBodyInstance& BodyInstance) {
+        // 대입은 실제 바디를 해제하므로 물리 상태 표시와 어긋나지 않도록 상태를 먼저 해제하고 다시 만듭니다.
+        DestroyPhysicsState();
+        mBodyInstance = BodyInstance;
+        CreatePhysicsState();
+
+        return true;
+    }
+
+    /**
+     * @brief 실제 바디가 동적 강체로 시뮬레이션되고 있는지 반환합니다.
+     */
+    bool Engine::UPrimitiveComponent::IsSimulatingPhysics() const {
+        return mBodyInstance.IsDynamic();
+    }
+
+    /**
+     * @brief 물리 시뮬레이션 여부를 바꾸고 물리 상태를 다시 만듭니다.
+     */
+    void Engine::UPrimitiveComponent::SetSimulatePhysics(bool Simulate) {
+        if (mBodyInstance.ShouldSimulatePhysics() == Simulate) {
+            return;
+        }
+
+        mBodyInstance.SetSimulatePhysics(Simulate);
+        RecreatePhysicsState();
+    }
+
+    /**
+     * @brief 동적 강체의 질량 중심에 힘을 더합니다.
+     */
+    bool Engine::UPrimitiveComponent::AddForce(const FVector& Force, bool AccelChange) {
+        return mBodyInstance.AddForce(Force, AccelChange);
+    }
+
+    /**
+     * @brief 동적 강체의 질량 중심에 충격량을 더합니다.
+     */
+    bool Engine::UPrimitiveComponent::AddImpulse(const FVector& Impulse, bool VelocityChange) {
+        return mBodyInstance.AddImpulse(Impulse, VelocityChange);
+    }
+
+    /**
+     * @brief 동적 강체의 선속도를 반환합니다.
+     */
+    FVector Engine::UPrimitiveComponent::GetPhysicsLinearVelocity() const {
+        return mBodyInstance.GetLinearVelocity();
+    }
+
+    /**
+     * @brief 동적 강체의 선속도를 설정합니다.
+     */
+    bool Engine::UPrimitiveComponent::SetPhysicsLinearVelocity(const FVector& Velocity) {
+        return mBodyInstance.SetLinearVelocity(Velocity);
+    }
+
+    /**
+     * @brief 동적 강체의 각속도를 반환합니다.
+     */
+    FVector Engine::UPrimitiveComponent::GetPhysicsAngularVelocity() const {
+        return mBodyInstance.GetAngularVelocity();
+    }
+
+    /**
+     * @brief 동적 강체의 각속도를 설정합니다.
+     */
+    bool Engine::UPrimitiveComponent::SetPhysicsAngularVelocity(const FVector& Velocity) {
+        return mBodyInstance.SetAngularVelocity(Velocity);
+    }
+
+    /**
+     * @brief 시뮬레이션한 동적 강체의 자세를 컴포넌트 트랜스폼에 반영합니다.
+     */
+    void Engine::UPrimitiveComponent::SyncComponentToBody() {
+        if (!mBodyInstance.IsDynamic()) {
+            return;
+        }
+
+        const FTransform Transform{mBodyInstance.GetBodyTransform()};
+        Engine::AActor* Owner{GetOwner()};
+
+        mSyncingFromPhysics = true;
+
+        if (Owner != nullptr && Owner->GetRootComponent() == this) {
+            Owner->SetActorTransform(Transform);
+        } else {
+            SetTransform(Transform);
+        }
+
+        mSyncingFromPhysics = false;
+    }
+
+    /**
+     * @brief 바디 셋업의 충돌 형상을 현재 트랜스폼에 맞춰 선분으로 수집합니다.
+     */
+    void Engine::UPrimitiveComponent::DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight, float Thickness) const {
+        const PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
+
+        if (Setup == nullptr) {
+            return;
+        }
+
+        const FVector Color{Highlight ? FVector{1.0f, 0.65f, 0.15f} : mBodyInstance.ShouldSimulatePhysics() ? FVector{0.35f, 1.0f, 0.35f} : FVector{0.35f, 0.6f, 1.0f}};
+        const FTransform& Transform{GetTransform()};
+        const PhysicsRuntime::FKAggregateGeom& Geometry{Setup->GetAggGeom()};
+
+        // 형상 중심은 스케일을 반영한 바디 로컬 위치이고, 바디 자세는 컴포넌트의 위치·회전과 같습니다.
+        const auto ToWorld{[&Transform](const FVector& Local) {
+            return Transform.mLocation + Transform.mRotation.RotateVector(Local);
+        }};
+
+        for (const PhysicsRuntime::FKSphereElem& Element : Geometry.mSphereElems) {
+            const PhysicsRuntime::FKSphereElem Scaled{Element.GetScaled(Transform.mScale)};
+            const FVector Center{ToWorld(Scaled.mCenter)};
+            const FVector Forward{Transform.mRotation.ForwardVector()};
+            const FVector Right{Transform.mRotation.RightVector()};
+            const FVector Up{Transform.mRotation.UpVector()};
+
+            DrawInterface.DrawArc(Center, Forward, Right, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Center, Forward, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Center, Right, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
+        }
+
+        for (const PhysicsRuntime::FKBoxElem& Element : Geometry.mBoxElems) {
+            const PhysicsRuntime::FKBoxElem Scaled{Element.GetScaled(Transform.mScale)};
+
+            DrawInterface.DrawOrientedBox(ToWorld(Scaled.mCenter), Transform.mRotation * Scaled.mRotation.Quaternion(), Scaled.mHalfExtent, Color, true, Thickness);
+        }
+
+        for (const PhysicsRuntime::FKSphylElem& Element : Geometry.mSphylElems) {
+            const PhysicsRuntime::FKSphylElem Scaled{Element.GetScaled(Transform.mScale)};
+            const FQuat Rotation{Transform.mRotation * Scaled.mRotation.Quaternion()};
+            const FVector Center{ToWorld(Scaled.mCenter)};
+            const FVector Forward{Rotation.ForwardVector()};
+            const FVector Right{Rotation.RightVector()};
+            const FVector Up{Rotation.UpVector()};
+            const float Radius{Scaled.mRadius};
+
+            // 캡슐 축은 형상 로컬 Z이며 길이는 양 끝 반구 중심 사이의 거리입니다.
+            const FVector Bottom{Center - Up * (Scaled.mLength * 0.5f)};
+            const FVector Top{Center + Up * (Scaled.mLength * 0.5f)};
+
+            DrawInterface.DrawArc(Bottom, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Top, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawLine(Bottom + Forward * Radius, Top + Forward * Radius, Color, true, Thickness);
+            DrawInterface.DrawLine(Bottom - Forward * Radius, Top - Forward * Radius, Color, true, Thickness);
+            DrawInterface.DrawLine(Bottom + Right * Radius, Top + Right * Radius, Color, true, Thickness);
+            DrawInterface.DrawLine(Bottom - Right * Radius, Top - Right * Radius, Color, true, Thickness);
+            DrawInterface.DrawArc(Top, Forward, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Top, Right, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Bottom, Forward, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Bottom, Right, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+        }
+
+        for (const PhysicsRuntime::FKConvexElem& Element : Geometry.mConvexElems) {
+            const PhysicsRuntime::FKConvexElem Scaled{Element.GetScaled(Transform.mScale)};
+
+            if (!Scaled.IsValid()) {
+                continue;
+            }
+
+            // 이웃한 삼각형이 공유하는 모서리는 한 번만 그립니다.
+            Core::TArray<std::pair<Uint32, Uint32>> Edges{};
+            Edges.reserve(Scaled.mIndices.size());
+
+            for (Index_t Triangle{}; Triangle + 2 < Scaled.mIndices.size(); Triangle += 3) {
+                for (Index_t Corner{}; Corner < 3; ++Corner) {
+                    const Uint32 First{Scaled.mIndices[Triangle + Corner]};
+                    const Uint32 Second{Scaled.mIndices[Triangle + (Corner + 1) % 3]};
+
+                    Edges.emplace_back(std::min(First, Second), std::max(First, Second));
+                }
+            }
+
+            std::sort(Edges.begin(), Edges.end());
+            Edges.erase(std::unique(Edges.begin(), Edges.end()), Edges.end());
+
+            for (const auto& [First, Second] : Edges) {
+                DrawInterface.DrawLine(ToWorld(Scaled.mVertices[First]), ToWorld(Scaled.mVertices[Second]), Color, true, Thickness);
+            }
+        }
+    }
+
+    /**
+     * @brief 바디 셋업의 형상으로 월드 물리 장면에 바디를 만듭니다.
+     */
+    void Engine::UPrimitiveComponent::OnCreatePhysicsState() {
+        const PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
+        PhysicsRuntime::FPhysicsScene* Scene{GetWorld() != nullptr ? GetWorld()->GetPhysicsScene() : nullptr};
+
+        if (Setup != nullptr && Scene != nullptr) {
+            mBodyInstance.InitBody(*Setup, GetTransform(), this, *Scene);
+        }
+    }
+
+    /**
+     * @brief 바디를 물리 장면에서 해제합니다.
+     */
+    void Engine::UPrimitiveComponent::OnDestroyPhysicsState() {
+        mBodyInstance.TermBody();
     }
 
 }

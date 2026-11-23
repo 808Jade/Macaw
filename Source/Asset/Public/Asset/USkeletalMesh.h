@@ -11,11 +11,15 @@
 #include "Asset/UStaticMesh.h"
 #include "Asset/Import/FMeshImportSkinWeight.h"
 #include "CoreUObject/UObject.h"
+#include "PhysicsRuntime/UPhysicsAsset.h"
 #include "RenderCore/TVertexBuffer.h"
+
+#include <memory>
 
 #include "USkeletalMesh.generated.h"
 
 namespace Asset {
+    class USkeleton;
 
     /**
      * @brief 불변 바인드 형상과 가중치를 소유하며 현재 포즈는 각 컴포넌트가 관리합니다.
@@ -110,6 +114,13 @@ namespace Asset {
         const FBox& GetBounds() const;
 
         /**
+         * @brief 메시 전체를 하나의 바디로 다룰 때 사용할 충돌 형상을 반환합니다.
+         * @return 바인드 포즈 경계를 감싸는 바디 셋업의 비소유 주소이며, 메시 데이터가 없으면 nullptr입니다.
+         * @note 본마다 바디를 두는 피직스 에셋을 도입하기 전까지 사용하는 단일 바디 형상입니다.
+         */
+        const PhysicsRuntime::UBodySetup* GetBodySetup() const;
+
+        /**
          * @brief 정점 수를 반환합니다.
          * @return 바인드 형상의 정점 수입니다.
          */
@@ -126,6 +137,26 @@ namespace Asset {
          * @return 유효한 메시이면 true입니다.
          */
         bool IsValid() const;
+
+        /**
+         * @brief 이 메시가 참조하는 물리 에셋 경로를 반환합니다.
+         * @return Content 상대 경로이며, 지정하지 않았으면 빈 문자열입니다.
+         */
+        const Core::FString& GetPhysicsAssetPath() const;
+
+        /**
+         * @brief 이 메시가 참조할 물리 에셋 경로를 설정합니다.
+         * @param[in] Path Content 상대 경로입니다.
+         */
+        void SetPhysicsAssetPath(Core::FString Path);
+
+        /**
+         * @brief 물리 에셋이 지정되지 않았을 때 쓸 물리 에셋을 뼈와 정점으로 만들어 반환합니다.
+         * @param[in] Skeleton 이 메시가 사용하는 스켈레톤입니다.
+         * @return 메시가 소유하는 물리 에셋이며, 만들 수 없으면 nullptr입니다.
+         * @note 한 번 만들면 같은 스켈레톤에 대해 다시 사용합니다.
+         */
+        PhysicsRuntime::UPhysicsAsset* GetGeneratedPhysicsAsset(const Asset::USkeleton& Skeleton);
 
     private:
 
@@ -171,6 +202,21 @@ namespace Asset {
          * @brief BLENDINDICES와 BLENDWEIGHT 입력의 공유 불변 버퍼입니다.
          */
         FSkinWeightBuffer mSkinWeightBuffer{};
+
+        /**
+         * @brief 이 메시가 참조하는 물리 에셋 경로입니다.
+         */
+        Core::FString mPhysicsAssetPath{};
+
+        /**
+         * @brief 물리 에셋이 지정되지 않았을 때 만들어 둔 물리 에셋입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::UPhysicsAsset> mGeneratedPhysicsAsset{};
+
+        /**
+         * @brief 만들어 둔 물리 에셋의 기준이 된 스켈레톤입니다.
+         */
+        const Asset::USkeleton* mGeneratedPhysicsAssetSkeleton{};
     };
 
 }

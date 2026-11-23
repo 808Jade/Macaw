@@ -22,6 +22,12 @@ namespace Asset {
     class USkeleton;
 }
 
+namespace PhysicsRuntime {
+    class FPhysicsScene;
+    struct FConstraintInstance;
+    class UPhysicsAsset;
+}
+
 namespace Engine {
 
     class UAnimInstance;
@@ -119,6 +125,46 @@ namespace Engine {
         bool ResolveMesh() override;
 
         /**
+         * @brief 뼈별 바디와 관절을 만들 물리 에셋을 반환합니다.
+         * @return 덮어쓰기 에셋, 메시의 에셋, 메시가 만든 에셋 순으로 찾은 물리 에셋이며, 없으면 nullptr입니다.
+         */
+        PhysicsRuntime::UPhysicsAsset* GetPhysicsAsset() const;
+
+        /**
+         * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로를 반환합니다.
+         * @return Content 상대 경로이며, 메시의 것을 쓰면 빈 문자열입니다.
+         */
+        const Core::FString& GetPhysicsAssetOverride() const;
+
+        /**
+         * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로를 설정하고 뼈별 바디를 다시 만듭니다.
+         * @param[in] Path Content 상대 경로이며, 비우면 메시의 물리 에셋을 씁니다.
+         * @return 경로가 올바르고 에셋을 불러왔으면 true입니다.
+         */
+        bool SetPhysicsAssetOverride(const Core::FString& Path);
+
+        /**
+         * @brief 뼈 이름으로 뼈 번호를 찾습니다.
+         * @param[in] BoneName 찾을 뼈의 이름입니다.
+         * @return 뼈 번호이며, 없으면 InvalidIndex입니다.
+         */
+        Index_t GetBoneIndex(const Core::FString& BoneName) const;
+
+        /**
+         * @brief 뼈의 현재 월드 변환을 구합니다.
+         * @param[in] BoneIndex 변환을 구할 뼈 번호입니다.
+         * @param[out] OutTransform 컴포넌트 변환을 적용한 뼈의 월드 변환입니다.
+         * @return 포즈가 준비되어 변환을 구했으면 true입니다.
+         */
+        bool GetBoneWorldTransform(Index_t BoneIndex, FTransform& OutTransform) const;
+
+        /**
+         * @brief 모든 뼈별 바디의 시뮬레이션 여부를 바꿉니다.
+         * @param[in] Simulate true이면 물리로 움직이고, false이면 키네마틱으로 애니메이션을 따라갑니다.
+         */
+        void SetAllBodiesSimulatePhysics(bool Simulate);
+
+        /**
          * @brief 현재 본 포즈를 반환합니다.
          * @return 컴포넌트가 소유한 포즈입니다.
          */
@@ -169,6 +215,19 @@ namespace Engine {
          * @return 표시 가능한 경우 true입니다.
          */
         bool ShouldCreateRenderState() const override;
+
+        /**
+         * @brief 메시 전체를 하나의 바디로 다룰 충돌 형상을 반환합니다.
+         * @return 불러온 스켈레탈 메시의 바인드 포즈 경계 바디 셋업이며, 메시가 없으면 nullptr입니다.
+         * @note 바디는 애니메이션 포즈를 따라가지 않습니다. 본별 바디는 피직스 에셋에서 다룹니다.
+         */
+        const PhysicsRuntime::UBodySetup* GetBodySetup() const override;
+
+        /**
+         * @brief 물리 에셋이나 메시 경계 바디 셋업이 있으면 물리 상태가 필요하다고 판단합니다.
+         * @return 뼈별 바디나 메시 전체 바디를 만들 수 있으면 true입니다.
+         */
+        bool ShouldCreatePhysicsState() const override;
 
         /**
          * @brief 재등록 때 재해석하도록 에셋 참조를 해제합니다.
@@ -321,6 +380,7 @@ namespace Engine {
         /**
          * @brief 추출한 루트 모션을 액터에 자동 적용하는지 확인합니다.
          * @return 자동 적용을 사용하면 true입니다.
+         * @note 물리 시뮬레이션 중에는 이 설정과 관계없이 루트 모션을 소비만 하고 적용하지 않습니다.
          */
         bool IsRootMotionAppliedToActor() const;
 
@@ -342,7 +402,47 @@ namespace Engine {
          */
         void Serialize(Core::FArchive& Archive) override;
 
+    protected:
+        /**
+         * @brief 물리 에셋이 있으면 뼈마다 바디를 만들고 관절로 잇고, 없으면 메시 전체 바디 하나를 만듭니다.
+         */
+        void OnCreatePhysicsState() override;
+
+        /**
+         * @brief 관절과 뼈별 바디를 모두 해제합니다.
+         */
+        void OnDestroyPhysicsState() override;
+
     private:
+        /**
+         * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들고 관절로 이어 물리 장면에 넣습니다.
+         * @param[in] PhysScene 바디를 넣을 물리 장면입니다.
+         * @note 이미 바디가 있으면 아무것도 하지 않습니다.
+         */
+        void InitArticulated(PhysicsRuntime::FPhysicsScene& PhysScene);
+
+        /**
+         * @brief 컴포넌트 바디 설정에서 물리 시뮬레이션이 켜져 있는지 반환합니다.
+         * @return 뼈별 바디나 메시 전체 바디를 물리로 움직이도록 설정했으면 true입니다.
+         */
+        bool ShouldSimulateBodies() const;
+
+        /**
+         * @brief 관절과 뼈별 바디를 모두 해제합니다.
+         * @note 관절이 바디를 가리키므로 관절을 먼저 해제합니다.
+         */
+        void TermArticulated();
+
+        /**
+         * @brief 키네마틱 바디를 현재 애니메이션 포즈의 뼈 위치로 옮깁니다.
+         */
+        void UpdateKinematicBonesToAnim();
+
+        /**
+         * @brief 시뮬레이션한 바디 위치를 읽어 뼈 포즈에 씁니다.
+         * @note 바디가 없는 뼈는 부모 뼈 기준 위치를 그대로 유지합니다.
+         */
+        void BlendInPhysics();
 
         /**
          * @brief 메시 경로를 에셋 관리자에서 해석합니다.
@@ -357,6 +457,13 @@ namespace Engine {
          * @return 관리자가 소유하는 스켈레톤이며 실패하면 nullptr입니다.
          */
         Asset::USkeleton* LoadSkeleton(const Core::FString& Path) const;
+
+        /**
+         * @brief 월드의 에셋 관리자를 통해 물리 에셋을 로드합니다.
+         * @param[in] Path Content 상대 경로입니다.
+         * @return 관리자가 소유하는 물리 에셋이며 실패하면 nullptr입니다.
+         */
+        PhysicsRuntime::UPhysicsAsset* LoadPhysicsAsset(const Core::FString& Path) const;
 
         /**
          * @brief 월드의 에셋 관리자를 통해 시퀀스를 로드합니다.
@@ -395,6 +502,12 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Name = "Skeleton", Getter = GetSkeletonPath, Setter = SetSkeletonPath)
         Core::FString mSkeletonPath{};
+
+        /**
+         * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로입니다.
+         */
+        UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
+        Core::FString mPhysicsAssetOverride{};
 
         /**
          * @brief 애니메이션 그래프를 만드는 UAnimInstance 파생 클래스 이름입니다. 비어 있으면 Animation을 단일 노드로 재생합니다.
@@ -464,6 +577,18 @@ namespace Engine {
          */
         UPROPERTY(Serialize, SerializeLate, Name = "BoneLocalTransforms", Getter = GetSerializedPose, Setter = SetSerializedPose, Array)
         Engine::FSkeletalMeshPose mPose{};
+
+        /**
+         * @brief 물리 에셋의 설계도 순서대로 만든 뼈별 바디입니다.
+         * @note 바디는 userData가 주소를 가리키므로 포인터로 보관합니다.
+         */
+        Core::TArray<std::unique_ptr<PhysicsRuntime::FBodyInstance>> mBodies{};
+
+        /**
+         * @brief 물리 에셋의 관절 설정 순서대로 만든 관절입니다.
+         * @note 관절은 userData가 주소를 가리키므로 포인터로 보관합니다.
+         */
+        Core::TArray<std::unique_ptr<PhysicsRuntime::FConstraintInstance>> mConstraints{};
 
         // 메시 setter가 포즈를 초기화하므로 메시 경로를 복원한 뒤에 로드합니다.
     };

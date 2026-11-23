@@ -90,6 +90,13 @@ namespace Engine {
          */
         bool ShouldCreateRenderState() const override;
 
+        /**
+         * @brief 표시 중인 메시에 맞는 충돌 형상을 반환합니다.
+         * @return 메시 경로가 비어 있으면 기본 프리미티브 종류가 공유하는 바디 셋업이고, 그렇지 않으면 불러온 메시가 소유한 바디 셋업입니다.
+         *         메시를 불러오지 못했으면 nullptr입니다.
+         */
+        const PhysicsRuntime::UBodySetup* GetBodySetup() const override;
+
     private:
         /**
          * @brief Content 상대 경로의 메시를 에셋 관리자에서 조회합니다.

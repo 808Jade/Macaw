@@ -266,6 +266,7 @@ namespace Editor {
             Changed = ImGui::Checkbox("Fog Icons", &Flags.mFogIcons) || Changed;
             Changed = ImGui::Checkbox("Light Visualizers", &Flags.mLightVisualizers) || Changed;
             Changed = ImGui::Checkbox("Bounding Boxes (AABB)", &Flags.mBounds) || Changed;
+            Changed = ImGui::Checkbox("Collision", &Flags.mCollision) || Changed;
             Changed = ImGui::Checkbox("Grid", &Flags.mGrid) || Changed;
             Changed = ImGui::Checkbox("World Axes", &Flags.mAxes) || Changed;
 
