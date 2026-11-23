@@ -13,7 +13,7 @@ namespace PhysicsRuntime {
      * @brief 포함한 모든 형상의 개수를 반환합니다.
      */
     Index_t PhysicsRuntime::FKAggregateGeom::GetElementCount() const {
-        return mSphereElems.size() + mBoxElems.size() + mSphylElems.size();
+        return mSphereElems.size() + mBoxElems.size() + mSphylElems.size() + mConvexElems.size();
     }
 
     /**

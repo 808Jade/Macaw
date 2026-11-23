@@ -11,6 +11,7 @@
 #include "PhysicsRuntime/FKSphereElem.h"
 #include "PhysicsRuntime/FKBoxElem.h"
 #include "PhysicsRuntime/FKSphylElem.h"
+#include "PhysicsRuntime/FKConvexElem.h"
 #include "FKAggregateGeom.generated.h"
 
 namespace PhysicsRuntime {
@@ -28,7 +29,7 @@ namespace PhysicsRuntime {
 
         /**
          * @brief 포함한 모든 형상의 개수를 반환합니다.
-         * @return 구·상자·캡슐 형상 개수의 합입니다.
+         * @return 구·상자·캡슐·볼록 형상 개수의 합입니다.
          */
         Index_t GetElementCount() const;
 
@@ -57,6 +58,12 @@ namespace PhysicsRuntime {
          */
         UPROPERTY(Serialize)
         Core::TArray<PhysicsRuntime::FKSphylElem> mSphylElems{};
+
+        /**
+         * @brief 볼록 다면체 충돌 형상 목록입니다.
+         */
+        UPROPERTY(Serialize)
+        Core::TArray<PhysicsRuntime::FKConvexElem> mConvexElems{};
     };
 
 }
