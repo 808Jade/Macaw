@@ -47,7 +47,7 @@ namespace PhysicsRuntime {
 
         for (Index_t Index{}; Index < mSkeletalBodySetups.size(); ++Index) {
             if (mSkeletalBodySetups[Index] != nullptr) {
-                mBodySetupIndexMap[mSkeletalBodySetups[Index]->mBoneName] = Index;
+                mBodySetupIndexMap[mSkeletalBodySetups[Index]->GetBoneName()] = Index;
             }
         }
     }

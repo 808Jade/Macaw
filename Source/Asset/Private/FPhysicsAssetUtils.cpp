@@ -279,7 +279,7 @@ namespace Asset::FPhysicsAssetUtils {
             return false;
         }
 
-        BodySetup.mAggGeom = {};
+        BodySetup.GetAggGeom() = {};
 
         FBox BoneBox{};
         FBox TransformedBox{};
@@ -302,15 +302,17 @@ namespace Asset::FPhysicsAssetUtils {
 
         switch (Params.mGeomType) {
             case EPhysAssetFitGeomType::Box: {
-                PhysicsRuntime::FKBoxElem BoxElem{BoxExtent.x * 2.0f * PrimSizeScale, BoxExtent.y * 2.0f * PrimSizeScale, BoxExtent.z * 2.0f * PrimSizeScale};
+                PhysicsRuntime::FKBoxElem BoxElem{};
                 BoxElem.mCenter = BoxCenter;
-                BodySetup.mAggGeom.mBoxElems.push_back(BoxElem);
+                BoxElem.mHalfExtent = BoxExtent * PrimSizeScale;
+                BodySetup.GetAggGeom().mBoxElems.push_back(BoxElem);
                 break;
             }
             case EPhysAssetFitGeomType::Sphere: {
-                PhysicsRuntime::FKSphereElem SphereElem{std::max({BoxExtent.x, BoxExtent.y, BoxExtent.z}) * PrimSizeScale};
+                PhysicsRuntime::FKSphereElem SphereElem{};
                 SphereElem.mCenter = BoxCenter;
-                BodySetup.mAggGeom.mSphereElems.push_back(SphereElem);
+                SphereElem.mRadius = std::max({BoxExtent.x, BoxExtent.y, BoxExtent.z}) * PrimSizeScale;
+                BodySetup.GetAggGeom().mSphereElems.push_back(SphereElem);
                 break;
             }
             case EPhysAssetFitGeomType::Sphyl: {
@@ -332,7 +334,7 @@ namespace Asset::FPhysicsAssetUtils {
                     SphylElem.mLength = BoxExtent.z * PrimSizeScale;
                 }
 
-                BodySetup.mAggGeom.mSphylElems.push_back(SphylElem);
+                BodySetup.GetAggGeom().mSphylElems.push_back(SphylElem);
                 break;
             }
         }
@@ -351,7 +353,7 @@ namespace Asset::FPhysicsAssetUtils {
         }
 
         std::unique_ptr<PhysicsRuntime::UBodySetup> NewBodySetup{CoreUObject::NewObject<PhysicsRuntime::UBodySetup>()};
-        NewBodySetup->mBoneName = BodyName;
+        NewBodySetup->SetBoneName(BodyName);
         PhysicsAsset.mSkeletalBodySetups.push_back(std::move(NewBodySetup));
         PhysicsAsset.UpdateBodySetupIndexMap();
 
@@ -366,7 +368,7 @@ namespace Asset::FPhysicsAssetUtils {
             return;
         }
 
-        const Core::FString BoneName{PhysicsAsset.mSkeletalBodySetups[BodyIndex]->mBoneName};
+        const Core::FString BoneName{PhysicsAsset.mSkeletalBodySetups[BodyIndex]->GetBoneName()};
 
         std::erase_if(PhysicsAsset.mConstraintSetup, [&BoneName](const std::unique_ptr<PhysicsRuntime::UPhysicsConstraintTemplate>& Setup) {
             return Setup == nullptr || Setup->mDefaultInstance.mConstraintBone1 == BoneName || Setup->mDefaultInstance.mConstraintBone2 == BoneName;

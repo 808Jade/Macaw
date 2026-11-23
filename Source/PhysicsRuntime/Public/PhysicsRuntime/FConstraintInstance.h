@@ -9,7 +9,6 @@
 #include "Core/Math/FTransform.h"
 #include "Core/Math/FVector.h"
 #include "Core/Types.h"
-#include "PhysicsRuntime/PhysxUserData.h"
 
 namespace physx {
     class PxD6Joint;
@@ -236,10 +235,5 @@ namespace PhysicsRuntime {
          * @brief 소유한 PhysX 관절입니다.
          */
         physx::PxD6Joint* mConstraintHandle{};
-
-        /**
-         * @brief 관절의 userData가 가리키는 이 관절의 꼬리표입니다.
-         */
-        FPhysxUserData mUserData{this};
     };
 }

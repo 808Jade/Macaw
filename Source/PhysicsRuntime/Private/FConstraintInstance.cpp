@@ -9,7 +9,7 @@
 #include "Core/Log/Log.h"
 #include "Core/Math/FMatrix.h"
 #include "PhysicsRuntime/FBodyInstance.h"
-#include "PhysicsRuntime/PhysXPublicCore.h"
+#include "PhysicsRuntime/PhysicsConversion.h"
 
 #include <PxPhysicsAPI.h>
 
@@ -131,8 +131,8 @@ namespace PhysicsRuntime {
     bool FConstraintInstance::InitConstraint(FBodyInstance* Body1, FBodyInstance* Body2, float Scale) {
         TermConstraint();
 
-        physx::PxRigidActor* Actor1{Body1 != nullptr ? Body1->GetPhysicsActorHandle() : nullptr};
-        physx::PxRigidActor* Actor2{Body2 != nullptr ? Body2->GetPhysicsActorHandle() : nullptr};
+        physx::PxRigidActor* Actor1{Body1 != nullptr ? Body1->GetPxRigidActor() : nullptr};
+        physx::PxRigidActor* Actor2{Body2 != nullptr ? Body2->GetPxRigidActor() : nullptr};
 
         if (Actor1 == nullptr && Actor2 == nullptr) {
             return false;
@@ -151,7 +151,7 @@ namespace PhysicsRuntime {
         }
 
         // 부모 바디를 앞에, 자식 바디를 뒤에 둡니다.
-        mConstraintHandle = physx::PxD6JointCreate(PxGetPhysics(), Actor2, U2PTransform(Local2), Actor1, U2PTransform(Local1));
+        mConstraintHandle = physx::PxD6JointCreate(PxGetPhysics(), Actor2, PhysicsRuntime::ToPxTransform(Local2), Actor1, PhysicsRuntime::ToPxTransform(Local1));
 
         if (mConstraintHandle == nullptr) {
             MACAW_LOG(LogConstraint, Warning, "Cannot create a PhysX D6 joint.");
@@ -159,7 +159,8 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        mConstraintHandle->userData = &mUserData;
+        // 관절에서 이 객체를 찾을 수 있도록 주소를 넣습니다.
+        mConstraintHandle->userData = this;
 
         // 이어진 두 바디끼리는 부딪히지 않고, 크게 벌어지면 강제로 붙입니다.
         mConstraintHandle->setConstraintFlag(physx::PxConstraintFlag::eCOLLISION_ENABLED, false);
@@ -203,7 +204,7 @@ namespace PhysicsRuntime {
             return;
         }
 
-        // 해제 뒤 이 관절을 가리키지 않도록 꼬리표를 먼저 끊습니다.
+        // 해제 뒤 이 객체를 가리키지 않도록 주소를 먼저 지웁니다.
         mConstraintHandle->userData = nullptr;
         mConstraintHandle->release();
         mConstraintHandle = nullptr;
