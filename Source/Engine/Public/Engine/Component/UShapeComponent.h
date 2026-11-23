@@ -1,6 +1,6 @@
 /**
  * @file UShapeComponent.h
- * @brief 충돌 형상·접촉 이벤트와 에디터 보조 선을 제공하는 기본 컴포넌트입니다.
+ * @brief 렌더 프록시 없이 단순 충돌 형상을 제공하고 에디터 보조 선으로 표시하는 프리미티브 컴포넌트입니다.
  * @ingroup Engine
  */
 
@@ -8,8 +8,6 @@
 
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Engine/Collision/FCollisionShape.h"
-#include "Engine/Collision/FHitResult.h"
-#include "CoreUObject/TDelegate.h"
 #include "Core/Math/FVector4.h"
 #include "Core/Math/FBox.h"
 #include "UShapeComponent.generated.h"
@@ -19,22 +17,11 @@ namespace Engine {
     class FPrimitiveDrawInterface;
 
     /**
-     * @brief 충돌 형상·접촉 이벤트와 에디터 보조 선을 제공하는 기본 컴포넌트입니다.
+     * @brief 렌더 프록시 없이 단순 충돌 형상을 제공하고 에디터 보조 선으로 표시하는 프리미티브 컴포넌트입니다.
      */
     UCLASS(Abstract)
     class UShapeComponent : public Engine::UPrimitiveComponent {
         GENERATED_BODY()
-
-    public:
-        /**
-         * @brief 겹친 컴포넌트를 전달하는 이벤트 시그니처입니다.
-         */
-        using FOverlapDelegate = CoreUObject::TDelegate<Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*>;
-
-        /**
-         * @brief 충돌한 액터·컴포넌트·충돌 정보를 전달하는 이벤트 시그니처입니다.
-         */
-        using FHitDelegate = CoreUObject::TDelegate<Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*, const Engine::FHitResult&>;
 
     public:
         /**
@@ -43,47 +30,6 @@ namespace Engine {
         UShapeComponent();
 
     public:
-        /**
-         * @brief 컴포넌트 겹침 시작 이벤트를 반환합니다.
-         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
-         */
-        FOverlapDelegate& GetOnComponentBeginOverlap();
-
-        /**
-         * @brief 컴포넌트 겹침 종료 이벤트를 반환합니다.
-         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
-         */
-        FOverlapDelegate& GetOnComponentEndOverlap();
-
-        /**
-         * @brief 컴포넌트 충돌 이벤트를 반환합니다.
-         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
-         */
-        FHitDelegate& GetOnComponentHit();
-
-        bool BlocksMovement() const;
-        void SetBlocksMovement(bool Blocks);
-
-        /**
-         * @brief 겹침 시작 델리게이트를 호출합니다.
-         * @param[in] Other 비교할 상대 값입니다.
-         */
-        void OnBeginOverlap(Engine::UShapeComponent* Other);
-
-        /**
-         * @brief 겹침 종료 델리게이트를 호출합니다.
-         * @param[in] Other 비교할 상대 값입니다.
-         */
-        void OnEndOverlap(Engine::UShapeComponent* Other);
-
-        /**
-         * @brief 적중 액터·컴포넌트와 충돌 정보를 델리게이트로 전달합니다.
-         * @param[in] OtherActor 충돌한 상대 액터입니다.
-         * @param[in] OtherComp 충돌한 상대 컴포넌트입니다.
-         * @param[in] Hit 원본 충돌 결과입니다.
-         */
-        void OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit);
-
         /**
          * @brief 검사에 사용할 충돌 형상 값을 반환합니다.
          * @return 계산하거나 조회한 값입니다.
@@ -186,24 +132,6 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Getter = ShouldDrawOnlyIfSelected, Setter = SetDrawOnlyIfSelected)
         bool mDrawOnlyIfSelected{};
-
-        /**
-         * @brief 컴포넌트 겹침 시작 이벤트입니다.
-         */
-        FOverlapDelegate mOnComponentBeginOverlap{};
-
-        /**
-         * @brief 컴포넌트 겹침 종료 이벤트입니다.
-         */
-        FOverlapDelegate mOnComponentEndOverlap{};
-
-        /**
-         * @brief 컴포넌트 충돌 이벤트입니다.
-         */
-        FHitDelegate mOnComponentHit{};
-
-        UPROPERTY(Edit, Serialize, Getter = BlocksMovement, Setter = SetBlocksMovement)
-        bool mBlocksMovement{};
     };
 
 }

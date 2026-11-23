@@ -13,7 +13,7 @@
     <PropertyGroup>
       <PhysXBinDir>$(_ZVcpkgCurrentInstalledDir)$(_ZVcpkgConfigSubdir)bin\</PhysXBinDir>
     </PropertyGroup>
-    <Copy SourceFiles="$(PhysXBinDir)PhysX_64.dll;$(PhysXBinDir)PhysXCommon_64.dll;$(PhysXBinDir)PhysXFoundation_64.dll" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true">
+    <Copy SourceFiles="$(PhysXBinDir)PhysX_64.dll;$(PhysXBinDir)PhysXCommon_64.dll;$(PhysXBinDir)PhysXFoundation_64.dll;$(PhysXBinDir)PhysXCooking_64.dll" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true">
       <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
     </Copy>
   </Target>

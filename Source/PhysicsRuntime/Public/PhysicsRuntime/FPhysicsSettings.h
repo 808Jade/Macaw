@@ -1,47 +1,84 @@
+/**
+ * @file FPhysicsSettings.h
+ * @brief PhysX 런타임과 물리 장면이 따르는 조정 가능한 정책을 정의합니다.
+ * @ingroup PhysicsRuntime
+ */
+
 #pragma once
 
+#include "Core/Math/FVector.h"
 #include "Core/Types.h"
 
 namespace PhysicsRuntime {
-    /**
-     * @brief 프레임 시간을 물리 스텝으로 바꾸는 방식입니다.
-     */
-    enum class EPhysicsTimeStepMode : Uint8 {
-        /** 프레임 시간(상한 적용)을 스텝 1회로 사용합니다. */
-        Variable,
-        /** 프레임 시간을 같은 크기의 스텝 여러 개로 나눕니다. */
-        Substep,
-        /** 항상 고정 크기로 스텝하고 남는 시간은 누산기에 이월합니다. */
-        Fixed,
-    };
 
     /**
-     * @brief 물리 시뮬레이션의 시간 진행 방식과 디버그 옵션입니다. 시간 단위는 초입니다.
+     * @brief PhysX 런타임과 물리 장면이 따르는 조정 가능한 정책입니다.
+     * @details FPhysicsRuntime이 보관하며 SDK 객체 생성, 월드별 장면 생성, 프레임별 장면 진행에서 읽습니다.
+     *          엔진 1유닛을 1m로 보는 단위 규약은 조정 대상이 아니므로 포함하지 않습니다.
+     * @ingroup PhysicsRuntime
      */
     struct FPhysicsSettings {
-        EPhysicsTimeStepMode mMode{EPhysicsTimeStepMode::Substep};
+    public:
+        /**
+         * @brief 허용 오차 기준으로 쓰는 일반적인 물체 속력(m/s)입니다.
+         */
+        float mTypicalSpeed{9.81f};
 
-        /** Variable 모드에서 스텝 1회의 최대 시간입니다. */
-        float mMaxFrameDt{1.0f / 30.0f};
+        /**
+         * @brief 시뮬레이션 작업을 실행할 CPU 디스패처의 작업 스레드 수입니다.
+         */
+        Uint32 mWorkerThreadCount{2};
 
-        /** Substep 모드에서 스텝 1회의 최대 시간과 프레임당 최대 스텝 수입니다. */
-        float mMaxSubstepDt{1.0f / 60.0f};
-        Int32 mMaxSubsteps{6};
+        /**
+         * @brief 질량을 지정하지 않은 동적 바디의 질량을 형상 부피로 계산할 때 쓰는 밀도(kg/m³)입니다.
+         */
+        float mDefaultDensity{1000.0f};
 
-        /** Fixed 모드의 스텝 크기와 프레임당 최대 스텝 수입니다. */
-        float mFixedDt{1.0f / 60.0f};
-        Int32 mMaxFixedSteps{6};
+        /**
+         * @brief PhysX Visual Debugger 연결을 시도할지 여부입니다.
+         */
+        bool mEnablePvd{true};
 
-        /** Fixed 모드에서 마지막 두 물리 상태를 섞어 그릴지 나타냅니다. 보간은 Transform 동기화 단계에서 사용합니다. */
-        bool mInterpolate{true};
+        /**
+         * @brief PVD 프로그램이 대기하는 호스트 주소입니다.
+         */
+        Core::FString mPvdHost{"127.0.0.1"};
 
-        /** 1초마다 시간 진행 통계를 로그로 남깁니다. */
-        bool mLogStepStats{false};
+        /**
+         * @brief PVD 프로그램이 대기하는 포트입니다.
+         */
+        Int32 mPvdPort{5425};
 
-        /** 디버그용입니다. 0보다 크면 Advance 호출 간격을 이 시간(ms)에 맞추도록 대기해 프레임을 느리게 만듭니다. */
-        float mTargetFrameMs{0.0f};
+        /**
+         * @brief PVD 연결을 기다리는 최대 시간(밀리초)입니다.
+         */
+        Uint32 mPvdConnectTimeoutMilliseconds{10};
 
-        /** 디버그용입니다. 목표 프레임 시간에 더해지는 무작위 흔들림의 최대 크기(ms)입니다. */
-        float mJitterMs{0.0f};
+        /**
+         * @brief 물리 장면에 적용할 중력 가속도(m/s²)이며 엔진 Up 축(+Z)의 반대 방향이 기본값입니다.
+         */
+        FVector mGravity{0.0f, 0.0f, -9.81f};
+
+        /**
+         * @brief 빠르게 움직이는 강체의 터널링을 막는 연속 충돌 검출(CCD)을 장면에서 허용할지 여부입니다.
+         * @note 실제 적용에는 강체별 CCD 설정도 필요합니다.
+         */
+        bool mEnableCCD{true};
+
+        /**
+         * @brief 접촉 정보를 프레임 사이에 유지해 안정성을 높이는 지속 접촉 다양체(PCM)를 사용할지 여부입니다.
+         */
+        bool mEnablePCM{true};
+
+        /**
+         * @brief 물리 장면을 한 번에 진행하는 고정 스텝 시간(초)이며 유한한 양수여야 합니다.
+         */
+        float mFixedStepSeconds{1.0f / 60.0f};
+
+        /**
+         * @brief 한 프레임에 진행할 수 있는 최대 고정 스텝 수이며, 넘는 시간은 버립니다.
+         */
+        Uint32 mMaxStepsPerFrame{4};
     };
+
 }

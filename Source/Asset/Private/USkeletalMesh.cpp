@@ -7,6 +7,8 @@
 #include "Core/Types.h"
 #include "Asset/USkeletalMesh.h"
 #include "Asset/USkeleton.h"
+#include "Asset/FPhysicsAssetUtils.h"
+#include "CoreUObject/Reflection/NewObject.h"
 
 #include <algorithm>
 #include <cmath>
@@ -54,6 +56,10 @@ namespace Asset {
         mSkinWeightBuffer.Reset();
         mSkinWeights = std::move(SkinWeights);
         mSkinMatrixCount = SkinMatrixCount;
+
+        // 형상이 바뀌었으므로 정점으로 만든 물리 에셋을 버립니다.
+        mGeneratedPhysicsAsset.reset();
+        mGeneratedPhysicsAssetSkeleton = nullptr;
 
         return true;
     }
@@ -150,6 +156,14 @@ namespace Asset {
     }
 
     /**
+     * @brief 메시 전체를 하나의 바디로 다룰 때 사용할 충돌 형상을 반환합니다.
+     */
+    const PhysicsRuntime::UBodySetup* Asset::USkeletalMesh::GetBodySetup() const {
+        // 바인드 형상을 보관하는 정적 메시가 경계 상자 바디 셋업을 함께 만듭니다.
+        return mGeometry.GetBodySetup();
+    }
+
+    /**
      * @brief 정점 수를 반환합니다.
      */
     Uint32 Asset::USkeletalMesh::GetVertexCount() const {
@@ -168,6 +182,40 @@ namespace Asset {
      */
     bool Asset::USkeletalMesh::IsValid() const {
         return mGeometry.IsValid() && mSkinWeights.size() == GetVertexCount();
+    }
+
+    /**
+     * @brief 이 메시가 참조하는 물리 에셋 경로를 반환합니다.
+     */
+    const Core::FString& Asset::USkeletalMesh::GetPhysicsAssetPath() const {
+        return mPhysicsAssetPath;
+    }
+
+    /**
+     * @brief 이 메시가 참조할 물리 에셋 경로를 설정합니다.
+     */
+    void Asset::USkeletalMesh::SetPhysicsAssetPath(Core::FString Path) {
+        mPhysicsAssetPath = std::move(Path);
+    }
+
+    /**
+     * @brief 물리 에셋이 지정되지 않았을 때 쓸 물리 에셋을 뼈와 정점으로 만들어 반환합니다.
+     */
+    PhysicsRuntime::UPhysicsAsset* Asset::USkeletalMesh::GetGeneratedPhysicsAsset(const Asset::USkeleton& Skeleton) {
+        if (mGeneratedPhysicsAsset != nullptr && mGeneratedPhysicsAssetSkeleton == &Skeleton) {
+            return mGeneratedPhysicsAsset.get();
+        }
+
+        auto PhysicsAsset{CoreUObject::NewObject<PhysicsRuntime::UPhysicsAsset>()};
+
+        if (!Asset::FPhysicsAssetUtils::CreateFromSkeletalMesh(*PhysicsAsset, *this, Skeleton, Asset::FPhysAssetCreateParams{})) {
+            return nullptr;
+        }
+
+        mGeneratedPhysicsAsset = std::move(PhysicsAsset);
+        mGeneratedPhysicsAssetSkeleton = &Skeleton;
+
+        return mGeneratedPhysicsAsset.get();
     }
 
 }

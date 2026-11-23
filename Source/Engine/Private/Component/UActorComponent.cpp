@@ -77,6 +77,10 @@ namespace Engine {
 
         OnRegister();
 
+        if (mWorld == World) {
+            CreatePhysicsState();
+        }
+
         if (mWorld == World && mOwner != nullptr) {
             RegisterComponentTickFunctions(true);
 
@@ -97,6 +101,7 @@ namespace Engine {
         }
 
         DispatchEndPlay();
+        DestroyPhysicsState();
 
         mWorld = nullptr;
     }
@@ -109,9 +114,69 @@ namespace Engine {
     }
 
     /**
+     * @brief 등록된 월드에 물리 장면이 있고 물리 상태가 필요하면 물리 상태를 만듭니다.
+     */
+    void Engine::UActorComponent::CreatePhysicsState() {
+        if (mPhysicsStateCreated || mWorld == nullptr || mWorld->GetPhysicsScene() == nullptr || !ShouldCreatePhysicsState()) {
+            return;
+        }
+
+        mPhysicsStateCreated = true;
+
+        OnCreatePhysicsState();
+    }
+
+    /**
+     * @brief 만든 물리 상태를 해제합니다.
+     */
+    void Engine::UActorComponent::DestroyPhysicsState() {
+        if (!mPhysicsStateCreated) {
+            return;
+        }
+
+        mPhysicsStateCreated = false;
+
+        OnDestroyPhysicsState();
+    }
+
+    /**
+     * @brief 물리 상태를 해제한 뒤 조건이 맞으면 다시 만듭니다.
+     */
+    void Engine::UActorComponent::RecreatePhysicsState() {
+        DestroyPhysicsState();
+        CreatePhysicsState();
+    }
+
+    /**
+     * @brief 물리 상태를 만들었는지 반환합니다.
+     */
+    bool Engine::UActorComponent::IsPhysicsStateCreated() const {
+        return mPhysicsStateCreated;
+    }
+
+    /**
+     * @brief 이 컴포넌트가 물리 상태를 필요로 하는지 반환하는 확장 지점입니다.
+     */
+    bool Engine::UActorComponent::ShouldCreatePhysicsState() const {
+        return false;
+    }
+
+    /**
      * @brief 월드에 등록된 컴포넌트가 참조하는 에셋과 렌더 상태를 준비합니다.
      */
     void Engine::UActorComponent::OnRegister() {
+    }
+
+    /**
+     * @brief 물리 장면에 이 컴포넌트의 물리 상태를 만드는 확장 지점입니다.
+     */
+    void Engine::UActorComponent::OnCreatePhysicsState() {
+    }
+
+    /**
+     * @brief 이 컴포넌트의 물리 상태를 물리 장면에서 해제하는 확장 지점입니다.
+     */
+    void Engine::UActorComponent::OnDestroyPhysicsState() {
     }
 
     /**

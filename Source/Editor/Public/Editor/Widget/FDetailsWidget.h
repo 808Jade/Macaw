@@ -157,6 +157,14 @@ namespace Editor {
         void DrawPropertyRow(const FDetailRow& Row);
 
         /**
+         * @brief 구조체 프로퍼티를 펼쳐 하위 필드를 공통 편집합니다.
+         * @details 필드를 바꾸면 대상마다 현재 구조체의 사본에 필드를 쓴 뒤 구조체 전체를 프로퍼티 편집 경로로 적용합니다.
+         * @param Row 구조체 프로퍼티와 대상 객체들을 보관한 행입니다.
+         * @note 중첩 구조체와 배열 필드는 아직 편집하지 않습니다.
+         */
+        void DrawStructRow(const FDetailRow& Row);
+
+        /**
          * @brief 여러 선택 객체의 위치·회전·크기를 공통 편집합니다.
          * @param Row 공통 프로퍼티와 대상 객체들을 보관한 행입니다.
          */

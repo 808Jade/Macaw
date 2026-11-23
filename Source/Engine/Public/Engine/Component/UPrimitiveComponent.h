@@ -1,16 +1,18 @@
 /**
  * @file UPrimitiveComponent.h
- * @brief 장면 프록시 생성과 지연된 렌더 상태 및 변환 갱신을 제공하는 기반 클래스입니다.
+ * @brief 렌더링과 충돌에 쓰이는 기하 형태를 가진 컴포넌트의 기반 클래스입니다.
  * @ingroup Engine
  */
 
 #pragma once
 
 #include "CoreUObject/TObjectRef.h"
+#include "CoreUObject/TDelegate.h"
 
 #include "Core/ReflectionMacros.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Core/Math/FVector2.h"
+#include "PhysicsRuntime/FBodyInstance.h"
 #include "UPrimitiveComponent.generated.h"
 
 namespace Asset {
@@ -18,20 +20,44 @@ namespace Asset {
     class UStaticMesh;
 }
 
+namespace PhysicsRuntime {
+    class UBodySetup;
+}
+
 struct FBox;
 
 namespace Engine {
 
+    class AActor;
     enum class EPrimitiveType : Uint8;
+    class FPrimitiveDrawInterface;
+    struct FHitResult;
     struct FPrimitiveSceneProxy;
 
     /**
-     * @brief 장면 프록시 생성과 지연된 렌더 상태 및 변환 갱신을 제공하는 기반 클래스입니다.
+     * @brief 렌더링과 충돌에 쓰이는 기하 형태를 가진 컴포넌트의 기반 클래스입니다.
+     * @details 렌더 장면 프록시의 생성과 지연 갱신, 월드 경계, 그림자·데칼 같은 렌더 속성을 제공합니다.
+     *          겹침·충돌 이벤트와 이동 차단 여부도 함께 제공하며, 구체적인 형상은 파생 클래스가 정의합니다.
+     *          렌더 프록시가 필요 없는 파생 클래스는 ShouldCreateRenderState()에서 false를 반환합니다.
+     *          GetBodySetup()이 충돌 형상을 반환하는 파생 클래스는 월드에 물리 장면이 있을 때 바디 인스턴스로 PhysX 바디를 만들고,
+     *          동적 바디의 시뮬레이션 결과를 트랜스폼에 반영합니다.
      * @ingroup Engine
      */
     UCLASS(Abstract)
     class UPrimitiveComponent : public Engine::USceneComponent {
         GENERATED_BODY()
+
+    public:
+
+        /**
+         * @brief 겹친 컴포넌트를 전달하는 이벤트 시그니처입니다.
+         */
+        using FOverlapDelegate = CoreUObject::TDelegate<Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*>;
+
+        /**
+         * @brief 충돌한 액터·컴포넌트·충돌 정보를 전달하는 이벤트 시그니처입니다.
+         */
+        using FHitDelegate = CoreUObject::TDelegate<Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*, const Engine::FHitResult&>;
 
     public:
 
@@ -186,12 +212,173 @@ namespace Engine {
          */
         void SetReceivesDecals(bool ReceivesDecals);
 
+        /**
+         * @brief 컴포넌트 겹침 시작 이벤트를 반환합니다.
+         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
+         */
+        FOverlapDelegate& GetOnComponentBeginOverlap();
+
+        /**
+         * @brief 컴포넌트 겹침 종료 이벤트를 반환합니다.
+         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
+         */
+        FOverlapDelegate& GetOnComponentEndOverlap();
+
+        /**
+         * @brief 컴포넌트 충돌 이벤트를 반환합니다.
+         * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
+         */
+        FHitDelegate& GetOnComponentHit();
+
+        /**
+         * @brief 다른 컴포넌트의 이동을 막는지 반환합니다.
+         * @return 이동을 막으면 true입니다.
+         */
+        bool BlocksMovement() const;
+
+        /**
+         * @brief 다른 컴포넌트의 이동을 막을지 설정합니다.
+         * @param[in] Blocks 이동을 막으려면 true입니다.
+         */
+        void SetBlocksMovement(bool Blocks);
+
+        /**
+         * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
+         * @param[in] Other 겹치기 시작한 상대 컴포넌트입니다.
+         */
+        void OnBeginOverlap(Engine::UPrimitiveComponent* Other);
+
+        /**
+         * @brief 겹침 종료 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
+         * @param[in] Other 겹침이 끝난 상대 컴포넌트입니다.
+         */
+        void OnEndOverlap(Engine::UPrimitiveComponent* Other);
+
+        /**
+         * @brief 적중 액터·컴포넌트와 충돌 정보를 델리게이트와 소유 액터의 충돌 이벤트로 전달합니다.
+         * @param[in] OtherActor 충돌한 상대 액터입니다.
+         * @param[in] OtherComp 충돌한 상대 컴포넌트입니다.
+         * @param[in] Hit 원본 충돌 결과입니다.
+         */
+        void OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit);
+
+        /**
+         * @brief 바디를 만들 충돌 형상이 있으면 물리 상태가 필요하다고 반환합니다.
+         * @return GetBodySetup()이 바디 셋업을 반환하면 true입니다.
+         */
+        bool ShouldCreatePhysicsState() const override;
+
+        /**
+         * @brief 물리 바디를 만들 때 사용할 충돌 형상을 반환하는 확장 지점입니다.
+         * @return 조회한 값의 비소유 주소이며, 충돌 형상이 없으면 nullptr입니다. 기본 구현은 nullptr입니다.
+         * @note 반환한 바디 셋업은 물리 상태가 유지되는 동안 살아 있어야 합니다.
+         */
+        virtual const PhysicsRuntime::UBodySetup* GetBodySetup() const;
+
+        /**
+         * @brief 물리 시뮬레이션 설정과 실제 바디를 가진 바디 인스턴스를 반환합니다.
+         * @return 이 객체가 보관하는 값의 참조입니다.
+         */
+        const PhysicsRuntime::FBodyInstance& GetBodyInstance() const;
+
+        /**
+         * @brief 바디 인스턴스 설정을 바꾸고 물리 상태를 다시 만듭니다.
+         * @param[in] BodyInstance 설정을 복사할 바디 인스턴스이며, 실제 바디는 복사하지 않습니다.
+         * @return 항상 true입니다.
+         */
+        bool SetBodyInstance(const PhysicsRuntime::FBodyInstance& BodyInstance);
+
+        /**
+         * @brief 실제 바디가 동적 강체로 시뮬레이션되고 있는지 반환합니다.
+         * @return 동적 강체가 있으면 true입니다.
+         */
+        bool IsSimulatingPhysics() const;
+
+        /**
+         * @brief 물리 시뮬레이션 여부를 바꾸고 물리 상태를 다시 만듭니다.
+         * @param[in] Simulate 동적 강체로 시뮬레이션할지 여부입니다.
+         */
+        void SetSimulatePhysics(bool Simulate);
+
+        /**
+         * @brief 동적 강체의 질량 중심에 힘을 더합니다.
+         * @param[in] Force 더할 힘(N)이며, AccelChange가 true이면 가속도(m/s²)입니다.
+         * @param[in] AccelChange 질량과 무관하게 가속도로 적용할지 여부입니다.
+         * @return 동적 강체가 있어 적용했으면 true입니다.
+         */
+        bool AddForce(const FVector& Force, bool AccelChange = false);
+
+        /**
+         * @brief 동적 강체의 질량 중심에 충격량을 더합니다.
+         * @param[in] Impulse 더할 충격량(N·s)이며, VelocityChange가 true이면 속도 변화량(m/s)입니다.
+         * @param[in] VelocityChange 질량과 무관하게 속도 변화량으로 적용할지 여부입니다.
+         * @return 동적 강체가 있어 적용했으면 true입니다.
+         */
+        bool AddImpulse(const FVector& Impulse, bool VelocityChange = false);
+
+        /**
+         * @brief 동적 강체의 선속도를 반환합니다.
+         * @return 선속도(m/s)이며, 동적 강체가 없으면 영벡터입니다.
+         */
+        FVector GetPhysicsLinearVelocity() const;
+
+        /**
+         * @brief 동적 강체의 선속도를 설정합니다.
+         * @param[in] Velocity 새 선속도(m/s)입니다.
+         * @return 동적 강체가 있어 적용했으면 true입니다.
+         */
+        bool SetPhysicsLinearVelocity(const FVector& Velocity);
+
+        /**
+         * @brief 동적 강체의 각속도를 반환합니다.
+         * @return 각속도(rad/s)이며, 동적 강체가 없으면 영벡터입니다.
+         */
+        FVector GetPhysicsAngularVelocity() const;
+
+        /**
+         * @brief 동적 강체의 각속도를 설정합니다.
+         * @param[in] Velocity 새 각속도(rad/s)입니다.
+         * @return 동적 강체가 있어 적용했으면 true입니다.
+         */
+        bool SetPhysicsAngularVelocity(const FVector& Velocity);
+
+        /**
+         * @brief 시뮬레이션한 동적 강체의 자세를 컴포넌트 트랜스폼에 반영합니다.
+         * @details 액터의 루트 컴포넌트이면 액터 전체를 옮기고, 아니면 이 컴포넌트만 옮깁니다.
+         *          반영하는 동안에는 바디를 다시 순간 이동하지 않습니다.
+         */
+        void SyncComponentToBody();
+
+        /**
+         * @brief 바디 셋업의 충돌 형상을 현재 트랜스폼에 맞춰 선분으로 수집합니다.
+         * @details 물리 바디와 같은 스케일 규칙을 쓰므로 편집 월드에서도 시뮬레이션할 때의 형상을 그대로 보여 줍니다.
+         *          선택하면 주황색, 시뮬레이션 설정이면 초록색, 그 밖에는 파란색으로 그립니다.
+         * @param[in,out] DrawInterface 선분을 추가할 프레임 수집기입니다.
+         * @param[in] Highlight 선택 강조 색상으로 그릴지 여부입니다.
+         * @param[in] Thickness 픽셀 단위 선 두께입니다.
+         * @note 바디 셋업이 없으면 아무것도 그리지 않습니다.
+         */
+        void DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight, float Thickness = 1.0f) const;
+
     private:
 
         /**
          * @brief 같은 컴포넌트를 중복 예약하지 않고 월드의 갱신 큐에 넣습니다.
          */
         void QueueUpdate();
+
+    protected:
+
+        /**
+         * @brief 바디 셋업의 형상으로 월드 물리 장면에 바디를 만듭니다.
+         * @note 바디를 여러 개 만드는 하위 클래스는 재정의하고, 바디 하나로 충분할 때 이 구현을 호출합니다.
+         */
+        void OnCreatePhysicsState() override;
+
+        /**
+         * @brief 바디를 물리 장면에서 해제합니다.
+         */
+        void OnDestroyPhysicsState() override;
 
     private:
 
@@ -247,6 +434,38 @@ namespace Engine {
          * @brief 현재 UV 변환을 제어하는 컴포넌트 핸들입니다.
          */
         CoreUObject::TObjectRef<CoreUObject::UObject> mUVSource{};
+
+        /**
+         * @brief 다른 컴포넌트의 이동을 막는지 여부입니다.
+         */
+        UPROPERTY(Edit, Serialize, Getter = BlocksMovement, Setter = SetBlocksMovement)
+        bool mBlocksMovement{};
+
+        /**
+         * @brief 물리 시뮬레이션 설정과 실제 바디입니다.
+         */
+        UPROPERTY(Edit, Serialize, Getter = GetBodyInstance, Setter = SetBodyInstance)
+        PhysicsRuntime::FBodyInstance mBodyInstance{};
+
+        /**
+         * @brief 시뮬레이션 결과를 트랜스폼에 반영하는 중이라 바디를 순간 이동하지 않아야 하는지 여부입니다.
+         */
+        bool mSyncingFromPhysics{};
+
+        /**
+         * @brief 컴포넌트 겹침 시작 이벤트입니다.
+         */
+        FOverlapDelegate mOnComponentBeginOverlap{};
+
+        /**
+         * @brief 컴포넌트 겹침 종료 이벤트입니다.
+         */
+        FOverlapDelegate mOnComponentEndOverlap{};
+
+        /**
+         * @brief 컴포넌트 충돌 이벤트입니다.
+         */
+        FHitDelegate mOnComponentHit{};
     };
 
 }

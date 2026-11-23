@@ -167,6 +167,14 @@ namespace CoreUObject {
          */
         void SerializeArray(std::string_view Name, void* Container, Core::FArchive& Archive) const;
 
+        /**
+         * @brief 구조체 멤버를 직렬화합니다. 로드는 현재 값의 사본을 채운 뒤 한 번에 커밋합니다.
+         * @param[in] Name 아카이브에 기록할 이름입니다.
+         * @param[in] Container 프로퍼티 소유 타입의 유효한 인스턴스 주소입니다.
+         * @param[in,out] Archive 모드에 따라 값을 읽거나 쓸 아카이브입니다.
+         */
+        void SerializeStruct(std::string_view Name, void* Container, Core::FArchive& Archive) const;
+
     private:
         /**
          * @brief 프로퍼티 이름입니다.

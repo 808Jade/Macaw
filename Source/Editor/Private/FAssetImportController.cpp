@@ -153,6 +153,10 @@ void FAssetImportController::DrawImportOptions() {
     ImGui::Checkbox("Combine Meshes", &mImportOption.mCombineMeshes);
     ImGui::EndDisabled();
     ImGui::SetItemTooltip("파일의 모든 메시를 하나의 메시 에셋으로 합칩니다.\n끄면 메시 노드마다 별도의 메시 에셋을 만듭니다.");
+    ImGui::BeginDisabled(!mImportOption.mImportMesh);
+    ImGui::Checkbox("Generate Convex Collision", &mImportOption.mGenerateConvexCollision);
+    ImGui::EndDisabled();
+    ImGui::SetItemTooltip("정적 메시의 정점을 감싸는 볼록 외곽(최대 255개 꼭짓점)을 물리 충돌 형상으로 만들어 함께 저장합니다.\n평면 메시는 얇은 판 모양 외곽이 되며, 끄거나 외곽을 만들 수 없으면 메시 경계 상자를 사용합니다.");
     ImGui::Checkbox("Import Skeleton", &mImportOption.mImportSkeleton);
     ImGui::SetItemTooltip("원본에 스켈레톤이 있으면 본 계층, 바인드 포즈, 정점별 본 가중치를 읽습니다.\n메시는 스켈레탈 메시 에셋으로 저장되며 배치하거나 메시 뷰어에서 열 수 있습니다.");
 

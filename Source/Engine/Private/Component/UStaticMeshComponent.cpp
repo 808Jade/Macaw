@@ -8,6 +8,7 @@
 #include "Core/FilePath.h"
 #include "Core/Base/ErrorHandler.h"
 #include "Engine/EPrimitiveType.h"
+#include "Engine/PrimitiveBodySetup.h"
 #include "Asset/FAssetManager.h"
 #include "Asset/UStaticMesh.h"
 #include "Engine/UWorld.h"
@@ -43,6 +44,7 @@ namespace Engine {
             mPrimitive = Type;
 
             MarkRenderStateDirty();
+            RecreatePhysicsState();
         }
 
         return true;
@@ -94,6 +96,7 @@ namespace Engine {
             mStaticMesh = Mesh;
 
             MarkRenderStateDirty();
+            RecreatePhysicsState();
         }
 
         return true;
@@ -144,6 +147,7 @@ namespace Engine {
             mStaticMesh = Mesh;
 
             MarkRenderStateDirty();
+            RecreatePhysicsState();
         }
 
         return mMeshPath.empty() || mStaticMesh != nullptr;
@@ -154,6 +158,17 @@ namespace Engine {
      */
     bool Engine::UStaticMeshComponent::ShouldCreateRenderState() const {
         return mMeshPath.empty() || mStaticMesh != nullptr;
+    }
+
+    /**
+     * @brief 표시 중인 메시에 맞는 충돌 형상을 반환합니다.
+     */
+    const PhysicsRuntime::UBodySetup* Engine::UStaticMeshComponent::GetBodySetup() const {
+        if (mMeshPath.empty()) {
+            return Engine::GetPrimitiveBodySetup(mPrimitive);
+        }
+
+        return mStaticMesh != nullptr ? mStaticMesh->GetBodySetup() : nullptr;
     }
 
     /**

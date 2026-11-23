@@ -174,6 +174,12 @@ namespace Engine {
         RenderCore::IRendererModule* GetRenderer() const;
 
         /**
+         * @brief 엔진이 소유한 PhysX 런타임을 반환합니다.
+         * @return 엔진 수명 동안 유효한 런타임의 참조입니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime& GetPhysicsRuntime();
+
+        /**
          * @brief 새 월드 컨텍스트를 검증하고 장면을 연결한 뒤 현재 월드를 교체합니다.
          * @param[in] Context 새 현재 월드로 등록할 월드 컨텍스트입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
@@ -244,6 +250,10 @@ namespace Engine {
 
     private:
 
+        /**
+         * @brief 월드별 물리 장면이 공유하는 PhysX SDK 객체입니다.
+         * @note 월드 컨텍스트를 모두 정리한 뒤 종료합니다.
+         */
         PhysicsRuntime::FPhysicsRuntime mPhysicsRuntime{};
 
         /**

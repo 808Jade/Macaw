@@ -12,6 +12,7 @@
 #include "Engine/EngineStats.h"
 #include "Engine/ULevel.h"
 #include "Engine/FProject.h"
+#include "Asset/FAssetManager.h"
 #include "Engine/FSceneInterface.h"
 #include "Engine/UWorld.h"
 #include "Engine/FWorldContext.h"
@@ -165,6 +166,12 @@ namespace Engine {
         }
 
         mWorldContexts.clear();
+
+        // 프로젝트의 에셋 관리자는 엔진보다 오래 남으므로 런타임을 해제하기 전에 연결을 끊습니다.
+        if (Asset::FAssetManager* Assets{mProject != nullptr ? mProject->GetAssets() : nullptr}) {
+            Assets->SetPhysicsRuntime(nullptr);
+        }
+
         mPhysicsRuntime.Shutdown();
 
         mUpdating = false;
@@ -271,7 +278,15 @@ namespace Engine {
             return {};
         }
 
-        Context->GetWorld()->SetAssets(mProject != nullptr ? mProject->GetAssets() : nullptr);
+        Asset::FAssetManager* Assets{mProject != nullptr ? mProject->GetAssets() : nullptr};
+
+        // 메시를 임포트할 때 볼록 충돌 형상을 계산하도록 에셋 관리자에도 런타임을 연결합니다.
+        if (Assets != nullptr) {
+            Assets->SetPhysicsRuntime(&mPhysicsRuntime);
+        }
+
+        Context->GetWorld()->SetAssets(Assets);
+        Context->GetWorld()->SetPhysicsRuntime(&mPhysicsRuntime);
 
         if (mRenderer != nullptr && !Context->GetWorld()->AttachScene(mRenderer->AllocateScene())) {
             return {};
@@ -468,6 +483,13 @@ namespace Engine {
      */
     RenderCore::IRendererModule* Engine::UEngine::GetRenderer() const {
         return mRenderer;
+    }
+
+    /**
+     * @brief 엔진이 소유한 PhysX 런타임을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsRuntime& Engine::UEngine::GetPhysicsRuntime() {
+        return mPhysicsRuntime;
     }
 
     /**

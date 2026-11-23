@@ -60,13 +60,13 @@ namespace Engine {
         Engine::UWorld* GetWorld() const;
 
         /**
-         * @brief 컴포넌트를 월드에 연결하고 렌더 상태와 Tick 함수를 등록합니다.
+         * @brief 컴포넌트를 월드에 연결하고 렌더 상태, 물리 상태와 Tick 함수를 등록합니다.
          * @param[in,out] World 컴포넌트를 등록할 월드입니다.
          */
         virtual void RegisterComponent(Engine::UWorld* World);
 
         /**
-         * @brief 렌더 상태, Tick 등록과 월드 연결을 해제합니다.
+         * @brief 렌더 상태, Tick 등록, 물리 상태와 월드 연결을 해제합니다.
          */
         virtual void UnregisterComponent();
 
@@ -131,11 +131,51 @@ namespace Engine {
          */
         virtual void RegisterComponentTickFunctions(bool Register);
 
+        /**
+         * @brief 등록된 월드에 물리 장면이 있고 물리 상태가 필요하면 물리 상태를 만듭니다.
+         * @details 컴포넌트 등록 시와 월드가 물리 장면을 만든 직후 호출되므로, 바디 생성은 액터 BeginPlay가 아니라
+         *          "등록됨 + 물리 장면 있음" 조건을 따릅니다. 이미 만들었으면 아무 일도 하지 않습니다.
+         */
+        void CreatePhysicsState();
+
+        /**
+         * @brief 만든 물리 상태를 해제합니다.
+         * @note 컴포넌트 등록 해제 시와 월드가 물리 장면을 해제하기 직전에 호출됩니다.
+         */
+        void DestroyPhysicsState();
+
+        /**
+         * @brief 물리 상태를 해제한 뒤 조건이 맞으면 다시 만듭니다.
+         */
+        void RecreatePhysicsState();
+
+        /**
+         * @brief 물리 상태를 만들었는지 반환합니다.
+         * @return CreatePhysicsState로 만든 뒤 해제하지 않았으면 true입니다.
+         */
+        bool IsPhysicsStateCreated() const;
+
+        /**
+         * @brief 이 컴포넌트가 물리 상태를 필요로 하는지 반환하는 확장 지점입니다.
+         * @return 기본 구현은 false입니다.
+         */
+        virtual bool ShouldCreatePhysicsState() const;
+
     private:
         /**
          * @brief 월드에 등록된 컴포넌트가 참조하는 에셋과 렌더 상태를 준비합니다.
          */
         virtual void OnRegister();
+
+        /**
+         * @brief 물리 장면에 이 컴포넌트의 물리 상태를 만드는 확장 지점입니다.
+         */
+        virtual void OnCreatePhysicsState();
+
+        /**
+         * @brief 이 컴포넌트의 물리 상태를 물리 장면에서 해제하는 확장 지점입니다.
+         */
+        virtual void OnDestroyPhysicsState();
 
         /**
          * @brief 컴포넌트의 소유 액터를 지정합니다.
@@ -173,6 +213,11 @@ namespace Engine {
          * @brief 컴포넌트가 시작 전달에 진입하여 아직 종료되지 않았는지 나타냅니다.
          */
         bool mHasBegunPlay{};
+
+        /**
+         * @brief 물리 상태를 만들어 아직 해제하지 않았는지 나타냅니다.
+         */
+        bool mPhysicsStateCreated{};
 
         /**
          * @brief 정지한 편집 월드에서도 이 객체의 Tick을 허용하는 설정입니다.

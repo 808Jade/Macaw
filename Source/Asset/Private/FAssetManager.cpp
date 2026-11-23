@@ -19,6 +19,7 @@
 #include "Asset/Animation/UAnimSequence.h"
 #include "Asset/Animation/UBlendSpace1D.h"
 #include "Asset/Animation/UAnimGraph.h"
+#include "PhysicsRuntime/UPhysicsAsset.h"
 #include "Core/Base/ErrorHandler.h"
 #include "FMaterialFile.h"
 #include "CoreUObject/Reflection/NewObject.h"
@@ -29,6 +30,7 @@
 #include "FAssetImportScope.h"
 #include "Asset/Import/IMeshImporter.h"
 #include "Asset/Import/FMeshImportResult.h"
+#include "PhysicsRuntime/FPhysicsRuntime.h"
 
 #include <algorithm>
 #include <limits>
@@ -308,6 +310,45 @@ namespace Asset {
         }
 
         /**
+         * @brief 정적 메시의 볼록 충돌 형상을 바이너리로 직렬화합니다.
+         * @details 정적 메시 에셋에서 메시 데이터 뒤에 붙는 섹션입니다. 이 섹션이 없는 이전 에셋은 경계 상자를 사용합니다.
+         *          스켈레탈 메시는 메시 데이터 뒤에 본 데이터가 이어지므로 이 섹션을 쓰지 않습니다.
+         * @param[in,out] Archive 모드에 따라 값을 읽거나 쓸 아카이브입니다.
+         * @param[in,out] ConvexElems 읽거나 직렬화할 볼록 충돌 형상 목록입니다.
+         */
+        void SerializeCollision(Serialization::FMemoryArchive& Archive, Core::TArray<PhysicsRuntime::FKConvexElem>& ConvexElems) {
+            Uint32 Version{1};
+
+            Archive.Serialize("CollisionVersion", Version);
+
+            if (Archive.HasError() || Version != 1) {
+                Archive.SetError("Unsupported mesh collision version");
+
+                return;
+            }
+
+            Uint32 Count{Archive.IsLoading() ? 0 : static_cast<Uint32>(ConvexElems.size())};
+
+            if (!Archive.BeginArray("ConvexElems", Count) || (Archive.IsLoading() && Count > Archive.GetRemainingBytes() / 8)) {
+                Archive.SetError("Invalid convex collision count");
+
+                return;
+            }
+
+            if (Archive.IsLoading()) {
+                ConvexElems.clear();
+                ConvexElems.resize(Count);
+            }
+
+            for (Index_t Index{}; Index < Count && !Archive.HasError(); ++Index) {
+                Asset::FAssetSerialization::SerializeValues(Archive, ConvexElems[Index].mVertices);
+                Asset::FAssetSerialization::SerializeValues(Archive, ConvexElems[Index].mIndices);
+            }
+
+            Archive.EndArray();
+        }
+
+        /**
          * @brief 본 이름·부모·바인드 변환을 바이너리 아카이브에 직렬화합니다.
          * @param Archive 저장·로드 방향과 오류 상태를 제공하는 아카이브입니다.
          * @param Bones 부모 인덱스와 바인드 변환을 가진 본 배열입니다.
@@ -478,14 +519,15 @@ namespace Asset {
          * @param Archive 저장·로드 방향과 오류 상태를 제공하는 아카이브입니다.
          * @param Mesh 호출자가 수명을 보장하는 미리보기 메시입니다.
          * @param SkinWeights 정점별 본 인덱스·가중치 배열입니다.
+         * @param PhysicsAssetPath 메시가 참조하는 물리 에셋 경로입니다.
          * @param LegacyBones 구형 파일의 본 데이터를 받을 선택 출력 배열입니다.
          */
-        void SerializeSkeletalMesh(Serialization::FMemoryArchive& Archive, Asset::FMeshData& Mesh, Core::TArray<Asset::FMeshImportSkinWeight>& SkinWeights, Core::TArray<Asset::FMeshImportBone>* LegacyBones = nullptr) {
-            Uint32 Version{2};
+        void SerializeSkeletalMesh(Serialization::FMemoryArchive& Archive, Asset::FMeshData& Mesh, Core::TArray<Asset::FMeshImportSkinWeight>& SkinWeights, Core::FString& PhysicsAssetPath, Core::TArray<Asset::FMeshImportBone>* LegacyBones = nullptr) {
+            Uint32 Version{3};
 
             Archive.Serialize("SkeletalMeshVersion", Version);
 
-            if (Archive.HasError() || (Version != 2 && (Version != 1 || LegacyBones == nullptr))) {
+            if (Archive.HasError() || (Version != 3 && Version != 2 && (Version != 1 || LegacyBones == nullptr))) {
                 Archive.SetError("Unsupported skeletal mesh version");
 
                 return;
@@ -527,6 +569,147 @@ namespace Asset {
                     SkinWeights.emplace_back(BoneIndices, Weights);
                 }
             }
+
+            // 버전 3부터 메시가 참조하는 물리 에셋 경로를 함께 저장합니다.
+            if (Version >= 3) {
+                Archive.Serialize("PhysicsAsset", PhysicsAssetPath);
+            }
+        }
+
+        /**
+         * @brief 배열 개수를 검증하고 원소마다 직렬화 함수를 호출합니다.
+         * @param Archive 저장·로드 방향과 오류 상태를 제공하는 아카이브입니다.
+         * @param Name 배열의 이름입니다.
+         * @param Values 직렬화할 배열이며, 로드 시 개수만큼 기본값으로 채웁니다.
+         * @param MinimumBytes 원소 하나가 차지하는 최소 바이트 수입니다.
+         * @param SerializeElement 원소 하나를 직렬화하는 함수입니다.
+         */
+        template <typename TElement, typename TFunction>
+        void SerializePhysicsArray(Serialization::FMemoryArchive& Archive, std::string_view Name, Core::TArray<TElement>& Values, std::size_t MinimumBytes, TFunction&& SerializeElement) {
+            Uint32 Count{Archive.IsLoading() ? 0 : static_cast<Uint32>(Values.size())};
+
+            if (Archive.HasError() || !Archive.BeginArray(Name, Count) || (Archive.IsLoading() && Count > Archive.GetRemainingBytes() / MinimumBytes)) {
+                Archive.SetError("Invalid physics asset array count");
+
+                return;
+            }
+
+            if (Archive.IsLoading()) {
+                Values.clear();
+                Values.resize(Count);
+            }
+
+            for (TElement& Value : Values) {
+                SerializeElement(Value);
+
+                if (Archive.HasError()) {
+                    return;
+                }
+            }
+
+            Archive.EndArray();
+        }
+
+        /**
+         * @brief 관절 움직임 열거값을 정수로 직렬화합니다.
+         * @param Archive 저장·로드 방향과 오류 상태를 제공하는 아카이브입니다.
+         * @param Name 값의 이름입니다.
+         * @param Motion 직렬화할 움직임 값입니다.
+         */
+        template <typename TMotion>
+        void SerializeMotion(Serialization::FMemoryArchive& Archive, std::string_view Name, TMotion& Motion) {
+            Uint32 Value{static_cast<Uint32>(Motion)};
+
+            Archive.Serialize(Name, Value);
+
+            if (Value > static_cast<Uint32>(TMotion::Locked)) {
+                Archive.SetError("Invalid constraint motion");
+
+                return;
+            }
+
+            Motion = static_cast<TMotion>(Value);
+        }
+
+        /**
+         * @brief 물리 에셋의 바디 설계도와 관절 설정을 바이너리 아카이브에 직렬화합니다.
+         * @param Archive 저장·로드 방향과 오류 상태를 제공하는 아카이브입니다.
+         * @param PhysicsAsset 직렬화할 물리 에셋입니다.
+         */
+        void SerializePhysicsAsset(Serialization::FMemoryArchive& Archive, PhysicsRuntime::UPhysicsAsset& PhysicsAsset) {
+            Uint32 Version{1};
+
+            Archive.Serialize("PhysicsAssetVersion", Version);
+
+            if (Archive.HasError() || Version != 1) {
+                Archive.SetError("Unsupported physics asset version");
+
+                return;
+            }
+
+            SerializePhysicsArray(Archive, "Bodies", PhysicsAsset.mSkeletalBodySetups, 16, [&Archive](std::unique_ptr<PhysicsRuntime::UBodySetup>& BodySetup) {
+                if (Archive.IsLoading()) {
+                    BodySetup = CoreUObject::NewObject<PhysicsRuntime::UBodySetup>();
+                }
+
+                PhysicsRuntime::FKAggregateGeom& AggGeom{BodySetup->GetAggGeom()};
+                Core::FString BoneName{BodySetup->GetBoneName()};
+
+                Archive.Serialize("BoneName", BoneName);
+
+                if (Archive.IsLoading()) {
+                    BodySetup->SetBoneName(BoneName);
+                }
+
+                SerializePhysicsArray(Archive, "Spheres", AggGeom.mSphereElems, 16, [&Archive](PhysicsRuntime::FKSphereElem& Elem) {
+                    Archive.Serialize("Center", Elem.mCenter);
+                    Archive.Serialize("Radius", Elem.mRadius);
+                });
+
+                SerializePhysicsArray(Archive, "Boxes", AggGeom.mBoxElems, 36, [&Archive](PhysicsRuntime::FKBoxElem& Elem) {
+                    Archive.Serialize("Center", Elem.mCenter);
+                    Archive.Serialize("Rotation", Elem.mRotation);
+                    Archive.Serialize("HalfExtent", Elem.mHalfExtent);
+                });
+
+                SerializePhysicsArray(Archive, "Capsules", AggGeom.mSphylElems, 32, [&Archive](PhysicsRuntime::FKSphylElem& Elem) {
+                    Archive.Serialize("Center", Elem.mCenter);
+                    Archive.Serialize("Rotation", Elem.mRotation);
+                    Archive.Serialize("Radius", Elem.mRadius);
+                    Archive.Serialize("Length", Elem.mLength);
+                });
+            });
+
+            SerializePhysicsArray(Archive, "Constraints", PhysicsAsset.mConstraintSetup, 64, [&Archive](std::unique_ptr<PhysicsRuntime::UPhysicsConstraintTemplate>& ConstraintSetup) {
+                if (Archive.IsLoading()) {
+                    ConstraintSetup = CoreUObject::NewObject<PhysicsRuntime::UPhysicsConstraintTemplate>();
+                }
+
+                PhysicsRuntime::FConstraintInstance& Instance{ConstraintSetup->mDefaultInstance};
+
+                Archive.Serialize("JointName", Instance.mJointName);
+                Archive.Serialize("ConstraintBone1", Instance.mConstraintBone1);
+                Archive.Serialize("ConstraintBone2", Instance.mConstraintBone2);
+                Archive.Serialize("Pos1", Instance.mPos1);
+                Archive.Serialize("PriAxis1", Instance.mPriAxis1);
+                Archive.Serialize("SecAxis1", Instance.mSecAxis1);
+                Archive.Serialize("Pos2", Instance.mPos2);
+                Archive.Serialize("PriAxis2", Instance.mPriAxis2);
+                Archive.Serialize("SecAxis2", Instance.mSecAxis2);
+                SerializeMotion(Archive, "LinearXMotion", Instance.mLinearXMotion);
+                SerializeMotion(Archive, "LinearYMotion", Instance.mLinearYMotion);
+                SerializeMotion(Archive, "LinearZMotion", Instance.mLinearZMotion);
+                SerializeMotion(Archive, "Swing1Motion", Instance.mSwing1Motion);
+                SerializeMotion(Archive, "Swing2Motion", Instance.mSwing2Motion);
+                SerializeMotion(Archive, "TwistMotion", Instance.mTwistMotion);
+                Archive.Serialize("Swing1LimitDegrees", Instance.mSwing1LimitDegrees);
+                Archive.Serialize("Swing2LimitDegrees", Instance.mSwing2LimitDegrees);
+                Archive.Serialize("TwistLimitDegrees", Instance.mTwistLimitDegrees);
+            });
+
+            if (Archive.IsLoading() && !Archive.HasError()) {
+                PhysicsAsset.UpdateBodySetupIndexMap();
+            }
         }
 
     }
@@ -548,6 +731,13 @@ namespace Asset {
      */
     const std::filesystem::path& Asset::FAssetManager::GetContentRoot() const {
         return mContentRoot;
+    }
+
+    /**
+     * @brief 메시를 임포트할 때 볼록 충돌 형상을 계산할 PhysX 런타임을 설정합니다.
+     */
+    void Asset::FAssetManager::SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime) {
+        mPhysicsRuntime = Runtime;
     }
 
     /**
@@ -730,12 +920,19 @@ namespace Asset {
 
         Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Asset::FMeshData Data{};
+        Core::TArray<PhysicsRuntime::FKConvexElem> ConvexElems{};
 
         SerializeMesh(Archive, Data);
 
+        // 충돌 섹션은 이후 버전에서 추가했으므로 없으면 경계 상자를 사용합니다.
+        if (!Archive.HasError() && Archive.GetRemainingBytes() != 0) {
+            SerializeCollision(Archive, ConvexElems);
+        }
+
         auto Mesh{CoreUObject::NewObject<Asset::UStaticMesh>()};
 
-        if (Archive.HasError() || Archive.GetRemainingBytes() != 0 || !Mesh->SetMeshData(std::move(Data))) {
+        // 메시 데이터를 설정하면 볼록 형상이 지워지므로 볼록 형상은 그 뒤에 설정합니다.
+        if (Archive.HasError() || Archive.GetRemainingBytes() != 0 || !Mesh->SetMeshData(std::move(Data)) || !Mesh->SetConvexElems(std::move(ConvexElems))) {
             Error = Archive.HasError() ? Archive.GetError() : "Invalid mesh asset data";
 
             return nullptr;
@@ -782,8 +979,9 @@ namespace Asset {
         Asset::FMeshData Data{};
         Core::TArray<Asset::FMeshImportBone> LegacyBones{};
         Core::TArray<Asset::FMeshImportSkinWeight> SkinWeights{};
+        Core::FString PhysicsAssetPath{};
 
-        SerializeSkeletalMesh(Archive, Data, SkinWeights, &LegacyBones);
+        SerializeSkeletalMesh(Archive, Data, SkinWeights, PhysicsAssetPath, &LegacyBones);
 
         auto Mesh{CoreUObject::NewObject<Asset::USkeletalMesh>()};
 
@@ -792,6 +990,8 @@ namespace Asset {
 
             return nullptr;
         }
+
+        Mesh->SetPhysicsAssetPath(std::move(PhysicsAssetPath));
 
         if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Mesh, Error)) {
             return nullptr;
@@ -870,6 +1070,53 @@ namespace Asset {
         const auto Existing{mLegacySkeletons.find(CacheKey(GetRelativePath(MeshPath, Error)))};
 
         return Existing != mLegacySkeletons.end() ? Existing->second.get() : nullptr;
+    }
+
+    /**
+     * @brief 물리 에셋을 캐시에서 찾거나 파일에서 읽어 캐시에 보관합니다.
+     */
+    PhysicsRuntime::UPhysicsAsset* Asset::FAssetManager::LoadPhysicsAsset(const std::filesystem::path& Path, Core::FString& Error) {
+        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+
+        if (Key.empty()) {
+            return nullptr;
+        }
+
+        const auto Existing{mPhysicsAssets.find(Key)};
+
+        if (Existing != mPhysicsAssets.end()) {
+            Asset::AssetStats::AssetCacheHits.Add();
+
+            return Existing->second.get();
+        }
+
+        Core::TArray<Uint8> Payload{};
+
+        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::PhysicsAsset, Payload, Error)) {
+            return nullptr;
+        }
+
+        Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
+        auto PhysicsAsset{CoreUObject::NewObject<PhysicsRuntime::UPhysicsAsset>()};
+
+        SerializePhysicsAsset(Archive, *PhysicsAsset);
+
+        if (Archive.HasError() || Archive.GetRemainingBytes() != 0) {
+            Error = Archive.HasError() ? Archive.GetError() : "Invalid physics asset data";
+
+            return nullptr;
+        }
+
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *PhysicsAsset, Error)) {
+            return nullptr;
+        }
+
+        PhysicsRuntime::UPhysicsAsset* Result{PhysicsAsset.get()};
+
+        PhysicsAsset->SetName(Core::FilePath::ToUtf8(Path.stem()));
+        mPhysicsAssets.emplace(Key, std::move(PhysicsAsset));
+
+        return Result;
     }
 
     Asset::UAnimSequence* Asset::FAssetManager::LoadAnimSequence(const std::filesystem::path& Path, Core::FString& Error) {
@@ -1027,8 +1274,10 @@ namespace Asset {
         Core::TArray<Uint8> Payload{};
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FMeshData Data{Mesh.GetMeshData()};
+        Core::TArray<PhysicsRuntime::FKConvexElem> ConvexElems{Mesh.GetConvexElems()};
 
         SerializeMesh(Archive, Data);
+        SerializeCollision(Archive, ConvexElems);
 
         if (Archive.HasError()) {
             Error = Archive.GetError();
@@ -1069,8 +1318,9 @@ namespace Asset {
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FMeshData Data{Mesh.GetMeshData()};
         Core::TArray<Asset::FMeshImportSkinWeight> SkinWeights{Mesh.GetSkinWeights()};
+        Core::FString PhysicsAssetPath{Mesh.GetPhysicsAssetPath()};
 
-        SerializeSkeletalMesh(Archive, Data, SkinWeights);
+        SerializeSkeletalMesh(Archive, Data, SkinWeights, PhysicsAssetPath);
 
         if (Archive.HasError()) {
             Error = Archive.GetError();
@@ -1121,6 +1371,49 @@ namespace Asset {
         }
 
         if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Skeleton, Payload, Error, GetSaveIdentity(Target, Skeleton.GetGuid()))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @brief 물리 에셋의 바디 설계도와 관절 설정을 지정한 에셋 파일에 저장합니다.
+     */
+    bool Asset::FAssetManager::SavePhysicsAsset(const std::filesystem::path& Path, const PhysicsRuntime::UPhysicsAsset& PhysicsAsset, Core::FString& Error) {
+        const auto Target{ResolvePath(Path, Error)};
+
+        if (!ValidateAssetIdentity(Target, PhysicsAsset.GetGuid(), Error)) {
+            return false;
+        }
+
+        const auto IsNull{[](const auto& Setup) { return Setup == nullptr; }};
+
+        if (Target.empty() || std::ranges::any_of(PhysicsAsset.mSkeletalBodySetups, IsNull) || std::ranges::any_of(PhysicsAsset.mConstraintSetup, IsNull)) {
+            if (Error.empty()) {
+                Error = "Cannot save an invalid physics asset";
+            }
+
+            return false;
+        }
+
+        Core::TArray<Uint8> Payload{};
+        Serialization::FMemoryArchive Archive{Payload};
+
+        // 저장 방향의 직렬화는 값을 읽기만 하므로 에셋을 바꾸지 않습니다.
+        SerializePhysicsAsset(Archive, const_cast<PhysicsRuntime::UPhysicsAsset&>(PhysicsAsset));
+
+        if (Archive.HasError()) {
+            Error = Archive.GetError();
+
+            return false;
+        }
+
+        if (!CheckCacheSlot(mPhysicsAssets, CacheKey(GetRelativePath(Path, Error)), &PhysicsAsset, Error)) {
+            return false;
+        }
+
+        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::PhysicsAsset, Payload, Error, GetSaveIdentity(Target, PhysicsAsset.GetGuid()))) {
             return false;
         }
 
@@ -1553,6 +1846,17 @@ namespace Asset {
                     return false;
                 }
 
+                // 메시 형태를 감싸는 볼록 외곽을 충돌 형상으로 저장합니다. 만들 수 없으면 경계 상자를 사용합니다.
+                if (Option.mGenerateConvexCollision) {
+                    PhysicsRuntime::FKConvexElem Hull{};
+
+                    if (mPhysicsRuntime != nullptr && mPhysicsRuntime->ComputeConvexHull(Mesh->GetMeshData().GetPositions(), Hull)) {
+                        Mesh->SetConvexElems({std::move(Hull)});
+                    } else {
+                        Core::ErrorHandler::Report("Asset", "Cannot generate convex collision for '" + ImportedMesh.GetName() + "'; using the mesh bounds box", Core::ErrorHandler::EErrorLevel::Warning);
+                    }
+                }
+
                 if (!SaveMesh(MeshTarget, *Mesh, Error)) {
                     return false;
                 }
@@ -1612,6 +1916,7 @@ namespace Asset {
         Retire(mSkeletalMeshes);
         Retire(mSkeletons);
         Retire(mLegacySkeletons);
+        Retire(mPhysicsAssets);
         Retire(mAnimSequences);
         Retire(mTextures);
         Retire(mNormalMaps);

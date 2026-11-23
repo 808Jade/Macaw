@@ -24,6 +24,7 @@
 #include "Core/Math.h"
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Engine/Component/UShapeComponent.h"
+#include "Engine/Collision/FHitResult.h"
 #include "Engine/AStaticMeshActor.h"
 #include "Engine/ULevel.h"
 #include "Engine/FWorldHit.h"
@@ -39,6 +40,10 @@
 
 #include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/Reflection/UClass.h"
+#include "Core/Log/Log.h"
+#include "PhysicsRuntime/FPhysicsRuntime.h"
+#include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/PhysicsStats.h"
 
 #include <algorithm>
 #include <cmath>
@@ -46,6 +51,13 @@
 #include <utility>
 
 namespace Engine {
+
+    /**
+     * @brief 월드의 로그 범주입니다.
+     */
+    namespace {
+        DEFINE_LOG_CATEGORY_STATIC(LogWorld, Log, All);
+    }
 
     /**
      * @brief UWorld의 초기 상태와 전달받은 의존성을 구성합니다.
@@ -120,6 +132,196 @@ namespace Engine {
      */
     Asset::FAssetManager* Engine::UWorld::GetAssets() const {
         return mAssets;
+    }
+
+    /**
+     * @brief 물리 장면 생성에 사용할 PhysX 런타임의 비소유 주소를 설정합니다.
+     */
+    void Engine::UWorld::SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime) {
+        if (mPhysicsRuntime == Runtime) {
+            return;
+        }
+
+        DestroyPhysicsScene();
+        mPhysicsRuntime = Runtime;
+    }
+
+    /**
+     * @brief 물리 장면 생성에 사용할 PhysX 런타임을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsRuntime* Engine::UWorld::GetPhysicsRuntime() const {
+        return mPhysicsRuntime;
+    }
+
+    /**
+     * @brief 월드가 소유한 물리 장면을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsScene* Engine::UWorld::GetPhysicsScene() const {
+        return mPhysicsScene.get();
+    }
+
+    /**
+     * @brief 설정된 런타임으로 물리 장면을 만들고 고정 스텝 누적 시간을 초기화합니다.
+     */
+    bool Engine::UWorld::CreatePhysicsScene() {
+        if (mPhysicsScene != nullptr) {
+            return true;
+        }
+
+        if (mPhysicsRuntime == nullptr) {
+            return false;
+        }
+
+        auto Scene{std::make_unique<PhysicsRuntime::FPhysicsScene>()};
+
+        if (!Scene->Initialize(*mPhysicsRuntime)) {
+            MACAW_LOG(LogWorld, Warning, "Cannot create the physics scene; the world runs without physics.");
+
+            return false;
+        }
+
+        mPhysicsScene = std::move(Scene);
+        mPhysicsTimeAccumulator = 0.0f;
+
+        // 장면보다 먼저 등록된 컴포넌트는 등록 시점에 바디를 만들지 못했으므로 여기서 만듭니다.
+        UpdateComponentPhysicsStates(true);
+
+        return true;
+    }
+
+    /**
+     * @brief 컴포넌트의 물리 상태를 먼저 해제한 뒤 물리 장면을 해제합니다.
+     */
+    void Engine::UWorld::DestroyPhysicsScene() {
+        if (mPhysicsScene != nullptr) {
+            UpdateComponentPhysicsStates(false);
+        }
+
+        mPhysicsScene.reset();
+        mPhysicsTimeAccumulator = 0.0f;
+    }
+
+    /**
+     * @brief 영속 레벨의 모든 액터 컴포넌트에 물리 상태 생성 또는 해제를 요청합니다.
+     */
+    void Engine::UWorld::UpdateComponentPhysicsStates(bool Create) {
+        if (mPersistentLevel == nullptr) {
+            return;
+        }
+
+        for (const auto& Actor : mPersistentLevel->GetActors()) {
+            for (const auto& Component : Actor->GetComponents()) {
+                if (Create) {
+                    Component->CreatePhysicsState();
+                } else {
+                    Component->DestroyPhysicsState();
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief 프레임 시간을 고정 스텝으로 나누어 물리 장면을 진행합니다.
+     */
+    void Engine::UWorld::StepPhysics(float DeltaTime) {
+        if (mPhysicsScene == nullptr || !std::isfinite(DeltaTime) || DeltaTime <= 0.0f) {
+            return;
+        }
+
+        const PhysicsRuntime::FPhysicsSettings& Settings{mPhysicsRuntime->GetSettings()};
+        const float StepSeconds{Settings.mFixedStepSeconds};
+
+        mPhysicsTimeAccumulator = std::min(mPhysicsTimeAccumulator + DeltaTime, StepSeconds * static_cast<float>(Settings.mMaxStepsPerFrame));
+
+        // 접촉 목록과 움직인 바디 목록은 다음 Simulate에서 바뀌므로 스텝마다 결과를 전달합니다.
+        while (mPhysicsScene != nullptr && !mEndPlayRequested && !mShutdownRequested && mPhysicsTimeAccumulator >= StepSeconds && mPhysicsScene->Simulate(StepSeconds)) {
+            mPhysicsTimeAccumulator -= StepSeconds;
+
+            DispatchPhysicsResults();
+        }
+    }
+
+    /**
+     * @brief 마지막 물리 스텝에서 움직인 바디를 컴포넌트에 반영하고 새 접촉을 충돌 이벤트로 전달합니다.
+     */
+    void Engine::UWorld::DispatchPhysicsResults() {
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::Dispatch};
+
+        /**
+         * @brief 컴포넌트 핸들로 바꾼 접촉 한 건입니다.
+         */
+        struct FPhysicsHit {
+            CoreUObject::TObjectRef<Engine::UPrimitiveComponent> mFirst{};
+            CoreUObject::TObjectRef<Engine::UPrimitiveComponent> mSecond{};
+            FVector mPoint{};
+            FVector mNormal{};
+        };
+
+        const auto OwnerOf{[](const physx::PxActor* Actor) -> Engine::UPrimitiveComponent* {
+            const PhysicsRuntime::FBodyInstance* Body{Actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Actor) : nullptr};
+
+            return Body != nullptr ? Body->GetOwnerComponent() : nullptr;
+        }};
+
+        // 이벤트 처리 중 바디가 다시 만들어지면 PhysX 주소가 무효화되므로 전달 전에 모두 핸들로 바꿉니다.
+        Core::TArray<CoreUObject::TObjectRef<Engine::UPrimitiveComponent>> Moved{};
+        Core::TArray<FPhysicsHit> Hits{};
+
+        for (const physx::PxActor* Actor : mPhysicsScene->GetActiveActors()) {
+            const PhysicsRuntime::FBodyInstance* Body{Actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Actor) : nullptr};
+
+            // 뼈 바디는 컴포넌트 전체가 아니라 뼈 하나의 자세이므로 컴포넌트가 직접 읽어 갑니다.
+            if (Body == nullptr || Body->mInstanceBodyIndex != InvalidIndex) {
+                continue;
+            }
+
+            if (Engine::UPrimitiveComponent* Component{Body->GetOwnerComponent()}) {
+                Moved.push_back(CoreUObject::MakeObjectRef(Component));
+            }
+        }
+
+        for (const PhysicsRuntime::FPhysicsContact& Contact : mPhysicsScene->GetContacts()) {
+            Engine::UPrimitiveComponent* First{OwnerOf(Contact.mActor0)};
+            Engine::UPrimitiveComponent* Second{OwnerOf(Contact.mActor1)};
+
+            if (First != nullptr && Second != nullptr) {
+                Hits.push_back({CoreUObject::MakeObjectRef(First), CoreUObject::MakeObjectRef(Second), Contact.mPoint, Contact.mNormal});
+            }
+        }
+
+        for (const CoreUObject::TObjectRef<Engine::UPrimitiveComponent> Handle : Moved) {
+            if (Engine::UPrimitiveComponent* Component{Handle.Get()}) {
+                Component->SyncComponentToBody();
+            }
+        }
+
+        for (const FPhysicsHit& Contact : Hits) {
+            Engine::UPrimitiveComponent* First{Contact.mFirst.Get()};
+            Engine::UPrimitiveComponent* Second{Contact.mSecond.Get()};
+
+            if (First == nullptr || Second == nullptr) {
+                continue;
+            }
+
+            // 접촉 법선은 두 번째 바디에서 첫 번째 바디를 향하므로 첫 번째 컴포넌트가 받은 충격면의 법선과 같습니다.
+            Engine::FHitResult Hit{0.0f};
+            Hit.mBlockingHit = true;
+            Hit.mLocation = Contact.mPoint;
+            Hit.mImpactPoint = Contact.mPoint;
+            Hit.mNormal = Contact.mNormal;
+            Hit.mImpactNormal = Contact.mNormal;
+            Hit.SetComponent(Second);
+            Hit.SetActor(Second->GetOwner());
+            First->OnHit(Second->GetOwner(), Second, Hit);
+
+            // 첫 번째 이벤트 처리 중 상대가 사라졌을 수 있으므로 핸들을 다시 해석합니다.
+            First = Contact.mFirst.Get();
+            Second = Contact.mSecond.Get();
+
+            if (First != nullptr && Second != nullptr) {
+                Second->OnHit(First->GetOwner(), First, Engine::FHitResult::GetReversedHit(Hit, First, First->GetOwner()));
+            }
+        }
     }
 
     /**
@@ -214,26 +416,6 @@ namespace Engine {
      */
     Engine::FSceneInterface* Engine::UWorld::GetScene() const {
         return mScene.get();
-    }
-
-    /**
-     * @brief 월드가 소유할 물리 씬을 연결합니다.
-     */
-    bool Engine::UWorld::AttachPhysicsScene(std::unique_ptr<PhysicsRuntime::FPhysicsScene> Scene) {
-        if (mPhysicsScene != nullptr || Scene == nullptr || mShuttingDown || IsDispatching()) {
-            return false;
-        }
-
-        mPhysicsScene = std::move(Scene);
-
-        return true;
-    }
-
-    /**
-     * @brief 연결된 물리 씬을 반환합니다.
-     */
-    PhysicsRuntime::FPhysicsScene* Engine::UWorld::GetPhysicsScene() const {
-        return mPhysicsScene.get();
     }
 
     /**
@@ -414,6 +596,7 @@ namespace Engine {
         mShutdownRequested = false;
 
         EndPlay();
+        DestroyPhysicsScene();
 
         mShuttingDown = true;
 
@@ -427,7 +610,6 @@ namespace Engine {
         mInputTarget = {};
         mPlayerCameraManager = {};
         mPersistentLevel.reset();
-        mPhysicsScene.reset();
         mScene.reset();
     }
 
@@ -484,6 +666,9 @@ namespace Engine {
         mPlayState = Engine::EWorldPlayState::Starting;
         mTimeSeconds = 0.0f;
         mTickCount = 0;
+
+        // 액터의 BeginPlay에서 강체를 다룰 수 있도록 물리 장면을 먼저 만듭니다. 실패하면 물리 없이 진행합니다.
+        CreatePhysicsScene();
 
         // 액터의 BeginPlay에서 카메라 관리자를 조회할 수 있도록 먼저 만듭니다.
         if (auto CameraManager{CoreUObject::NewObject<Engine::APlayerCameraManager>()}; CameraManager != nullptr && CameraManager->InitializeDefaultComponents() && mPersistentLevel != nullptr) {
@@ -557,6 +742,7 @@ namespace Engine {
         DestroyActor(mPlayerCameraManager);
         mPlayerCameraManager = {};
         mLuaRuntime.reset();
+        DestroyPhysicsScene();
         mPlayState = Engine::EWorldPlayState::Stopped;
     }
 
@@ -715,9 +901,10 @@ namespace Engine {
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PrePhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::StartPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::DuringPhysics);
-        // 에디터 월드는 배치 중인 Actor가 움직이지 않도록 시뮬레이션하지 않습니다.
-        if (!EditorTick && mPhysicsScene != nullptr) {
-            mPhysicsScene->Advance(DeltaTime);
+
+        // StartPhysics·EndPhysics는 사용자 Tick이 없는 경계 그룹이므로 그 사이에서 물리 장면을 동기로 진행합니다.
+        if (!EditorTick && !mEndPlayRequested && !mShutdownRequested) {
+            StepPhysics(DeltaTime);
         }
 
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::EndPhysics);

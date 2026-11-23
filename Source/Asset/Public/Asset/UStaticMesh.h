@@ -11,15 +11,22 @@
 #include "Asset/FMeshData.h"
 #include "RenderCore/TIndexBuffer.h"
 #include "RenderCore/TVertexBuffer.h"
+#include "PhysicsRuntime/FKConvexElem.h"
 
 #include <d3d11.h>
 #include <filesystem>
+#include <memory>
 #include "UStaticMesh.generated.h"
+
+namespace PhysicsRuntime {
+    class UBodySetup;
+}
 
 namespace Asset {
 
     /**
      * @brief CPU 메시 데이터와 Direct3D 정점·인덱스 버퍼 관리를 담당합니다.
+     * @details 물리 바디의 충돌 형상(바디 셋업)도 함께 보관합니다. 임포트할 때 만든 볼록 외곽이 있으면 그것을, 없으면 메시 경계를 감싸는 상자를 사용합니다.
      */
     UCLASS()
     class UStaticMesh final : public CoreUObject::UObject {
@@ -62,8 +69,29 @@ namespace Asset {
          * @brief CPU 메시 데이터의 유효성과 경계를 검사하여 교체하고 GPU 버퍼를 해제합니다.
          * @param[in] MeshData 검증 후 소유할 새 CPU 메시 데이터입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
+         * @note 이전 메시의 볼록 충돌 형상은 지우고 바디 셋업을 새 경계 상자로 다시 만듭니다.
+         *       이미 만든 물리 바디는 컴포넌트가 물리 상태를 다시 만들 때 반영됩니다.
          */
         bool SetMeshData(Asset::FMeshData MeshData);
+
+        /**
+         * @brief 이 메시로 물리 바디를 만들 때 사용할 충돌 형상을 반환합니다.
+         * @return 메시가 소유한 바디 셋업의 비소유 주소이며, 메시 데이터가 없으면 nullptr입니다.
+         */
+        const PhysicsRuntime::UBodySetup* GetBodySetup() const;
+
+        /**
+         * @brief 임포트할 때 만든 볼록 충돌 형상 목록을 반환합니다.
+         * @return 객체가 보유한 데이터의 참조이며, 비어 있으면 바디 셋업은 경계 상자를 사용합니다.
+         */
+        const Core::TArray<PhysicsRuntime::FKConvexElem>& GetConvexElems() const;
+
+        /**
+         * @brief 볼록 충돌 형상 목록을 바꾸고 바디 셋업을 다시 만듭니다.
+         * @param[in] ConvexElems 메시 로컬 공간의 볼록 충돌 형상 목록이며, 비우면 경계 상자로 되돌립니다.
+         * @return 모든 형상이 유효하여 적용했으면 true입니다.
+         */
+        bool SetConvexElems(Core::TArray<PhysicsRuntime::FKConvexElem> ConvexElems);
 
         /**
          * @brief 메시의 CPU 정점 속성·인덱스 데이터 참조를 반환합니다.
@@ -146,9 +174,26 @@ namespace Asset {
 
     private:
         /**
+         * @brief 볼록 충돌 형상이 있으면 그것으로, 없으면 메시 경계 상자로 바디 셋업을 다시 만듭니다.
+         */
+        void RebuildBodySetup();
+
+    private:
+        /**
          * @brief 메시의 CPU 정점 속성·인덱스·경계 데이터입니다.
          */
         Asset::FMeshData mMeshData{};
+
+        /**
+         * @brief 임포트할 때 메시 형태로 만든 볼록 충돌 형상 목록이며, 메시 에셋 파일에 함께 저장합니다.
+         */
+        Core::TArray<PhysicsRuntime::FKConvexElem> mConvexElems{};
+
+        /**
+         * @brief 물리 바디를 만들 때 쓰는 충돌 형상이며, 메시 데이터나 볼록 형상을 바꿀 때마다 다시 만듭니다.
+         * @note 저장한 볼록 형상이나 메시 경계에서 만들 수 있으므로 바디 셋업 자체는 저장하지 않습니다.
+         */
+        std::unique_ptr<PhysicsRuntime::UBodySetup> mBodySetup{};
 
         /**
          * @brief 정점 위치를 보관하는 소유 GPU 버퍼입니다.

@@ -1,6 +1,6 @@
 /**
  * @file UShapeComponent.cpp
- * @brief 충돌 형상·접촉 이벤트와 에디터 보조 선을 제공하는 기본 컴포넌트입니다.
+ * @brief 렌더 프록시 없이 단순 충돌 형상을 제공하고 에디터 보조 선으로 표시하는 프리미티브 컴포넌트입니다.
  * @ingroup Engine
  */
 
@@ -21,7 +21,7 @@ using namespace Core::Literals;
 namespace Engine {
 
     /**
-     * @brief 충돌 도형의 접촉 검사와 디버그 형상 생성 보조 함수입니다.
+     * @brief 충돌 도형의 접촉 검사 보조 함수입니다.
      */
     namespace {
         /**
@@ -33,83 +33,19 @@ namespace Engine {
         bool BoundsOverlap(const FBox& A, const FBox& B) {
             return A.mMinimum.x <= B.mMaximum.x && A.mMaximum.x >= B.mMinimum.x && A.mMinimum.y <= B.mMaximum.y && A.mMaximum.y >= B.mMinimum.y && A.mMinimum.z <= B.mMaximum.z && A.mMaximum.z >= B.mMinimum.z;
         }
-
-        /**
-         * @brief 충돌 도형 원호를 분할할 선분 개수입니다.
-         */
-        constexpr Int32 CircleSegment{32};
-
-        /**
-         * @brief 두 기저 방향의 평면에서 원호를 선분으로 수집합니다.
-         * @param[in] DrawInterface 보조 선분을 추가할 프레임 수집기입니다.
-         * @param[in] C 원호의 중심입니다.
-         * @param[in] U 원호 평면의 첫 기저입니다.
-         * @param[in] V 원호 평면의 둘째 기저입니다.
-         * @param[in] R 원호의 반지름입니다.
-         * @param[in] StartAngle 시작 각도입니다.
-         * @param[in] EndAngle 끝 각도입니다.
-         * @param[in] Color 적용할 색상입니다.
-         */
-        void AddArc(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& C, const FVector& U, const FVector& V, float R, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color) {
-            const Int32 Segments{std::max(1, static_cast<Int32>(CircleSegment * ((EndAngle - StartAngle) / 1_turn)))};
-            const Core::FAngle Step{(EndAngle - StartAngle) / Segments};
-
-            FVector Prev{C + U * (Core::Math::Cos(StartAngle) * R) + V * (Core::Math::Sin(StartAngle) * R)};
-
-            for (Index_t Index{1}; Index <= Segments; ++Index) {
-                const Core::FAngle Angle{StartAngle + Step * Index};
-                const FVector Point{C + U * (Core::Math::Cos(Angle) * R) + V * (Core::Math::Sin(Angle) * R)};
-
-                DrawInterface.DrawLine(Prev, Point, Color, true);
-
-                Prev = Point;
-            }
-        }
     }
 
     /**
      * @brief 전달된 설정과 기본값으로 UShapeComponent 객체를 생성합니다.
      */
     Engine::UShapeComponent::UShapeComponent() {
-        mOnComponentBeginOverlap.Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
+        GetOnComponentBeginOverlap().Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
             std::clog << "BeginOverlap\n";
         });
 
-        mOnComponentEndOverlap.Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
+        GetOnComponentEndOverlap().Add([](Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*) {
             std::clog << "EndOverlap\n";
         });
-    }
-
-    /**
-     * @brief 겹침 시작 델리게이트를 호출합니다.
-     */
-    void Engine::UShapeComponent::OnBeginOverlap(Engine::UShapeComponent* Other) {
-        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
-        mOnComponentBeginOverlap.Broadcast(this, OtherActor, Other);
-        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
-            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::BeginOverlap, this, OtherActor, Other, nullptr);
-        }
-    }
-
-    /**
-     * @brief 겹침 종료 델리게이트를 호출합니다.
-     */
-    void Engine::UShapeComponent::OnEndOverlap(Engine::UShapeComponent* Other) {
-        auto* OtherActor{Other != nullptr ? Other->GetOwner() : nullptr};
-        mOnComponentEndOverlap.Broadcast(this, OtherActor, Other);
-        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
-            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::EndOverlap, this, OtherActor, Other, nullptr);
-        }
-    }
-
-    /**
-     * @brief 적중 액터·컴포넌트와 충돌 정보를 델리게이트로 전달합니다.
-     */
-    void Engine::UShapeComponent::OnHit(Engine::AActor* OtherActor, Engine::UPrimitiveComponent* OtherComp, const Engine::FHitResult& Hit) {
-        mOnComponentHit.Broadcast(this, OtherActor, OtherComp, Hit);
-        if (auto* Owner{GetOwner()}; Owner != nullptr && !Owner->IsPendingDestroy()) {
-            Owner->GetOnComponentCollision().Broadcast(Engine::AActor::EComponentCollision::Hit, this, OtherActor, OtherComp, &Hit);
-        }
     }
 
     /**
@@ -161,9 +97,9 @@ namespace Engine {
             const FVector Up{Rot.UpVector()};
             const float R{Sphere.GetRadius()};
 
-            AddArc(DrawInterface, Sphere.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
-            AddArc(DrawInterface, Sphere.GetA(), F, Up, R, 0_rad, 1_turn, Color);
-            AddArc(DrawInterface, Sphere.GetA(), Rt, Up, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Sphere.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Sphere.GetA(), F, Up, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Sphere.GetA(), Rt, Up, R, 0_rad, 1_turn, Color);
         }
         else if (Shape.IsCapsule()) {
             Engine::FCapsuleSegment Capsule{Engine::Collision::ToCapsuleSegment(Shape, Pos, Rot)};
@@ -173,18 +109,18 @@ namespace Engine {
             const FVector Up{Rot.UpVector()};
             const float R{Capsule.GetRadius()};
 
-            AddArc(DrawInterface, Capsule.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
-            AddArc(DrawInterface, Capsule.GetB(), F, Rt, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetA(), F, Rt, R, 0_rad, 1_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetB(), F, Rt, R, 0_rad, 1_turn, Color);
 
             DrawInterface.DrawLine(Capsule.GetA() + F * R, Capsule.GetB() + F * R, Color, true);
             DrawInterface.DrawLine(Capsule.GetA() - F * R, Capsule.GetB() - F * R, Color, true);
             DrawInterface.DrawLine(Capsule.GetA() + Rt * R, Capsule.GetB() + Rt * R, Color, true);
             DrawInterface.DrawLine(Capsule.GetA() - Rt * R, Capsule.GetB() - Rt * R, Color, true);
 
-            AddArc(DrawInterface, Capsule.GetB(), F, Up, R, 0_rad, 0.5_turn, Color);
-            AddArc(DrawInterface, Capsule.GetB(), Rt, Up, R, 0_rad, 0.5_turn, Color);
-            AddArc(DrawInterface, Capsule.GetA(), F, -Up, R, 0_rad, 0.5_turn, Color);
-            AddArc(DrawInterface, Capsule.GetA(), Rt, -Up, R, 0_rad, 0.5_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetB(), F, Up, R, 0_rad, 0.5_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetB(), Rt, Up, R, 0_rad, 0.5_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetA(), F, -Up, R, 0_rad, 0.5_turn, Color);
+            DrawInterface.DrawArc(Capsule.GetA(), Rt, -Up, R, 0_rad, 0.5_turn, Color);
         }
     }
 
@@ -224,35 +160,6 @@ namespace Engine {
         FVector Scale{GetTransform().mScale};
 
         return std::min({ std::abs(Scale.x), std::abs(Scale.y), std::abs(Scale.z) });
-    }
-
-    /**
-     * @brief 컴포넌트 겹침 시작 이벤트를 반환합니다.
-     */
-    Engine::UShapeComponent::FOverlapDelegate& Engine::UShapeComponent::GetOnComponentBeginOverlap() {
-        return mOnComponentBeginOverlap;
-    }
-
-    /**
-     * @brief 컴포넌트 겹침 종료 이벤트를 반환합니다.
-     */
-    Engine::UShapeComponent::FOverlapDelegate& Engine::UShapeComponent::GetOnComponentEndOverlap() {
-        return mOnComponentEndOverlap;
-    }
-
-    /**
-     * @brief 컴포넌트 충돌 이벤트를 반환합니다.
-     */
-    Engine::UShapeComponent::FHitDelegate& Engine::UShapeComponent::GetOnComponentHit() {
-        return mOnComponentHit;
-    }
-
-    bool Engine::UShapeComponent::BlocksMovement() const {
-        return mBlocksMovement;
-    }
-
-    void Engine::UShapeComponent::SetBlocksMovement(bool Blocks) {
-        mBlocksMovement = Blocks;
     }
 
     /**

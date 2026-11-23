@@ -1,87 +1,157 @@
+/**
+ * @file FPhysicsScene.h
+ * @brief 월드 하나의 PhysX 장면과 시뮬레이션 결과를 관리합니다.
+ * @ingroup PhysicsRuntime
+ */
+
 #pragma once
 
 #include "Core/Types.h"
-#include "PhysicsRuntime/FPhysicsSettings.h"
+#include "PhysicsRuntime/FPhysicsContact.h"
+#include "PhysicsRuntime/FPhysXRelease.h"
 
-#include <chrono>
+#include <PxPhysicsAPI.h>
 #include <memory>
-#include <random>
-
-namespace physx {
-    class PxCpuDispatcher;
-    class PxPhysics;
-    class PxScene;
-}
+#include <span>
 
 namespace PhysicsRuntime {
-    /**
-     * @brief 한 프레임의 시간이 몇 번, 어떤 크기의 스텝으로 변환되었는지 나타냅니다.
-     */
-    struct FPhysicsStepPlan {
-        /** 이번 프레임에 실행할 스텝 수입니다. 0일 수 있습니다. */
-        Int32 mNumSteps{};
 
-        /** 스텝 1회의 시간입니다. */
-        float mStepDt{};
-
-        /** 마지막 두 물리 상태 사이의 보간 비율입니다. Fixed 모드에서만 1 미만이 될 수 있습니다. */
-        float mAlpha{1.0f};
-
-        /** 상한 때문에 물리에 반영하지 못하고 버린 시간입니다. */
-        float mDroppedTime{};
-    };
+    class FPhysicsRuntime;
 
     /**
-     * @brief 월드 하나가 가지는 PhysX 씬과 시간 진행을 관리합니다.
-     * @details PxScene이 내부에 CPU 디스패처 포인터를 보관하므로 디스패처와 설정은 이 객체보다 오래 살아야 합니다.
+     * @brief 월드 하나의 PhysX 장면과 시뮬레이션 결과를 관리합니다.
+     * @details 런타임이 만든 SDK 객체와 디스패처를 빌려 장면을 만들고, 한 스텝씩 동기로 시뮬레이션합니다.
+     *          스텝마다 움직인 강체 목록과 새로 시작된 접촉을 보관하며, 장면 이벤트를 직접 수신합니다.
+     * @note 이 객체에서 빌린 런타임보다 먼저 해제되어야 하며, 장면에 추가한 강체는 장면을 해제하기 전에 제거해야 합니다.
+     * @ingroup PhysicsRuntime
      */
-    class FPhysicsScene {
-    private:
-        struct FRelease {
-            void operator()(physx::PxScene* Scene) const noexcept;
-        };
-
+    class FPhysicsScene final : private physx::PxSimulationEventCallback {
     public:
-        FPhysicsScene(physx::PxPhysics& Physics, physx::PxCpuDispatcher& Dispatcher, const FPhysicsSettings& Settings);
-        ~FPhysicsScene();
 
+        /**
+         * @brief 장면이 없는 상태로 구성합니다.
+         */
+        FPhysicsScene();
+
+        /**
+         * @brief 생성한 PhysX 장면을 해제합니다.
+         */
+        ~FPhysicsScene() override;
+
+        /**
+         * @brief 장면이 이벤트 수신자로 자신의 주소를 등록하므로 복사하지 않습니다.
+         */
         FPhysicsScene(const FPhysicsScene&) = delete;
+
+        /**
+         * @brief 장면이 이벤트 수신자로 자신의 주소를 등록하므로 복사하지 않습니다.
+         */
         FPhysicsScene& operator=(const FPhysicsScene&) = delete;
 
     public:
-        /**
-         * @brief PxScene 생성에 성공했는지 반환합니다.
-         */
-        bool IsValid() const;
 
         /**
-         * @brief 프레임 시간을 스텝으로 변환해 simulate와 fetchResults를 짝으로 실행합니다.
-         * @param[in] FrameDt 이전 프레임 이후 경과한 실제 시간이며 단위는 초입니다.
-         * @return 실행한 스텝 정보입니다.
+         * @brief 런타임의 SDK 객체로 PhysX 장면을 만듭니다.
+         * @param[in] Runtime 초기화를 마친 PhysX 런타임입니다.
+         * @return 이미 초기화되었거나 장면 생성에 성공하면 true, 그렇지 않으면 false입니다.
          */
-        FPhysicsStepPlan Advance(float FrameDt);
+        bool Initialize(PhysicsRuntime::FPhysicsRuntime& Runtime);
+
+        /**
+         * @brief PhysX 장면과 보관한 시뮬레이션 결과를 해제합니다.
+         * @note 여러 번 호출해도 안전하며, 이 장면에 바디를 추가한 FBodyInstance는 먼저 해제되어야 합니다.
+         */
+        void Shutdown();
+
+        /**
+         * @brief PhysX 장면이 준비되었는지 반환합니다.
+         * @return 장면이 있으면 true입니다.
+         */
+        bool IsInitialized() const;
+
+        /**
+         * @brief 장면을 만들 때 사용한 PhysX 런타임을 반환합니다.
+         * @return 조회한 값의 비소유 주소이며, 초기화 전이면 nullptr입니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime* GetRuntime() const;
+
+        /**
+         * @brief 장면을 한 스텝 진행하고 결과를 받을 때까지 기다립니다.
+         * @param[in] StepSeconds 진행할 시간(초)이며 양의 유한값이어야 합니다.
+         * @return 시뮬레이션을 진행했으면 true, 장면이 없거나 시간이 유효하지 않으면 false입니다.
+         * @note 이전 스텝의 접촉 정보는 지우고 이번 스텝의 결과로 바꿉니다.
+         */
+        bool Simulate(float StepSeconds);
+
+        /**
+         * @brief PhysX 장면의 비소유 주소를 반환합니다.
+         * @return 조회한 값의 비소유 주소이며, 초기화 전이면 nullptr입니다.
+         */
+        physx::PxScene* GetScene() const;
+
+        /**
+         * @brief 마지막 스텝에서 자세가 바뀐 강체 목록을 반환합니다.
+         * @return 장면이 소유한 목록이며 다음 시뮬레이션 전까지 유효합니다. 장면이 없으면 빈 목록입니다.
+         */
+        std::span<physx::PxActor* const> GetActiveActors() const;
+
+        /**
+         * @brief 마지막 스텝에서 새로 시작된 접촉 목록을 반환합니다.
+         * @return 이 객체가 보관하는 값의 참조이며 다음 시뮬레이션 전까지 유효합니다.
+         */
+        const Core::TArray<PhysicsRuntime::FPhysicsContact>& GetContacts() const;
 
     private:
-        FPhysicsStepPlan PlanSteps(float FrameDt);
-        void PaceFrame();
-        void RecordStats(float FrameDt, const FPhysicsStepPlan& Plan);
+
+        /**
+         * @brief 새로 시작된 접촉을 접촉 목록에 기록합니다.
+         * @param[in] PairHeader 접촉한 두 강체의 정보입니다.
+         * @param[in] Pairs 두 강체 사이의 형상 쌍별 접촉 정보입니다.
+         * @param[in] PairCount 형상 쌍의 개수입니다.
+         */
+        void onContact(const physx::PxContactPairHeader& PairHeader, const physx::PxContactPair* Pairs, physx::PxU32 PairCount) override;
+
+        /**
+         * @brief 트리거 이벤트는 아직 사용하지 않습니다.
+         */
+        void onTrigger(physx::PxTriggerPair*, physx::PxU32) override;
+
+        /**
+         * @brief 조인트 파괴 이벤트는 아직 사용하지 않습니다.
+         */
+        void onConstraintBreak(physx::PxConstraintInfo*, physx::PxU32) override;
+
+        /**
+         * @brief 강체 깨어남 이벤트는 아직 사용하지 않습니다.
+         */
+        void onWake(physx::PxActor**, physx::PxU32) override;
+
+        /**
+         * @brief 강체 잠듦 이벤트는 아직 사용하지 않습니다.
+         */
+        void onSleep(physx::PxActor**, physx::PxU32) override;
+
+        /**
+         * @brief 시뮬레이션 도중 자세 전달 이벤트는 아직 사용하지 않습니다.
+         */
+        void onAdvance(const physx::PxRigidBody* const*, const physx::PxTransform*, const physx::PxU32) override;
 
     private:
-        std::unique_ptr<physx::PxScene, FRelease> mScene{};
-        const FPhysicsSettings* mSettings{};
 
-        /** Fixed 모드에서 아직 스텝으로 바꾸지 못한 실제 시간입니다. */
-        float mAccumulator{};
-        EPhysicsTimeStepMode mLastMode{};
+        /**
+         * @brief 이 객체가 단독 소유하는 PhysX 장면입니다.
+         */
+        std::unique_ptr<physx::PxScene, PhysicsRuntime::FPhysXRelease> mScene{};
 
-        std::chrono::steady_clock::time_point mLastAdvance{};
-        bool mHasLastAdvance{};
-        std::mt19937 mRandom{1u};
+        /**
+         * @brief 장면과 바디가 SDK 객체를 빌리는 PhysX 런타임이며, 장면보다 오래 유지됩니다.
+         */
+        PhysicsRuntime::FPhysicsRuntime* mRuntime{};
 
-        float mStatsWallTime{};
-        float mStatsSimTime{};
-        float mStatsDroppedTime{};
-        Int32 mStatsFrames{};
-        Int32 mStatsSteps{};
+        /**
+         * @brief 마지막 스텝에서 새로 시작된 접촉 목록입니다.
+         */
+        Core::TArray<PhysicsRuntime::FPhysicsContact> mContacts{};
     };
+
 }

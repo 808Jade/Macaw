@@ -62,6 +62,8 @@ namespace CoreUObject {
             return CoreUObject::EPropertyType::ObjectReference;
         } else if constexpr (std::is_enum_v<T>) {
             return CoreUObject::EPropertyType::Enum;
+        } else if constexpr (requires { T::StaticStruct(); }) {
+            return CoreUObject::EPropertyType::Struct;
         } else {
             return CoreUObject::EPropertyType::Opaque;
         }
@@ -80,6 +82,24 @@ namespace CoreUObject {
     }
 
     /**
+     * @brief 구조체 타입의 값을 복제·파괴하는 함수 테이블을 반환합니다.
+     */
+    template <typename T>
+    const CoreUObject::FStructOps* GetStructOps() {
+        if constexpr (std::is_copy_constructible_v<T>) {
+            static const CoreUObject::FStructOps Ops{[](const void* Source) -> void* {
+                return new T{*static_cast<const T*>(Source)};
+            }, [](void* Value) {
+                delete static_cast<T*>(Value);
+            }};
+
+            return &Ops;
+        } else {
+            return nullptr;
+        }
+    }
+
+    /**
      * @brief 네이티브 구조체와 선택적 부모의 메타데이터를 등록합니다.
      */
     template <typename T>
@@ -90,7 +110,7 @@ namespace CoreUObject {
             Parent = T::Super::StaticStruct();
         }
 
-        static CoreUObject::UScriptStruct* Struct{CoreUObject::FReflectionRegistry::DefineStruct(Name, CoreUObject::GetNativeType<T>(), &CoreUObject::BuildNativeReflection<T, CoreUObject::UScriptStruct>, Parent)};
+        static CoreUObject::UScriptStruct* Struct{CoreUObject::FReflectionRegistry::DefineStruct(Name, CoreUObject::GetNativeType<T>(), &CoreUObject::BuildNativeReflection<T, CoreUObject::UScriptStruct>, Parent, CoreUObject::GetStructOps<T>())};
 
         return Struct;
     }
@@ -202,6 +222,11 @@ namespace CoreUObject {
 
         if constexpr (CoreUObject::GetNativePropertyType<FValue>() == CoreUObject::EPropertyType::Opaque) {
             return static_cast<const void*>(std::addressof(CoreUObject::ReadMemberValue<Member, Getter>(static_cast<const FOwner*>(Container))));
+        } else if constexpr (CoreUObject::GetNativePropertyType<FValue>() == CoreUObject::EPropertyType::Struct) {
+            // 구조체는 주소로 전달하므로 getter가 임시 값을 반환하면 주소가 즉시 무효화됩니다.
+            static_assert(std::is_lvalue_reference_v<decltype(CoreUObject::ReadMemberValue<Member, Getter>(std::declval<const FOwner*>()))>, "Struct getters must return a const reference");
+
+            return static_cast<const void*>(std::addressof(CoreUObject::ReadMemberValue<Member, Getter>(static_cast<const FOwner*>(Container))));
         } else {
             return CoreUObject::ToPropertyValue<FValue>(CoreUObject::ReadMemberValue<Member, Getter>(static_cast<const FOwner*>(Container)));
         }
@@ -217,6 +242,10 @@ namespace CoreUObject {
 
         if constexpr (CoreUObject::GetNativePropertyType<FValue>() == CoreUObject::EPropertyType::Opaque) {
             return false;
+        } else if constexpr (CoreUObject::GetNativePropertyType<FValue>() == CoreUObject::EPropertyType::Struct) {
+            const void* const* Address{std::get_if<const void*>(&Value)};
+
+            return Address != nullptr && *Address != nullptr && CoreUObject::AssignMemberValue<Member, Setter>(static_cast<FOwner*>(Container), *static_cast<const FValue*>(*Address));
         } else {
             const std::optional<FValue> Converted{CoreUObject::FromPropertyValue<FValue>(Value)};
 
@@ -255,9 +284,9 @@ namespace CoreUObject {
      */
     template <typename T>
     const CoreUObject::FProperty* GetArrayElementProperty() {
-        if constexpr (CoreUObject::GetNativePropertyType<T>() == CoreUObject::EPropertyType::Opaque) {
-            static_assert(requires { T::StaticStruct(); }, "Array elements must be property value types or reflected structs");
+        static_assert(CoreUObject::GetNativePropertyType<T>() != CoreUObject::EPropertyType::Opaque, "Array elements must be property value types or reflected structs");
 
+        if constexpr (CoreUObject::GetNativePropertyType<T>() == CoreUObject::EPropertyType::Struct) {
             static const CoreUObject::FProperty Element{"Element", CoreUObject::EPropertyType::Struct, Core::EPropertyFlags::Serialize, nullptr, nullptr, T::StaticStruct(), {}, nullptr, CoreUObject::GetNativeType<T>()};
 
             return &Element;
