@@ -244,18 +244,6 @@ namespace Engine {
         FHitDelegate& GetOnComponentHit();
 
         /**
-         * @brief 다른 컴포넌트의 이동을 막는지 반환합니다.
-         * @return 이동을 막으면 true입니다.
-         */
-        bool BlocksMovement() const;
-
-        /**
-         * @brief 다른 컴포넌트의 이동을 막을지 설정합니다.
-         * @param[in] Blocks 이동을 막으려면 true입니다.
-         */
-        void SetBlocksMovement(bool Blocks);
-
-        /**
          * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
          * @param[in] Other 겹치기 시작한 상대 컴포넌트입니다.
          */
@@ -405,19 +393,19 @@ namespace Engine {
         /**
          * @brief 프리미티브의 그림자 생성 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetCastShadow, Setter = SetCastShadow)
+        UPROPERTY(Edit, Serialize, Category = "Rendering", Getter = GetCastShadow, Setter = SetCastShadow)
         bool mCastShadow{true};
 
         /**
          * @brief 프리미티브의 그림자 수신 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetReceiveShadow, Setter = SetReceiveShadow)
+        UPROPERTY(Edit, Serialize, Category = "Rendering", Getter = GetReceiveShadow, Setter = SetReceiveShadow)
         bool mReceiveShadow{true};
 
         /**
          * @brief 이 프리미티브가 데칼을 받는지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetReceivesDecals, Setter = SetReceivesDecals)
+        UPROPERTY(Edit, Serialize, Category = "Rendering", Getter = GetReceivesDecals, Setter = SetReceivesDecals)
         bool mReceivesDecals{true};
 
         /**
@@ -457,15 +445,9 @@ namespace Engine {
         CoreUObject::TObjectRef<CoreUObject::UObject> mUVSource{};
 
         /**
-         * @brief 다른 컴포넌트의 이동을 막는지 여부입니다.
-         */
-        UPROPERTY(Edit, Serialize, Getter = BlocksMovement, Setter = SetBlocksMovement)
-        bool mBlocksMovement{};
-
-        /**
          * @brief 물리 시뮬레이션 설정과 실제 바디입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetBodyInstance, Setter = SetBodyInstance)
+        UPROPERTY(Edit, Serialize, ShowOnlyInnerProperties, Category = "Physics", Getter = GetBodyInstance, Setter = SetBodyInstance)
         PhysicsRuntime::FBodyInstance mBodyInstance{};
 
         /** @brief 단일 바디 생성 직후와 해제 직전에 알립니다. */

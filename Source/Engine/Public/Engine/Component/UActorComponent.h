@@ -222,11 +222,11 @@ namespace Engine {
         /**
          * @brief 정지한 편집 월드에서도 이 객체의 Tick을 허용하는 설정입니다.
          */
-        UPROPERTY(Edit, Serialize)
+        UPROPERTY(Edit, Serialize, Category = "Component Tick")
         bool mEditorTickable{};
 
         /** @brief 컴포넌트의 Tick()을 호출하는 기본 함수이며, 설정 그룹을 편집 및 직렬화에 노출합니다. */
-        UPROPERTY(Edit, Serialize, Name = "TickGroup", Getter = GetTickGroup, Setter = SetTickGroup)
+        UPROPERTY(Edit, Serialize, Category = "Component Tick", Name = "TickGroup", Getter = GetTickGroup, Setter = SetTickGroup)
         Engine::FActorComponentTickFunction mPrimaryComponentTick{*this};
     };
 

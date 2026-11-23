@@ -271,7 +271,7 @@ namespace CoreUObject {
      * @brief 네이티브 멤버의 타입, 플래그와 읽기·쓰기 함수를 등록합니다.
      */
     template <auto Member, auto Getter, auto Setter>
-    void RegisterProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags) {
+    void RegisterProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags, Core::FString Category) {
         using FOwner = typename CoreUObject::TMemberPointerTraits<decltype(Member)>::FOwner;
         using FValue = std::remove_cvref_t<decltype(CoreUObject::ReadMemberValue<Member, Getter>(std::declval<const FOwner*>()))>;
 
@@ -279,7 +279,9 @@ namespace CoreUObject {
             Flags = Flags | Core::EPropertyFlags::Transient | Core::EPropertyFlags::ReadOnly;
         }
 
-        Information.AddProperty(std::make_unique<CoreUObject::FProperty>(std::move(Name), CoreUObject::GetNativePropertyType<FValue>(), Flags, &CoreUObject::ReadMemberProperty<Member, Getter>, &CoreUObject::WriteMemberProperty<Member, Getter, Setter>, CoreUObject::GetNativeStruct<FValue>(), CoreUObject::GetNativeEnumValues<FValue>(), nullptr, CoreUObject::GetNativeType<FValue>()));
+        auto Property{std::make_unique<CoreUObject::FProperty>(std::move(Name), CoreUObject::GetNativePropertyType<FValue>(), Flags, &CoreUObject::ReadMemberProperty<Member, Getter>, &CoreUObject::WriteMemberProperty<Member, Getter, Setter>, CoreUObject::GetNativeStruct<FValue>(), CoreUObject::GetNativeEnumValues<FValue>(), nullptr, CoreUObject::GetNativeType<FValue>())};
+        Property->SetCategory(std::move(Category));
+        Information.AddProperty(std::move(Property));
     }
 
     /**
@@ -372,11 +374,13 @@ namespace CoreUObject {
      * @brief 네이티브 TArray 멤버의 플래그, 읽기·쓰기 함수와 함수 테이블을 등록합니다.
      */
     template <auto Member, auto Getter, auto Setter>
-    void RegisterArrayProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags) {
+    void RegisterArrayProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags, Core::FString Category) {
         using FOwner = typename CoreUObject::TMemberPointerTraits<decltype(Member)>::FOwner;
         using FValue = std::remove_cvref_t<decltype(CoreUObject::ReadMemberValue<Member, Getter>(std::declval<const FOwner*>()))>;
 
-        Information.AddProperty(std::make_unique<CoreUObject::FProperty>(std::move(Name), CoreUObject::EPropertyType::Array, Flags, &CoreUObject::ReadArrayProperty<Member, Getter>, &CoreUObject::WriteArrayProperty<Member, Getter, Setter>, nullptr, Core::TArray<CoreUObject::FEnumValue>{}, nullptr, CoreUObject::GetNativeType<FValue>(), CoreUObject::GetArrayOps<FValue>()));
+        auto Property{std::make_unique<CoreUObject::FProperty>(std::move(Name), CoreUObject::EPropertyType::Array, Flags, &CoreUObject::ReadArrayProperty<Member, Getter>, &CoreUObject::WriteArrayProperty<Member, Getter, Setter>, nullptr, Core::TArray<CoreUObject::FEnumValue>{}, nullptr, CoreUObject::GetNativeType<FValue>(), CoreUObject::GetArrayOps<FValue>())};
+        Property->SetCategory(std::move(Category));
+        Information.AddProperty(std::move(Property));
     }
 
 }

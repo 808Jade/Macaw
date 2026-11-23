@@ -67,13 +67,13 @@ namespace Engine {
         /**
          * @brief 점광원·스포트라이트의 영향 반경입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetAttenuationRadius, Setter = SetAttenuationRadius)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetAttenuationRadius, Setter = SetAttenuationRadius)
         float mAttenuationRadius{10.0f};
 
         /**
          * @brief 거리에 따른 광원 감쇠 지수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetLightFalloffExponent, Setter = SetLightFalloffExponent)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetLightFalloffExponent, Setter = SetLightFalloffExponent)
         float mLightFalloffExponent{2.0f};
     };
 

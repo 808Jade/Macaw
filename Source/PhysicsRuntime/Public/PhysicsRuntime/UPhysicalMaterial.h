@@ -60,19 +60,19 @@ namespace PhysicsRuntime {
         /**
          * @brief 접촉한 물체가 미끄러지기 전의 마찰 계수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetStaticFriction, Setter = SetStaticFriction)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetStaticFriction, Setter = SetStaticFriction)
         float mStaticFriction{0.5f};
 
         /**
          * @brief 접촉한 물체가 미끄러지는 동안의 마찰 계수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetDynamicFriction, Setter = SetDynamicFriction)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetDynamicFriction, Setter = SetDynamicFriction)
         float mDynamicFriction{0.5f};
 
         /**
          * @brief 충돌 후 튀어 오르는 정도를 정하는 반발 계수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetRestitution, Setter = SetRestitution)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetRestitution, Setter = SetRestitution)
         float mRestitution{0.6f};
     };
 

@@ -99,13 +99,13 @@ namespace Engine {
         /**
          * @brief 반구를 포함한 캡슐 반높이입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetCapsuleHalfHeight, Setter = SetCapsuleHalfHeight)
+        UPROPERTY(Edit, Serialize, Category = "Shape", Getter = GetCapsuleHalfHeight, Setter = SetCapsuleHalfHeight)
         float mCapsuleHalfHeight{1.0f};
 
         /**
          * @brief 캡슐의 로컬 반지름입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetCapsuleRadius, Setter = SetCapsuleRadius)
+        UPROPERTY(Edit, Serialize, Category = "Shape", Getter = GetCapsuleRadius, Setter = SetCapsuleRadius)
         float mCapsuleRadius{0.5f};
     };
 

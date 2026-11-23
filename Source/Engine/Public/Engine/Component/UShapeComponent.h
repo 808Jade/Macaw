@@ -129,13 +129,13 @@ namespace Engine {
         /**
          * @brief 충돌 도형을 표시할 RGBA 색상입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShapeColor, Setter = SetShapeColor)
+        UPROPERTY(Edit, Serialize, Category = "Shape", Getter = GetShapeColor, Setter = SetShapeColor)
         FVector4 mShapeColor{223.0f / 255.0f, 149.0f / 255.0f, 157.0f / 255.0f, 1.0f};
 
         /**
          * @brief 선택한 경우에만 충돌 도형을 표시할지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = ShouldDrawOnlyIfSelected, Setter = SetDrawOnlyIfSelected)
+        UPROPERTY(Edit, Serialize, Category = "Shape", Getter = ShouldDrawOnlyIfSelected, Setter = SetDrawOnlyIfSelected)
         bool mDrawOnlyIfSelected{};
 
         /**

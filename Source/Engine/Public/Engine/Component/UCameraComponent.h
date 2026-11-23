@@ -73,7 +73,7 @@ namespace Engine {
         /**
          * @brief 카메라의 수직 시야각이며 도 단위입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFieldOfView, Setter = SetFieldOfView)
+        UPROPERTY(Edit, Serialize, Category = "Camera", Getter = GetFieldOfView, Setter = SetFieldOfView)
         float mFieldOfView{60.0f};
 
         UPROPERTY(Edit, Serialize, Name = "DepthOfField", Getter = GetDepthOfFieldSettings, Setter = SetDepthOfFieldSettings)

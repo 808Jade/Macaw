@@ -61,7 +61,7 @@ namespace Engine {
         /**
          * @brief 구의 로컬 반지름입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetSphereRadius, Setter = SetSphereRadius)
+        UPROPERTY(Edit, Serialize, Category = "Shape", Getter = GetSphereRadius, Setter = SetSphereRadius)
         float mSphereRadius{0.5f};
     };
 

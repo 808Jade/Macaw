@@ -173,7 +173,7 @@ namespace Engine {
         /**
          * @brief 해당 파티클 LOD의 활성 여부입니다.
          */
-        UPROPERTY(Edit, Getter = GetEnabled, Setter = SetEnabled)
+        UPROPERTY(Edit, Category = "Settings", Getter = GetEnabled, Setter = SetEnabled)
         bool mEnabled{true};
 
         /**

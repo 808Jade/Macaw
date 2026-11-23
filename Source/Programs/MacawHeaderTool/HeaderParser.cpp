@@ -31,7 +31,7 @@ namespace HeaderTool {
         /**
          * @brief 허용하는 프로퍼티 플래그 이름입니다.
          */
-        constexpr std::string_view sPropertyFlags[]{"Edit", "Serialize", "ReadOnly", "Transient", "SerializeLate"};
+        constexpr std::string_view sPropertyFlags[]{"Edit", "Serialize", "ReadOnly", "Transient", "SerializeLate", "ShowOnlyInnerProperties"};
 
         /**
          * @brief 허용하는 클래스 플래그 이름입니다.
@@ -591,6 +591,8 @@ namespace HeaderTool {
                         Property.Setter = Specifier.Value;
                     } else if (Specifier.Key == "Name" && Specifier.Value.size() > 1 && Specifier.Value.front() == '"' && Specifier.Value.back() == '"') {
                         Property.Name = Specifier.Value;
+                    } else if (Specifier.Key == "Category" && Specifier.Value.size() > 2 && Specifier.Value.front() == '"' && Specifier.Value.back() == '"') {
+                        Property.Category = Specifier.Value;
                     } else if (Specifier.Key == "Array" && Specifier.Value.empty()) {
                         Property.Array = true;
                     } else if (Specifier.Value.empty() && Contains(sPropertyFlags, Specifier.Key)) {

@@ -64,6 +64,18 @@ namespace CoreUObject {
         const Core::FString& GetName() const;
 
         /**
+         * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 반환합니다.
+         * @return 소유 객체가 유지하는 값의 참조이며, 지정하지 않았으면 빈 문자열입니다.
+         */
+        const Core::FString& GetCategory() const;
+
+        /**
+         * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 설정합니다.
+         * @param[in] Category 카테고리 이름이며, 비우면 에디터가 정합니다.
+         */
+        void SetCategory(Core::FString Category);
+
+        /**
          * @brief 프로퍼티 저장 타입을 반환합니다.
          * @return 프로퍼티 저장 타입입니다.
          */
@@ -180,6 +192,11 @@ namespace CoreUObject {
          * @brief 프로퍼티 이름입니다.
          */
         Core::FString mName{};
+
+        /**
+         * @brief 에디터 표시 카테고리이며, 비어 있으면 에디터가 정합니다.
+         */
+        Core::FString mCategory{};
 
         /**
          * @brief 프로퍼티 저장 타입입니다.

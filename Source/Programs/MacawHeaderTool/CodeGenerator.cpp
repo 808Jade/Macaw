@@ -72,7 +72,7 @@ namespace HeaderTool {
             const std::string FlagText{Flags.empty() ? "Core::EPropertyFlags::None" : Join(Flags, " | ")};
             const std::string Function{Property.Array ? "RegisterArrayProperty" : "RegisterProperty"};
 
-            return Indent + "    CoreUObject::" + Function + "<" + Join(Pointers, ", ") + ">(Information, " + Property.Name + ", " + FlagText + ");";
+            return Indent + "    CoreUObject::" + Function + "<" + Join(Pointers, ", ") + ">(Information, " + Property.Name + ", " + FlagText + (Property.Category.empty() ? "" : ", " + Property.Category) + ");";
         }
 
         /**

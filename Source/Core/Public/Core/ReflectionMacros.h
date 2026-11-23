@@ -28,7 +28,7 @@ namespace CoreUObject {
      * @brief 필드 포인터와 선택적 접근자로 네이티브 프로퍼티를 등록합니다.
      */
     template <auto Member, auto Getter = nullptr, auto Setter = nullptr>
-    void RegisterProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags = Core::EPropertyFlags::None);
+    void RegisterProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags = Core::EPropertyFlags::None, Core::FString Category = {});
 
     /**
      * @brief 필드 포인터와 선택적 읽기 접근자로 읽기 전용 프로퍼티를 등록합니다.
@@ -40,7 +40,7 @@ namespace CoreUObject {
      * @brief 배열 필드와 선택적 접근자로 원소 조회·직렬화 함수를 등록합니다.
      */
     template <auto Member, auto Getter = nullptr, auto Setter = nullptr>
-    void RegisterArrayProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags = Core::EPropertyFlags::None);
+    void RegisterArrayProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags = Core::EPropertyFlags::None, Core::FString Category = {});
 
 }
 
@@ -67,8 +67,9 @@ namespace CoreUObject {
 
 /**
  * @brief 다음 멤버 변수를 프로퍼티로 표시합니다.
- * @param ... Edit, Serialize, ReadOnly, Transient, SerializeLate 플래그와 Getter = 함수, Setter = 함수,
- * Name = "이름", Array 지정자입니다. 이름을 생략하면 멤버 이름에서 앞의 m을 뗀 이름을 씁니다.
+ * @param ... Edit, Serialize, ReadOnly, Transient, SerializeLate, ShowOnlyInnerProperties 플래그와 Getter = 함수, Setter = 함수,
+ * Name = "이름", Category = "카테고리", Array 지정자입니다. 이름을 생략하면 멤버 이름에서 앞의 m을 뗀 이름을 씁니다.
+ * Category는 에디터 디테일 패널에서 프로퍼티를 묶을 분류 이름입니다.
  * TArray 멤버는 Array를 적지 않아도 배열 프로퍼티가 됩니다.
  */
 #define UPROPERTY(...)

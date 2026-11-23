@@ -121,68 +121,19 @@ namespace Editor {
         }
 
         /**
-         * @brief 선언 클래스와 프로퍼티 이름에 맞는 표시 분류를 선택합니다.
+         * @brief 프로퍼티를 표시할 카테고리를 반환합니다.
          * @param Owner 프로퍼티를 선언한 클래스입니다.
-         * @param Name 조회하거나 표시할 이름입니다.
-         * @return 정적 분류 이름 또는 메타데이터의 문자열 뷰입니다.
-         * @details Tick 그룹과 편집 Tick 허용 설정은 선언 클래스에 따라 Actor Tick 또는 Component Tick에 표시합니다.
+         * @param Property 표시할 프로퍼티 메타데이터입니다.
+         * @return 리플렉션에 적은 카테고리이며, 없으면 선언 클래스 이름에서 U·A 접두어를 뗀 이름입니다.
          */
-        std::string_view DetailCategory(const CoreUObject::UClass* Owner, std::string_view Name) {
-            if (Name == "Transform") {
-                return "Transform";
-            }
-
-            if (Name == "Material") {
-                return "Materials";
-            }
-
-            if (Name == "BodyInstance") {
-                return "Physics";
-            }
-
-            if (Name == "Mesh" || Name == "SkeletalMesh" || Name == "Skeleton" || Name == "PrimitiveType") {
-                return "Mesh";
-            }
-
-            if (Name == "AnimClass" || Name == "Animation" || Name == "AnimGraph" || (Owner == Engine::USkeletalMeshComponent::StaticClass() && (Name == "Looping" || Name == "PlayRate"))) {
-                return "Animation";
-            }
-
-            if (Name == "TickGroup" || Name == "EditorTickable") {
-                return Owner == Engine::AActor::StaticClass() ? "Actor Tick" : "Component Tick";
-            }
-
-            if (Owner->IsChildOf(Engine::ULightComponent::StaticClass()) || Owner->GetName() == "ULightComponentBase") {
-                return "Light";
-            }
-
-            if (Name == "Visible" || Name == "CastShadow" || Name == "ReceiveShadow" || Name == "ReceivesDecals") {
-                return "Rendering";
+        std::string_view DetailCategory(const CoreUObject::UClass* Owner, const CoreUObject::FProperty* Property) {
+            if (!Property->GetCategory().empty()) {
+                return Property->GetCategory();
             }
 
             const std::string_view ClassName{Owner->GetName()};
 
-            if (Owner == Engine::ULuaScriptComponent::StaticClass()) {
-                return "Script";
-            }
-
-            if (ClassName == "UCameraComponent") {
-                return "Camera";
-            }
-
-            if (ClassName == "UHeightFogComponent") {
-                return "Fog";
-            }
-
-            if (ClassName == "UShapeComponent" || ClassName == "UBoxComponent" || ClassName == "USphereComponent" || ClassName == "UCapsuleComponent") {
-                return "Shape";
-            }
-
-            if (ClassName == "UProjectileMovementComponent" || ClassName == "URotationMovementComponent") {
-                return "Movement";
-            }
-
-            return Owner == CoreUObject::UObject::StaticClass() || Owner == Engine::AActor::StaticClass() || Owner == Engine::UActorComponent::StaticClass() ? "General" : "Settings";
+            return ClassName.size() > 1 && (ClassName.front() == 'U' || ClassName.front() == 'A') && std::isupper(static_cast<unsigned char>(ClassName[1])) ? ClassName.substr(1) : ClassName;
         }
 
         /**
@@ -840,7 +791,7 @@ namespace Editor {
                     continue;
                 }
 
-                const std::string_view Category{DetailCategory(*Class, Name)};
+                const std::string_view Category{DetailCategory(*Class, Property)};
                 const Core::FString Label{Name == "AnimClass" ? "Animation Mode" : LuaScript && Name == "ScriptPath" ? "Script" : PropertyLabel(Property)};
 
                 if (Name == "Transform" ? TransformMatches : MatchesSearch(Category, Label, Name)) {
@@ -855,12 +806,21 @@ namespace Editor {
             });
         }
 
-        constexpr Core::TStaticArray<const char*, 15> Categories{"Script", "Transform", "Animation", "Mesh", "Materials", "Physics", "Light", "Camera", "Fog", "Shape", "Movement", "Rendering", "General", "Settings", "Component Tick"};
+        Core::TArray<Core::FString> Categories{"Script", "Transform", "Animation", "Mesh", "Materials", "Physics", "Collision", "Light", "Camera", "Fog", "Shape", "Movement", "Rendering", "General", "Settings", "Actor Tick", "Component Tick"};
+
+        // 정해 둔 순서에 없는 카테고리는 처음 나온 순서대로 General 앞에 둡니다.
+        for (const FDetailRow& Row : Rows) {
+            if (std::find(Categories.begin(), Categories.end(), Row.mCategory) == Categories.end()) {
+                Categories.insert(std::find(Categories.begin(), Categories.end(), "General"), Core::FString{Row.mCategory});
+            }
+        }
+
         const bool Searching{mPropertySearch.front() != '\0'};
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, {5.0f, 2.0f});
 
-        for (const char* Category : Categories) {
+        for (const Core::FString& CategoryText : Categories) {
+            const char* Category{CategoryText.c_str()};
             const std::string_view CategoryName{Category};
             const bool GraphRow{CategoryName == "Animation" && AllGraphMode && (MatchesSearch(CategoryName, "Anim Graph", "AnimGraph") || MatchesSearch(CategoryName, "Debug Anim Graph"))};
             auto* Mesh{CategoryName == "Materials" && Targets.size() == 1 ? CoreUObject::Cast<Engine::UMeshComponent>(Context->ResolveObject(Targets.front())) : nullptr};
@@ -874,7 +834,7 @@ namespace Editor {
                 return Row.mCategory == CategoryName;
             })};
 
-            if ((!HasRows && !GraphRow && !MaterialRows) || !BeginCategory(Category, CategoryName != "Component Tick")) {
+            if ((!HasRows && !GraphRow && !MaterialRows) || !BeginCategory(Category, CategoryName != "Component Tick" && CategoryName != "Actor Tick")) {
                 continue;
             }
 
@@ -1220,12 +1180,18 @@ namespace Editor {
             return Context->CanEditProperty(Target, Row.mProperty);
         })};
 
+        // 내부 프로퍼티만 표시하는 구조체는 접힘 노드 없이 멤버를 소유 카테고리의 행으로 바로 그립니다.
+        const bool InnerOnly{Row.mProperty->HasFlag(Core::EPropertyFlags::ShowOnlyInnerProperties)};
+
         ImGui::PushID(Row.mProperty);
         ImGui::PushID(Object);
-        ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
 
-        if (ImGui::TreeNodeEx(Row.mLabel.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAllColumns)) {
+        if (!InnerOnly) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+        }
+
+        if (InnerOnly || ImGui::TreeNodeEx(Row.mLabel.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAllColumns)) {
             for (const CoreUObject::FProperty* Child : Struct->GetProperties()) {
                 if (!IsVisibleProperty(Child)) {
                     continue;
@@ -1291,7 +1257,9 @@ namespace Editor {
                 ImGui::PopID();
             }
 
-            ImGui::TreePop();
+            if (!InnerOnly) {
+                ImGui::TreePop();
+            }
         }
 
         ImGui::PopID();

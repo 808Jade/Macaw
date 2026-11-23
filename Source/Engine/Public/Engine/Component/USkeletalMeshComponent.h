@@ -641,19 +641,19 @@ namespace Engine {
         /**
          * @brief Content 기준 스켈레탈 메시 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "SkeletalMesh", Getter = GetMeshPath, Setter = SetMeshPath)
+        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "SkeletalMesh", Getter = GetMeshPath, Setter = SetMeshPath)
         Core::FString mMeshPath{};
 
         /**
          * @brief 스켈레톤 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "Skeleton", Getter = GetSkeletonPath, Setter = SetSkeletonPath)
+        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "Skeleton", Getter = GetSkeletonPath, Setter = SetSkeletonPath)
         Core::FString mSkeletonPath{};
 
         /**
          * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
+        UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Category = "Physics", Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
         Core::FString mPhysicsAssetOverride{};
 
         /**
@@ -666,7 +666,7 @@ namespace Engine {
          * @brief 애니메이션 그래프를 만드는 UAnimInstance 파생 클래스 이름입니다. 비어 있으면 Animation을 단일 노드로 재생합니다.
          * @details 인스턴스의 Serialize 프로퍼티는 이 컴포넌트를 저장할 때 AnimInstance 객체 안에 함께 저장합니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "AnimClass", Getter = GetAnimClass, Setter = SetAnimClass)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "AnimClass", Getter = GetAnimClass, Setter = SetAnimClass)
         Core::FString mAnimClass{};
 
         /**
@@ -677,31 +677,31 @@ namespace Engine {
         /**
          * @brief 플레이를 시작하면 재생할 Content 기준 애니메이션 시퀀스 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "Animation", Getter = GetAnimationPath, Setter = SetAnimationPath)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "Animation", Getter = GetAnimationPath, Setter = SetAnimationPath)
         Core::FString mAnimationPath{};
 
         /**
          * @brief 애니메이션을 반복 재생할지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "Looping", Getter = IsLooping, Setter = SetLooping)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "Looping", Getter = IsLooping, Setter = SetLooping)
         bool mLooping{true};
 
         /**
          * @brief 애니메이션 재생 속도 배율입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "PlayRate", Getter = GetPlayRate, Setter = SetPlayRate)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "PlayRate", Getter = GetPlayRate, Setter = SetPlayRate)
         float mPlayRate{1.0f};
 
         /**
          * @brief 단일 시퀀스 재생 시 적용할 루트 모션 방식입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "SingleNodeRootMotionMode", Getter = GetSingleNodeRootMotionMode, Setter = SetSingleNodeRootMotionMode)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "SingleNodeRootMotionMode", Getter = GetSingleNodeRootMotionMode, Setter = SetSingleNodeRootMotionMode)
         Engine::ERootMotionMode mSingleNodeRootMotionMode{Engine::ERootMotionMode::NoRootMotionExtraction};
 
         /**
          * @brief 소비한 루트 모션을 소유 액터 변환에 자동 적용할지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "ApplyRootMotionToActor", Getter = IsRootMotionAppliedToActor, Setter = SetApplyRootMotionToActor)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "ApplyRootMotionToActor", Getter = IsRootMotionAppliedToActor, Setter = SetApplyRootMotionToActor)
         bool mApplyRootMotionToActor{true};
 
         /**

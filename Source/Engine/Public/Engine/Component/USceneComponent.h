@@ -56,7 +56,7 @@ namespace Engine {
         /**
          * @brief 컴포넌트의 위치·회전·스케일입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetTransform, Setter = SetTransform)
+        UPROPERTY(Edit, Serialize, Category = "Transform", Getter = GetTransform, Setter = SetTransform)
         FTransform mTransform{};
     };
 

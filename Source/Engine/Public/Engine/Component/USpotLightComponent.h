@@ -69,13 +69,13 @@ namespace Engine {
         /**
          * @brief 스포트라이트 내부 원뿔의 반각(도)입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetInnerConeAngle, Setter = SetInnerConeAngle)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetInnerConeAngle, Setter = SetInnerConeAngle)
         float mInnerConeAngle{20.0f};
 
         /**
          * @brief 스포트라이트 외부 원뿔의 반각(도)입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetOuterConeAngle, Setter = SetOuterConeAngle)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetOuterConeAngle, Setter = SetOuterConeAngle)
         float mOuterConeAngle{35.0f};
     };
 

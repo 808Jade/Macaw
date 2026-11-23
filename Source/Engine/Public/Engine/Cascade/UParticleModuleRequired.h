@@ -146,37 +146,37 @@ namespace Engine {
         /**
          * @brief 프로젝트 상대 머티리얼 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "Material", Getter = GetMaterialPath, Setter = SetMaterialPath)
+        UPROPERTY(Edit, Serialize, Category = "Materials", Name = "Material", Getter = GetMaterialPath, Setter = SetMaterialPath)
         Core::FString mMaterialPath{};
 
         /**
          * @brief 이미터 기준 생성 위치 오프셋입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetEmitterOrigin, Setter = SetEmitterOrigin)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetEmitterOrigin, Setter = SetEmitterOrigin)
         FVector mEmitterOrigin{};
 
         /**
          * @brief 이미터 기준 생성 회전 오프셋입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetEmitterRotation, Setter = SetEmitterRotation)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetEmitterRotation, Setter = SetEmitterRotation)
         FRotator mEmitterRotation{};
 
         /**
          * @brief 파티클을 이미터 로컬 공간에서 시뮬레이션할지 나타냅니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetUseLocalSpace, Setter = SetUseLocalSpace)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetUseLocalSpace, Setter = SetUseLocalSpace)
         bool mUseLocalSpace{};
 
         /**
          * @brief 이미터 한 반복 주기의 길이이며 단위는 초입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetEmitterDuration, Setter = SetEmitterDuration)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetEmitterDuration, Setter = SetEmitterDuration)
         float mEmitterDuration{1.0f};
 
         /**
          * @brief 이미터 반복 횟수 설정 값입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetEmitterLoops, Setter = SetEmitterLoops)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetEmitterLoops, Setter = SetEmitterLoops)
         Uint32 mEmitterLoops{};
     };
 

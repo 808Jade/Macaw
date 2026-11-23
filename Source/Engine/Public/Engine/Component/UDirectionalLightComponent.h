@@ -93,25 +93,25 @@ namespace Engine {
         /**
          * @brief 방향광 그림자의 캐스케이드 개수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetCascadeCount, Setter = SetCascadeCount)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetCascadeCount, Setter = SetCascadeCount)
         Uint32 mCascadeCount{4};
 
         /**
          * @brief 방향광 그림자의 최대 표시 거리입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShadowDistance, Setter = SetShadowDistance)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowDistance, Setter = SetShadowDistance)
         float mShadowDistance{100.0f};
 
         /**
          * @brief 각 캐스케이드 구간에서 전환에 사용하는 비율입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetCascadeTransitionFraction, Setter = SetCascadeTransitionFraction)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetCascadeTransitionFraction, Setter = SetCascadeTransitionFraction)
         float mCascadeTransitionFraction{0.25f};
 
         /**
          * @brief PCSS 반그림자 계산에 쓰는 방향광 광원의 각반지름(도)입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShadowSourceAngle, Setter = SetShadowSourceAngle)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowSourceAngle, Setter = SetShadowSourceAngle)
         float mShadowSourceAngle{1.0f};
     };
 

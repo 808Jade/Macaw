@@ -344,20 +344,6 @@ namespace Engine {
     }
 
     /**
-     * @brief 다른 컴포넌트의 이동을 막는지 반환합니다.
-     */
-    bool Engine::UPrimitiveComponent::BlocksMovement() const {
-        return mBlocksMovement;
-    }
-
-    /**
-     * @brief 다른 컴포넌트의 이동을 막을지 설정합니다.
-     */
-    void Engine::UPrimitiveComponent::SetBlocksMovement(bool Blocks) {
-        mBlocksMovement = Blocks;
-    }
-
-    /**
      * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
      */
     void Engine::UPrimitiveComponent::OnBeginOverlap(Engine::UPrimitiveComponent* Other) {

@@ -61,7 +61,7 @@ namespace Engine {
         /**
          * @brief 상자의 로컬 축별 반길이입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetBoxExtent, Setter = SetBoxExtent)
+        UPROPERTY(Edit, Serialize, Category = "Shape", Getter = GetBoxExtent, Setter = SetBoxExtent)
         FVector mBoxExtent{0.5f, 0.5f, 0.5f};
     };
 

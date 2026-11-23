@@ -236,25 +236,25 @@ namespace Engine {
         /**
          * @brief 실행 단계 목록에 이 모듈을 포함할지 결정하는 공유 설정입니다.
          */
-        UPROPERTY(Edit, Serialize)
+        UPROPERTY(Edit, Serialize, Category = "Settings")
         bool mEnabled{true};
 
         /**
          * @brief 활성 상태에서 새 파티클 초기화 단계에 참여할지 결정하는 설정입니다.
          */
-        UPROPERTY(Edit, Serialize)
+        UPROPERTY(Edit, Serialize, Category = "Settings")
         bool mSpawnModule{};
 
         /**
          * @brief 활성 상태에서 일반 파티클 갱신 단계에 참여할지 결정하는 설정입니다.
          */
-        UPROPERTY(Edit, Serialize)
+        UPROPERTY(Edit, Serialize, Category = "Settings")
         bool mUpdateModule{};
 
         /**
          * @brief 활성 상태에서 최종 파티클 갱신 단계에 참여할지 결정하는 설정입니다.
          */
-        UPROPERTY(Edit, Serialize)
+        UPROPERTY(Edit, Serialize, Category = "Settings")
         bool mFinalUpdateModule{};
 
     };

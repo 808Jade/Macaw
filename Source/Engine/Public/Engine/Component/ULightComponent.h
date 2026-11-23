@@ -137,43 +137,43 @@ namespace Engine {
         /**
          * @brief 광원의 그림자 생성 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetCastShadows, Setter = SetCastShadows)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetCastShadows, Setter = SetCastShadows)
         bool mCastShadows{true};
 
         /**
          * @brief 기본 그림자 맵의 한 변 해상도입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShadowResolution, Setter = SetShadowResolution)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowResolution, Setter = SetShadowResolution)
         Uint32 mShadowResolution{1024};
 
         /**
          * @brief 그림자 해상도 배율입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShadowResolutionScale, Setter = SetShadowResolutionScale)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowResolutionScale, Setter = SetShadowResolutionScale)
         float mShadowResolutionScale{1.0f};
 
         /**
          * @brief 그림자 깊이 바이어스 단계입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShadowBiasPreset, Setter = SetShadowBiasPreset)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowBiasPreset, Setter = SetShadowBiasPreset)
         Engine::EShadowBiasPreset mShadowBiasPreset{Engine::DefaultShadowBiasPreset};
 
         /**
          * @brief 그림자 경사 바이어스 단계입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShadowSlopeBiasPreset, Setter = SetShadowSlopeBiasPreset)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowSlopeBiasPreset, Setter = SetShadowSlopeBiasPreset)
         Engine::EShadowBiasPreset mShadowSlopeBiasPreset{Engine::DefaultShadowBiasPreset};
 
         /**
          * @brief 그림자 경계의 선명도 조절값입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShadowSharpen, Setter = SetShadowSharpen)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowSharpen, Setter = SetShadowSharpen)
         float mShadowSharpen{};
 
         /**
          * @brief PCSS 반그림자 계산에 쓰는 점광원·스포트라이트 광원의 반지름(m)입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetShadowSourceRadius, Setter = SetShadowSourceRadius)
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowSourceRadius, Setter = SetShadowSourceRadius)
         float mShadowSourceRadius{0.1f};
     };
 

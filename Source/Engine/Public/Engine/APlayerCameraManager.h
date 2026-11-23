@@ -242,7 +242,7 @@ namespace Engine {
         /**
          * @brief 뷰 타깃에 카메라가 없을 때 쓰는 수직 시야각이며 도 단위입니다.
          */
-        UPROPERTY(Edit)
+        UPROPERTY(Edit, Category = "Settings")
         float mDefaultFieldOfView{60.0f};
 
         /**

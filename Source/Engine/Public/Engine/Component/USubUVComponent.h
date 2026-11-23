@@ -189,43 +189,43 @@ namespace Engine {
         /**
          * @brief 대상 컴포넌트 이름이며 빈 문자열은 같은 액터에서 자동 선택입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "TargetComponent", Getter = GetTargetName, Setter = SetTargetName)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "TargetComponent", Getter = GetTargetName, Setter = SetTargetName)
         Core::FString mTargetName{};
 
         /**
          * @brief 아틀라스의 가로 셀 수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetColumns, Setter = SetColumns)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetColumns, Setter = SetColumns)
         Uint32 mColumns{4};
 
         /**
          * @brief 아틀라스의 세로 셀 수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetRows, Setter = SetRows)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetRows, Setter = SetRows)
         Uint32 mRows{4};
 
         /**
          * @brief 재생할 셀 수이며 0은 전체 격자입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFrameCount, Setter = SetFrameCount)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetFrameCount, Setter = SetFrameCount)
         Uint32 mFrameCount{};
 
         /**
          * @brief 초당 재생 프레임 수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFramesPerSecond, Setter = SetFramesPerSecond)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetFramesPerSecond, Setter = SetFramesPerSecond)
         float mFramesPerSecond{12.0f};
 
         /**
          * @brief 마지막 프레임 이후 반복 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = IsLooping, Setter = SetLooping)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = IsLooping, Setter = SetLooping)
         bool mLooping{true};
 
         /**
          * @brief SubUV 재생 상태입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = IsPlaying, Setter = SetPlaying)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = IsPlaying, Setter = SetPlaying)
         bool mPlaying{true};
 
         /**

@@ -54,6 +54,11 @@ namespace HeaderTool {
         std::string Name;
 
         /**
+         * @brief 따옴표를 포함한 에디터 표시 카테고리 리터럴입니다. 없으면 비어 있습니다.
+         */
+        std::string Category;
+
+        /**
          * @brief getter 멤버 함수 이름입니다. 없으면 비어 있습니다.
          */
         std::string Getter;

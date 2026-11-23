@@ -58,6 +58,20 @@ namespace CoreUObject {
     }
 
     /**
+     * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 반환합니다.
+     */
+    const Core::FString& CoreUObject::FProperty::GetCategory() const {
+        return mCategory;
+    }
+
+    /**
+     * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 설정합니다.
+     */
+    void CoreUObject::FProperty::SetCategory(Core::FString Category) {
+        mCategory = std::move(Category);
+    }
+
+    /**
      * @brief 프로퍼티 저장 타입을 반환합니다.
      */
     CoreUObject::EPropertyType CoreUObject::FProperty::GetType() const {

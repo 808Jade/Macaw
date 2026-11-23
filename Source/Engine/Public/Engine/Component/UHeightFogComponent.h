@@ -172,43 +172,43 @@ namespace Engine {
         /**
          * @brief 기준 높이의 안개 밀도이며 유한한 0~10 범위를 허용합니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFogDensity, Setter = SetFogDensity)
+        UPROPERTY(Edit, Serialize, Category = "Fog", Getter = GetFogDensity, Setter = SetFogDensity)
         float mFogDensity{0.02f};
 
         /**
          * @brief 높이에 따른 지수 밀도 감쇠 계수이며 0~100 범위를 허용합니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFogHeightFalloff, Setter = SetFogHeightFalloff)
+        UPROPERTY(Edit, Serialize, Category = "Fog", Getter = GetFogHeightFalloff, Setter = SetFogHeightFalloff)
         float mFogHeightFalloff{0.2f};
 
         /**
          * @brief 카메라부터 안개 적분을 시작하는 월드 거리입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetStartDistance, Setter = SetStartDistance)
+        UPROPERTY(Edit, Serialize, Category = "Fog", Getter = GetStartDistance, Setter = SetStartDistance)
         float mStartDistance{};
 
         /**
          * @brief 안개 적분을 종료하는 월드 거리이며 0이면 거리 제한을 두지 않습니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetEndDistance, Setter = SetEndDistance)
+        UPROPERTY(Edit, Serialize, Category = "Fog", Getter = GetEndDistance, Setter = SetEndDistance)
         float mEndDistance{1000.0f};
 
         /**
          * @brief 이 거리보다 먼 물체의 안개를 생략하며 0이면 거리 제한이 없습니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFogCutoffDistance, Setter = SetFogCutoffDistance)
+        UPROPERTY(Edit, Serialize, Category = "Fog", Getter = GetFogCutoffDistance, Setter = SetFogCutoffDistance)
         float mFogCutoffDistance{};
 
         /**
          * @brief 최종 안개 불투명도의 0~1 상한입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFogMaxOpacity, Setter = SetFogMaxOpacity)
+        UPROPERTY(Edit, Serialize, Category = "Fog", Getter = GetFogMaxOpacity, Setter = SetFogMaxOpacity)
         float mFogMaxOpacity{1.0f};
 
         /**
          * @brief 장면 색상과 혼합할 기본 산란 색상이며 각 RGBA 채널은 0~1 범위입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFogInscatteringColor, Setter = SetFogInscatteringColor)
+        UPROPERTY(Edit, Serialize, Category = "Fog", Getter = GetFogInscatteringColor, Setter = SetFogInscatteringColor)
         FVector4 mFogInscatteringColor{0.65f, 0.75f, 0.85f, 1.0f};
 
         /**
