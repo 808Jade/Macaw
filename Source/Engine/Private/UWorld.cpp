@@ -268,7 +268,14 @@ namespace Engine {
         Core::TArray<FPhysicsHit> Hits{};
 
         for (const physx::PxActor* Actor : mPhysicsScene->GetActiveActors()) {
-            if (Engine::UPrimitiveComponent* Component{OwnerOf(Actor)}) {
+            const PhysicsRuntime::FBodyInstance* Body{Actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Actor) : nullptr};
+
+            // 뼈 바디는 컴포넌트 전체가 아니라 뼈 하나의 자세이므로 컴포넌트가 직접 읽어 갑니다.
+            if (Body == nullptr || Body->mInstanceBodyIndex != InvalidIndex) {
+                continue;
+            }
+
+            if (Engine::UPrimitiveComponent* Component{Body->GetOwnerComponent()}) {
                 Moved.push_back(CoreUObject::MakeObjectRef(Component));
             }
         }
