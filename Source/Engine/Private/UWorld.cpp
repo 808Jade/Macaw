@@ -217,6 +217,26 @@ namespace Engine {
     }
 
     /**
+     * @brief 월드가 소유할 물리 씬을 연결합니다.
+     */
+    bool Engine::UWorld::AttachPhysicsScene(std::unique_ptr<PhysicsRuntime::FPhysicsScene> Scene) {
+        if (mPhysicsScene != nullptr || Scene == nullptr || mShuttingDown || IsDispatching()) {
+            return false;
+        }
+
+        mPhysicsScene = std::move(Scene);
+
+        return true;
+    }
+
+    /**
+     * @brief 연결된 물리 씬을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsScene* Engine::UWorld::GetPhysicsScene() const {
+        return mPhysicsScene.get();
+    }
+
+    /**
      * @brief 지정한 액터 클래스의 기본 컴포넌트를 생성하고 영속 레벨에 추가합니다.
      */
     Engine::AActor* Engine::UWorld::SpawnActor(const CoreUObject::UClass* Class) {
@@ -407,6 +427,7 @@ namespace Engine {
         mInputTarget = {};
         mPlayerCameraManager = {};
         mPersistentLevel.reset();
+        mPhysicsScene.reset();
         mScene.reset();
     }
 
@@ -694,10 +715,11 @@ namespace Engine {
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PrePhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::StartPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::DuringPhysics);
-        //
-        // ** Week13 ** 
-        // 여기에 물리 엔진 처리를 넣으세요.
-        //
+        // 에디터 월드는 배치 중인 Actor가 움직이지 않도록 시뮬레이션하지 않습니다.
+        if (!EditorTick && mPhysicsScene != nullptr) {
+            mPhysicsScene->Advance(DeltaTime);
+        }
+
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::EndPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PostPhysics);
 

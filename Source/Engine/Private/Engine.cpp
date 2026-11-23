@@ -277,6 +277,11 @@ namespace Engine {
             return {};
         }
 
+        // 물리 씬은 월드마다 하나씩 만듭니다. 실패해도 월드는 열고 물리만 비활성으로 둡니다.
+        if (!Context->GetWorld()->AttachPhysicsScene(mPhysicsRuntime.CreateScene())) {
+            MACAW_LOG(LogEngine, Warning, "The world has no physics scene; physics is disabled for it.");
+        }
+
         Index_t Index{};
 
         while (Index < mWorldContexts.size() && mWorldContexts[Index] != nullptr) {

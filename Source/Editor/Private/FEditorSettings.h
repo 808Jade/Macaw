@@ -268,6 +268,11 @@ namespace Editor {
         void DrawProjectSettings();
 
         /**
+         * @brief 물리 시뮬레이션의 시간 진행 방식과 디버그 옵션을 편집합니다.
+         */
+        void DrawPhysicsSettings();
+
+        /**
          * @brief 외부 테마 파일을 선택해 테마 카탈로그로 가져옵니다.
          */
         void ImportTheme();

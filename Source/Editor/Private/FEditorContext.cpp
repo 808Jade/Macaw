@@ -392,6 +392,15 @@ namespace Editor {
     }
 
     /**
+     * @brief 엔진의 물리 설정을 반환하고, 엔진이 없으면 임시 설정을 반환합니다.
+     */
+    PhysicsRuntime::FPhysicsSettings& Editor::FEditorContext::GetPhysicsSettings() {
+        static PhysicsRuntime::FPhysicsSettings Fallback{};
+
+        return mEngine != nullptr ? mEngine->GetPhysicsSettings() : Fallback;
+    }
+
+    /**
      * @brief 패널 순회 중 액터 수명 변경을 분리할 핸들 스냅샷을 만듭니다.
      */
     Core::TArray<CoreUObject::TObjectRef<Engine::AActor>> Editor::FEditorContext::GetActorRefs() const {

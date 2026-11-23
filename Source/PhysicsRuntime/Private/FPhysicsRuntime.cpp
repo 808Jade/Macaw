@@ -55,7 +55,36 @@ namespace PhysicsRuntime {
         return true;
     }
 
+    std::unique_ptr<FPhysicsScene> FPhysicsRuntime::CreateScene() {
+        if (mPhysics == nullptr || mDispatcher == nullptr) {
+            MACAW_LOG(LogPhysics, Error, "Cannot create a physics scene before PhysX is initialized.");
+
+            return nullptr;
+        }
+
+        auto Scene{std::make_unique<FPhysicsScene>(*mPhysics, *mDispatcher, mSettings)};
+
+        if (!Scene->IsValid()) {
+            return nullptr;
+        }
+
+        return Scene;
+    }
+
+    FPhysicsSettings& FPhysicsRuntime::GetSettings() {
+        return mSettings;
+    }
+
+    const FPhysicsSettings& FPhysicsRuntime::GetSettings() const {
+        return mSettings;
+    }
+
     void FPhysicsRuntime::Shutdown() {
+        // 씬은 디스패처와 PxPhysics를 참조하므로, 남아 있는 씬이 있으면 월드가 런타임보다 오래 살았다는 뜻입니다.
+        if (mPhysics != nullptr && mPhysics->getNbScenes() > 0) {
+            MACAW_LOG(LogPhysics, Error, "PhysX is shutting down while {} scene(s) are still alive.", mPhysics->getNbScenes());
+        }
+
         mDispatcher.reset();
 
         if (mExtensionsInitialized) {

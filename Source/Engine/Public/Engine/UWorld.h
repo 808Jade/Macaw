@@ -14,6 +14,7 @@
 #include "Engine/EWorldPlayState.h"
 #include "Engine/FWorldHandle.h"
 #include "Engine/Tick/FTickTaskManager.h"
+#include "PhysicsRuntime/FPhysicsScene.h"
 #include "UWorld.generated.h"
 
 namespace Asset {
@@ -262,6 +263,19 @@ namespace Engine {
         Engine::FSceneInterface* GetScene() const;
 
         /**
+         * @brief 월드가 소유할 물리 씬을 연결합니다. 이미 연결되었거나 월드가 종료 중이면 실패합니다.
+         * @param[in] Scene 연결할 물리 씬입니다.
+         * @return 연결에 성공하면 true, 그렇지 않으면 false입니다.
+         */
+        bool AttachPhysicsScene(std::unique_ptr<PhysicsRuntime::FPhysicsScene> Scene);
+
+        /**
+         * @brief 연결된 물리 씬을 반환합니다.
+         * @return 비소유 주소이며, 연결되지 않았으면 nullptr입니다.
+         */
+        PhysicsRuntime::FPhysicsScene* GetPhysicsScene() const;
+
+        /**
          * @brief 월드의 에셋 로드에 사용할 관리자의 비소유 주소를 설정합니다.
          * @param[in] Assets 월드가 사용할 에셋 관리자의 비소유 주소입니다.
          */
@@ -489,6 +503,11 @@ namespace Engine {
          * @brief 월드가 소유한 렌더 장면입니다.
          */
         std::unique_ptr<Engine::FSceneInterface> mScene{};
+
+        /**
+         * @brief 월드가 소유한 PhysX 씬입니다. UEngine의 물리 런타임보다 먼저 해제해야 하므로 Shutdown에서 해제합니다.
+         */
+        std::unique_ptr<PhysicsRuntime::FPhysicsScene> mPhysicsScene{};
 
         /**
          * @brief 프레임 말 갱신을 기다리는 컴포넌트 핸들입니다.

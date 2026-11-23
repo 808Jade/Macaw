@@ -218,6 +218,14 @@ namespace Engine {
          */
         Engine::FProject* GetProject() const;
 
+        /**
+         * @brief 모든 월드의 물리 씬이 공유하는 시간 진행 설정을 반환합니다.
+         * @return 엔진이 소유한 설정의 참조입니다.
+         */
+        PhysicsRuntime::FPhysicsSettings& GetPhysicsSettings() {
+            return mPhysicsRuntime.GetSettings();
+        }
+
     private:
 
         /**
