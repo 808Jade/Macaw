@@ -83,7 +83,25 @@ namespace Engine {
      * @brief 월드에 물리 장면이 있으면 설계도로 바디를 만듭니다.
      */
     void Engine::UPrimitiveComponent::CreatePhysicsState() {
-        if (mBodyInstance.IsValidBodyInstance() || GetWorld() == nullptr || GetWorld()->GetPhysicsScene() == nullptr) {
+        if (GetWorld() == nullptr || GetWorld()->GetPhysicsScene() == nullptr) {
+            return;
+        }
+
+        OnCreatePhysicsState();
+    }
+
+    /**
+     * @brief 바디를 물리 장면에서 빼고 해제합니다.
+     */
+    void Engine::UPrimitiveComponent::DestroyPhysicsState() {
+        OnDestroyPhysicsState();
+    }
+
+    /**
+     * @brief 물리 장면이 있을 때 이 컴포넌트의 바디를 만듭니다.
+     */
+    void Engine::UPrimitiveComponent::OnCreatePhysicsState() {
+        if (mBodyInstance.IsValidBodyInstance()) {
             return;
         }
 
@@ -93,14 +111,17 @@ namespace Engine {
             return;
         }
 
+        PhysicsRuntime::FInitBodySpawnParams SpawnParams{};
+        SpawnParams.mStaticPhysics = !mSimulatePhysics;
+
         mBodyInstance.mSimulatePhysics = mSimulatePhysics;
-        mBodyInstance.InitBody(Setup, GetTransform(), this, GetWorld()->GetPhysicsScene());
+        mBodyInstance.InitBody(Setup, GetTransform(), this, GetWorld()->GetPhysicsScene(), SpawnParams);
     }
 
     /**
-     * @brief 바디를 물리 장면에서 빼고 해제합니다.
+     * @brief 이 컴포넌트가 만든 바디를 해제합니다.
      */
-    void Engine::UPrimitiveComponent::DestroyPhysicsState() {
+    void Engine::UPrimitiveComponent::OnDestroyPhysicsState() {
         mBodyInstance.TermBody();
     }
 

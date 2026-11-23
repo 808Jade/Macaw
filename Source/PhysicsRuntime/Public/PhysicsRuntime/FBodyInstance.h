@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Math/FTransform.h"
+#include "Core/Types.h"
 #include "PhysicsRuntime/PhysxUserData.h"
 
 namespace physx {
@@ -17,6 +18,19 @@ namespace PhysicsRuntime {
     class FPhysicsScene;
     class IPhysicsBodyOwner;
     class UBodySetup;
+
+    /**
+     * @brief 바디를 만들 때 강체 종류를 정하는 옵션입니다.
+     * @ingroup PhysicsRuntime
+     */
+    struct FInitBodySpawnParams {
+    public:
+        /**
+         * @brief true이면 고정된 강체를 만들고, false이면 움직이는 강체를 만듭니다.
+         * @note 움직이는 강체가 시뮬레이션하지 않으면 코드로만 옮기는 키네마틱 강체가 됩니다.
+         */
+        bool mStaticPhysics{true};
+    };
 
     /**
      * @brief 설계도로 PhysX 강체 하나를 만들어 물리 장면에 넣고 관리합니다.
@@ -52,10 +66,11 @@ namespace PhysicsRuntime {
          * @param[in] Transform 바디의 월드 변환이며 스케일은 모양 크기에 반영합니다.
          * @param[in] Owner 물리 결과를 받을 주인입니다.
          * @param[in] Scene 강체를 넣을 물리 장면입니다.
+         * @param[in] SpawnParams 고정된 강체로 만들지 정하는 옵션입니다.
          * @return 강체를 만들어 장면에 넣었으면 true, 실패하면 false입니다.
-         * @note mSimulatePhysics가 true이면 움직이는 강체, false이면 고정된 강체를 만듭니다.
+         * @note 움직이는 강체는 mSimulatePhysics가 false이면 키네마틱으로 만듭니다.
          */
-        bool InitBody(UBodySetup* Setup, const FTransform& Transform, IPhysicsBodyOwner* Owner, FPhysicsScene* Scene);
+        bool InitBody(UBodySetup* Setup, const FTransform& Transform, IPhysicsBodyOwner* Owner, FPhysicsScene* Scene, const FInitBodySpawnParams& SpawnParams);
 
         /**
          * @brief 강체를 장면에서 빼고 해제합니다. 여러 번 호출해도 안전합니다.
@@ -85,6 +100,17 @@ namespace PhysicsRuntime {
          * @brief true이면 중력과 충돌로 움직이고, false이면 제자리에 고정됩니다.
          */
         bool mSimulatePhysics{};
+
+        /**
+         * @brief 물리 에셋 안에서 이 바디의 설계도 번호입니다.
+         * @note InvalidIndex가 아니면 뼈 바디이므로 시뮬레이션 결과를 주인에게 바로 보내지 않습니다.
+         */
+        Index_t mInstanceBodyIndex{InvalidIndex};
+
+        /**
+         * @brief 이 바디가 붙은 뼈 번호입니다.
+         */
+        Index_t mInstanceBoneIndex{InvalidIndex};
 
     private:
         /**

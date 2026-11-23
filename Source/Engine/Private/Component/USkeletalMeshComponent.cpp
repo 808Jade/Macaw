@@ -26,6 +26,8 @@
 #include "CoreUObject/Reflection/FProperty.h"
 #include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "CoreUObject/Reflection/UClass.h"
+#include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/UPhysicsAsset.h"
 
 #include <cmath>
 #include <utility>
@@ -238,9 +240,170 @@ namespace Engine {
             }
 
             MarkRenderStateDirty();
+
+            // 뼈 번호와 위치가 바뀌었으므로 뼈별 바디를 다시 만듭니다.
+            RecreatePhysicsState();
         }
 
         return (mMeshPath.empty() || mSkeletalMesh != nullptr) && (mSkeletonPath.empty() || mSkeleton != nullptr);
+    }
+
+    /**
+     * @brief 뼈별 바디와 관절을 만들 물리 에셋을 반환합니다.
+     */
+    PhysicsRuntime::UPhysicsAsset* USkeletalMeshComponent::GetPhysicsAsset() const {
+        Asset::FAssetManager* Assets{GetWorld() != nullptr ? GetWorld()->GetAssets() : nullptr};
+
+        if (Assets == nullptr || mPhysicsAssetPath.empty()) {
+            return nullptr;
+        }
+
+        Core::FString Error{};
+        PhysicsRuntime::UPhysicsAsset* PhysicsAsset{Assets->LoadPhysicsAsset(Core::FilePath::FromUtf8(mPhysicsAssetPath), Error)};
+
+        if (PhysicsAsset == nullptr) {
+            Core::ErrorHandler::Report("PhysicsAsset", "Cannot load physics asset '" + mPhysicsAssetPath + "': " + Error, Core::ErrorHandler::EErrorLevel::Warning);
+        }
+
+        return PhysicsAsset;
+    }
+
+    /**
+     * @brief 물리 에셋 경로를 반환합니다.
+     */
+    const Core::FString& USkeletalMeshComponent::GetPhysicsAssetPath() const {
+        return mPhysicsAssetPath;
+    }
+
+    /**
+     * @brief 물리 에셋 경로를 설정하고 뼈별 바디를 다시 만듭니다.
+     */
+    bool USkeletalMeshComponent::SetPhysicsAssetPath(const Core::FString& Path) {
+        if (!IsAssetPath(Path)) {
+            return false;
+        }
+
+        if (mPhysicsAssetPath == Path) {
+            return true;
+        }
+
+        const Core::FString PreviousPath{mPhysicsAssetPath};
+        mPhysicsAssetPath = Path;
+
+        if (!Path.empty() && GetWorld() != nullptr && GetWorld()->GetAssets() != nullptr && GetPhysicsAsset() == nullptr) {
+            mPhysicsAssetPath = PreviousPath;
+
+            return false;
+        }
+
+        RecreatePhysicsState();
+
+        return true;
+    }
+
+    /**
+     * @brief 뼈 이름으로 뼈 번호를 찾습니다.
+     */
+    Index_t USkeletalMeshComponent::GetBoneIndex(const Core::FString& BoneName) const {
+        if (mSkeleton == nullptr) {
+            return InvalidIndex;
+        }
+
+        const Core::TArray<Asset::FMeshImportBone>& Bones{mSkeleton->GetBones()};
+
+        for (Index_t Index{}; Index < Bones.size(); ++Index) {
+            if (Bones[Index].GetName() == BoneName) {
+                return Index;
+            }
+        }
+
+        return InvalidIndex;
+    }
+
+    /**
+     * @brief 뼈의 현재 월드 변환을 구합니다.
+     */
+    bool USkeletalMeshComponent::GetBoneWorldTransform(Index_t BoneIndex, FTransform& OutTransform) const {
+        const Core::TArray<FMatrix>& GlobalTransforms{mPose.GetGlobalTransforms()};
+
+        if (BoneIndex >= GlobalTransforms.size()) {
+            return false;
+        }
+
+        // 뼈의 컴포넌트 기준 변환 뒤에 컴포넌트의 월드 변환을 적용합니다.
+        return (GlobalTransforms[BoneIndex] * GetTransform().ToMatrix()).TryGetTransform(OutTransform);
+    }
+
+    /**
+     * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만듭니다.
+     */
+    void USkeletalMeshComponent::OnCreatePhysicsState() {
+        InitArticulated(GetWorld()->GetPhysicsScene());
+    }
+
+    /**
+     * @brief 뼈별 바디를 모두 해제합니다.
+     */
+    void USkeletalMeshComponent::OnDestroyPhysicsState() {
+        TermArticulated();
+        Engine::UMeshComponent::OnDestroyPhysicsState();
+    }
+
+    /**
+     * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들어 물리 장면에 넣습니다.
+     */
+    void USkeletalMeshComponent::InitArticulated(PhysicsRuntime::FPhysicsScene* PhysScene) {
+        PhysicsRuntime::UPhysicsAsset* const PhysicsAsset{GetPhysicsAsset()};
+
+        if (PhysScene == nullptr || PhysicsAsset == nullptr || mSkeletalMesh == nullptr || mSkeleton == nullptr || !mBodies.empty()) {
+            return;
+        }
+
+        const Index_t NumBodies{PhysicsAsset->mSkeletalBodySetups.size()};
+
+        PhysicsRuntime::FInitBodySpawnParams SpawnParams{};
+        SpawnParams.mStaticPhysics = false;
+
+        mBodies.resize(NumBodies);
+
+        for (Index_t BodyIndex{}; BodyIndex < NumBodies; ++BodyIndex) {
+            PhysicsRuntime::UBodySetup* BodySetup{PhysicsAsset->mSkeletalBodySetups[BodyIndex].get()};
+
+            if (BodySetup == nullptr) {
+                continue;
+            }
+
+            const Index_t BoneIndex{GetBoneIndex(BodySetup->mBoneName)};
+            FTransform BoneTransform{};
+
+            if (BoneIndex == InvalidIndex || !GetBoneWorldTransform(BoneIndex, BoneTransform)) {
+                continue;
+            }
+
+            auto Body{std::make_unique<PhysicsRuntime::FBodyInstance>()};
+
+            // 물리 에셋의 바디는 시뮬레이션을 끈 키네마틱으로 시작합니다.
+            Body->mSimulatePhysics = false;
+            Body->mInstanceBodyIndex = BodyIndex;
+            Body->mInstanceBoneIndex = BoneIndex;
+
+            if (Body->InitBody(BodySetup, BoneTransform, this, PhysScene, SpawnParams)) {
+                mBodies[BodyIndex] = std::move(Body);
+            }
+        }
+    }
+
+    /**
+     * @brief 뼈별 바디를 모두 해제합니다.
+     */
+    void USkeletalMeshComponent::TermArticulated() {
+        for (const auto& Body : mBodies) {
+            if (Body != nullptr) {
+                Body->TermBody();
+            }
+        }
+
+        mBodies.clear();
     }
 
     /**

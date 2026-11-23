@@ -49,7 +49,7 @@ namespace PhysicsRuntime {
     /**
      * @brief 설계도로 강체를 만들어 물리 장면에 넣습니다.
      */
-    bool FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, IPhysicsBodyOwner* Owner, FPhysicsScene* Scene) {
+    bool FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, IPhysicsBodyOwner* Owner, FPhysicsScene* Scene, const FInitBodySpawnParams& SpawnParams) {
         if (mActorHandle != nullptr) {
             return true;
         }
@@ -61,10 +61,12 @@ namespace PhysicsRuntime {
         physx::PxPhysics& Physics{PxGetPhysics()};
         const physx::PxTransform ActorTransform{U2PTransform(Transform)};
 
-        if (mSimulatePhysics) {
-            mActorHandle = Physics.createRigidDynamic(ActorTransform);
-        } else {
+        if (SpawnParams.mStaticPhysics) {
             mActorHandle = Physics.createRigidStatic(ActorTransform);
+        } else if (physx::PxRigidDynamic* Dynamic{Physics.createRigidDynamic(ActorTransform)}) {
+            // 시뮬레이션하지 않는 움직이는 강체는 코드가 옮기는 위치로만 갑니다.
+            Dynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, !mSimulatePhysics);
+            mActorHandle = Dynamic;
         }
 
         if (mActorHandle == nullptr) {

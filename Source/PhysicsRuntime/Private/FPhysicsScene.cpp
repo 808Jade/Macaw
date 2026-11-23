@@ -175,7 +175,8 @@ namespace PhysicsRuntime {
 
             const FBodyInstance* Body{FPhysxUserData::Get<FBodyInstance>(RigidActor->userData)};
 
-            if (Body != nullptr && Body->GetOwner() != nullptr) {
+            // 뼈 바디는 주인 전체를 옮기지 않고 스켈레탈 쪽에서 포즈로 따로 읽습니다.
+            if (Body != nullptr && Body->GetOwner() != nullptr && Body->mInstanceBodyIndex == InvalidIndex) {
                 PendingTransforms.emplace_back(Body->GetOwner(), P2UTransform(RigidActor->getGlobalPose()));
             }
         }

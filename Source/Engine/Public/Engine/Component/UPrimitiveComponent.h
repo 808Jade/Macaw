@@ -232,6 +232,18 @@ namespace Engine {
          */
         void OnPhysicsTransformUpdated(const FTransform& NewTransform) override;
 
+    protected:
+        /**
+         * @brief 물리 장면이 있을 때 이 컴포넌트의 바디를 만듭니다.
+         * @note 기본 구현은 설계도 하나로 바디 하나를 만듭니다.
+         */
+        virtual void OnCreatePhysicsState();
+
+        /**
+         * @brief 이 컴포넌트가 만든 바디를 해제합니다.
+         */
+        virtual void OnDestroyPhysicsState();
+
     private:
 
         /**

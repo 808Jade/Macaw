@@ -22,6 +22,11 @@ namespace Asset {
     class USkeleton;
 }
 
+namespace PhysicsRuntime {
+    class FPhysicsScene;
+    class UPhysicsAsset;
+}
+
 namespace Engine {
 
     class UAnimInstance;
@@ -117,6 +122,40 @@ namespace Engine {
          * @return 에셋과 포즈를 준비했으면 true입니다.
          */
         bool ResolveMesh() override;
+
+        /**
+         * @brief 뼈별 바디와 관절을 만들 물리 에셋을 반환합니다.
+         * @return 에셋 관리자가 소유하는 물리 에셋이며, 경로가 없거나 로드에 실패하면 nullptr입니다.
+         */
+        PhysicsRuntime::UPhysicsAsset* GetPhysicsAsset() const;
+
+        /**
+         * @brief 물리 에셋 경로를 반환합니다.
+         * @return Content 상대 경로입니다.
+         */
+        const Core::FString& GetPhysicsAssetPath() const;
+
+        /**
+         * @brief 물리 에셋 경로를 설정하고 뼈별 바디를 다시 만듭니다.
+         * @param[in] Path Content 상대 경로이며, 비우면 바디를 만들지 않습니다.
+         * @return 경로가 올바르고 에셋을 불러왔으면 true입니다.
+         */
+        bool SetPhysicsAssetPath(const Core::FString& Path);
+
+        /**
+         * @brief 뼈 이름으로 뼈 번호를 찾습니다.
+         * @param[in] BoneName 찾을 뼈의 이름입니다.
+         * @return 뼈 번호이며, 없으면 InvalidIndex입니다.
+         */
+        Index_t GetBoneIndex(const Core::FString& BoneName) const;
+
+        /**
+         * @brief 뼈의 현재 월드 변환을 구합니다.
+         * @param[in] BoneIndex 변환을 구할 뼈 번호입니다.
+         * @param[out] OutTransform 컴포넌트 변환을 적용한 뼈의 월드 변환입니다.
+         * @return 포즈가 준비되어 변환을 구했으면 true입니다.
+         */
+        bool GetBoneWorldTransform(Index_t BoneIndex, FTransform& OutTransform) const;
 
         /**
          * @brief 현재 본 포즈를 반환합니다.
@@ -342,7 +381,29 @@ namespace Engine {
          */
         void Serialize(Core::FArchive& Archive) override;
 
+    protected:
+        /**
+         * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만듭니다.
+         */
+        void OnCreatePhysicsState() override;
+
+        /**
+         * @brief 뼈별 바디를 모두 해제합니다.
+         */
+        void OnDestroyPhysicsState() override;
+
     private:
+        /**
+         * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들어 물리 장면에 넣습니다.
+         * @param[in] PhysScene 바디를 넣을 물리 장면입니다.
+         * @note 이미 바디가 있으면 아무것도 하지 않습니다.
+         */
+        void InitArticulated(PhysicsRuntime::FPhysicsScene* PhysScene);
+
+        /**
+         * @brief 뼈별 바디를 모두 해제합니다.
+         */
+        void TermArticulated();
 
         /**
          * @brief 메시 경로를 에셋 관리자에서 해석합니다.
@@ -395,6 +456,12 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Name = "Skeleton", Getter = GetSkeletonPath, Setter = SetSkeletonPath)
         Core::FString mSkeletonPath{};
+
+        /**
+         * @brief 뼈별 충돌 모양과 관절을 담은 물리 에셋 경로입니다.
+         */
+        UPROPERTY(Edit, Serialize, Name = "PhysicsAsset", Getter = GetPhysicsAssetPath, Setter = SetPhysicsAssetPath)
+        Core::FString mPhysicsAssetPath{};
 
         /**
          * @brief 애니메이션 그래프를 만드는 UAnimInstance 파생 클래스 이름입니다. 비어 있으면 Animation을 단일 노드로 재생합니다.
@@ -464,6 +531,12 @@ namespace Engine {
          */
         UPROPERTY(Serialize, SerializeLate, Name = "BoneLocalTransforms", Getter = GetSerializedPose, Setter = SetSerializedPose, Array)
         Engine::FSkeletalMeshPose mPose{};
+
+        /**
+         * @brief 물리 에셋의 설계도 순서대로 만든 뼈별 바디입니다.
+         * @note 바디는 userData가 주소를 가리키므로 포인터로 보관합니다.
+         */
+        Core::TArray<std::unique_ptr<PhysicsRuntime::FBodyInstance>> mBodies{};
 
         // 메시 setter가 포즈를 초기화하므로 메시 경로를 복원한 뒤에 로드합니다.
     };
