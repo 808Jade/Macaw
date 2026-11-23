@@ -62,7 +62,7 @@ namespace Renderer {
         FVector4 mProjectionDepth{};
 
         /**
-         * @brief 초점 거리·초점 구간의 절반 폭·전이 거리(m)와 예약값입니다.
+         * @brief 초점 거리·초점 구간의 절반 폭·전이 거리(m)와 전체 해상도 블러 반경(px)입니다.
          */
         FVector4 mDepthOfFieldParameters{};
     };

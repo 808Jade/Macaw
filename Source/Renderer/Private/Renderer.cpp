@@ -866,6 +866,21 @@ namespace Renderer {
             return false;
         }
 
+        // DOF 셰이더를 갖고 있지 않은 기존 프로젝트도 기존 후처리로 열 수 있습니다.
+        std::error_code ShaderFileError{};
+        if (std::filesystem::is_regular_file(mShaderDirectory / "DepthOfField.hlsl", ShaderFileError)) {
+            CoreUObject::TObjectRef<RenderCore::UShader> SeparateCode{};
+            CoreUObject::TObjectRef<RenderCore::UShader> BlurCode{};
+            CoreUObject::TObjectRef<RenderCore::UShader> CompositeCode{};
+
+            if (!Compile("DepthOfField.hlsl", "SeparateDepthOfField", "ps_5_0", SeparateCode) ||
+                !Compile("DepthOfField.hlsl", "BlurDepthOfField", "ps_5_0", BlurCode) ||
+                !Compile("DepthOfField.hlsl", "CompositeDepthOfField", "ps_5_0", CompositeCode) ||
+                !mPostProcessResources->CreateDepthOfFieldShaders(mDevice.Get(), SeparateCode->GetByteCode(), BlurCode->GetByteCode(), CompositeCode->GetByteCode())) {
+                return false;
+            }
+        }
+
         if (mDecalPass != nullptr && (!Compile("Decal.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("Decal.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mDecalPass->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode()))) {
             return false;
         }

@@ -1,6 +1,6 @@
 /**
  * @file FPostProcessResources.h
- * @brief 전체 화면 삼각형으로 안개를 합성하고 깊이 시각화 또는 FXAA를 최종 컬러에 출력합니다.
+ * @brief 높이 안개, 피사계 심도, FXAA와 깊이 시각화에 필요한 후처리 자원을 관리합니다.
  * @ingroup Renderer
  */
 
@@ -30,7 +30,7 @@ namespace Renderer {
     class FDXRenderTarget;
 
     /**
-     * @brief 전체 화면 삼각형으로 안개를 합성하고 깊이 시각화 또는 FXAA를 최종 컬러에 출력합니다.
+     * @brief 전체 화면 삼각형으로 장면 후처리 패스를 실행합니다.
      */
     class FPostProcessResources {
     public:
@@ -63,8 +63,11 @@ namespace Renderer {
          */
         bool CreateShaders(ID3D11Device* Device, std::span<const Uint8> VertexCode, std::span<const Uint8> PixelCode);
 
+        /** @brief 세 DOF 픽셀 셰이더가 모두 준비되면 교체합니다. */
+        bool CreateDepthOfFieldShaders(ID3D11Device* Device, std::span<const Uint8> SeparateCode, std::span<const Uint8> BlurCode, std::span<const Uint8> CompositeCode);
+
         /**
-         * @brief 가시 안개를 교대 타깃에 합성한 뒤 복사·깊이 또는 DOF 가중치 시각화·FXAA를 실행합니다.
+         * @brief 높이 안개와 DOF를 순서대로 합성하고 최종 복사·버퍼 시각화·FXAA를 실행합니다.
          * @param[in] Context GPU 명령을 기록하고 읽기·쓰기 상태를 설정할 Direct3D 11 컨텍스트입니다.
          * @param[in,out] Target 입력 컬러·깊이와 교대 컬러·최종 출력을 소유한 렌더 타깃입니다.
          * @param[in] Family 카메라·버퍼 모드·ShowFlag를 포함한 현재 뷰의 렌더 요청입니다.
@@ -83,6 +86,8 @@ namespace Renderer {
         void RenderTexture(ID3D11DeviceContext* Context, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination);
 
     private:
+        /** @brief 절반 해상도에서 전경과 배경을 분리 및 블러하고 전체 해상도에 합성합니다. */
+        bool RenderDepthOfField(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination);
 
         /**
          * @brief 입력 컬러·깊이를 읽어 다른 컬러 타깃에 전체 화면 삼각형을 그리고 SRV·RTV 바인딩을 해제합니다.
@@ -92,6 +97,8 @@ namespace Renderer {
          * @param[in] Depth ShaderResourceView로 읽을 장면 깊이 텍스처입니다.
          */
         void Draw(ID3D11DeviceContext* Context, const Asset::UTexture2D* Source, Asset::UTexture2D* Destination, const Asset::UTexture2D* Depth);
+
+        void Draw(ID3D11DeviceContext* Context, ID3D11PixelShader* PixelShader, std::span<ID3D11RenderTargetView* const> Outputs, std::span<ID3D11ShaderResourceView* const> Inputs);
 
     private:
 
@@ -104,6 +111,10 @@ namespace Renderer {
          * @brief 복사·안개·깊이 또는 DOF 가중치 시각화·FXAA를 수행하는 픽셀 셰이더입니다.
          */
         Microsoft::WRL::ComPtr<ID3D11PixelShader> mPixelShader{};
+
+        Microsoft::WRL::ComPtr<ID3D11PixelShader> mSeparateDepthOfField{};
+        Microsoft::WRL::ComPtr<ID3D11PixelShader> mBlurDepthOfField{};
+        Microsoft::WRL::ComPtr<ID3D11PixelShader> mCompositeDepthOfField{};
 
         /**
          * @brief FPostProcessConstants를 픽셀 셰이더 b0에 전달하는 GPU 상수 버퍼입니다.

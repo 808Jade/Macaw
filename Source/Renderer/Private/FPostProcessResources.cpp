@@ -1,6 +1,6 @@
 /**
  * @file FPostProcessResources.cpp
- * @brief 전체 화면 삼각형으로 안개를 합성하고 깊이 시각화 또는 FXAA를 최종 컬러에 출력합니다.
+ * @brief 높이 안개, 피사계 심도, FXAA와 깊이 시각화를 순서대로 처리합니다.
  * @ingroup Renderer
  */
 
@@ -66,9 +66,24 @@ namespace Renderer {
         return true;
     }
 
-    /**
-     * @brief 가시 안개를 교대 타깃에 합성한 뒤 복사·깊이 또는 DOF 가중치 시각화·FXAA를 실행합니다.
-     */
+    bool Renderer::FPostProcessResources::CreateDepthOfFieldShaders(ID3D11Device* Device, std::span<const Uint8> SeparateCode, std::span<const Uint8> BlurCode, std::span<const Uint8> CompositeCode) {
+        Microsoft::WRL::ComPtr<ID3D11PixelShader> Separate{};
+        Microsoft::WRL::ComPtr<ID3D11PixelShader> Blur{};
+        Microsoft::WRL::ComPtr<ID3D11PixelShader> Composite{};
+
+        if (FAILED(Device->CreatePixelShader(SeparateCode.data(), SeparateCode.size(), nullptr, Separate.GetAddressOf())) ||
+            FAILED(Device->CreatePixelShader(BlurCode.data(), BlurCode.size(), nullptr, Blur.GetAddressOf())) ||
+            FAILED(Device->CreatePixelShader(CompositeCode.data(), CompositeCode.size(), nullptr, Composite.GetAddressOf()))) {
+            return false;
+        }
+
+        mSeparateDepthOfField = std::move(Separate);
+        mBlurDepthOfField = std::move(Blur);
+        mCompositeDepthOfField = std::move(Composite);
+
+        return true;
+    }
+
     Uint32 Renderer::FPostProcessResources::Render(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Engine::FSceneViewFamily& Family, std::span<const Engine::FHeightFogSceneProxy> Fogs) {
         Renderer::FPostProcessConstants Constants{};
 
@@ -85,6 +100,9 @@ namespace Renderer {
 
         const FMatrix& Projection{Family.mView.mProjection};
         Constants.mProjectionDepth = {Projection(2, 2), Projection(3, 2), Projection(2, 3), Projection(3, 3)};
+
+        const Engine::FDepthOfFieldSettings& DepthOfField{Family.mView.mDepthOfFieldSettings};
+        Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance, DepthOfField.mFocusWidth * 0.5f, DepthOfField.mTransitionDistance, DepthOfField.mMaxBlurRadius};
 
         Asset::UTexture2D* Source{Target.GetSceneColor()};
         Uint32 DrawCalls{};
@@ -112,9 +130,18 @@ namespace Renderer {
             }
         }
 
+        if (mCompositeDepthOfField != nullptr && DepthOfField.mEnabled && DepthOfField.mMaxBlurRadius > 0.0f &&
+            !Family.mView.mOrthographic && !Visualization && Family.mViewMode != Engine::EViewMode::Wireframe) {
+            Asset::UTexture2D* Destination{Source == Target.GetSceneColor() ? Target.GetPostProcessColor() : Target.GetSceneColor()};
+            mConstants.Update(Context, Constants);
+
+            if (RenderDepthOfField(Context, Target, *Source, *Destination)) {
+                Source = Destination;
+                DrawCalls += 3;
+            }
+        }
+
         if (Family.mViewMode == Engine::EViewMode::DepthOfFieldWeights) {
-            const Engine::FDepthOfFieldSettings& DepthOfField{Family.mView.mDepthOfFieldSettings};
-            Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance, DepthOfField.mFocusWidth * 0.5f, DepthOfField.mTransitionDistance, 0.0f};
             Constants.mSettings.x = 4.0f;
         } else {
             Constants.mSettings.x = Family.mViewMode == Engine::EViewMode::SceneDepth ? 2.0f : !Visualization && Family.mShowFlags.mFXAA ? 3.0f : 0.0f;
@@ -126,31 +153,65 @@ namespace Renderer {
         return DrawCalls + 1;
     }
 
+    bool Renderer::FPostProcessResources::RenderDepthOfField(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination) {
+        const FDXRenderTarget::FDepthOfFieldTargets* Layers{Target.PrepareDepthOfFieldTargets()};
+
+        if (Layers == nullptr) {
+            return false;
+        }
+
+        const auto& [Foreground, Background]{Layers->mSeparated};
+        const auto& [BlurredForeground, BlurredBackground]{Layers->mBlurred};
+        ID3D11ShaderResourceView* Color{Source.GetShaderResourceView()};
+        ID3D11ShaderResourceView* Depth{Target.GetSceneDepth()->GetShaderResourceView()};
+
+        const D3D11_VIEWPORT HalfViewport{0.0f, 0.0f, static_cast<float>(Foreground->GetSizeX()), static_cast<float>(Foreground->GetSizeY()), 0.0f, 1.0f};
+        Context->RSSetViewports(1, &HalfViewport);
+
+        const Core::TStaticArray<ID3D11RenderTargetView*, 2> Separated{Foreground->GetRenderTargetView(), Background->GetRenderTargetView()};
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 2> SceneInputs{Color, Depth};
+        Draw(Context, mSeparateDepthOfField.Get(), Separated, SceneInputs);
+
+        const Core::TStaticArray<ID3D11RenderTargetView*, 2> Blurred{BlurredForeground->GetRenderTargetView(), BlurredBackground->GetRenderTargetView()};
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 4> BlurInputs{nullptr, nullptr, Foreground->GetShaderResourceView(), Background->GetShaderResourceView()};
+        Draw(Context, mBlurDepthOfField.Get(), Blurred, BlurInputs);
+
+        const D3D11_VIEWPORT FullViewport{0.0f, 0.0f, static_cast<float>(Target.GetWidth()), static_cast<float>(Target.GetHeight()), 0.0f, 1.0f};
+        Context->RSSetViewports(1, &FullViewport);
+
+        const Core::TStaticArray<ID3D11RenderTargetView*, 1> Composited{Destination.GetRenderTargetView()};
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 4> CompositeInputs{Color, Depth, BlurredForeground->GetShaderResourceView(), BlurredBackground->GetShaderResourceView()};
+        Draw(Context, mCompositeDepthOfField.Get(), Composited, CompositeInputs);
+
+        return true;
+    }
+
     /**
      * @brief 입력 컬러·깊이를 읽어 다른 컬러 타깃에 전체 화면 삼각형을 그리고 SRV·RTV 바인딩을 해제합니다.
      */
     void Renderer::FPostProcessResources::Draw(ID3D11DeviceContext* Context, const Asset::UTexture2D* Source, Asset::UTexture2D* Destination, const Asset::UTexture2D* Depth) {
-        const Core::TStaticArray<ID3D11ShaderResourceView*, 2> Empty{};
+        const Core::TStaticArray<ID3D11RenderTargetView*, 1> Outputs{Destination->GetRenderTargetView()};
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 2> Inputs{Source->GetShaderResourceView(), Depth != nullptr ? Depth->GetShaderResourceView() : nullptr};
+        Draw(Context, mPixelShader.Get(), Outputs, Inputs);
+    }
+
+    void Renderer::FPostProcessResources::Draw(ID3D11DeviceContext* Context, ID3D11PixelShader* PixelShader, std::span<ID3D11RenderTargetView* const> Outputs, std::span<ID3D11ShaderResourceView* const> Inputs) {
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 4> Empty{};
 
         Context->PSSetShaderResources(0, static_cast<UINT>(Empty.size()), Empty.data());
-
-        ID3D11RenderTargetView* Output{Destination->GetRenderTargetView()};
-
-        Context->OMSetRenderTargets(1, &Output, nullptr);
+        Context->OMSetRenderTargets(static_cast<UINT>(Outputs.size()), Outputs.data(), nullptr);
         Context->OMSetDepthStencilState(mDepthDisabled.Get(), 0);
         Context->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFFu);
         Context->RSSetState(mRasterizer.Get());
         Context->IASetInputLayout(nullptr);
         Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         Context->VSSetShader(mVertexShader.Get(), nullptr, 0);
-        Context->PSSetShader(mPixelShader.Get(), nullptr, 0);
+        Context->PSSetShader(PixelShader, nullptr, 0);
 
         ID3D11SamplerState* Sampler{mSampler.Get()};
-        const Core::TStaticArray<ID3D11ShaderResourceView*, 2> Resources{Source->GetShaderResourceView(), Depth != nullptr ? Depth->GetShaderResourceView() : nullptr};
-
         mConstants.Bind(Context, RenderCore::EShaderStage::Pixel, 0);
         Context->PSSetSamplers(0, 1, &Sampler);
-        Context->PSSetShaderResources(0, static_cast<UINT>(Resources.size()), Resources.data());
+        Context->PSSetShaderResources(0, static_cast<UINT>(Inputs.size()), Inputs.data());
         Context->Draw(3, 0);
         Context->PSSetShaderResources(0, static_cast<UINT>(Empty.size()), Empty.data());
         Context->OMSetRenderTargets(0, nullptr, nullptr);
