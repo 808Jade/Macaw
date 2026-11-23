@@ -10,6 +10,9 @@
 #include "Core/Math/FVector.h"
 #include "PhysicsRuntime/UBodySetupCore.h"
 #include "PhysicsRuntime/FKAggregateGeom.h"
+
+#include <memory>
+
 #include "UBodySetup.generated.h"
 
 namespace physx {
@@ -18,6 +21,7 @@ namespace physx {
 
 namespace PhysicsRuntime {
     class FPhysicsRuntime;
+    class UPhysicalMaterial;
 }
 
 namespace PhysicsRuntime {
@@ -59,10 +63,23 @@ namespace PhysicsRuntime {
         const PhysicsRuntime::FKAggregateGeom& GetAggGeom() const;
 
         /**
+         * @brief 바디에 지정한 물리 재질을 반환합니다.
+         * @return 재질의 비소유 주소이며, 기본 재질을 사용하면 nullptr입니다.
+         */
+        const PhysicsRuntime::UPhysicalMaterial* GetPhysicalMaterial() const;
+
+        /**
+         * @brief 바디를 생성할 때 적용할 물리 재질의 소유권을 받습니다.
+         * @param[in] Material 바디가 소유할 재질이며, nullptr이면 기본 재질을 사용합니다.
+         * @return 재질 설정에 성공하면 true입니다.
+         */
+        bool SetPhysicalMaterial(std::unique_ptr<PhysicsRuntime::UPhysicalMaterial> Material);
+
+        /**
          * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
          * @param[in,out] Actor 형상을 붙일 PhysX 강체입니다.
          * @param[in] Scale 형상 크기와 중심에 반영할 컴포넌트 스케일입니다.
-         * @param[in] Runtime 형상에 지정할 기본 재질과 볼록 메시 쿠킹을 제공하는 PhysX 런타임입니다.
+         * @param[in] Runtime 형상의 재질 생성과 볼록 메시 쿠킹을 제공하는 PhysX 런타임입니다.
          * @return 강체에 붙인 형상의 개수입니다.
          * @note 스케일을 반영한 크기가 유효하지 않은 형상은 건너뜁니다. 회전한 상자·캡슐에 비균등 스케일을 주면 근사합니다.
          *       볼록 형상은 호출할 때마다 쿠킹하며, 쿠킹한 메시는 형상만 참조하므로 바디가 해제될 때 함께 해제됩니다.
@@ -76,6 +93,11 @@ namespace PhysicsRuntime {
          */
         UPROPERTY(Serialize)
         PhysicsRuntime::FKAggregateGeom mAggGeom{};
+
+        /**
+         * @brief 바디의 모든 충돌 형상에 적용할 물리 재질입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::UPhysicalMaterial> mPhysicalMaterial{};
     };
 
 }

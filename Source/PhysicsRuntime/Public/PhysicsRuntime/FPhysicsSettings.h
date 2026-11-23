@@ -30,21 +30,6 @@ namespace PhysicsRuntime {
         Uint32 mWorkerThreadCount{2};
 
         /**
-         * @brief 별도 재질이 없는 형상에 적용할 정지 마찰 계수입니다.
-         */
-        float mDefaultStaticFriction{0.5f};
-
-        /**
-         * @brief 별도 재질이 없는 형상에 적용할 운동 마찰 계수입니다.
-         */
-        float mDefaultDynamicFriction{0.5f};
-
-        /**
-         * @brief 별도 재질이 없는 형상에 적용할 반발 계수입니다.
-         */
-        float mDefaultRestitution{0.6f};
-
-        /**
          * @brief 질량을 지정하지 않은 동적 바디의 질량을 형상 부피로 계산할 때 쓰는 밀도(kg/m³)입니다.
          */
         float mDefaultDensity{1000.0f};

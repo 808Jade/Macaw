@@ -16,6 +16,7 @@
 namespace PhysicsRuntime {
 
     struct FKConvexElem;
+    class UPhysicalMaterial;
 
     /**
      * @brief 프로세스 전체에서 공유하는 PhysX SDK 객체의 수명을 관리합니다.
@@ -40,7 +41,7 @@ namespace PhysicsRuntime {
 
         /**
          * @brief PhysX SDK 객체를 생성하고 PVD 연결을 시도합니다.
-         * @details 허용 오차, 기본 재질, 작업 스레드 수와 PVD 연결은 FPhysicsSettings의 값을 따릅니다. PVD 연결 실패는 디버깅 기능만 비활성화하므로 초기화를 중단하지 않습니다.
+         * @details 기본 재질은 UPhysicalMaterial의 기본값을 사용합니다. PVD 연결 실패는 디버깅 기능만 비활성화하므로 초기화를 중단하지 않습니다.
          * @return 이미 초기화되었거나 필수 객체 생성에 성공하면 true, 그렇지 않으면 false입니다.
          */
         bool Initialize();
@@ -92,6 +93,14 @@ namespace PhysicsRuntime {
          * @return 조회한 값의 비소유 주소이며, 초기화 전이면 nullptr입니다.
          */
         physx::PxMaterial* GetDefaultMaterial() const;
+
+        /**
+         * @brief 물리 재질의 계수로 PhysX 재질을 생성합니다.
+         * @param[in] Material 마찰과 반발 계수를 제공하는 물리 재질입니다.
+         * @return 새 PhysX 재질의 소유 주소이며, SDK가 준비되지 않았거나 생성에 실패하면 nullptr입니다.
+         * @note 호출자가 release()로 자기 참조를 놓아야 합니다. 생성된 형상은 재질에 대한 자체 참조를 유지합니다.
+         */
+        physx::PxMaterial* CreateMaterial(const PhysicsRuntime::UPhysicalMaterial& Material) const;
 
         /**
          * @brief 물리 장면이 공유하는 CPU 디스패처의 비소유 주소를 반환합니다.

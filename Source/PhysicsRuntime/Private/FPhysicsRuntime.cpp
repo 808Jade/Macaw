@@ -8,8 +8,10 @@
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/FKConvexElem.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
+#include "PhysicsRuntime/UPhysicalMaterial.h"
 #include "Core/Literals.h"
 #include "Core/Log/Log.h"
+#include "CoreUObject/Reflection/NewObject.h"
 
 using namespace Core::Literals;
 
@@ -116,7 +118,7 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        mDefaultMaterial.reset(mPhysics->createMaterial(mSettings.mDefaultStaticFriction, mSettings.mDefaultDynamicFriction, mSettings.mDefaultRestitution));
+        mDefaultMaterial.reset(CreateMaterial(*CoreUObject::NewObject<PhysicsRuntime::UPhysicalMaterial>()));
 
         if (mDefaultMaterial == nullptr) {
             MACAW_LOG(LogPhysics, Error, "Cannot create the default PhysX material.");
@@ -205,6 +207,17 @@ namespace PhysicsRuntime {
      */
     physx::PxMaterial* PhysicsRuntime::FPhysicsRuntime::GetDefaultMaterial() const {
         return mDefaultMaterial.get();
+    }
+
+    /**
+     * @brief 물리 재질의 계수로 PhysX 재질을 생성합니다.
+     */
+    physx::PxMaterial* PhysicsRuntime::FPhysicsRuntime::CreateMaterial(const PhysicsRuntime::UPhysicalMaterial& Material) const {
+        if (mPhysics == nullptr) {
+            return nullptr;
+        }
+
+        return mPhysics->createMaterial(Material.GetStaticFriction(), Material.GetDynamicFriction(), Material.GetRestitution());
     }
 
     /**

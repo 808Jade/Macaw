@@ -8,10 +8,12 @@
 #include "PhysicsRuntime/UBodySetup.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
+#include "PhysicsRuntime/UPhysicalMaterial.h"
 #include "Core/Log/Log.h"
 
 #include <PxPhysicsAPI.h>
 #include <memory>
+#include <utility>
 
 namespace PhysicsRuntime {
 
@@ -71,11 +73,44 @@ namespace PhysicsRuntime {
     }
 
     /**
+     * @brief 바디에 지정한 물리 재질을 반환합니다.
+     */
+    const PhysicsRuntime::UPhysicalMaterial* PhysicsRuntime::UBodySetup::GetPhysicalMaterial() const {
+        return mPhysicalMaterial.get();
+    }
+
+    /**
+     * @brief 바디를 생성할 때 적용할 물리 재질의 소유권을 받습니다.
+     */
+    bool PhysicsRuntime::UBodySetup::SetPhysicalMaterial(std::unique_ptr<PhysicsRuntime::UPhysicalMaterial> Material) {
+        if (Material != nullptr && !Material->SetOuter(this)) {
+            return false;
+        }
+
+        mPhysicalMaterial = std::move(Material);
+
+        return true;
+    }
+
+    /**
      * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
      * @details 형상 크기와 중심은 각 형상의 GetScaled 규칙으로 스케일을 반영합니다.
      */
     Index_t PhysicsRuntime::UBodySetup::AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const PhysicsRuntime::FPhysicsRuntime& Runtime) const {
-        const physx::PxMaterial& Material{*Runtime.GetDefaultMaterial()};
+        std::unique_ptr<physx::PxMaterial, PhysicsRuntime::FPhysXRelease> CustomMaterial{};
+        const physx::PxMaterial* Material{Runtime.GetDefaultMaterial()};
+
+        if (mPhysicalMaterial != nullptr) {
+            CustomMaterial.reset(Runtime.CreateMaterial(*mPhysicalMaterial));
+            Material = CustomMaterial.get();
+        }
+
+        if (Material == nullptr) {
+            MACAW_LOG(LogPhysics, Warning, "Cannot resolve a PhysX material for body setup '{}'.", GetName());
+
+            return 0;
+        }
+
         Index_t Attached{};
 
         for (Index_t Index{}; Index < mAggGeom.mSphereElems.size(); ++Index) {
@@ -83,7 +118,7 @@ namespace PhysicsRuntime {
             const physx::PxSphereGeometry Geometry{Element.mRadius};
             const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter)};
 
-            if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, Material)) {
+            if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, *Material)) {
                 ++Attached;
             } else {
                 MACAW_LOG(LogPhysics, Warning, "Skipped invalid sphere element {} of body setup '{}'.", Index, GetName());
@@ -95,7 +130,7 @@ namespace PhysicsRuntime {
             const physx::PxBoxGeometry Geometry{PhysicsRuntime::ToPxVec3(Element.mHalfExtent)};
             const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter), PhysicsRuntime::ToPxQuat(Element.mRotation.Quaternion())};
 
-            if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, Material)) {
+            if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, *Material)) {
                 ++Attached;
             } else {
                 MACAW_LOG(LogPhysics, Warning, "Skipped invalid box element {} of body setup '{}'.", Index, GetName());
@@ -107,7 +142,7 @@ namespace PhysicsRuntime {
             const physx::PxCapsuleGeometry Geometry{Element.mRadius, Element.mLength * 0.5f};
             const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter), PhysicsRuntime::ToPxQuat(Element.mRotation.Quaternion()) * PhysicsRuntime::GetSphylBasis()};
 
-            if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, Material)) {
+            if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, *Material)) {
                 ++Attached;
             } else {
                 MACAW_LOG(LogPhysics, Warning, "Skipped invalid capsule element {} of body setup '{}'.", Index, GetName());
@@ -119,7 +154,7 @@ namespace PhysicsRuntime {
             const std::unique_ptr<physx::PxConvexMesh, PhysicsRuntime::FPhysXRelease> Mesh{Runtime.CreateConvexMesh(mAggGeom.mConvexElems[Index])};
             const physx::PxConvexMeshGeometry Geometry{Mesh.get(), physx::PxMeshScale{PhysicsRuntime::ToPxVec3(Scale)}};
 
-            if (Mesh != nullptr && Geometry.isValid() && AttachShape(Actor, Geometry, physx::PxTransform{physx::PxIdentity}, Material)) {
+            if (Mesh != nullptr && Geometry.isValid() && AttachShape(Actor, Geometry, physx::PxTransform{physx::PxIdentity}, *Material)) {
                 ++Attached;
             } else {
                 MACAW_LOG(LogPhysics, Warning, "Skipped invalid convex element {} of body setup '{}'.", Index, GetName());
