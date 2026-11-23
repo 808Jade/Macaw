@@ -26,9 +26,11 @@
 #include "CoreUObject/Reflection/FProperty.h"
 #include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "CoreUObject/Reflection/UClass.h"
+#include "PhysicsRuntime/FConstraintInstance.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
 #include "PhysicsRuntime/UPhysicsAsset.h"
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -335,14 +337,14 @@ namespace Engine {
     }
 
     /**
-     * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만듭니다.
+     * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들고 관절로 잇습니다.
      */
     void USkeletalMeshComponent::OnCreatePhysicsState() {
         InitArticulated(GetWorld()->GetPhysicsScene());
     }
 
     /**
-     * @brief 뼈별 바디를 모두 해제합니다.
+     * @brief 관절과 뼈별 바디를 모두 해제합니다.
      */
     void USkeletalMeshComponent::OnDestroyPhysicsState() {
         TermArticulated();
@@ -350,7 +352,7 @@ namespace Engine {
     }
 
     /**
-     * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들어 물리 장면에 넣습니다.
+     * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들고 관절로 이어 물리 장면에 넣습니다.
      */
     void USkeletalMeshComponent::InitArticulated(PhysicsRuntime::FPhysicsScene* PhysScene) {
         PhysicsRuntime::UPhysicsAsset* const PhysicsAsset{GetPhysicsAsset()};
@@ -363,6 +365,13 @@ namespace Engine {
 
         PhysicsRuntime::FInitBodySpawnParams SpawnParams{};
         SpawnParams.mStaticPhysics = false;
+
+        // 관절 위치에는 축별 스케일 중 가장 작은 값을 곱합니다.
+        const FVector& Scale3D{GetTransform().mScale};
+        const float ActualScale{std::min({std::abs(Scale3D.x), std::abs(Scale3D.y), std::abs(Scale3D.z)})};
+        const float Scale{ActualScale == 0.0f ? 0.0001f : ActualScale};
+
+        Core::TMap<Core::FString, PhysicsRuntime::FBodyInstance*> NameToBodyMap{};
 
         mBodies.resize(NumBodies);
 
@@ -388,15 +397,47 @@ namespace Engine {
             Body->mInstanceBoneIndex = BoneIndex;
 
             if (Body->InitBody(BodySetup, BoneTransform, this, PhysScene, SpawnParams)) {
+                NameToBodyMap[BodySetup->mBoneName] = Body.get();
                 mBodies[BodyIndex] = std::move(Body);
+            }
+        }
+
+        const Index_t NumConstraints{PhysicsAsset->mConstraintSetup.size()};
+
+        mConstraints.resize(NumConstraints);
+
+        for (Index_t ConstraintIndex{}; ConstraintIndex < NumConstraints; ++ConstraintIndex) {
+            const PhysicsRuntime::UPhysicsConstraintTemplate* ConstraintSetup{PhysicsAsset->mConstraintSetup[ConstraintIndex].get()};
+
+            if (ConstraintSetup == nullptr) {
+                continue;
+            }
+
+            auto Constraint{std::make_unique<PhysicsRuntime::FConstraintInstance>()};
+            Constraint->CopyConstraintParamsFrom(ConstraintSetup->mDefaultInstance);
+
+            // 관절이 잇는 두 뼈에 모두 바디가 있을 때만 잇습니다.
+            const auto Body1{NameToBodyMap.find(Constraint->mConstraintBone1)};
+            const auto Body2{NameToBodyMap.find(Constraint->mConstraintBone2)};
+
+            if (Body1 != NameToBodyMap.end() && Body2 != NameToBodyMap.end() && Constraint->InitConstraint(Body1->second, Body2->second, Scale)) {
+                mConstraints[ConstraintIndex] = std::move(Constraint);
             }
         }
     }
 
     /**
-     * @brief 뼈별 바디를 모두 해제합니다.
+     * @brief 관절과 뼈별 바디를 모두 해제합니다.
      */
     void USkeletalMeshComponent::TermArticulated() {
+        for (const auto& Constraint : mConstraints) {
+            if (Constraint != nullptr) {
+                Constraint->TermConstraint();
+            }
+        }
+
+        mConstraints.clear();
+
         for (const auto& Body : mBodies) {
             if (Body != nullptr) {
                 Body->TermBody();

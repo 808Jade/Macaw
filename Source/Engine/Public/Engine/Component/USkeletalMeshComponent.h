@@ -24,6 +24,7 @@ namespace Asset {
 
 namespace PhysicsRuntime {
     class FPhysicsScene;
+    struct FConstraintInstance;
     class UPhysicsAsset;
 }
 
@@ -383,25 +384,26 @@ namespace Engine {
 
     protected:
         /**
-         * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만듭니다.
+         * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들고 관절로 잇습니다.
          */
         void OnCreatePhysicsState() override;
 
         /**
-         * @brief 뼈별 바디를 모두 해제합니다.
+         * @brief 관절과 뼈별 바디를 모두 해제합니다.
          */
         void OnDestroyPhysicsState() override;
 
     private:
         /**
-         * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들어 물리 장면에 넣습니다.
+         * @brief 물리 에셋의 설계도마다 뼈 위치에 바디를 만들고 관절로 이어 물리 장면에 넣습니다.
          * @param[in] PhysScene 바디를 넣을 물리 장면입니다.
          * @note 이미 바디가 있으면 아무것도 하지 않습니다.
          */
         void InitArticulated(PhysicsRuntime::FPhysicsScene* PhysScene);
 
         /**
-         * @brief 뼈별 바디를 모두 해제합니다.
+         * @brief 관절과 뼈별 바디를 모두 해제합니다.
+         * @note 관절이 바디를 가리키므로 관절을 먼저 해제합니다.
          */
         void TermArticulated();
 
@@ -537,6 +539,12 @@ namespace Engine {
          * @note 바디는 userData가 주소를 가리키므로 포인터로 보관합니다.
          */
         Core::TArray<std::unique_ptr<PhysicsRuntime::FBodyInstance>> mBodies{};
+
+        /**
+         * @brief 물리 에셋의 관절 설정 순서대로 만든 관절입니다.
+         * @note 관절은 userData가 주소를 가리키므로 포인터로 보관합니다.
+         */
+        Core::TArray<std::unique_ptr<PhysicsRuntime::FConstraintInstance>> mConstraints{};
 
         // 메시 setter가 포즈를 초기화하므로 메시 경로를 복원한 뒤에 로드합니다.
     };

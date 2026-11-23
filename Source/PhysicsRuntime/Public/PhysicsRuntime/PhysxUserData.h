@@ -11,6 +11,7 @@
 namespace PhysicsRuntime {
     class FBodyInstance;
     class FPhysicsScene;
+    struct FConstraintInstance;
 
     /**
      * @brief userData가 가리키는 객체의 종류입니다.
@@ -31,6 +32,11 @@ namespace PhysicsRuntime {
          * @brief FPhysicsScene을 가리킵니다.
          */
         PhysScene,
+
+        /**
+         * @brief FConstraintInstance를 가리킵니다.
+         */
+        ConstraintInstance,
 
         /**
          * @brief 유효한 종류의 개수이며 손상 검사에 사용합니다.
@@ -63,6 +69,13 @@ namespace PhysicsRuntime {
          */
         explicit FPhysxUserData(FPhysicsScene* Payload)
             : mType{EPhysxUserDataType::PhysScene}, mPayload{Payload} {}
+
+        /**
+         * @brief 관절을 가리키는 꼬리표를 구성합니다.
+         * @param[in] Payload 가리킬 관절입니다.
+         */
+        explicit FPhysxUserData(FConstraintInstance* Payload)
+            : mType{EPhysxUserDataType::ConstraintInstance}, mPayload{Payload} {}
 
     public:
         /**
@@ -127,5 +140,15 @@ namespace PhysicsRuntime {
     template <>
     inline FPhysicsScene* FPhysxUserData::Get<FPhysicsScene>(void* UserData) {
         return static_cast<FPhysicsScene*>(GetPayload(UserData, EPhysxUserDataType::PhysScene));
+    }
+
+    /**
+     * @brief userData에서 관절을 꺼냅니다.
+     * @param[in] UserData PhysX 객체의 userData입니다.
+     * @return 관절을 가리키면 그 주소, 아니면 nullptr입니다.
+     */
+    template <>
+    inline FConstraintInstance* FPhysxUserData::Get<FConstraintInstance>(void* UserData) {
+        return static_cast<FConstraintInstance*>(GetPayload(UserData, EPhysxUserDataType::ConstraintInstance));
     }
 }
