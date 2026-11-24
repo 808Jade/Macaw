@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Editor/FEditorContext.h"
 #include "Editor/FEditorViewport.h"
 #include "Core/FilePath.h"
@@ -54,6 +55,8 @@
 
 #include <Windows.h>
 #include <utility>
+
+using namespace Core::Literals;
 
 namespace Editor {
 
@@ -2131,7 +2134,7 @@ namespace Editor {
         FTransform Placement{mPlacementProvider ? mPlacementProvider() : FTransform{}};
 
         if (Preset.find("DirectionalLight") != Core::FString::npos || Preset.find("SpotLight") != Core::FString::npos) {
-            Placement.mRotation = FRotator{-45.0f, 0.0f, 0.0f}.Quaternion();
+            Placement.mRotation = FRotator{-45_deg, 0_deg, 0_deg}.Quaternion();
         }
 
         return SpawnActorPreset(Preset, Placement);

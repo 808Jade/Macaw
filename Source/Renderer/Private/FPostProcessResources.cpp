@@ -114,13 +114,13 @@ namespace Renderer {
 
         if (!Visualization && Family.mShowFlags.mFog) {
             for (const Engine::FHeightFogSceneProxy& Fog : Fogs) {
-                if (!Fog.mVisible || Fog.mDensity <= 0.0f || Fog.mMaxOpacity <= 0.0f) {
+                if (!Fog.mVisible || Fog.mDensity <= Core::FInverseLength{} || Fog.mMaxOpacity <= 0.0f) {
                     continue;
                 }
 
                 Constants.mFogColor = Fog.mInscatteringColor;
-                Constants.mFogParameters = {Fog.mDensity, Fog.mHeightFalloff, Fog.mPosition.z, Fog.mMaxOpacity};
-                Constants.mFogDistances = {Fog.mStartDistance, Fog.mEndDistance, Fog.mCutoffDistance, 0.0f};
+                Constants.mFogParameters = {Fog.mDensity.GetBase(), Fog.mHeightFalloff.GetBase(), Fog.mPosition.z, Fog.mMaxOpacity};
+                Constants.mFogDistances = {Fog.mStartDistance.GetBase(), Fog.mEndDistance.GetBase(), Fog.mCutoffDistance.GetBase(), 0.0f};
                 Constants.mSettings = {1.0f, 0.0f, 0.0f, 0.0f};
 
                 mConstants.Update(Context, Constants);

@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Editor/Widget/FSequencerWidget.h"
 #include "Editor/FEditorContext.h"
 #include "EditorStyle.h"
@@ -32,6 +33,8 @@
 #include <cmath>
 #include <string>
 
+using namespace Core::Literals;
+
 namespace Editor {
 
     /**
@@ -41,7 +44,7 @@ namespace Editor {
         /**
          * @brief 시퀀서에서 선택할 표시 프레임률입니다.
          */
-        constexpr Core::TStaticArray<Int32, 6> DisplayRates{24, 25, 30, 48, 50, 60};
+        constexpr Core::TStaticArray<Int32, 6> DisplayRates{static_cast<Int32>((24_Hz).GetBase()), static_cast<Int32>((25_Hz).GetBase()), static_cast<Int32>((30_Hz).GetBase()), static_cast<Int32>((48_Hz).GetBase()), static_cast<Int32>((50_Hz).GetBase()), static_cast<Int32>((60_Hz).GetBase())};
 
         /**
          * @brief 시퀀서 보간 모드의 표시 이름입니다.
@@ -285,7 +288,7 @@ namespace Editor {
         mPlayer.SetLooping(mLoop);
 
         if (mPreviewActive) {
-            mPlayer.Advance(DeltaTime);
+            mPlayer.Advance(Core::FTime::FromBase(DeltaTime));
         }
 
         DrawToolbar(Actor, Sequence);
@@ -627,7 +630,7 @@ namespace Editor {
 
         if (ImGui::BeginCombo("##AddProperty", "Add Property Track")) {
             for (const CoreUObject::FProperty* Property : Component->GetClass()->GetAllProperties()) {
-                if (Property->GetType() != CoreUObject::EPropertyType::Float || !Property->HasFlag(Core::EPropertyFlags::Edit) || Property->HasFlag(Core::EPropertyFlags::ReadOnly)) {
+                if ((Property->GetType() != CoreUObject::EPropertyType::Float && Property->GetType() != CoreUObject::EPropertyType::Quantity) || !Property->HasFlag(Core::EPropertyFlags::Edit) || Property->HasFlag(Core::EPropertyFlags::ReadOnly)) {
                     continue;
                 }
 
@@ -967,10 +970,14 @@ namespace Editor {
         for (Int32 PropertyIndex{}; Asset::FSequencePropertyTrack* Track{FindPropertyTrack(Binding, PropertyIndex)}; ++PropertyIndex) {
             const CoreUObject::FProperty* Property{Component->GetClass()->FindClassProperty(Track->GetPropertyName())};
 
-            if (Property != nullptr && Property->GetType() == CoreUObject::EPropertyType::Float) {
+            if (Property == nullptr) {
+                continue;
+            }
+
+            if (const auto Number{Property->ToNumericValue(Property->ReadValue(Component))}; Number.has_value()) {
                 Asset::FSequenceKey Key{};
                 Key.mTick = Tick;
-                Key.mValue = std::get<float>(Property->ReadValue(Component));
+                Key.mValue = *Number;
 
                 Track->GetChannel().AddKey(Key);
             }

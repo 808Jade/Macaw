@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Engine/Component/USceneComponent.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Engine/FDepthOfFieldSettings.h"
 #include "UCameraComponent.generated.h"
 
@@ -25,18 +26,21 @@ namespace Engine {
         GENERATED_BODY()
 
     public:
+        UCameraComponent();
+
+    public:
         /**
-         * @brief 카메라의 수직 시야각을 도 단위로 반환합니다.
-         * @return 카메라의 시야각이며 도 단위입니다.
+         * @brief 카메라의 수직 시야각을 반환합니다.
+         * @return 카메라의 시야각입니다.
          */
-        float GetFieldOfView() const;
+        Core::FAngle GetFieldOfView() const;
 
         /**
          * @brief 유효한 범위의 시야각을 검사하여 카메라에 설정합니다.
          * @param[in] FieldOfView 설정할 카메라 시야각이며 도 단위입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool SetFieldOfView(float FieldOfView);
+        bool SetFieldOfView(Core::FAngle FieldOfView);
 
         /**
          * @brief 카메라의 피사계 심도 설정을 반환합니다.
@@ -73,8 +77,8 @@ namespace Engine {
         /**
          * @brief 카메라의 수직 시야각이며 도 단위입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Camera", Getter = GetFieldOfView, Setter = SetFieldOfView)
-        float mFieldOfView{60.0f};
+        UPROPERTY(Edit, Serialize, Category = "Camera", Getter = GetFieldOfView, Setter = SetFieldOfView, Meta = (SerializeUnit = "deg"))
+        Core::FAngle mFieldOfView{};
 
         UPROPERTY(Edit, Serialize, Name = "DepthOfField", Getter = GetDepthOfFieldSettings, Setter = SetDepthOfFieldSettings)
         Engine::FDepthOfFieldSettings mDepthOfFieldSettings{};

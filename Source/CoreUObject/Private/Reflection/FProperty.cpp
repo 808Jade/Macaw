@@ -160,6 +160,59 @@ namespace CoreUObject {
         return WriteValue(Container, Value, mWriter);
     }
 
+    std::optional<Core::FQuantityUnit> CoreUObject::FProperty::GetQuantityDisplayUnit(Core::FDimension Dimension) const {
+        const Core::FString& DisplayUnit{GetMetaData("DisplayUnit")};
+
+        return GetQuantityUnit(DisplayUnit.empty() ? GetMetaData("SerializeUnit") : DisplayUnit, Dimension);
+    }
+
+    std::optional<float> CoreUObject::FProperty::ToNumericValue(const CoreUObject::FPropertyValue& Value) const {
+        if (const auto* Number{std::get_if<float>(&Value)}; mType == CoreUObject::EPropertyType::Float && Number != nullptr) {
+            return *Number;
+        }
+
+        if (const auto* Quantity{std::get_if<CoreUObject::FQuantityPropertyValue>(&Value)}; mType == CoreUObject::EPropertyType::Quantity && Quantity != nullptr) {
+            const auto Unit{GetQuantityUnit(GetMetaData("SerializeUnit"), Quantity->mDimension)};
+
+            return Unit.has_value() ? Core::FromQuantityBase(Quantity->mBaseValue, *Unit) : std::nullopt;
+        }
+
+        return std::nullopt;
+    }
+
+    bool CoreUObject::FProperty::FromNumericValue(float Number, CoreUObject::FPropertyValue& Value) const {
+        if (auto* Scalar{std::get_if<float>(&Value)}; mType == CoreUObject::EPropertyType::Float && Scalar != nullptr) {
+            *Scalar = Number;
+
+            return true;
+        }
+
+        if (auto* Quantity{std::get_if<CoreUObject::FQuantityPropertyValue>(&Value)}; mType == CoreUObject::EPropertyType::Quantity && Quantity != nullptr) {
+            const auto Unit{GetQuantityUnit(GetMetaData("SerializeUnit"), Quantity->mDimension)};
+            const auto Base{Unit.has_value() ? Core::ToQuantityBase(Number, *Unit) : std::nullopt};
+
+            if (Base.has_value()) {
+                Quantity->mBaseValue = *Base;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    std::optional<Core::FQuantityUnit> CoreUObject::FProperty::GetQuantityUnit(std::string_view Symbol, Core::FDimension Dimension) const {
+        if (Symbol.empty()) {
+            return Core::GetBaseQuantityUnit(Dimension);
+        }
+
+        if (const auto* Unit{Core::FindQuantityUnit(Symbol, Dimension)}; Unit != nullptr) {
+            return *Unit;
+        }
+
+        return std::nullopt;
+    }
+
     /**
      * @brief 로드 전용 쓰기 경로로 동일 프로퍼티의 값을 복사합니다.
      */
@@ -235,7 +288,17 @@ namespace CoreUObject {
 
         CoreUObject::FPropertyValue Value{ReadValue(Container)};
 
-        if (mStruct != nullptr) {
+        if (auto* Quantity{std::get_if<CoreUObject::FQuantityPropertyValue>(&Value)}; mType == CoreUObject::EPropertyType::Quantity && Quantity != nullptr) {
+            const auto Unit{GetQuantityUnit(GetMetaData("SerializeUnit"), Quantity->mDimension)};
+
+            if (!Unit.has_value()) {
+                Archive.SetError("Invalid quantity unit: " + mName);
+
+                return;
+            }
+
+            Archive.SerializeQuantity(Name, Quantity->mBaseValue, *Unit);
+        } else if (mStruct != nullptr) {
             if (Archive.BeginObject(Name)) {
                 mStruct->SerializeProperties(CoreUObject::GetPropertyData(Value), Archive);
 
@@ -261,7 +324,7 @@ namespace CoreUObject {
                             Typed = CoreUObject::FObjectReference{Guid};
                         }
                     }
-                } else if constexpr (!std::is_same_v<FTyped, const void*>) {
+                } else if constexpr (requires { Archive.Serialize(Name, Typed); }) {
                     Archive.Serialize(Name, Typed);
                 } else {
                     Archive.SetError("Cannot serialize opaque property: " + mName);

@@ -5,6 +5,7 @@
  */
 
 #include "Viewer/FMeshViewerContent.h"
+#include "Core/Literals/AngleFunctions.h"
 
 #include "Viewer/FBonePreview.h"
 #include "Asset/FAssetManager.h"
@@ -26,6 +27,8 @@
 #include "RenderCore/IRendererModule.h"
 
 #include <algorithm>
+
+using namespace Core::Literals;
 
 using namespace Viewer;
 
@@ -145,7 +148,7 @@ bool FMeshViewerContent::SetMaterialPreviewPrimitive(Engine::EPrimitiveType Type
     mMaterials.resize(PrimitiveMesh->GetMeshData().GetMaterialSlots().size());
     mPrimitiveMesh = std::move(PrimitiveMesh);
     mMesh = mPrimitiveMesh.get();
-    mMaterialPreviewTransform = Type == Engine::EPrimitiveType::Plane ? FTransform{{}, FRotator{90.0f, 0.0f, 0.0f}.Quaternion(), {1.0f, 1.0f, 1.0f}}.ToMatrix() : FMatrix{};
+    mMaterialPreviewTransform = Type == Engine::EPrimitiveType::Plane ? FTransform{{}, FRotator{90_deg, 0_deg, 0_deg}.Quaternion(), {1.0f, 1.0f, 1.0f}}.ToMatrix() : FMatrix{};
     Refresh();
 
     return true;
@@ -191,7 +194,7 @@ void FMeshViewerContent::Synchronize() {
                 mBounds.mMaximum = mBounds.mMaximum.Max(Joint);
             }
 
-            const float Radius{std::max(mBounds.mMinimum.Distance(mBounds.mMaximum) * 0.5f, 0.01f)};
+            const float Radius{std::max(mBounds.mMinimum.Distance(mBounds.mMaximum) * 0.5f, (0.01_m).GetBase())};
             mSkeletonShapes = BuildBoneShapes(mSkeleton->GetBones(), Transforms, Radius);
 
             for (const FBoneShape& Shape : mSkeletonShapes) {

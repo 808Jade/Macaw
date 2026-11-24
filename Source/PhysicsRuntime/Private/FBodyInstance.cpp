@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "PhysicsRuntime/FBodyInstance.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
@@ -17,6 +18,8 @@
 
 #include <algorithm>
 #include <cmath>
+
+using namespace Core::Literals;
 
 namespace PhysicsRuntime {
 
@@ -146,7 +149,10 @@ namespace PhysicsRuntime {
     /**
      * @brief 실제 바디가 없는 기본 설정의 바디 인스턴스를 구성합니다.
      */
-    PhysicsRuntime::FBodyInstance::FBodyInstance() = default;
+    PhysicsRuntime::FBodyInstance::FBodyInstance()
+		: mLinearDamping{0.01f / 1_s},
+		  mAngularDamping{0.05f / 1_s} {
+    }
 
     /**
      * @brief 다른 바디 인스턴스의 설정만 복사합니다.
@@ -617,15 +623,15 @@ namespace PhysicsRuntime {
     /**
      * @brief 동적 강체의 지정 질량을 반환합니다.
      */
-    float PhysicsRuntime::FBodyInstance::GetMassInKg() const {
+    Core::FMass PhysicsRuntime::FBodyInstance::GetMassInKg() const {
         return mMassInKg;
     }
 
     /**
      * @brief 동적 강체의 질량을 설정하고 실제 바디의 질량과 관성을 다시 계산합니다.
      */
-    bool PhysicsRuntime::FBodyInstance::SetMassInKg(float MassInKg) {
-        if (!IsNonNegativeFinite(MassInKg)) {
+    bool PhysicsRuntime::FBodyInstance::SetMassInKg(Core::FMass MassInKg) {
+        if (!MassInKg.IsFinite() || MassInKg < Core::FMass{}) {
             return false;
         }
 
@@ -641,22 +647,22 @@ namespace PhysicsRuntime {
     /**
      * @brief 동적 강체의 선형 감쇠 계수를 반환합니다.
      */
-    float PhysicsRuntime::FBodyInstance::GetLinearDamping() const {
+    Core::FFrequency PhysicsRuntime::FBodyInstance::GetLinearDamping() const {
         return mLinearDamping;
     }
 
     /**
      * @brief 동적 강체의 선형 감쇠 계수를 설정하고 실제 바디에 반영합니다.
      */
-    bool PhysicsRuntime::FBodyInstance::SetLinearDamping(float Damping) {
-        if (!IsNonNegativeFinite(Damping)) {
+    bool PhysicsRuntime::FBodyInstance::SetLinearDamping(Core::FFrequency Damping) {
+        if (!Damping.IsFinite() || Damping < Core::FFrequency{}) {
             return false;
         }
 
         mLinearDamping = Damping;
 
         if (physx::PxRigidDynamic* Dynamic{GetPxRigidDynamic()}) {
-            Dynamic->setLinearDamping(mLinearDamping);
+            Dynamic->setLinearDamping(mLinearDamping.GetBase());
         }
 
         return true;
@@ -665,22 +671,22 @@ namespace PhysicsRuntime {
     /**
      * @brief 동적 강체의 회전 감쇠 계수를 반환합니다.
      */
-    float PhysicsRuntime::FBodyInstance::GetAngularDamping() const {
+    Core::FFrequency PhysicsRuntime::FBodyInstance::GetAngularDamping() const {
         return mAngularDamping;
     }
 
     /**
      * @brief 동적 강체의 회전 감쇠 계수를 설정하고 실제 바디에 반영합니다.
      */
-    bool PhysicsRuntime::FBodyInstance::SetAngularDamping(float Damping) {
-        if (!IsNonNegativeFinite(Damping)) {
+    bool PhysicsRuntime::FBodyInstance::SetAngularDamping(Core::FFrequency Damping) {
+        if (!Damping.IsFinite() || Damping < Core::FFrequency{}) {
             return false;
         }
 
         mAngularDamping = Damping;
 
         if (physx::PxRigidDynamic* Dynamic{GetPxRigidDynamic()}) {
-            Dynamic->setAngularDamping(mAngularDamping);
+            Dynamic->setAngularDamping(mAngularDamping.GetBase());
         }
 
         return true;
@@ -821,8 +827,8 @@ namespace PhysicsRuntime {
      * @brief 질량·감쇠·중력·CCD 설정을 동적 강체에 반영합니다.
      */
     void PhysicsRuntime::FBodyInstance::ApplyDynamicSettings(physx::PxRigidDynamic& Dynamic) const {
-        Dynamic.setLinearDamping(mLinearDamping);
-        Dynamic.setAngularDamping(mAngularDamping);
+        Dynamic.setLinearDamping(mLinearDamping.GetBase());
+        Dynamic.setAngularDamping(mAngularDamping.GetBase());
         Dynamic.setActorFlag(physx::PxActorFlag::eDISABLE_GRAVITY, !mEnableGravity);
         // 키네마틱 강체에는 CCD를 켤 수 없으므로 시뮬레이션할 때만 켭니다.
         Dynamic.setRigidBodyFlag(physx::PxRigidBodyFlag::eENABLE_CCD, mUseCCD && mSimulatePhysics);
@@ -835,10 +841,10 @@ namespace PhysicsRuntime {
     void PhysicsRuntime::FBodyInstance::UpdateMassProperties(physx::PxRigidDynamic& Dynamic) const {
         bool Updated{};
 
-        if (mMassInKg > 0.0f) {
-            Updated = physx::PxRigidBodyExt::setMassAndUpdateInertia(Dynamic, mMassInKg);
+        if (mMassInKg > Core::FMass{}) {
+            Updated = physx::PxRigidBodyExt::setMassAndUpdateInertia(Dynamic, mMassInKg.GetBase());
         } else if (mScene != nullptr && mScene->GetRuntime() != nullptr) {
-            Updated = physx::PxRigidBodyExt::updateMassAndInertia(Dynamic, mScene->GetRuntime()->GetSettings().mDefaultDensity);
+            Updated = physx::PxRigidBodyExt::updateMassAndInertia(Dynamic, mScene->GetRuntime()->GetSettings().mDefaultDensity.GetBase());
         }
 
         if (!Updated) {

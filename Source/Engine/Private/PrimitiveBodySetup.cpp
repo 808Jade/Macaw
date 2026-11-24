@@ -5,12 +5,15 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Engine/PrimitiveBodySetup.h"
 #include "Engine/PrimitiveMesh.h"
 #include "PhysicsRuntime/UBodySetup.h"
 #include "CoreUObject/Reflection/NewObject.h"
 
 #include <memory>
+
+using namespace Core::Literals;
 
 namespace Engine {
 
@@ -22,7 +25,8 @@ namespace Engine {
          * @brief 두께가 없는 Plane을 근사하는 상자의 절반 두께입니다.
          * @note 너무 얇으면 빠른 물체가 통과하므로 기본 메시 경계(0.001)보다 두껍게 잡습니다.
          */
-        constexpr float PlaneHalfThickness{0.01f};
+        constexpr float PlaneHalfThickness{(0.01_m).GetBase()};
+        constexpr float HalfSize{(0.5_m).GetBase()};
 
         /**
          * @brief 기본 프리미티브 종류에 맞는 충돌 형상을 가진 바디 셋업을 만듭니다.
@@ -37,10 +41,10 @@ namespace Engine {
 
             if (Type == Engine::EPrimitiveType::Sphere) {
                 PhysicsRuntime::FKSphereElem& Sphere{Geometry.mSphereElems.emplace_back()};
-                Sphere.mRadius = 0.5f;
+                Sphere.mRadius = 0.5_m;
             } else {
                 PhysicsRuntime::FKBoxElem& Box{Geometry.mBoxElems.emplace_back()};
-                Box.mHalfExtent = Type == Engine::EPrimitiveType::Plane ? FVector{0.5f, 0.5f, PlaneHalfThickness} : FVector{0.5f, 0.5f, 0.5f};
+                Box.mHalfExtent = Type == Engine::EPrimitiveType::Plane ? FVector{HalfSize, HalfSize, PlaneHalfThickness} : FVector{HalfSize, HalfSize, HalfSize};
             }
 
             return Setup;

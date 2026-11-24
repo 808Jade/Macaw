@@ -5,6 +5,7 @@
  */
 
 #include "Editor/FPlayInEditorSession.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Editor/FEditorViewport.h"
 #include "FPlayInEditorWindow.h"
 #include "Engine/Engine.h"
@@ -18,7 +19,11 @@
 #include "CoreUObject/Reflection/Cast.h"
 #include <cmath>
 
+using namespace Core::Literals;
+
 namespace Editor {
+
+    constinit const Core::FTime Editor::FPlayInEditorSession::mDefaultStep{1.0f / 60_Hz};
 
     /**
      * @brief 전달받은 설정과 의존성으로 FPlayInEditorSession의 초기 상태를 구성합니다.
@@ -270,10 +275,10 @@ namespace Editor {
     /**
      * @brief 일시정지한 PIE 월드를 지정한 시간만큼 한 번 갱신합니다.
      */
-    bool Editor::FPlayInEditorSession::Step(float DeltaTime) {
+    bool Editor::FPlayInEditorSession::Step(Core::FTime DeltaTime) {
         Engine::UWorld* World{mEngine->GetWorld(mPlayWorld)};
 
-        return !mTransitioning && !mEngine->IsDispatching() && World != nullptr && std::isfinite(DeltaTime) && DeltaTime > 0.0f && World->Step(DeltaTime);
+        return !mTransitioning && !mEngine->IsDispatching() && World != nullptr && DeltaTime.IsFinite() && DeltaTime > Core::FTime{} && World->Step(DeltaTime);
     }
 
     /**

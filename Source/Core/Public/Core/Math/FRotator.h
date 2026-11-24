@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/ReflectionMacros.h"
 
 #include <xmmintrin.h>
@@ -39,6 +40,7 @@ public:
      * @param[in] Roll X축 주위 회전각(도)입니다.
      */
     FRotator(float Pitch, float Yaw, float Roll);
+    FRotator(Core::FAngle Pitch, Core::FAngle Yaw, Core::FAngle Roll);
 
     /**
      * @brief FRotator의 초기 상태와 전달받은 의존성을 구성합니다.

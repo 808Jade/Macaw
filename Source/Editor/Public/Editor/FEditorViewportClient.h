@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/ReflectionMacros.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Engine/FViewportClient.h"
 #include "Editor/Gizmo.h"
 #include "Editor/EViewportCommand.h"
@@ -246,6 +247,10 @@ namespace Editor {
          * @note 스냅 간격은 양수여야 하며 크기 배율은 0.5부터 2.0까지로 제한합니다.
          */
         bool SetGizmoSetting(Editor::EGizmoSetting Setting, float Value);
+        float GetGizmoSettingValue(Editor::EGizmoSetting Setting) const;
+
+        bool SetTranslationSnapStep(Core::FLength Step);
+        bool SetRotationSnapStep(Core::FAngle Step);
 
         /**
          * @brief 장면의 Lit 또는 Wireframe 표시 모드를 반환합니다.
@@ -409,12 +414,12 @@ namespace Editor {
         /**
          * @brief 에디터 카메라의 월드 위치입니다.
          */
-        FVector mCameraLocation{-7.0f, -9.0f, 6.0f};
+        FVector mCameraLocation{};
 
         /**
          * @brief 에디터 카메라의 도 단위 회전입니다.
          */
-        FRotator mCameraRotation{-26.0f, 50.0f, 0.0f};
+        FRotator mCameraRotation{};
 
         /**
          * @brief 카메라 오빗의 월드 중심점입니다.
@@ -433,12 +438,12 @@ namespace Editor {
         /**
          * @brief 카메라 이동 속도입니다.
          */
-        float mCameraSpeed{4.0f};
+        float mCameraSpeed{};
 
         /**
          * @brief 마우스 이동 1픽셀당 카메라 회전 각도입니다.
          */
-        float mCameraSensitivity{0.2f};
+        float mCameraSensitivity{};
 
         /**
          * @brief 장면의 Lit 또는 Wireframe 표시 모드입니다.
@@ -463,7 +468,7 @@ namespace Editor {
         /**
          * @brief 그리드 선 사이의 월드 거리입니다.
          */
-        float mGridSpacing{1.0f};
+        float mGridSpacing{};
 
         /**
          * @brief 원근 또는 정사영 뷰 방향입니다.
@@ -473,12 +478,12 @@ namespace Editor {
         /**
          * @brief 정사영 전환 전 원근 카메라 위치입니다.
          */
-        FVector mPerspectiveLocation{-7.0f, -9.0f, 6.0f};
+        FVector mPerspectiveLocation{};
 
         /**
          * @brief 정사영 전환 전 원근 카메라 회전입니다.
          */
-        FRotator mPerspectiveRotation{-26.0f, 50.0f, 0.0f};
+        FRotator mPerspectiveRotation{};
 
         /**
          * @brief 정사영 전환 전 원근 카메라 피벗입니다.
@@ -488,22 +493,22 @@ namespace Editor {
         /**
          * @brief 정사영 가로 가시 범위의 월드 길이입니다.
          */
-        float mOrthographicWidth{20.0f};
+        float mOrthographicWidth{};
 
         /**
          * @brief 원근 카메라의 수직 시야각입니다.
          */
-        float mFieldOfView{60.0f};
+        Core::FAngle mFieldOfView{};
 
         /**
          * @brief 원근 투영의 근평면 거리입니다.
          */
-        float mNearClip{0.05f};
+        Core::FLength mNearClip{};
 
         /**
          * @brief 원근 투영의 원평면 거리입니다.
          */
-        float mFarClip{10000.0f};
+        Core::FLength mFarClip{};
 
         /**
          * @brief 클라이언트가 소유하며 기즈모와 UI가 함께 조회하는 변환 모드입니다.

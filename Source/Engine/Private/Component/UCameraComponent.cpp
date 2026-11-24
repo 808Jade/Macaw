@@ -5,24 +5,31 @@
  */
 
 #include "Engine/Component/UCameraComponent.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Engine/FMinimalViewInfo.h"
 #include "Engine/FSceneView.h"
 #include <cmath>
 
+using namespace Core::Literals;
+
 namespace Engine {
 
+    Engine::UCameraComponent::UCameraComponent()
+		: mFieldOfView{60_deg} {
+    }
+
     /**
-     * @brief 카메라의 수직 시야각을 도 단위로 반환합니다.
+     * @brief 카메라의 수직 시야각을 반환합니다.
      */
-    float Engine::UCameraComponent::GetFieldOfView() const {
+    Core::FAngle Engine::UCameraComponent::GetFieldOfView() const {
         return mFieldOfView;
     }
 
     /**
      * @brief 유효한 범위의 시야각을 검사하여 카메라에 설정합니다.
      */
-    bool Engine::UCameraComponent::SetFieldOfView(float FieldOfView) {
-        if (!std::isfinite(FieldOfView) || FieldOfView <= 0.0f || FieldOfView >= 180.0f) {
+    bool Engine::UCameraComponent::SetFieldOfView(Core::FAngle FieldOfView) {
+        if (!FieldOfView.IsFinite() || FieldOfView <= 0_deg || FieldOfView >= 180_deg) {
             return false;
         }
 

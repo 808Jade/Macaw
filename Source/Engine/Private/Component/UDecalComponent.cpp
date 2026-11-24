@@ -5,6 +5,7 @@
  */
 
 #include "Engine/Component/UDecalComponent.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Asset/UTexture2D.h"
 
 #include "Asset/FAssetManager.h"
@@ -16,7 +17,13 @@
 
 #include <cmath>
 
+using namespace Core::Literals;
+
 namespace Engine {
+
+    Engine::UDecalComponent::UDecalComponent()
+		: mExtent{(0.25_m).GetBase(), (0.5_m).GetBase(), (0.5_m).GetBase()} {
+    }
 
     Engine::UDecalComponent::~UDecalComponent() {
         UnregisterComponent();

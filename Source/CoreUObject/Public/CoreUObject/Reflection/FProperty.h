@@ -8,6 +8,7 @@
 
 #include "Core/ReflectionMacros.h"
 #include "CoreUObject/Reflection/FPropertyValue.h"
+#include "Core/Literals/QuantityUnits.h"
 #include "CoreUObject/Reflection/EPropertyType.h"
 #include "Core/Reflection/EPropertyFlags.h"
 #include "Core/Reflection/FPropertyMetaData.h"
@@ -149,6 +150,10 @@ namespace CoreUObject {
          */
         bool WriteValue(void* Container, const CoreUObject::FPropertyValue& Value) const;
 
+        std::optional<Core::FQuantityUnit> GetQuantityDisplayUnit(Core::FDimension Dimension) const;
+        std::optional<float> ToNumericValue(const CoreUObject::FPropertyValue& Value) const;
+        bool FromNumericValue(float Number, CoreUObject::FPropertyValue& Value) const;
+
         /**
          * @brief 로드 전용 쓰기 경로로 동일 프로퍼티의 값을 복사합니다.
          * @param[in,out] Destination 이 프로퍼티를 포함한 대상 컨테이너입니다.
@@ -174,6 +179,8 @@ namespace CoreUObject {
         void BindObjectReferences(void* Container, const CoreUObject::FObjectGuidMap& Objects) const;
 
     private:
+        std::optional<Core::FQuantityUnit> GetQuantityUnit(std::string_view Symbol, Core::FDimension Dimension) const;
+
         /**
          * @brief 값 타입과 쓰기 정책을 검사한 뒤 등록된 함수로 프로퍼티를 변경합니다.
          * @param[in] Container 프로퍼티 소유 타입의 유효한 인스턴스 주소입니다.

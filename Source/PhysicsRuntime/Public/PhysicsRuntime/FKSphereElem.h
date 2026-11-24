@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/ReflectionMacros.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/Math/FVector.h"
 #include "FKSphereElem.generated.h"
 
@@ -43,7 +44,10 @@ namespace PhysicsRuntime {
          * @brief 스케일을 적용하기 전 구의 반지름(m)입니다.
          */
         UPROPERTY(Edit, Serialize)
-        float mRadius{0.5f};
+        Core::FLength mRadius{mDefaultRadius};
+
+    private:
+        static const Core::FLength mDefaultRadius;
     };
 
 }

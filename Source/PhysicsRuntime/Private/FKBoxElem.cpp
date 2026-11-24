@@ -6,8 +6,13 @@
 
 #include "Core/Types.h"
 #include "PhysicsRuntime/FKBoxElem.h"
+#include "Core/Literals/UnitLiterals.h"
+
+using namespace Core::Literals;
 
 namespace PhysicsRuntime {
+
+    constinit const float PhysicsRuntime::FKBoxElem::mDefaultHalfExtent{(0.5_m).GetBase()};
 
     /**
      * @brief 컴포넌트 스케일을 반영한 상자 형상을 반환합니다.

@@ -6,15 +6,20 @@
 
 #include "Engine/Component/URotationMovementComponent.h"
 #include "Core/Literals/AngleFunctions.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/UWorld.h"
+
+using namespace Core::Literals;
 
 namespace Engine {
 
     /**
      * @brief 기본 설정으로 URotationMovementComponent 객체를 초기화합니다.
      */
-    Engine::URotationMovementComponent::URotationMovementComponent() = default;
+    Engine::URotationMovementComponent::URotationMovementComponent()
+		: mRotationRate{0_deg, 90_degps * 1_s, 0_deg} {
+    }
 
     /**
      * @brief 객체 수명을 끝내고 소유한 자원을 정리합니다.
@@ -25,7 +30,6 @@ namespace Engine {
      * @brief Game 또는 PIE의 실행 중 이동 대상을 회전하고 피벗의 월드 위치를 유지합니다.
      */
     void Engine::URotationMovementComponent::Tick(float DeltaTime) {
-        using namespace Core::Literals;
         const Engine::UWorld* World{GetWorld()};
 
         if (World == nullptr || (World->GetWorldType() != Engine::EWorldType::Game && World->GetWorldType() != Engine::EWorldType::PIE) || !HasBegunPlay() || ShouldSkipUpdate(DeltaTime)) {

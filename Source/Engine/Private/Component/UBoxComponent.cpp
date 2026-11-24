@@ -5,15 +5,28 @@
  */
 
 #include "Engine/Component/UBoxComponent.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Engine/FPrimitiveDrawInterface.h"
 #include "PhysicsRuntime/FKAggregateGeom.h"
 
 #include <algorithm>
 #include <cmath>
 
+using namespace Core::Literals;
+
 namespace Engine {
 
-    void Engine::UBoxComponent::DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const {
+    namespace {
+
+        constexpr float HalfExtent{(0.5_m).GetBase()};
+
+    }
+
+    Engine::UBoxComponent::UBoxComponent()
+		: mBoxExtent{HalfExtent, HalfExtent, HalfExtent} {
+    }
+
+    void Engine::UBoxComponent::DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color, float Opacity) const {
         const FVector Center{GetTransform().mLocation};
         const FQuat& Rot{GetTransform().mRotation};
         const FVector Extent{GetScaledBoxExtent()};
@@ -30,18 +43,18 @@ namespace Engine {
         const FVector V6{Center - X - Y - Z};
         const FVector V7{Center - X + Y - Z};
 
-        DrawInterface.DrawLine(V0, V1, Color, true);
-        DrawInterface.DrawLine(V1, V2, Color, true);
-        DrawInterface.DrawLine(V2, V3, Color, true);
-        DrawInterface.DrawLine(V3, V0, Color, true);
-        DrawInterface.DrawLine(V4, V5, Color, true);
-        DrawInterface.DrawLine(V5, V6, Color, true);
-        DrawInterface.DrawLine(V6, V7, Color, true);
-        DrawInterface.DrawLine(V7, V4, Color, true);
-        DrawInterface.DrawLine(V0, V4, Color, true);
-        DrawInterface.DrawLine(V1, V5, Color, true);
-        DrawInterface.DrawLine(V2, V6, Color, true);
-        DrawInterface.DrawLine(V3, V7, Color, true);
+        DrawInterface.DrawLine(V0, V1, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V1, V2, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V2, V3, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V3, V0, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V4, V5, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V5, V6, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V6, V7, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V7, V4, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V0, V4, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V1, V5, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V2, V6, Color, true, 1.0f, Opacity);
+        DrawInterface.DrawLine(V3, V7, Color, true, 1.0f, Opacity);
     }
 
     /**

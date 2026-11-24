@@ -718,9 +718,9 @@ namespace Asset {
                 SerializeMotion(Archive, "Swing1Motion", Instance.mSwing1Motion);
                 SerializeMotion(Archive, "Swing2Motion", Instance.mSwing2Motion);
                 SerializeMotion(Archive, "TwistMotion", Instance.mTwistMotion);
-                Archive.Serialize("Swing1LimitDegrees", Instance.mSwing1LimitDegrees);
-                Archive.Serialize("Swing2LimitDegrees", Instance.mSwing2LimitDegrees);
-                Archive.Serialize("TwistLimitDegrees", Instance.mTwistLimitDegrees);
+                Archive.Serialize("Swing1LimitDegrees", Instance.mSwing1Limit, Core::QuantityUnits::Degree);
+                Archive.Serialize("Swing2LimitDegrees", Instance.mSwing2Limit, Core::QuantityUnits::Degree);
+                Archive.Serialize("TwistLimitDegrees", Instance.mTwistLimit, Core::QuantityUnits::Degree);
             });
 
             if (Archive.IsLoading() && !Archive.HasError()) {

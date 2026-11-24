@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/ReflectionMacros.h"
 #include "Core/Math/FTransform.h"
 #include "Core/Math/FVector.h"
@@ -323,40 +324,40 @@ namespace PhysicsRuntime {
          * @brief 동적 강체의 지정 질량을 반환합니다.
          * @return 질량(kg)이며, 0이면 형상 부피와 기본 밀도로 계산합니다.
          */
-        float GetMassInKg() const;
+        Core::FMass GetMassInKg() const;
 
         /**
          * @brief 동적 강체의 질량을 설정하고 실제 바디의 질량과 관성을 다시 계산합니다.
          * @param[in] MassInKg 질량(kg)이며, 0이면 형상 부피와 기본 밀도로 계산합니다.
          * @return 0 이상의 유한값이어서 적용했으면 true입니다.
          */
-        bool SetMassInKg(float MassInKg);
+        bool SetMassInKg(Core::FMass MassInKg);
 
         /**
          * @brief 동적 강체의 선형 감쇠 계수를 반환합니다.
          * @return 선형 감쇠 계수입니다.
          */
-        float GetLinearDamping() const;
+        Core::FFrequency GetLinearDamping() const;
 
         /**
          * @brief 동적 강체의 선형 감쇠 계수를 설정하고 실제 바디에 반영합니다.
          * @param[in] Damping 선형 감쇠 계수입니다.
          * @return 0 이상의 유한값이어서 적용했으면 true입니다.
          */
-        bool SetLinearDamping(float Damping);
+        bool SetLinearDamping(Core::FFrequency Damping);
 
         /**
          * @brief 동적 강체의 회전 감쇠 계수를 반환합니다.
          * @return 회전 감쇠 계수입니다.
          */
-        float GetAngularDamping() const;
+        Core::FFrequency GetAngularDamping() const;
 
         /**
          * @brief 동적 강체의 회전 감쇠 계수를 설정하고 실제 바디에 반영합니다.
          * @param[in] Damping 회전 감쇠 계수입니다.
          * @return 0 이상의 유한값이어서 적용했으면 true입니다.
          */
-        bool SetAngularDamping(float Damping);
+        bool SetAngularDamping(Core::FFrequency Damping);
 
         /**
          * @brief 이미 만든 움직이는 강체의 시뮬레이션 여부를 다시 만들지 않고 바꿉니다.
@@ -472,19 +473,19 @@ namespace PhysicsRuntime {
          * @brief 동적 강체의 질량(kg)이며, 0이면 형상 부피와 기본 밀도로 계산합니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetMassInKg, Setter = SetMassInKg)
-        float mMassInKg{};
+        Core::FMass mMassInKg{};
 
         /**
          * @brief 동적 강체의 선형 감쇠 계수입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetLinearDamping, Setter = SetLinearDamping)
-        float mLinearDamping{0.01f};
+        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetLinearDamping, Setter = SetLinearDamping, Meta = (DisplayUnit = "1/s"))
+        Core::FFrequency mLinearDamping{};
 
         /**
          * @brief 동적 강체의 회전 감쇠 계수입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetAngularDamping, Setter = SetAngularDamping)
-        float mAngularDamping{0.05f};
+        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetAngularDamping, Setter = SetAngularDamping, Meta = (DisplayUnit = "1/s"))
+        Core::FFrequency mAngularDamping{};
 
         /**
          * @brief 충돌 프리셋이며, 참여 방식이나 응답을 직접 바꾸면 Custom입니다.

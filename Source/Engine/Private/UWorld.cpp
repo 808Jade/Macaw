@@ -195,7 +195,7 @@ namespace Engine {
         }
 
         mPhysicsScene = std::move(Scene);
-        mPhysicsTimeAccumulator = 0.0f;
+        mPhysicsTimeAccumulator = {};
 
         // 장면보다 먼저 등록된 컴포넌트는 등록 시점에 바디를 만들지 못했으므로 여기서 만듭니다.
         UpdateComponentPhysicsStates(true);
@@ -212,7 +212,7 @@ namespace Engine {
         }
 
         mPhysicsScene.reset();
-        mPhysicsTimeAccumulator = 0.0f;
+        mPhysicsTimeAccumulator = {};
         mOverlaps.clear();
     }
 
@@ -238,19 +238,19 @@ namespace Engine {
     /**
      * @brief 프레임 시간을 고정 스텝으로 나누어 물리 장면을 진행합니다.
      */
-    void Engine::UWorld::StepPhysics(float DeltaTime) {
-        if (mPhysicsScene == nullptr || !std::isfinite(DeltaTime) || DeltaTime <= 0.0f) {
+    void Engine::UWorld::StepPhysics(Core::FTime DeltaTime) {
+        if (mPhysicsScene == nullptr || !DeltaTime.IsFinite() || DeltaTime <= Core::FTime{}) {
             return;
         }
 
         const PhysicsRuntime::FPhysicsSettings& Settings{mPhysicsRuntime->GetSettings()};
-        const float StepSeconds{Settings.mFixedStepSeconds};
+        const Core::FTime Step{Settings.mFixedStep};
 
-        mPhysicsTimeAccumulator = std::min(mPhysicsTimeAccumulator + DeltaTime, StepSeconds * static_cast<float>(Settings.mMaxStepsPerFrame));
+        mPhysicsTimeAccumulator = std::min(mPhysicsTimeAccumulator + DeltaTime, Step * static_cast<float>(Settings.mMaxStepsPerFrame));
 
         // 접촉 목록과 움직인 바디 목록은 다음 Simulate에서 바뀌므로 스텝마다 결과를 전달합니다.
-        while (mPhysicsScene != nullptr && !mEndPlayRequested && !mShutdownRequested && mPhysicsTimeAccumulator >= StepSeconds && mPhysicsScene->Simulate(StepSeconds)) {
-            mPhysicsTimeAccumulator -= StepSeconds;
+        while (mPhysicsScene != nullptr && !mEndPlayRequested && !mShutdownRequested && mPhysicsTimeAccumulator >= Step && mPhysicsScene->Simulate(Step)) {
+            mPhysicsTimeAccumulator -= Step;
 
             DispatchPhysicsResults();
         }
@@ -679,7 +679,7 @@ namespace Engine {
         FDispatchScope Scope{this};
 
         mPlayState = Engine::EWorldPlayState::Starting;
-        mTimeSeconds = 0.0f;
+        mTime = {};
         mTickCount = 0;
 
         // 액터의 BeginPlay에서 강체를 다룰 수 있도록 물리 장면을 먼저 만듭니다. 실패하면 물리 없이 진행합니다.
@@ -716,7 +716,7 @@ namespace Engine {
                 }
             }
 
-            CameraManager->UpdateCamera(0.0f);
+            CameraManager->UpdateCamera({});
         }
 
         mPlayState = Engine::EWorldPlayState::Playing;
@@ -764,7 +764,7 @@ namespace Engine {
     /**
      * @brief 월드 상태에 따라 일반 게임, 편집 또는 일시정지 Tick을 수행합니다.
      */
-    bool Engine::UWorld::Tick(float DeltaTime) {
+    bool Engine::UWorld::Tick(Core::FTime DeltaTime) {
         const bool EditorTick{mPlayState == Engine::EWorldPlayState::Stopped && (mWorldType == Engine::EWorldType::Editor || mWorldType == Engine::EWorldType::EditorPreview)};
 
         const bool PauseTick{mPlayState == Engine::EWorldPlayState::Paused};
@@ -788,15 +788,19 @@ namespace Engine {
     /**
      * @brief Paused 상태에서 일반 게임 프레임을 한 번 수행합니다.
      */
-    bool Engine::UWorld::Step(float DeltaTime) {
-        return mPlayState == Engine::EWorldPlayState::Paused && DeltaTime > 0.0f && TickActors(DeltaTime, false, false);
+    bool Engine::UWorld::Step(Core::FTime DeltaTime) {
+        return mPlayState == Engine::EWorldPlayState::Paused && DeltaTime > Core::FTime{} && TickActors(DeltaTime, false, false);
+    }
+
+    Core::FTime Engine::UWorld::GetTime() const {
+        return mTime;
     }
 
     /**
      * @brief 마지막 실행 시작 이후 누적 게임 시간을 반환합니다.
      */
     float Engine::UWorld::GetTimeSeconds() const {
-        return mTimeSeconds;
+        return GetTime().GetBase();
     }
 
     /**
@@ -897,8 +901,8 @@ namespace Engine {
      * @brief 시간과 실행 상태를 검증하고 일반 그룹 또는 일시정지 Tick을 실행합니다.
      * @details 일시정지는 별도 큐를 실행합니다. 일반 게임 프레임은 PostPhysics 뒤에 겹침과 카메라를 갱신한 다음 나머지 그룹을 처리합니다.
      */
-    bool Engine::UWorld::TickActors(float DeltaTime, bool EditorTick, bool PauseTick) {
-        if (!std::isfinite(DeltaTime) || DeltaTime < 0.0f || (!EditorTick && !PauseTick && !std::isfinite(mTimeSeconds + DeltaTime)) || IsDispatching() || mShuttingDown) {
+    bool Engine::UWorld::TickActors(Core::FTime DeltaTime, bool EditorTick, bool PauseTick) {
+        if (!DeltaTime.IsFinite() || DeltaTime < Core::FTime{} || (!EditorTick && !PauseTick && !(mTime + DeltaTime).IsFinite()) || IsDispatching() || mShuttingDown) {
             return false;
         }
 
@@ -909,18 +913,18 @@ namespace Engine {
         FDispatchScope Scope{this};
 
         if (PauseTick) {
-            return mTickTaskManager.RunPauseFrame(*this, DeltaTime);
+            return mTickTaskManager.RunPauseFrame(*this, DeltaTime.GetBase());
         }
 
         if (!EditorTick) {
             if (mLuaRuntime != nullptr) {
                 mLuaRuntime->ReloadChangedScripts();
             }
-            mTimeSeconds += DeltaTime;
+            mTime += DeltaTime;
             ++mTickCount;
         }
 
-        mTickTaskManager.StartFrame(*this, DeltaTime, EditorTick);
+        mTickTaskManager.StartFrame(*this, DeltaTime.GetBase(), EditorTick);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PrePhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::StartPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::DuringPhysics);

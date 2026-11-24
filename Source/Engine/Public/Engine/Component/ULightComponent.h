@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Engine/Component/ULightComponentBase.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Engine/EShadowBiasPreset.h"
 #include "ULightComponent.generated.h"
 
@@ -116,14 +117,14 @@ namespace Engine {
          * @brief PCSS 반그림자 계산에 쓰는 광원 반지름을 반환합니다.
          * @return 점광원·스포트라이트 광원의 반지름(m)입니다.
          */
-        float GetShadowSourceRadius() const;
+        Core::FLength GetShadowSourceRadius() const;
 
         /**
          * @brief PCSS 반그림자 계산에 쓰는 광원 반지름을 검증하고 변경합니다.
          * @param[in] Radius 0 이상 10 이하인 유한한 광원 반지름(m)입니다.
          * @return 입력값을 수락하고 상태를 갱신하면 true이며 잘못된 값이면 false입니다.
          */
-        bool SetShadowSourceRadius(float Radius);
+        bool SetShadowSourceRadius(Core::FLength Radius);
 
         /**
          * @brief 현재 컴포넌트의 조명·그림자 설정으로 렌더 프록시를 생성합니다.
@@ -174,7 +175,7 @@ namespace Engine {
          * @brief PCSS 반그림자 계산에 쓰는 점광원·스포트라이트 광원의 반지름(m)입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowSourceRadius, Setter = SetShadowSourceRadius)
-        float mShadowSourceRadius{0.1f};
+        Core::FLength mShadowSourceRadius{};
     };
 
 }

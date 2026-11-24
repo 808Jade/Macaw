@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "CoreUObject/TObjectRef.h"
 
 #include "Core/ReflectionMacros.h"
@@ -159,7 +161,7 @@ namespace Engine {
          * @return 일반 또는 편집 프레임을 처리했거나 일시정지 Tick을 하나 이상 호출했으면 true입니다.
          * @details 편집과 일시정지 Tick은 게임 시간과 일반 프레임 횟수를 유지합니다.
          */
-        bool Tick(float DeltaTime);
+        bool Tick(Core::FTime DeltaTime);
 
         /**
          * @brief Playing과 Paused 사이의 상태를 전환합니다.
@@ -173,12 +175,13 @@ namespace Engine {
          * @param[in] DeltaTime 진행할 초 단위 시간이며 유한한 양수여야 합니다.
          * @return 일시정지 상태에서 한 번 갱신하면 true입니다.
          */
-        bool Step(float DeltaTime);
+        bool Step(Core::FTime DeltaTime);
 
         /**
          * @brief 마지막 실행 시작 이후 누적 게임 시간을 반환합니다.
          * @return Tick과 Step이 실제 진행한 초 단위 시간입니다.
          */
+        Core::FTime GetTime() const;
         float GetTimeSeconds() const;
 
         /**
@@ -329,7 +332,7 @@ namespace Engine {
          * @note 한 프레임의 스텝 수를 제한하며, 제한을 넘는 시간은 버려 느린 프레임이 누적되지 않게 합니다.
          *       스텝마다 움직인 바디의 자세를 컴포넌트에 반영하고 새 접촉을 충돌 이벤트로 전달합니다.
          */
-        void StepPhysics(float DeltaTime);
+        void StepPhysics(Core::FTime DeltaTime);
 
         /**
          * @brief 지정한 액터 클래스의 기본 컴포넌트를 생성하고 영속 레벨에 추가합니다.
@@ -489,7 +492,7 @@ namespace Engine {
          * @param[in] PauseTick 일시정지 전용 Tick 목록을 실행할지 지정합니다.
          * @return 일반 또는 편집 프레임을 처리했거나 일시정지 Tick을 하나 이상 호출했으면 true입니다.
          */
-        bool TickActors(float DeltaTime, bool EditorTick, bool PauseTick);
+        bool TickActors(Core::FTime DeltaTime, bool EditorTick, bool PauseTick);
 
         /**
          * @brief 컨테이너 변경에 영향받지 않는 액터 핸들 스냅샷을 만듭니다.
@@ -581,7 +584,7 @@ namespace Engine {
         /**
          * @brief 아직 고정 스텝으로 진행하지 않은 물리 시간(초)입니다.
          */
-        float mPhysicsTimeAccumulator{};
+        Core::FTime mPhysicsTimeAccumulator{};
 
         /**
          * @brief 프레임 말 갱신을 기다리는 컴포넌트 핸들입니다.
@@ -616,7 +619,7 @@ namespace Engine {
         /**
          * @brief 마지막 BeginPlay 이후 실제 진행한 게임 시간입니다.
          */
-        float mTimeSeconds{};
+        Core::FTime mTime{};
 
         /**
          * @brief 지연된 정리 작업의 재진입을 막는 처리 상태입니다.

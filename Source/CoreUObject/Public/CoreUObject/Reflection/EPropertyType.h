@@ -100,6 +100,7 @@ namespace CoreUObject {
         /**
          * @brief 일반 variant 값으로 변환할 수 없는 네이티브 타입입니다.
          */
+        Quantity,
         Opaque
     };
 

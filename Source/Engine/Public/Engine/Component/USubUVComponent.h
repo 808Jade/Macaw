@@ -7,6 +7,7 @@
 #pragma once
 
 #include "CoreUObject/TObjectRef.h"
+#include "Core/Literals/UnitLiterals.h"
 
 #include "Core/Types.h"
 #include "Engine/Component/UActorComponent.h"
@@ -98,14 +99,14 @@ namespace Engine {
          * @brief 초당 재생 프레임 수를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        float GetFramesPerSecond() const;
+        Core::FFrequency GetFramesPerSecond() const;
 
         /**
          * @brief 초당 재생 프레임 수를 설정합니다.
          * @param[in] FramesPerSecond 0에서 10000 사이의 유한한 초당 프레임 수입니다.
          * @return 값이 유효해 적용했으면 true, 거부했으면 false입니다.
          */
-        bool SetFramesPerSecond(float FramesPerSecond);
+        bool SetFramesPerSecond(Core::FFrequency FramesPerSecond);
 
         /**
          * @brief 마지막 프레임 이후 반복 여부인지 검사합니다.
@@ -214,7 +215,7 @@ namespace Engine {
          * @brief 초당 재생 프레임 수입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetFramesPerSecond, Setter = SetFramesPerSecond)
-        float mFramesPerSecond{12.0f};
+        Core::FFrequency mFramesPerSecond{};
 
         /**
          * @brief 마지막 프레임 이후 반복 여부입니다.

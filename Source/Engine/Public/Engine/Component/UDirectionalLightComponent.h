@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Engine/Component/ULightComponent.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "UDirectionalLightComponent.generated.h"
 
 namespace Engine {
@@ -48,14 +49,14 @@ namespace Engine {
          * @brief 방향광 그림자의 최대 표시 거리를 반환합니다.
          * @return 방향광 그림자의 최대 표시 거리입니다.
          */
-        float GetShadowDistance() const;
+        Core::FLength GetShadowDistance() const;
 
         /**
          * @brief 방향광 그림자의 최대 표시 거리를 검증하고 변경합니다.
          * @param[in] Distance 1 이상 100000 이하인 유한한 그림자 표시 거리입니다.
          * @return 입력값을 수락하고 상태를 갱신하면 true이며 잘못된 값이면 false입니다.
          */
-        bool SetShadowDistance(float Distance);
+        bool SetShadowDistance(Core::FLength Distance);
 
         /**
          * @brief 각 캐스케이드 구간에서 전환에 사용하는 비율을 반환합니다.
@@ -74,14 +75,14 @@ namespace Engine {
          * @brief PCSS 반그림자 계산에 쓰는 광원 각반지름을 반환합니다.
          * @return 방향광 광원의 각반지름(도)입니다.
          */
-        float GetShadowSourceAngle() const;
+        Core::FAngle GetShadowSourceAngle() const;
 
         /**
          * @brief PCSS 반그림자 계산에 쓰는 광원 각반지름을 검증하고 변경합니다.
          * @param[in] Angle 0 이상 15 이하인 유한한 각반지름(도)입니다.
          * @return 입력값을 수락하고 상태를 갱신하면 true이며 잘못된 값이면 false입니다.
          */
-        bool SetShadowSourceAngle(float Angle);
+        bool SetShadowSourceAngle(Core::FAngle Angle);
 
         /**
          * @brief 현재 컴포넌트의 조명·그림자 설정으로 렌더 프록시를 생성합니다.
@@ -100,7 +101,7 @@ namespace Engine {
          * @brief 방향광 그림자의 최대 표시 거리입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowDistance, Setter = SetShadowDistance)
-        float mShadowDistance{100.0f};
+        Core::FLength mShadowDistance{};
 
         /**
          * @brief 각 캐스케이드 구간에서 전환에 사용하는 비율입니다.
@@ -111,8 +112,8 @@ namespace Engine {
         /**
          * @brief PCSS 반그림자 계산에 쓰는 방향광 광원의 각반지름(도)입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowSourceAngle, Setter = SetShadowSourceAngle)
-        float mShadowSourceAngle{1.0f};
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowSourceAngle, Setter = SetShadowSourceAngle, Meta = (SerializeUnit = "deg"))
+        Core::FAngle mShadowSourceAngle{};
     };
 
 }

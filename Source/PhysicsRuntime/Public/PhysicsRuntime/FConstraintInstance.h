@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Math/FTransform.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Core/Math/FVector.h"
 #include "Core/Types.h"
 
@@ -218,17 +219,17 @@ namespace PhysicsRuntime {
         /**
          * @brief 첫 번째 흔들기 축의 한계 각도이며 단위는 도입니다.
          */
-        float mSwing1LimitDegrees{45.0f};
+        Core::FAngle mSwing1Limit{};
 
         /**
          * @brief 두 번째 흔들기 축의 한계 각도이며 단위는 도입니다.
          */
-        float mSwing2LimitDegrees{45.0f};
+        Core::FAngle mSwing2Limit{};
 
         /**
          * @brief 비틀기 축의 한계 각도이며 단위는 도입니다.
          */
-        float mTwistLimitDegrees{45.0f};
+        Core::FAngle mTwistLimit{};
 
     private:
         /**

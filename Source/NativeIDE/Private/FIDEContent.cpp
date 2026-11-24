@@ -10,6 +10,8 @@
 #include <fstream>
 #include <utility>
 
+using namespace std::chrono_literals;
+
 using namespace NativeIDE;
 
 namespace {
@@ -193,7 +195,7 @@ void FIDEContent::Build() {
 }
 
 void FIDEContent::UpdateBuild() {
-    if (!mBuild.valid() || mBuild.wait_for(std::chrono::seconds{0}) != std::future_status::ready) {
+    if (!mBuild.valid() || mBuild.wait_for(0s) != std::future_status::ready) {
         return;
     }
 

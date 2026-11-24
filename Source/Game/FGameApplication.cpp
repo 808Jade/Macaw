@@ -5,6 +5,7 @@
  */
 
 #include "FGameApplication.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "GameReflection.h"
 #include "PhysicsRuntimeReflection.h"
 #include "Core/Base/ErrorHandler.h"
@@ -16,6 +17,8 @@
 #include "Engine/UWorld.h"
 
 #include <algorithm>
+
+using namespace Core::Literals;
 
 namespace Game {
 
@@ -62,7 +65,7 @@ namespace Game {
             }
 
             const Core::FScopedStatFrame StatFrame{};
-            const float DeltaTime{std::min(mTimer.Tick(), 0.1f)};
+            const Core::FTime DeltaTime{mTimer.Tick()};
 
             mRenderer.BeginFrame(mPlatform.GetWidth(), mPlatform.GetHeight());
 
@@ -73,7 +76,7 @@ namespace Game {
             mPlatform.GetInput().SetGameInputEnabled(true);
 
             if (mEngine.GetWorld()->GetPlayState() == Engine::EWorldPlayState::Playing) {
-                mGameClient.ProcessInput(mPlatform.GetInput(), DeltaTime);
+                mGameClient.ProcessInput(mPlatform.GetInput(), DeltaTime.GetBase());
             }
 
             mEngine.Tick(DeltaTime, false);

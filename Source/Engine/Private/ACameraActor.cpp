@@ -5,6 +5,7 @@
  */
 
 #include "Engine/ACameraActor.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Engine/Component/UCameraComponent.h"
 #include "Core/Input.h"
 #include "Engine/UWorld.h"
@@ -13,6 +14,8 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+
+using namespace Core::Literals;
 
 namespace Engine {
 
@@ -56,15 +59,16 @@ namespace Engine {
         FRotator Rotation{Transform.mRotation.Rotator()};
 
         if (Input.IsDown(EKey::MouseRight, EInputRoute::Game)) {
-            Rotation.yaw += MouseDelta.x * 0.2f;
-            Rotation.pitch = std::clamp(Rotation.pitch - MouseDelta.y * 0.2f, -89.0f, 89.0f);
+            Rotation.yaw += MouseDelta.x * Core::Math::ToDegrees(0.2_deg);
+            Rotation.pitch = std::clamp(Rotation.pitch - MouseDelta.y * Core::Math::ToDegrees(0.2_deg), Core::Math::ToDegrees(-89_deg), Core::Math::ToDegrees(89_deg));
             Transform.mRotation = Rotation.Quaternion();
         }
 
         const FVector Local{static_cast<float>(Input.IsDown(EKey::W, EInputRoute::Game)) - static_cast<float>(Input.IsDown(EKey::S, EInputRoute::Game)), static_cast<float>(Input.IsDown(EKey::D, EInputRoute::Game)) - static_cast<float>(Input.IsDown(EKey::A, EInputRoute::Game)), 0.0f};
         FVector Movement{Transform.mRotation * Local};
         Movement.z += static_cast<float>(Input.IsDown(EKey::E, EInputRoute::Game)) - static_cast<float>(Input.IsDown(EKey::Q, EInputRoute::Game));
-        Transform.mLocation += Movement.Normalized() * DeltaTime * (Input.IsDown(EKey::Shift, EInputRoute::Game) ? 12.0f : 4.0f);
+        const Core::FSpeed MoveSpeed{Input.IsDown(EKey::Shift, EInputRoute::Game) ? 12_mps : 4_mps};
+        Transform.mLocation += Movement.Normalized() * DeltaTime * MoveSpeed.GetBase();
 
         if (Input.IsDown(EKey::MouseRight, EInputRoute::Game) || Movement.LengthSquared() > 0.0f) {
             if (GetRootComponent() == nullptr || Camera == GetRootComponent()) {

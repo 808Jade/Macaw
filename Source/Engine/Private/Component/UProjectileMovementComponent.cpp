@@ -21,7 +21,10 @@ namespace Engine {
     /**
      * @brief 기본 설정으로 UProjectileMovementComponent 객체를 초기화합니다.
      */
-    Engine::UProjectileMovementComponent::UProjectileMovementComponent() = default;
+    Engine::UProjectileMovementComponent::UProjectileMovementComponent()
+		: mInitialVelocity{(10_mps).GetBase(), 0.0f, (5_mps).GetBase()},
+		  mMaxSpeed{100_mps} {
+    }
 
     /**
      * @brief 객체 수명을 끝내고 소유한 자원을 정리합니다.
@@ -247,7 +250,7 @@ namespace Engine {
      * @brief 0 이상의 유한한 최대 속도를 저장하고 필요한 경우 현재 속도를 제한합니다.
      */
     bool Engine::UProjectileMovementComponent::SetMaxSpeed(Core::FSpeed Speed) {
-        if (!std::isfinite(Speed.GetBase()) || Speed < 0_mps) {
+        if (!Speed.IsFinite() || Speed < 0_mps) {
             return false;
         }
 

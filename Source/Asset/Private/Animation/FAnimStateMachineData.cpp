@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "Asset/Animation/FAnimStateMachineData.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Asset/Animation/UAnimGraph.h"
 #include "Core/Archive.h"
 
@@ -14,7 +15,11 @@
 #include <limits>
 #include <utility>
 
+using namespace Core::Literals;
+
 namespace Asset {
+
+    constinit const float Asset::FAnimTransitionData::mDefaultDuration{(0.2_s).GetBase()};
 
     const Core::TArray<Asset::FAnimRuleNode>& FAnimTransitionGraph::GetNodes() const {
         return mNodes;

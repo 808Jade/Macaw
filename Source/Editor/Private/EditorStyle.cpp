@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "EditorStyle.h"
 #include "FEditorAnimation.h"
 
@@ -12,6 +13,8 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+
+using namespace Core::Literals;
 
 namespace Editor {
 
@@ -324,6 +327,15 @@ namespace Editor {
             DrawList->AddRectFilled(Point(15.0f, 4.0f), Point(18.0f, 16.0f), Color, Scale);
 
             break;
+        case EIcon::Reset:
+            Line(7.5f, 5.0f, 3.0f, 9.5f);
+            Line(3.0f, 9.5f, 7.5f, 14.0f);
+            DrawList->PathLineTo(Point(3.0f, 9.5f));
+            DrawList->PathLineTo(Point(12.0f, 9.5f));
+            DrawList->PathBezierQuadraticCurveTo(Point(17.0f, 9.5f), Point(17.0f, 15.5f));
+            DrawList->PathStroke(Color, ImDrawFlags_None, Thickness);
+
+            break;
         case EIcon::Stop:
             DrawList->AddRectFilled(Point(4.0f, 4.0f), Point(16.0f, 16.0f), Color, Scale);
 
@@ -461,7 +473,7 @@ namespace Editor {
             DrawList->AddCircleFilled(Point(10.0f, 10.0f), 1.8f * Scale, Color);
 
             for (Index_t Index{}; Index < 8; ++Index) {
-                const float Angle{static_cast<float>(Index) * 0.78539816f};
+                const float Angle{(45_deg * Index).GetBase()};
                 const float X{cosf(Angle)};
                 const float Y{sinf(Angle)};
 
@@ -517,10 +529,10 @@ namespace Editor {
 
         case EIcon::Snapping:
             DrawList->PathLineTo(Point(3.0f, 3.0f));
-            DrawList->PathArcTo(Point(10.0f, 10.0f), 7.0f * Scale, IM_PI, 0.0f, 12);
+            DrawList->PathArcTo(Point(10.0f, 10.0f), 7.0f * Scale, (180_deg).GetBase(), (0_rad).GetBase(), 12);
             DrawList->PathLineTo(Point(17.0f, 3.0f));
             DrawList->PathLineTo(Point(13.0f, 3.0f));
-            DrawList->PathArcTo(Point(10.0f, 10.0f), 3.0f * Scale, 0.0f, IM_PI, 8);
+            DrawList->PathArcTo(Point(10.0f, 10.0f), 3.0f * Scale, (0_rad).GetBase(), (180_deg).GetBase(), 8);
             DrawList->PathLineTo(Point(7.0f, 3.0f));
             DrawList->PathStroke(Color, Thickness, ImDrawFlags_Closed);
             Line(3.0f, 7.0f, 7.0f, 7.0f);
@@ -536,7 +548,7 @@ namespace Editor {
 
             break;
         case EIcon::Performance:
-            DrawList->PathArcTo(Point(10.0f, 12.0f), 8.0f * Scale, IM_PI, IM_PI * 2.0f, 16);
+            DrawList->PathArcTo(Point(10.0f, 12.0f), 8.0f * Scale, (180_deg).GetBase(), (1_turn).GetBase(), 16);
             DrawList->PathStroke(Color, Thickness);
             Line(2.0f, 12.0f, 2.0f, 16.0f);
             Line(18.0f, 12.0f, 18.0f, 16.0f);

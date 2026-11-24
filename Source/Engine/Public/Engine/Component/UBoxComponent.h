@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Engine/Component/UShapeComponent.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "UBoxComponent.generated.h"
 
 namespace Engine {
@@ -17,6 +18,9 @@ namespace Engine {
     UCLASS()
     class UBoxComponent : public Engine::UShapeComponent {
         GENERATED_BODY()
+
+    public:
+        UBoxComponent();
 
     public:
         /**
@@ -49,7 +53,7 @@ namespace Engine {
          * @param[in] DrawInterface 보조 선분을 추가할 프레임 수집기입니다.
          * @param[in] Color 선 색상입니다.
          */
-        void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const override;
+        void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color, float Opacity) const override;
 
         /**
          * @brief 상자 반길이로 상자 형상 하나를 채웁니다.
@@ -62,7 +66,7 @@ namespace Engine {
          * @brief 상자의 로컬 축별 반길이입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Shape", Getter = GetBoxExtent, Setter = SetBoxExtent)
-        FVector mBoxExtent{0.5f, 0.5f, 0.5f};
+        FVector mBoxExtent{};
     };
 
 }

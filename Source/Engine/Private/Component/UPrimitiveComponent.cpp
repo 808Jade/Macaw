@@ -476,7 +476,7 @@ namespace Engine {
         OutHit.SetActor(OtherComponent != nullptr ? OtherComponent->GetOwner() : nullptr);
 
         // 막은 표면에 붙어 다음 이동이 시작부터 겹치지 않도록 1 cm 물러난 위치까지만 옮깁니다.
-        constexpr float PullBackDistance{0.01f};
+        constexpr float PullBackDistance{(0.01_m).GetBase()};
         const float MoveDistance{std::max(0.0f, SweepHit.mDistance - PullBackDistance)};
 
         if (!ApplyMove(Delta * (MoveDistance / Length))) {
@@ -603,13 +603,19 @@ namespace Engine {
      * @brief 바디 셋업의 충돌 형상을 현재 트랜스폼에 맞춰 선분으로 수집합니다.
      */
     void Engine::UPrimitiveComponent::DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight, float Thickness) const {
+        const FVector4 Color{Highlight ? FVector4{1.0f, 0.65f, 0.15f, 1.0f} : mBodyInstance.ShouldSimulatePhysics() ? FVector4{0.35f, 1.0f, 0.35f, 1.0f} : FVector4{0.35f, 0.6f, 1.0f, 1.0f}};
+        DrawCollision(DrawInterface, Color, Thickness);
+    }
+
+    void Engine::UPrimitiveComponent::DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector4& CollisionColor, float Thickness) const {
         const PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
 
         if (Setup == nullptr) {
             return;
         }
 
-        const FVector Color{Highlight ? FVector{1.0f, 0.65f, 0.15f} : mBodyInstance.ShouldSimulatePhysics() ? FVector{0.35f, 1.0f, 0.35f} : FVector{0.35f, 0.6f, 1.0f}};
+        const FVector Color{CollisionColor.x, CollisionColor.y, CollisionColor.z};
+        const float Opacity{CollisionColor.w};
         const FTransform& Transform{GetTransform()};
         const PhysicsRuntime::FKAggregateGeom& Geometry{Setup->GetAggGeom()};
 
@@ -625,15 +631,15 @@ namespace Engine {
             const FVector Right{Transform.mRotation.RightVector()};
             const FVector Up{Transform.mRotation.UpVector()};
 
-            DrawInterface.DrawArc(Center, Forward, Right, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Center, Forward, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Center, Right, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Center, Forward, Right, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Center, Forward, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Center, Right, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
         }
 
         for (const PhysicsRuntime::FKBoxElem& Element : Geometry.mBoxElems) {
             const PhysicsRuntime::FKBoxElem Scaled{Element.GetScaled(Transform.mScale)};
 
-            DrawInterface.DrawOrientedBox(ToWorld(Scaled.mCenter), Transform.mRotation * Scaled.mRotation.Quaternion(), Scaled.mHalfExtent, Color, true, Thickness);
+            DrawInterface.DrawOrientedBox(ToWorld(Scaled.mCenter), Transform.mRotation * Scaled.mRotation.Quaternion(), Scaled.mHalfExtent, Color, true, Thickness, Opacity);
         }
 
         for (const PhysicsRuntime::FKSphylElem& Element : Geometry.mSphylElems) {
@@ -643,22 +649,25 @@ namespace Engine {
             const FVector Forward{Rotation.ForwardVector()};
             const FVector Right{Rotation.RightVector()};
             const FVector Up{Rotation.UpVector()};
-            const float Radius{Scaled.mRadius};
+            const Core::FLength Radius{Scaled.mRadius};
 
             // 캡슐 축은 형상 로컬 Z이며 길이는 양 끝 반구 중심 사이의 거리입니다.
-            const FVector Bottom{Center - Up * (Scaled.mLength * 0.5f)};
-            const FVector Top{Center + Up * (Scaled.mLength * 0.5f)};
+            const FVector Bottom{Center - Up * (Scaled.mLength.GetBase() * 0.5f)};
+            const FVector Top{Center + Up * (Scaled.mLength.GetBase() * 0.5f)};
 
-            DrawInterface.DrawArc(Bottom, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Top, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness);
-            DrawInterface.DrawLine(Bottom + Forward * Radius, Top + Forward * Radius, Color, true, Thickness);
-            DrawInterface.DrawLine(Bottom - Forward * Radius, Top - Forward * Radius, Color, true, Thickness);
-            DrawInterface.DrawLine(Bottom + Right * Radius, Top + Right * Radius, Color, true, Thickness);
-            DrawInterface.DrawLine(Bottom - Right * Radius, Top - Right * Radius, Color, true, Thickness);
-            DrawInterface.DrawArc(Top, Forward, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Top, Right, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Bottom, Forward, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Bottom, Right, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Bottom, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Top, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
+            const FVector ForwardOffset{Forward * Radius.GetBase()};
+            const FVector RightOffset{Right * Radius.GetBase()};
+
+            DrawInterface.DrawLine(Bottom + ForwardOffset, Top + ForwardOffset, Color, true, Thickness, Opacity);
+            DrawInterface.DrawLine(Bottom - ForwardOffset, Top - ForwardOffset, Color, true, Thickness, Opacity);
+            DrawInterface.DrawLine(Bottom + RightOffset, Top + RightOffset, Color, true, Thickness, Opacity);
+            DrawInterface.DrawLine(Bottom - RightOffset, Top - RightOffset, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Top, Forward, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Top, Right, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Bottom, Forward, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Bottom, Right, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness, Opacity);
         }
 
         for (const PhysicsRuntime::FKConvexElem& Element : Geometry.mConvexElems) {
@@ -685,7 +694,7 @@ namespace Engine {
             Edges.erase(std::unique(Edges.begin(), Edges.end()), Edges.end());
 
             for (const auto& [First, Second] : Edges) {
-                DrawInterface.DrawLine(ToWorld(Scaled.mVertices[First]), ToWorld(Scaled.mVertices[Second]), Color, true, Thickness);
+                DrawInterface.DrawLine(ToWorld(Scaled.mVertices[First]), ToWorld(Scaled.mVertices[Second]), Color, true, Thickness, Opacity);
             }
         }
     }

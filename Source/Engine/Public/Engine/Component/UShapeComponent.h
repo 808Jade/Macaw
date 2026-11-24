@@ -67,11 +67,10 @@ namespace Engine {
         const PhysicsRuntime::UBodySetup* GetBodySetup() const override;
 
         /**
-         * @brief 충돌 형상을 선택 강조 색상 또는 기본 색상의 선으로 수집합니다.
+         * @brief 충돌 형상을 지정된 색상의 선으로 수집합니다.
          * @param[in] DrawInterface 보조 선분을 추가할 프레임 수집기입니다.
-         * @param[in] Highlight 선택 강조 색상을 사용할지 지정합니다.
          */
-        void DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight) const;
+        void DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface) const;
 
         /**
          * @brief 충돌 도형을 표시할 RGBA 색상을 반환합니다.
@@ -110,7 +109,7 @@ namespace Engine {
          * @param[in] DrawInterface 보조 선분을 추가할 프레임 수집기입니다.
          * @param[in] Color 선 색상입니다.
          */
-        virtual void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color) const = 0;
+        virtual void DrawShape(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector& Color, float Opacity) const = 0;
 
         /**
          * @brief 스케일을 적용하지 않은 형상 크기로 충돌 형상 요소를 채웁니다.

@@ -106,6 +106,9 @@ namespace Core {
      */
     using FAngularAcceleration = Core::TQuantity<Core::Dim::AngularAcceleration, float>;
 
+    using FDensity = Core::TQuantity<Core::Dim::Mass - Core::Dim::Volume, float>;
+    using FInverseLength = Core::TQuantity<Core::Dim::None - Core::Dim::Length, float>;
+
     static_assert(sizeof(Core::FLength) == sizeof(float) && std::is_trivially_copyable_v<Core::FLength>);
 
 }

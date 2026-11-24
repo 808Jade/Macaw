@@ -115,7 +115,7 @@ namespace PhysicsRuntime {
 
         for (Index_t Index{}; Index < mAggGeom.mSphereElems.size(); ++Index) {
             const PhysicsRuntime::FKSphereElem Element{mAggGeom.mSphereElems[Index].GetScaled(Scale)};
-            const physx::PxSphereGeometry Geometry{Element.mRadius};
+            const physx::PxSphereGeometry Geometry{Element.mRadius.GetBase()};
             const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter)};
 
             if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, *Material)) {
@@ -139,7 +139,7 @@ namespace PhysicsRuntime {
 
         for (Index_t Index{}; Index < mAggGeom.mSphylElems.size(); ++Index) {
             const PhysicsRuntime::FKSphylElem Element{mAggGeom.mSphylElems[Index].GetScaled(Scale)};
-            const physx::PxCapsuleGeometry Geometry{Element.mRadius, Element.mLength * 0.5f};
+            const physx::PxCapsuleGeometry Geometry{Element.mRadius.GetBase(), Element.mLength.GetBase() * 0.5f};
             const physx::PxTransform LocalPose{PhysicsRuntime::ToPxVec3(Element.mCenter), PhysicsRuntime::ToPxQuat(Element.mRotation.Quaternion()) * PhysicsRuntime::GetSphylBasis()};
 
             if (Geometry.isValid() && AttachShape(Actor, Geometry, LocalPose, *Material)) {

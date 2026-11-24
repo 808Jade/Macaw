@@ -7,8 +7,10 @@
 #include "Core/Types.h"
 #include "Engine/ALevelSequenceActor.h"
 #include "Editor/Widget/FDetailsWidget.h"
+#include "Editor/Widget/FEditorQuantityInputWidget.h"
 #include "Editor/FEditorContext.h"
 #include "Editor/FAssetDragDrop.h"
+#include "Editor/FGizmoCore.h"
 #include "Engine/AActor.h"
 #include "Engine/Component/UActorComponent.h"
 #include "Engine/Component/ULuaScriptComponent.h"
@@ -25,6 +27,8 @@
 #include "Asset/FAssetFile.h"
 #include "Asset/UStaticMesh.h"
 #include "Core/FilePath.h"
+#include "Core/Literals/AngleFunctions.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "CoreUObject/TObjectIterator.h"
 #include "Editor/FEditorAssetCatalog.h"
 #include "Editor/FAssetThumbnailCache.h"
@@ -42,11 +46,15 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <cmath>
 #include <format>
 #include <string>
 #include <string_view>
 #include <type_traits>
+
+using namespace Core::Literals;
 
 namespace Editor {
 
@@ -300,7 +308,29 @@ namespace Editor {
             }
 
             return std::visit([&Archive](auto& Field) {
-                if constexpr (requires { Archive.Serialize("Value", Field); }) {
+                using FValue = std::decay_t<decltype(Field)>;
+
+                if constexpr (std::is_same_v<FValue, CoreUObject::FQuantityPropertyValue>) {
+                    if (!Archive.BeginObject("Value")) {
+                        return false;
+                    }
+
+                    CoreUObject::FQuantityPropertyValue Quantity{Field};
+                    Archive.Serialize("Length", Quantity.mDimension.mLength);
+                    Archive.Serialize("Mass", Quantity.mDimension.mMass);
+                    Archive.Serialize("Time", Quantity.mDimension.mTime);
+                    Archive.Serialize("Angle", Quantity.mDimension.mAngle);
+                    Archive.Serialize("BaseValue", Quantity.mBaseValue);
+                    Archive.EndObject();
+
+                    if (Archive.HasError() || Quantity.mDimension != Field.mDimension || !std::isfinite(Quantity.mBaseValue)) {
+                        return false;
+                    }
+
+                    Field = Quantity;
+
+                    return true;
+                } else if constexpr (requires { Archive.Serialize("Value", Field); }) {
                     Archive.Serialize("Value", Field);
 
                     return !Archive.HasError();
@@ -315,7 +345,7 @@ namespace Editor {
          * @return 버튼을 눌렀으면 true입니다.
          */
         bool DrawResetButton() {
-            return Editor::EditorStyle::IconButton("Reset to Default", Editor::EditorStyle::EIcon::Rotate);
+            return Editor::EditorStyle::IconButton("Reset to Default", Editor::EditorStyle::EIcon::Reset, false, true, false, nullptr, 0.0f, Editor::EditorStyle::EIconSelectionStyle::Icon);
         }
 
         /**
@@ -1143,13 +1173,14 @@ namespace Editor {
             ImGui::PushID(static_cast<int>(Slot));
             BeginPropertyRow(Label.c_str());
             ImGui::TableSetColumnIndex(1);
-            ImGui::BeginDisabled(!Context->CanEditWorld() || !Override.empty());
+            const bool Editable{Context->CanEditWorld() && Override.empty()};
+            ImGui::BeginDisabled(!Editable);
             const Core::FString& Inherited{Override.empty() ? Slots[Slot].GetMaterialPath() : Override};
             const bool Changed{DrawAssetPicker("##Slot", Path, Asset::EAssetType::Material, "Use mesh material", Inherited)};
 
             ImGui::TableSetColumnIndex(2);
 
-            if ((!Path.empty() && DrawResetButton()) || Changed) {
+            if ((Editable && !Path.empty() && DrawResetButton()) || Changed) {
                 Context->SetMaterialOverride(Handle, Slot, Changed ? Path : Core::FString{});
             }
 
@@ -1369,7 +1400,7 @@ namespace Editor {
 
         ImGui::TableSetColumnIndex(2);
 
-        if (!Defaults.empty() && (DrawResetButton() || Reset) && Editable) {
+        if (Editable && !Defaults.empty() && (DrawResetButton() || Reset)) {
             const Uint64 Token{Context->BeginSceneEdit()};
 
             for (const auto& [Target, Default] : Defaults) {
@@ -1504,8 +1535,9 @@ namespace Editor {
             return Context->CanEditProperty(Target, Row.mProperty);
         })};
         constexpr Core::TStaticArray<const char*, 3> Labels{"Location", "Rotation", "Scale"};
-        constexpr Core::TStaticArray<const char*, 3> Axes{"X %.3f", "Y %.3f", "Z %.3f"};
         constexpr Core::TStaticArray<const char*, 3> AxisIds{"X", "Y", "Z"};
+        constexpr Core::FQuantityUnit RotationUnit{Core::QuantityUnits::Degree.mAlias, Core::Dim::Angle, Core::QuantityUnits::Degree.mScale};
+        const auto& AxisColors{Editor::FGizmoCore::GetAxisColors()};
         const auto ReadPart{[](const FTransform& Transform, Index_t Part) {
             if (Part == 1) {
                 const FRotator Rotation{Transform.GetRotator()};
@@ -1514,6 +1546,13 @@ namespace Editor {
             }
 
             return (Part == 0 ? Transform.mLocation : Transform.mScale).ToArray();
+        }};
+        const auto IsDefaultPart{[](const FTransform& Transform, const FTransform& Default, Index_t Part) {
+            if (Part == 1) {
+                return Transform.mRotation.Equals(Default.mRotation, 0.0f);
+            }
+
+            return Part == 0 ? Transform.mLocation == Default.mLocation : Transform.mScale == Default.mScale;
         }};
 
         ImGui::PushID(Object);
@@ -1524,6 +1563,7 @@ namespace Editor {
                 continue;
             }
 
+            const bool IsRotation{Part == 1};
             const auto First{ReadPart(std::get<FTransform>(Row.mProperty->ReadValue(Object)), Part)};
             Core::TStaticArray<bool, 3> Mixed{};
             bool Modified{};
@@ -1535,14 +1575,15 @@ namespace Editor {
                     continue;
                 }
 
-                const auto Values{ReadPart(std::get<FTransform>(Row.mProperty->ReadValue(Current)), Part)};
+                const FTransform Transform{std::get<FTransform>(Row.mProperty->ReadValue(Current))};
+                const auto Values{ReadPart(Transform, Part)};
 
-                for (Index_t Axis{}; Axis < Axes.size(); ++Axis) {
+                for (Index_t Axis{}; Axis < AxisIds.size(); ++Axis) {
                     Mixed[Axis] = Mixed[Axis] || Values[Axis] != First[Axis];
                 }
 
                 if (const auto Default{GetDefaultValue(Current->GetClass(), Row.mProperty)}; Default.has_value()) {
-                    Modified = Modified || Values != ReadPart(std::get<FTransform>(*Default), Part);
+                    Modified = Modified || !IsDefaultPart(Transform, std::get<FTransform>(*Default), Part);
                 }
             }
 
@@ -1559,21 +1600,36 @@ namespace Editor {
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {2.0f, ImGui::GetStyle().ItemSpacing.y});
             const float Width{std::max(1.0f, (ImGui::GetContentRegionAvail().x - 4.0f) / 3.0f)};
 
-            for (Index_t Axis{}; Axis < Axes.size(); ++Axis) {
+            for (Index_t Axis{}; Axis < AxisIds.size(); ++Axis) {
                 if (Axis > 0) {
                     ImGui::SameLine();
                 }
 
                 ImGui::PushID(AxisIds[Axis]);
                 ImGui::SetNextItemWidth(Width);
-                Changed[Axis] = ImGui::DragFloat("##Axis", &Values[Axis], Part == 1 ? 0.25f : 0.025f, 0.0f, 0.0f, Mixed[Axis] ? "Multiple" : Axes[Axis]);
+
+                const FVector& Color{AxisColors[Axis]};
+                const float BaseValue{IsRotation ? (Values[Axis] * 1_deg).GetBase() : Values[Axis]};
+                Editor::FEditorQuantityInputWidget Input{"##Axis", BaseValue, IsRotation ? RotationUnit : Core::QuantityUnits::Scalar};
+                Input.SetMixedValue(Mixed[Axis]);
+                Input.SetAxisColor(ImGui::ColorConvertFloat4ToU32({Color.x, Color.y, Color.z, 1.0f}));
+                Input.SetInlineUnit(IsRotation);
+                Input.Draw(0.0f);
+                ImGui::SetItemTooltip("%s", AxisIds[Axis]);
+
+                if (const auto Edited{Input.GetEditedValue()}; Edited.has_value()) {
+                    const float Value{IsRotation ? Core::Math::ToDegrees(Core::FAngle::FromBase(*Edited)) : *Edited};
+                    Changed[Axis] = Mixed[Axis] || Value != Values[Axis];
+                    Values[Axis] = Value;
+                }
+
                 Interactive = Interactive || (Changed[Axis] && ImGui::IsItemActive());
                 ImGui::PopID();
             }
 
             ImGui::PopStyleVar();
             ImGui::TableSetColumnIndex(2);
-            const bool Reset{Modified && DrawResetButton()};
+            const bool Reset{Editable && Modified && DrawResetButton()};
 
             if (Reset || std::any_of(Changed.begin(), Changed.end(), [](bool AxisChanged) {
                 return AxisChanged;
@@ -1594,30 +1650,38 @@ namespace Editor {
                     }
 
                     FTransform Transform{std::get<FTransform>(Row.mProperty->ReadValue(Current))};
-                    auto NewPart{ReadPart(Transform, Part)};
-
                     if (Reset) {
                         const auto Default{GetDefaultValue(Current->GetClass(), Row.mProperty)};
 
-                        if (!Default.has_value()) {
+                        if (!Default.has_value() || IsDefaultPart(Transform, std::get<FTransform>(*Default), Part)) {
                             continue;
                         }
 
-                        NewPart = ReadPart(std::get<FTransform>(*Default), Part);
+                        const FTransform& DefaultTransform{std::get<FTransform>(*Default)};
+
+                        if (Part == 0) {
+                            Transform.mLocation = DefaultTransform.mLocation;
+                        } else if (IsRotation) {
+                            Transform.mRotation = DefaultTransform.mRotation;
+                        } else {
+                            Transform.mScale = DefaultTransform.mScale;
+                        }
                     } else {
-                        for (Index_t Axis{}; Axis < Axes.size(); ++Axis) {
+                        auto NewPart{ReadPart(Transform, Part)};
+
+                        for (Index_t Axis{}; Axis < AxisIds.size(); ++Axis) {
                             if (Changed[Axis]) {
                                 NewPart[Axis] = Values[Axis];
                             }
                         }
-                    }
 
-                    if (Part == 0) {
-                        Transform.mLocation = {NewPart[0], NewPart[1], NewPart[2]};
-                    } else if (Part == 1) {
-                        Transform.SetRotator({NewPart[1], NewPart[2], NewPart[0]});
-                    } else {
-                        Transform.mScale = {NewPart[0], NewPart[1], NewPart[2]};
+                        if (Part == 0) {
+                            Transform.mLocation = {NewPart[0], NewPart[1], NewPart[2]};
+                        } else if (IsRotation) {
+                            Transform.SetRotator({NewPart[1] * 1_deg, NewPart[2] * 1_deg, NewPart[0] * 1_deg});
+                        } else {
+                            Transform.mScale = {NewPart[0], NewPart[1], NewPart[2]};
+                        }
                     }
 
                     const auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(Current)};
@@ -1742,7 +1806,7 @@ namespace Editor {
             auto Values{Rotation->ToArray()};
 
             if (ImGui::DragFloat3(Label, Values.data(), 0.25f, 0.0f, 0.0f, "%.2f")) {
-                *Rotation = {Values[0], Values[1], Values[2]};
+                *Rotation = {Values[0] * 1_deg, Values[1] * 1_deg, Values[2] * 1_deg};
 
                 return true;
             }
@@ -1786,6 +1850,25 @@ namespace Editor {
             }
         } else if (auto* Boolean{std::get_if<bool>(&Value)}) {
             return ImGui::Checkbox(Label, Boolean);
+        } else if (auto* Quantity{std::get_if<CoreUObject::FQuantityPropertyValue>(&Value)}) {
+            const auto Unit{Property->GetQuantityDisplayUnit(Quantity->mDimension)};
+
+            if (!Unit.has_value()) {
+                ImGui::TextUnformatted("Invalid quantity unit");
+
+                return false;
+            }
+
+            Editor::FEditorQuantityInputWidget Input{Label, Quantity->mBaseValue, *Unit};
+            Input.Draw(0.0f);
+
+            if (const auto Edited{Input.GetEditedValue()}; Edited.has_value() && *Edited != Quantity->mBaseValue) {
+                Quantity->mBaseValue = *Edited;
+
+                return true;
+            }
+
+            return false;
         } else if (auto* FloatValue{std::get_if<float>(&Value)}) {
             return ImGui::DragFloat(Label, FloatValue, 0.025f);
         } else if (auto* IntegerValue{std::get_if<Int32>(&Value)}) {

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "CoreUObject/TObjectRef.h"
+#include "Core/Literals/UnitLiterals.h"
 
 #include "Engine/Component/USceneComponent.h"
 #include "UDecalComponent.generated.h"
@@ -26,6 +27,8 @@ namespace Engine {
         GENERATED_BODY()
 
     public:
+        UDecalComponent();
+
 
         /**
          * @brief 객체의 수명을 끝내고 소유한 리소스를 정리합니다.
@@ -174,7 +177,7 @@ namespace Engine {
          * @brief 로컬 투영 박스의 양의 반크기입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetExtent, Setter = SetExtent)
-        FVector mExtent{0.25f, 0.5f, 0.5f};
+        FVector mExtent{};
 
         /**
          * @brief 데칼 불투명도이며 범위는 0~1입니다.

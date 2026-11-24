@@ -419,6 +419,7 @@ namespace Engine {
          * @note 바디 셋업이 없으면 아무것도 그리지 않습니다.
          */
         void DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight, float Thickness = 1.0f) const;
+        void DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector4& Color, float Thickness) const;
 
     private:
 

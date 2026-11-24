@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/ReflectionMacros.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FRotator.h"
 #include "FKSphylElem.generated.h"
@@ -51,13 +52,17 @@ namespace PhysicsRuntime {
          * @brief 스케일을 적용하기 전 캡슐의 반지름(m)입니다.
          */
         UPROPERTY(Edit, Serialize)
-        float mRadius{0.5f};
+        Core::FLength mRadius{mDefaultRadius};
 
         /**
          * @brief 스케일을 적용하기 전 양 끝 반구 중심 사이의 거리(m)입니다.
          */
         UPROPERTY(Edit, Serialize)
-        float mLength{1.0f};
+        Core::FLength mLength{mDefaultLength};
+
+    private:
+        static const Core::FLength mDefaultRadius;
+        static const Core::FLength mDefaultLength;
     };
 
 }

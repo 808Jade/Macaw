@@ -150,13 +150,13 @@ namespace Engine {
          * @brief 게임 실행 시작 시 적용할 초기 속도이며 월드 단위/초입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetInitialVelocity, Setter = SetInitialVelocity)
-        FVector mInitialVelocity{10.0f, 0.0f, 5.0f};
+        FVector mInitialVelocity{};
 
         /**
          * @brief 발사체 속도 크기의 상한이며 0이면 제한하지 않습니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetMaxSpeed, Setter = SetMaxSpeed)
-        Core::FSpeed mMaxSpeed{Core::FSpeed::FromBase(100.0f)};
+        Core::FSpeed mMaxSpeed{};
 
         /**
          * @brief 월드 -Z 방향의 기본 중력 9.81에 곱할 0~100 배율입니다.

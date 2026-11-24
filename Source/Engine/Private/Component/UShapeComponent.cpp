@@ -35,12 +35,12 @@ namespace Engine {
     }
 
     /**
-     * @brief 충돌 형상을 선택 강조 색상 또는 기본 색상의 선으로 수집합니다.
+     * @brief 충돌 형상을 지정된 색상의 선으로 수집합니다.
      */
-    void Engine::UShapeComponent::DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight) const {
-        const FVector Color{Highlight ? FVector{1.0f, 0.0f, 0.0f} : FVector{mShapeColor.x, mShapeColor.y, mShapeColor.z}};
+    void Engine::UShapeComponent::DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface) const {
+        const FVector Color{mShapeColor.x, mShapeColor.y, mShapeColor.z};
 
-        DrawShape(DrawInterface, Color);
+        DrawShape(DrawInterface, Color, mShapeColor.w);
     }
 
     /**

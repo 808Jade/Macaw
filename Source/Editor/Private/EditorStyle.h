@@ -20,6 +20,7 @@ namespace Editor {
      * @note 함수는 현재 ImGui 컨텍스트와 창을 사용하며 뷰포트 명령이나 편집 상태를 소유하지 않습니다.
      */
     namespace EditorStyle {
+
         /**
          * @brief 최상위 탭 표시줄에서 브랜드 영역에 확보할 기준 너비입니다.
          */

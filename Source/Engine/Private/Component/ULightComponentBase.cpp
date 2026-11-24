@@ -209,11 +209,11 @@ namespace Engine {
         const FVector Up{Rotation.UpVector()};
 
         if (Proxy.mType == Engine::ELightType::Directional || Proxy.mType == Engine::ELightType::Spot) {
-            const FVector End{Position + Forward * 2.0f};
+            const FVector End{Position + Forward * (2_m).GetBase()};
 
             Draw.DrawLine(Position, End, Color, true, 2.0f);
-            Draw.DrawLine(End, End - Forward * 0.4f + Right * 0.2f, Color, true, 2.0f);
-            Draw.DrawLine(End, End - Forward * 0.4f - Right * 0.2f, Color, true, 2.0f);
+            Draw.DrawLine(End, End - Forward * (0.4_m).GetBase() + Right * (0.2_m).GetBase(), Color, true, 2.0f);
+            Draw.DrawLine(End, End - Forward * (0.4_m).GetBase() - Right * (0.2_m).GetBase(), Color, true, 2.0f);
         }
 
         if (!Selected || (Proxy.mType != Engine::ELightType::Point && Proxy.mType != Engine::ELightType::Spot)) {
@@ -221,7 +221,7 @@ namespace Engine {
         }
 
         constexpr Uint32 Segments{64};
-        const float Radius{Proxy.mAttenuationRadius};
+        const float Radius{Proxy.mAttenuationRadius.GetBase()};
 
         if (Proxy.mType == Engine::ELightType::Point) {
             const Core::TStaticArray<FVector, 3> Axes{{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
@@ -238,9 +238,9 @@ namespace Engine {
             return;
         }
 
-        for (const float Angle : {Proxy.mOuterConeAngle, Proxy.mInnerConeAngle}) {
-            const float ConeRadius{Radius * Core::Math::Sin(Angle * 1_deg)};
-            const FVector Center{Position + Forward * (Radius * Core::Math::Cos(Angle * 1_deg))};
+        for (const Core::FAngle Angle : {Proxy.mOuterConeAngle, Proxy.mInnerConeAngle}) {
+            const float ConeRadius{Radius * Core::Math::Sin(Angle)};
+            const FVector Center{Position + Forward * (Radius * Core::Math::Cos(Angle))};
             const FVector ConeColor{Angle == Proxy.mOuterConeAngle ? Color : Color * 0.5f};
 
             for (Index_t Index{}; Index < Segments; ++Index) {

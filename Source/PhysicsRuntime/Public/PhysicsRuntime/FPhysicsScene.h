@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "Core/Types.h"
 #include "PhysicsRuntime/FPhysicsContact.h"
 #include "PhysicsRuntime/FPhysXRelease.h"
@@ -85,7 +87,7 @@ namespace PhysicsRuntime {
          * @return 시뮬레이션을 진행했으면 true, 장면이 없거나 시간이 유효하지 않으면 false입니다.
          * @note 이전 스텝의 접촉 정보는 지우고 이번 스텝의 결과로 바꿉니다.
          */
-        bool Simulate(float StepSeconds);
+        bool Simulate(Core::FTime Step);
 
         /**
          * @brief PhysX 장면의 비소유 주소를 반환합니다.

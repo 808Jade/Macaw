@@ -5,15 +5,21 @@
  */
 
 #include "Engine/Component/UDirectionalLightComponent.h"
+#include "Core/Literals/AngleFunctions.h"
 
 #include <cmath>
+
+using namespace Core::Literals;
 
 namespace Engine {
 
     /**
      * @brief UDirectionalLightComponent의 기본 상태를 초기화합니다.
      */
-    Engine::UDirectionalLightComponent::UDirectionalLightComponent() = default;
+    Engine::UDirectionalLightComponent::UDirectionalLightComponent()
+		: mShadowDistance{100_m},
+		  mShadowSourceAngle{1_deg} {
+    }
 
     /**
      * @brief UDirectionalLightComponent 객체의 수명을 끝내고 소유 자원을 정리합니다.
@@ -59,15 +65,15 @@ namespace Engine {
     /**
      * @brief 방향광 그림자의 최대 표시 거리를 반환합니다.
      */
-    float Engine::UDirectionalLightComponent::GetShadowDistance() const {
+    Core::FLength Engine::UDirectionalLightComponent::GetShadowDistance() const {
         return mShadowDistance;
     }
 
     /**
      * @brief 방향광 그림자의 최대 표시 거리를 검증하고 변경합니다.
      */
-    bool Engine::UDirectionalLightComponent::SetShadowDistance(float Distance) {
-        if (!std::isfinite(Distance) || Distance < 1.0f || Distance > 100000.0f) {
+    bool Engine::UDirectionalLightComponent::SetShadowDistance(Core::FLength Distance) {
+        if (!Distance.IsFinite() || Distance < 1_m || Distance > 100000_m) {
             return false;
         }
 
@@ -103,15 +109,15 @@ namespace Engine {
     /**
      * @brief PCSS 반그림자 계산에 쓰는 광원 각반지름을 반환합니다.
      */
-    float Engine::UDirectionalLightComponent::GetShadowSourceAngle() const {
+    Core::FAngle Engine::UDirectionalLightComponent::GetShadowSourceAngle() const {
         return mShadowSourceAngle;
     }
 
     /**
      * @brief PCSS 반그림자 계산에 쓰는 광원 각반지름을 검증하고 변경합니다.
      */
-    bool Engine::UDirectionalLightComponent::SetShadowSourceAngle(float Angle) {
-        if (!std::isfinite(Angle) || Angle < 0.0f || Angle > 15.0f) {
+    bool Engine::UDirectionalLightComponent::SetShadowSourceAngle(Core::FAngle Angle) {
+        if (!Angle.IsFinite() || Angle < 0_deg || Angle > 15_deg) {
             return false;
         }
 

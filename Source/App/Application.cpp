@@ -19,6 +19,10 @@
 #include "RenderCore/Shader/UShader.h"
 #include "Core/Types.h"
 
+#include <chrono>
+
+using namespace std::chrono_literals;
+
 namespace App {
 
     DEFINE_LOG_CATEGORY_STATIC(LogApplication, Log, All);
@@ -66,7 +70,7 @@ namespace App {
 
         while (mPlatform.PumpMessages() && !mEngine.WantsExit()) {
             if (mPlatform.IsMinimized() && !mEngine.GetPlaySession()->IsPlayingInNewWindow()) {
-                mPlatform.WaitForMessages(16);
+                mPlatform.WaitForMessages(static_cast<Uint32>((16ms).count()));
 
                 continue;
             }
