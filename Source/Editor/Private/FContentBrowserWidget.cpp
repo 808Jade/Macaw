@@ -641,6 +641,14 @@ void FContentBrowserWidget::DrawContentContextMenu() {
         CreateLuaScript();
     }
 
+    if (const auto Type{mAssetTypes.find(mSelectedContentPath)}; !mSelectedContentPath.empty() && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::SkeletalMesh) {
+        ImGui::Separator();
+
+        if (ImGui::MenuItem("Physics Asset Editor")) {
+            mAssetEditors.OpenContentAsset(mSelectedContentPath, Asset::EAssetType::PhysicsAsset);
+        }
+    }
+
     if (!mSelectedContentPath.empty()) {
         ImGui::Separator();
 

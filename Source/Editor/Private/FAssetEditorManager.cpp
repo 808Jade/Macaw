@@ -8,6 +8,7 @@
 #include "FAssetEditorToolkit.h"
 #include "FMaterialEditorToolkit.h"
 #include "FTextureEditorToolkit.h"
+#include "FPhysicsAssetEditorToolkit.h"
 #include "FEditorWorkspace.h"
 #include "FEditorCommands.h"
 #include "Core/FilePath.h"
@@ -635,6 +636,11 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         if (Content->Open(Path, Error)) {
             const Core::FString Name{Content->GetWindowId()};
             Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);
+        }
+    } else if (Type == Asset::EAssetType::PhysicsAsset) {
+        // 물리 에셋 에디터는 스켈레탈 메시를 기준으로 열므로 이 경우의 Path는 스켈레탈 메시의 경로입니다.
+        if (auto* Mesh{Assets->LoadSkeletalMesh(Path, Error)}) {
+            Toolkit = std::make_unique<FPhysicsAssetEditorToolkit>(mContext, Path, Mesh, nullptr);
         }
     } else if (Type == Asset::EAssetType::AnimGraph) {
         auto Content{std::make_unique<FAnimGraphEditor>(Assets, &mCatalog, &mThumbnails)};
