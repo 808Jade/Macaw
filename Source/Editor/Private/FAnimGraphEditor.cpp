@@ -243,7 +243,7 @@ namespace Editor {
             const Core::FString* Value{Node.FindParameter(Info.mName)};
             const Core::FString Text{Value != nullptr ? *Value : Info.mDefault};
 
-            if (Info.mType == Engine::EAnimGraphParameterType::AnimSequence || Info.mType == Engine::EAnimGraphParameterType::BlendSpace) {
+            if (Info.mType == Engine::EAnimGraphParameterType::AnimSequence || Info.mType == Engine::EAnimGraphParameterType::BlendSpace || Info.mType == Engine::EAnimGraphParameterType::PhysicsAsset) {
                 return Text.empty() ? Core::FString{"(없음)"} : Core::FilePath::ToUtf8(Core::FilePath::FromUtf8(Text).stem());
             }
 
@@ -1138,8 +1138,9 @@ namespace Editor {
                 }
 
                 case Engine::EAnimGraphParameterType::AnimSequence:
-                case Engine::EAnimGraphParameterType::BlendSpace: {
-                    const Asset::EAssetType AssetType{Info.mType == Engine::EAnimGraphParameterType::AnimSequence ? Asset::EAssetType::AnimSequence : Asset::EAssetType::BlendSpace};
+                case Engine::EAnimGraphParameterType::BlendSpace:
+                case Engine::EAnimGraphParameterType::PhysicsAsset: {
+                    const Asset::EAssetType AssetType{Info.mType == Engine::EAnimGraphParameterType::AnimSequence ? Asset::EAssetType::AnimSequence : Info.mType == Engine::EAnimGraphParameterType::BlendSpace ? Asset::EAssetType::BlendSpace : Asset::EAssetType::PhysicsAsset};
 
                     if (mCatalog != nullptr && mThumbnails != nullptr && mPicker.Draw(*mCatalog, *mThumbnails, Info.mName.c_str(), Value, AssetType, {}, "None")) {
                         Node->SetParameter(Info.mName, Value);

@@ -8,6 +8,7 @@
 #include "Asset/Animation/UAnimSequence.h"
 #include "Asset/Animation/UAnimGraph.h"
 #include "Engine/Animation/FAnimNode_BlendSpacePlayer.h"
+#include "Engine/Animation/FAnimNode_RigidBody.h"
 #include "Engine/Animation/FAnimNode_SequencePlayer.h"
 #include "Engine/Animation/FAnimNode_TwoWayBlend.h"
 #include "Engine/Animation/FAnimNode_StateMachine.h"
@@ -82,6 +83,15 @@ namespace Engine {
 
             Types.push_back({"StateMachine", "State Machine", {}, {}, [](const Engine::FAnimGraphNodeBuildContext&) {
                 return std::make_unique<Engine::FAnimNode_StateMachine>();
+            }});
+
+            // 입력 포즈에서 피직스 에셋의 바디가 붙은 뼈(머리카락, 장신구 등)를 독립 시뮬레이션한다.
+            Types.push_back({"RigidBody", "Rigid Body", {"Pose"}, {{"PhysicsAsset", Engine::EAnimGraphParameterType::PhysicsAsset}}, [](const Engine::FAnimGraphNodeBuildContext& Context) {
+                auto Node{std::make_unique<Engine::FAnimNode_RigidBody>()};
+
+                Node->mPhysicsAssetPath = Context.GetString("PhysicsAsset");
+
+                return std::unique_ptr<Engine::FAnimNode_Base>{std::move(Node)};
             }});
 
             return Types;

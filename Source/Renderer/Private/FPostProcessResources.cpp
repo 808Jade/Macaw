@@ -168,6 +168,14 @@ namespace Renderer {
             Constants.mSettings.x = Family.mViewMode == Engine::EViewMode::SceneDepth ? 2.0f : !Visualization && Family.mShowFlags.mFXAA ? 3.0f : 0.0f;
         }
 
+        // 조명은 선형 공간에서 계산하고 텍스처는 sRGB를 선형으로 디코딩해 읽으므로, 최종 출력에서 sRGB로 인코딩한다.
+        // 버퍼 시각화(DOF 가중치 포함)와 깊이 시각화는 색이 아닌 데이터를 보여 주고, 와이어프레임은 색을 화면 값으로 직접 지정하므로 제외한다.
+        // Settings.x, z, w는 위에서 정한 값(DOF 가중치 시각화, Near/Far 토글)을 유지하고 y만 최종 패스용 인코딩 플래그로 쓴다.
+        // (DOF 패스에서는 y가 조리개 모양 값이었고 그 패스 뒤에 0으로 되돌린 상태다.)
+        const bool EncodeSRGB{!Visualization && Family.mViewMode != Engine::EViewMode::SceneDepth && Family.mViewMode != Engine::EViewMode::Wireframe};
+
+        Constants.mSettings.y = EncodeSRGB ? 1.0f : 0.0f;
+
         mConstants.Update(Context, Constants);
         Draw(Context, Source, Target.GetOutputColor(), Target.GetSceneDepth());
 
@@ -239,7 +247,11 @@ namespace Renderer {
     }
 
     void FPostProcessResources::RenderTexture(ID3D11DeviceContext* Context, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination) {
-        const Renderer::FPostProcessConstants Constants{};
+        Renderer::FPostProcessConstants Constants{};
+
+        // sRGB 텍스처는 샘플링할 때 선형으로 디코딩되므로, 그대로 RGBA8 UNORM에 기록하면 원본보다 어둡게 보인다.
+        // 텍스처 뷰어와 썸네일이 원본 색을 보이도록 sRGB 텍스처만 다시 인코딩한다. 선형 텍스처(노멀 맵 등)는 값을 그대로 보인다.
+        Constants.mSettings = {0.0f, Source.IsSRGB() ? 1.0f : 0.0f, 0.0f, 0.0f};
 
         mConstants.Update(Context, Constants);
         Draw(Context, &Source, &Destination, nullptr);
