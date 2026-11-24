@@ -65,6 +65,9 @@ namespace Engine {
         /** @brief 자동으로 선택하거나 직렬화로 복원한 이동 대상을 검사합니다. */
         virtual bool CanUseUpdatedComponent(const Engine::USceneComponent& Component) const;
 
+        /** @brief 대상 설정이 바뀌거나 등록이 해제될 때 호출합니다. 새 대상은 아직 월드 등록 전일 수 있습니다. */
+        virtual void OnUpdatedComponentChanged(Engine::USceneComponent* Component);
+
     private:
         friend class AActor;
 

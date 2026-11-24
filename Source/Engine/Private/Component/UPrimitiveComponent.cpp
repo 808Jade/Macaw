@@ -589,8 +589,8 @@ namespace Engine {
         const PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
         PhysicsRuntime::FPhysicsScene* Scene{GetWorld() != nullptr ? GetWorld()->GetPhysicsScene() : nullptr};
 
-        if (Setup != nullptr && Scene != nullptr) {
-            mBodyInstance.InitBody(*Setup, GetTransform(), this, *Scene);
+        if (Setup != nullptr && Scene != nullptr && mBodyInstance.InitBody(*Setup, GetTransform(), this, *Scene)) {
+            mOnBodyStateChanged.Broadcast(this, true);
         }
     }
 
@@ -598,6 +598,10 @@ namespace Engine {
      * @brief 바디를 물리 장면에서 해제합니다.
      */
     void Engine::UPrimitiveComponent::OnDestroyPhysicsState() {
+        if (mBodyInstance.IsValidBodyInstance()) {
+            mOnBodyStateChanged.Broadcast(this, false);
+        }
+
         mBodyInstance.TermBody();
     }
 

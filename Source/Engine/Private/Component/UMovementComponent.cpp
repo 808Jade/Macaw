@@ -51,6 +51,9 @@ namespace Engine {
         return true;
     }
 
+    void UMovementComponent::OnUpdatedComponentChanged(Engine::USceneComponent*) {
+    }
+
     Engine::USceneComponent* UMovementComponent::GetUpdatedComponent() const {
         Engine::USceneComponent* Component{ResolveUpdatedComponent()};
         const Engine::AActor* Owner{GetOwner()};
@@ -121,6 +124,7 @@ namespace Engine {
             UpdateTickEnabledState();
         } else {
             GetPrimaryComponentTick().SetTickEnabled(false);
+            OnUpdatedComponentChanged(nullptr);
         }
 
         Engine::UActorComponent::RegisterComponentTickFunctions(Register);
@@ -128,7 +132,9 @@ namespace Engine {
 
     void UMovementComponent::UpdateTickEnabledState() {
         // 이동 컴포넌트가 대상보다 먼저 등록되어도 대상의 등록이 끝난 뒤 Tick할 수 있습니다.
-        GetPrimaryComponentTick().SetTickEnabled(IsRegistered() && ResolveUpdatedComponent() != nullptr);
+        auto* Component{IsRegistered() ? ResolveUpdatedComponent() : nullptr};
+        GetPrimaryComponentTick().SetTickEnabled(Component != nullptr);
+        OnUpdatedComponentChanged(Component);
     }
 
 }

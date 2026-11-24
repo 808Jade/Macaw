@@ -122,7 +122,7 @@ namespace Engine {
          * @param[in] Group 컴포넌트의 기본 Tick이 시작할 수 있는 가장 이른 그룹입니다.
          * @return 지정할 수 있는 그룹이면 true입니다.
          */
-        bool SetTickGroup(Engine::ETickingGroup Group);
+        virtual bool SetTickGroup(Engine::ETickingGroup Group);
 
         /**
          * @brief 이 컴포넌트의 기본 Tick을 소유 액터의 레벨에 등록하거나 등록을 해제합니다.

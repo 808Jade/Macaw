@@ -31,6 +31,7 @@ namespace Engine {
     class AActor;
     enum class EPrimitiveType : Uint8;
     class FPrimitiveDrawInterface;
+    class UVehicleMovementComponent;
     struct FHitResult;
     struct FPrimitiveSceneProxy;
 
@@ -382,6 +383,8 @@ namespace Engine {
 
     private:
 
+        friend class UVehicleMovementComponent;
+
         /**
          * @brief 프록시 전체 재생성이 필요한지 여부입니다.
          */
@@ -446,6 +449,9 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Getter = GetBodyInstance, Setter = SetBodyInstance)
         PhysicsRuntime::FBodyInstance mBodyInstance{};
+
+        /** @brief 단일 바디 생성 직후와 해제 직전에 알립니다. */
+        CoreUObject::TDelegate<Engine::UPrimitiveComponent*, bool> mOnBodyStateChanged{};
 
         /**
          * @brief 시뮬레이션 결과를 트랜스폼에 반영하는 중이라 바디를 순간 이동하지 않아야 하는지 여부입니다.

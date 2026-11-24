@@ -142,10 +142,11 @@ namespace Engine {
             return false;
         }
 
+        Engine::UWorld::FDispatchScope Scope{mWorld};
         mRootComponent = Component;
 
-        for (const auto& OwnedComponent : mComponents) {
-            auto* Movement{CoreUObject::Cast<Engine::UMovementComponent>(OwnedComponent.get())};
+        for (const auto& OwnedComponent : GetComponentRefs()) {
+            auto* Movement{CoreUObject::Cast<Engine::UMovementComponent>(OwnedComponent.Get())};
 
             if (Movement != nullptr && Movement->mUseOwnerRoot) {
                 Movement->UpdateTickEnabledState();
