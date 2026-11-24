@@ -89,7 +89,7 @@ namespace Asset {
     /**
      * @brief 섹션 하나를 천 메시로 바꾼 새 천 에셋을 만듭니다.
      */
-    std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> FClothingAssetFactory::CreateFromSkeletalMesh(const USkeletalMesh& TargetMesh, const USkeleton& Skeleton, Index_t SubMeshIndex) {
+    std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> FClothingAssetFactory::CreateFromSkeletalMesh(const USkeletalMesh& TargetMesh, const USkeleton& Skeleton, Index_t SubMeshIndex, PhysicsRuntime::UPhysicsAsset* PhysicsAsset) {
         if (SubMeshIndex >= TargetMesh.GetMeshData().GetSubMeshes().size()) {
             return nullptr;
         }
@@ -115,7 +115,8 @@ namespace Asset {
             SkeletonBoneNames.push_back(Bone.GetName());
         }
 
-        NewAsset->RefreshBoneMapping(SkeletonBoneNames);
+        // 물리 에셋을 정하면서 몸통 뼈까지 사용 뼈에 넣고 뼈 번호를 다시 찾습니다.
+        NewAsset->SetPhysicsAsset(PhysicsAsset, SkeletonBoneNames);
         NewAsset->InvalidateCachedData();
 
         return NewAsset;

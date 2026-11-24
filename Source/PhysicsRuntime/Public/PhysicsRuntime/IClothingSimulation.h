@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "PhysicsRuntime/FClothCollisionData.h"
 #include "PhysicsRuntime/FClothSimulData.h"
 #include "PhysicsRuntime/FClothingSimulationContextCommon.h"
 
@@ -80,5 +81,23 @@ namespace PhysicsRuntime {
          * @return 솔버에 들어간 천이 하나라도 있으면 true입니다.
          */
         virtual bool ShouldSimulate() const = 0;
+
+        /**
+         * @brief 모든 천에 바깥에서 정한 충돌체를 더합니다.
+         * @param[in] Data 컴포넌트 좌표 또는 뼈 좌표의 충돌체입니다.
+         */
+        virtual void AddExternalCollisions(const FClothCollisionData& Data) = 0;
+
+        /**
+         * @brief 모든 천에서 바깥에서 정한 충돌체를 뺍니다.
+         */
+        virtual void ClearExternalCollisions() = 0;
+
+        /**
+         * @brief 천들이 쓰는 충돌체를 모읍니다.
+         * @param[out] OutCollisions 모은 충돌체이며 기존 내용은 지웁니다.
+         * @param[in] IncludeExternal true이면 물리 에셋과 바깥 충돌체까지, false이면 천 에셋에 넣어 둔 충돌체만 모읍니다.
+         */
+        virtual void GetCollisions(FClothCollisionData& OutCollisions, bool IncludeExternal = true) const = 0;
     };
 }

@@ -19,6 +19,7 @@
 #include "Engine/FPrimitiveDrawInterface.h"
 #include "Asset/FClothingAssetFactory.h"
 #include "Asset/USkeletalMesh.h"
+#include "Asset/USkeleton.h"
 #include "PhysicsRuntime/FClothingSimulationNv.h"
 #include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "RenderCore/IRendererModule.h"
@@ -1443,31 +1444,107 @@ namespace Editor {
     }
 
     /**
-     * @brief 선택한 스켈레탈 메시의 섹션 하나로 천 에셋을 만들어 연결하고 그리기 대상으로 정합니다.
+     * @brief 선택한 컴포넌트가 스켈레탈 메시 컴포넌트이면 그것을, 액터이면 그 액터의 첫 스켈레탈 메시 컴포넌트를 찾습니다.
      */
-    bool Editor::FEditorContext::SetClothAssetTest(Index_t SubMeshIndex) {
-        // 컴포넌트를 직접 골랐으면 그것을, 액터를 골랐으면 그 액터의 첫 스켈레탈 메시 컴포넌트를 씁니다.
-        Engine::USkeletalMeshComponent* Component{CoreUObject::Cast<Engine::USkeletalMeshComponent>(GetSelectedObject())};
+    Engine::USkeletalMeshComponent* Editor::FEditorContext::FindSelectedSkeletalMeshComponent() {
+        if (auto* Component{CoreUObject::Cast<Engine::USkeletalMeshComponent>(GetSelectedObject())}) {
+            return Component;
+        }
 
-        if (Component == nullptr) {
-            for (const CoreUObject::TObjectRef<Engine::AActor>& Actor : GetSelectedActors()) {
-                if (Actor.Get() == nullptr) {
-                    continue;
-                }
+        for (const CoreUObject::TObjectRef<Engine::AActor>& Actor : GetSelectedActors()) {
+            if (Actor.Get() == nullptr) {
+                continue;
+            }
 
-                for (const auto& ActorComponent : Actor->GetComponents()) {
-                    Component = CoreUObject::Cast<Engine::USkeletalMeshComponent>(ActorComponent.get());
-
-                    if (Component != nullptr) {
-                        break;
-                    }
-                }
-
-                if (Component != nullptr) {
-                    break;
+            for (const auto& ActorComponent : Actor->GetComponents()) {
+                if (auto* Component{CoreUObject::Cast<Engine::USkeletalMeshComponent>(ActorComponent.get())}) {
+                    return Component;
                 }
             }
         }
+
+        return nullptr;
+    }
+
+    /**
+     * @brief 선택한 스켈레탈 메시의 천 에셋들이 부딪힐 물리 에셋을 바꾸고 천을 다시 만듭니다.
+     */
+    bool Editor::FEditorContext::SetClothPhysicsAssetTest(const Core::FString& Path) {
+        Engine::USkeletalMeshComponent* Component{FindSelectedSkeletalMeshComponent()};
+
+        if (Component == nullptr) {
+            AddLog("Select a skeletal mesh actor or component first.");
+
+            return false;
+        }
+
+        Asset::USkeletalMesh* Mesh{Component->GetSkeletalMesh()};
+        const Asset::USkeleton* Skeleton{Component->GetSkeleton()};
+
+        if (Mesh == nullptr || Skeleton == nullptr) {
+            AddLog("The selected component has no skeletal mesh or skeleton.");
+
+            return false;
+        }
+
+        if (Mesh->GetMeshClothingAssets().empty()) {
+            AddLog("The selected mesh has no clothing asset. Run cloth.asset first.");
+
+            return false;
+        }
+
+        PhysicsRuntime::UPhysicsAsset* PhysicsAsset{};
+
+        if (Path == "mesh") {
+            PhysicsAsset = Component->GetPhysicsAsset();
+        } else if (Path == "none") {
+            // 물리 에셋을 비우면 천이 몸과 부딪히지 않습니다.
+            PhysicsAsset = nullptr;
+        } else {
+            Engine::FProject* Project{GetProject()};
+            Core::FString Error{};
+            PhysicsAsset = Project != nullptr ? Project->GetAssets()->LoadPhysicsAsset(Core::FilePath::FromUtf8(Path), Error) : nullptr;
+
+            if (PhysicsAsset == nullptr) {
+                AddLog("Cannot load the physics asset '" + Path + "'. " + Error);
+
+                return false;
+            }
+        }
+
+        Core::TArray<Core::FString> SkeletonBoneNames{};
+        SkeletonBoneNames.reserve(Skeleton->GetBones().size());
+
+        for (const Asset::FMeshImportBone& Bone : Skeleton->GetBones()) {
+            SkeletonBoneNames.push_back(Bone.GetName());
+        }
+
+        Index_t NumShapes{};
+
+        if (PhysicsAsset != nullptr) {
+            for (const auto& BodySetup : PhysicsAsset->mSkeletalBodySetups) {
+                if (BodySetup != nullptr) {
+                    NumShapes += BodySetup->GetAggGeom().mSphereElems.size() + BodySetup->GetAggGeom().mSphylElems.size() * 2;
+                }
+            }
+        }
+
+        for (const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset : Mesh->GetMeshClothingAssets()) {
+            ClothingAsset->SetPhysicsAsset(PhysicsAsset, SkeletonBoneNames);
+        }
+
+        // 이미 만든 천은 예전 충돌체를 가지고 있으므로 다시 만듭니다.
+        Component->RecreateClothingActors();
+        AddLog("Cloth physics asset set to " + (PhysicsAsset != nullptr ? Path : Core::FString{"none"}) + " with " + std::to_string(NumShapes) + " collision spheres. NvCloth uses up to 32.");
+
+        return true;
+    }
+
+    /**
+     * @brief 선택한 스켈레탈 메시의 섹션 하나로 천 에셋을 만들어 연결하고 그리기 대상으로 정합니다.
+     */
+    bool Editor::FEditorContext::SetClothAssetTest(Index_t SubMeshIndex) {
+        Engine::USkeletalMeshComponent* Component{FindSelectedSkeletalMeshComponent()};
 
         if (Component == nullptr) {
             AddLog("Select a skeletal mesh actor or component first.");
@@ -1495,7 +1572,8 @@ namespace Editor {
         const Asset::FClothingSectionData* SectionData{Mesh->GetSectionClothingData(SubMeshIndex)};
 
         if (SectionData == nullptr || !SectionData->IsValid()) {
-            std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> NewAsset{Asset::FClothingAssetFactory::CreateFromSkeletalMesh(*Mesh, *Skeleton, SubMeshIndex)};
+            // 따로 정하기 전까지는 메시가 쓰는 물리 에셋과 부딪히게 합니다.
+            std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> NewAsset{Asset::FClothingAssetFactory::CreateFromSkeletalMesh(*Mesh, *Skeleton, SubMeshIndex, Component->GetPhysicsAsset())};
 
             if (NewAsset == nullptr) {
                 AddLog("Cannot create a clothing asset from section " + std::to_string(SubMeshIndex) + ". See the Console for details.");

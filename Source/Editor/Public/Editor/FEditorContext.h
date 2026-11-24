@@ -727,6 +727,19 @@ namespace Editor {
         bool SetClothAssetTest(Index_t SubMeshIndex);
 
         /**
+         * @brief 선택한 스켈레탈 메시의 천 에셋들이 부딪힐 물리 에셋을 바꾸고 천을 다시 만듭니다.
+         * @param[in] Path Content 상대 물리 에셋 경로이며 "mesh"이면 메시가 쓰는 물리 에셋을, "none"이면 물리 에셋 없이 씁니다.
+         * @return 물리 에셋을 바꿨으면 true입니다.
+         */
+        bool SetClothPhysicsAssetTest(const Core::FString& Path);
+
+        /**
+         * @brief 선택한 컴포넌트가 스켈레탈 메시 컴포넌트이면 그것을, 액터이면 그 액터의 첫 스켈레탈 메시 컴포넌트를 찾습니다.
+         * @return 찾은 컴포넌트이며 없으면 nullptr입니다.
+         */
+        Engine::USkeletalMeshComponent* FindSelectedSkeletalMeshComponent();
+
+        /**
          * @brief 천 에셋 테스트의 그리기 대상을 비웁니다.
          */
         void ClearClothAssetTest();

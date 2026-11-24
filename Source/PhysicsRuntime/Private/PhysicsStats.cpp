@@ -19,6 +19,7 @@ namespace PhysicsRuntime {
         Core::FStat StaticBodies{"physics", "Static bodies (last scene)", Core::EStatUnit::Count, Core::EStatMode::Gauge};
         Core::FStat ClothSimulate{"cloth", "Cloth simulate CPU", Core::EStatUnit::Milliseconds};
         Core::FStat ClothSkinPhysMesh{"cloth", "Cloth skin physics mesh CPU", Core::EStatUnit::Milliseconds};
+        Core::FStat ClothUpdateCollisions{"cloth", "Cloth update collisions CPU", Core::EStatUnit::Milliseconds};
         Core::FStat ClothParticles{"cloth", "Cloth particles", Core::EStatUnit::Count, Core::EStatMode::Gauge};
     }
 

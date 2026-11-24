@@ -61,6 +61,11 @@ namespace PhysicsRuntime {
         extern Core::FStat ClothSkinPhysMesh;
 
         /**
+         * @brief 천 충돌체를 이번 프레임 뼈 위치로 옮겨 넣는 처리 시간을 측정하는 통계 항목이며 cloth 그룹에 속합니다.
+         */
+        extern Core::FStat ClothUpdateCollisions;
+
+        /**
          * @brief 마지막으로 진행한 천 입자 수이며 cloth 그룹에 속합니다.
          */
         extern Core::FStat ClothParticles;

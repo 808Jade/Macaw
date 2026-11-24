@@ -178,6 +178,17 @@ namespace Editor {
 
             SetClothAssetTest(SubMeshIndex);
         }});
+        mConsoleCommands.Register({"cloth.physicsasset", "<path/mesh/none>", {"mesh", "none"}, [this](const Editor::FConsoleInvocation& Invocation) {
+            const std::optional<Core::FString> Value{ReadConsoleValue(Invocation.mArguments)};
+
+            if (!Value || Value->empty()) {
+                AddLog(MakeUsage(Invocation));
+
+                return;
+            }
+
+            SetClothPhysicsAssetTest(*Value);
+        }});
         mConsoleCommands.Register({"cloth.sim", "<section/off>", {"off"}, [this](const Editor::FConsoleInvocation& Invocation) {
             const std::optional<Core::FString> Value{ReadConsoleValue(Invocation.mArguments)};
 

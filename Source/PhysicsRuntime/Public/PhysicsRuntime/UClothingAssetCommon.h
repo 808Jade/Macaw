@@ -7,8 +7,10 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "CoreUObject/TObjectRef.h"
 #include "CoreUObject/UObject.h"
 #include "PhysicsRuntime/FClothLODDataCommon.h"
+#include "PhysicsRuntime/UPhysicsAsset.h"
 
 #include "UClothingAssetCommon.generated.h"
 
@@ -71,6 +73,14 @@ namespace PhysicsRuntime {
         void RefreshBoneMapping(const Core::TArray<Core::FString>& SkeletonBoneNames);
 
         /**
+         * @brief 천이 부딪힐 몸을 담은 물리 에셋을 정하고, 그 몸통 뼈도 사용 뼈에 넣어 뼈 번호를 다시 찾습니다.
+         * @details 천 입자에 영향이 없는 뼈라도 충돌체가 그 뼈를 따라 움직여야 하므로 사용 뼈에 넣습니다.
+         * @param[in] PhysicsAsset 천이 부딪힐 몸이며 nullptr이면 물리 에셋 충돌을 쓰지 않습니다.
+         * @param[in] SkeletonBoneNames 스켈레톤의 뼈 이름이며 순서가 뼈 번호입니다.
+         */
+        void SetPhysicsAsset(UPhysicsAsset* PhysicsAsset, const Core::TArray<Core::FString>& SkeletonBoneNames);
+
+        /**
          * @brief 시뮬레이션 좌표의 기준이 될 뼈를 정합니다.
          * @note NvCloth는 컴포넌트 좌표에서 시뮬레이션하므로 항상 루트 뼈를 씁니다.
          */
@@ -107,5 +117,11 @@ namespace PhysicsRuntime {
          * @brief 시뮬레이션 좌표의 기준이 되는 스켈레톤 뼈 번호입니다.
          */
         Index_t mReferenceBoneIndex{};
+
+        /**
+         * @brief 천이 부딪힐 몸을 담은 물리 에셋이며 소유하지 않습니다.
+         * @details 물리 에셋이 먼저 사라지면 비어 있는 것으로 보고 충돌을 쓰지 않습니다.
+         */
+        CoreUObject::TObjectRef<UPhysicsAsset> mPhysicsAsset{};
     };
 }

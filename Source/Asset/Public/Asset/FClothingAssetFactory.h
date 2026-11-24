@@ -12,6 +12,7 @@
 
 namespace PhysicsRuntime {
     class UClothingAssetCommon;
+    class UPhysicsAsset;
     struct FClothLODDataCommon;
 }
 
@@ -31,9 +32,10 @@ namespace Asset {
          * @param[in] TargetMesh 섹션을 가진 메시입니다.
          * @param[in] Skeleton 메시가 사용하는 스켈레톤입니다.
          * @param[in] SubMeshIndex 천으로 바꿀 섹션 번호입니다.
+         * @param[in] PhysicsAsset 천이 부딪힐 몸을 담은 물리 에셋이며 nullptr이면 몸과 부딪히지 않습니다.
          * @return 새 천 에셋이며 섹션이 없거나 이미 천이 연결되었거나 천 메시를 만들 수 없으면 nullptr입니다.
          */
-        std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> CreateFromSkeletalMesh(const USkeletalMesh& TargetMesh, const USkeleton& Skeleton, Index_t SubMeshIndex);
+        std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> CreateFromSkeletalMesh(const USkeletalMesh& TargetMesh, const USkeleton& Skeleton, Index_t SubMeshIndex, PhysicsRuntime::UPhysicsAsset* PhysicsAsset);
 
         /**
          * @brief 섹션의 정점을 위치로 합쳐 천 상세 단계 하나를 채웁니다.

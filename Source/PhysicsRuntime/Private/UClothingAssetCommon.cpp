@@ -136,6 +136,31 @@ namespace PhysicsRuntime {
     }
 
     /**
+     * @brief 천이 부딪힐 몸을 담은 물리 에셋을 정하고, 그 몸통 뼈도 사용 뼈에 넣어 뼈 번호를 다시 찾습니다.
+     */
+    void UClothingAssetCommon::SetPhysicsAsset(UPhysicsAsset* PhysicsAsset, const Core::TArray<Core::FString>& SkeletonBoneNames) {
+        mPhysicsAsset = PhysicsAsset != nullptr ? CoreUObject::MakeObjectRef(PhysicsAsset) : CoreUObject::TObjectRef<UPhysicsAsset>{};
+
+        if (PhysicsAsset != nullptr) {
+            for (const std::unique_ptr<UBodySetup>& BodySetup : PhysicsAsset->mSkeletalBodySetups) {
+                if (BodySetup == nullptr) {
+                    continue;
+                }
+
+                // 스켈레톤에 있는 뼈만 넣어야 뼈 번호를 찾을 수 있습니다.
+                const Core::FString& BoneName{BodySetup->GetBoneName()};
+                const bool InSkeleton{std::find(SkeletonBoneNames.begin(), SkeletonBoneNames.end(), BoneName) != SkeletonBoneNames.end()};
+
+                if (InSkeleton && std::find(mUsedBoneNames.begin(), mUsedBoneNames.end(), BoneName) == mUsedBoneNames.end()) {
+                    mUsedBoneNames.push_back(BoneName);
+                }
+            }
+        }
+
+        RefreshBoneMapping(SkeletonBoneNames);
+    }
+
+    /**
      * @brief 시뮬레이션 좌표의 기준 뼈를 루트로 정합니다.
      */
     void UClothingAssetCommon::CalculateReferenceBoneIndex() {

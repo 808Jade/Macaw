@@ -29,6 +29,37 @@ namespace PhysicsRuntime {
     class UClothingAssetCommon;
 
     /**
+     * @brief 시뮬레이션 중에 NvCloth에 넘길 값을 모으는 임시 배열이며, 매 프레임 비우고 다시 씁니다.
+     * @ingroup PhysicsRuntime
+     */
+    struct FClothingActorScratchData {
+        /**
+         * @brief 배열을 비우되 할당한 메모리는 남겨 다음 프레임에 다시 씁니다.
+         */
+        void Reset();
+
+        /**
+         * @brief 천 좌표의 구 중심과 반지름입니다.
+         */
+        Core::TArray<physx::PxVec4> mSphereData{};
+
+        /**
+         * @brief 캡슐마다 양 끝 구의 번호 두 개입니다.
+         */
+        Core::TArray<Uint32> mCapsuleSphereIndices{};
+
+        /**
+         * @brief 천 좌표의 평면입니다.
+         */
+        Core::TArray<physx::PxVec4> mPlaneData{};
+
+        /**
+         * @brief 볼록 다면체마다 쓰는 평면 번호를 비트로 표시한 값입니다.
+         */
+        Core::TArray<Uint32> mConvexMasks{};
+    };
+
+    /**
      * @brief 천 에셋 하나로 만든 NvCloth 천과 그 상세 단계별 데이터입니다.
      * @ingroup PhysicsRuntime
      */
@@ -77,6 +108,11 @@ namespace PhysicsRuntime {
          * @param[in] Context 최대 거리 배율을 담은 입력입니다.
          */
         void UpdateMotionConstraints(const FClothingSimulationContextCommon& Context);
+
+        /**
+         * @brief 충돌체가 바뀌었으면 천 에셋, 물리 에셋, 바깥 충돌체를 하나의 목록으로 다시 모읍니다.
+         */
+        void ConditionalRebuildCollisions();
 
         /**
          * @brief 이번 프레임에 스키닝한 입자 위치를 반환합니다.
@@ -129,6 +165,36 @@ namespace PhysicsRuntime {
          * @brief 기준 뼈 좌표로 스키닝한 입자 법선입니다.
          */
         Core::TArray<FVector> mSkinnedPhysicsMeshNormals{};
+
+        /**
+         * @brief 지금 시뮬레이션에 쓰는 모든 충돌체입니다.
+         */
+        FClothCollisionData mAggregatedCollisions{};
+
+        /**
+         * @brief 바깥에서 넣은 충돌체입니다.
+         */
+        FClothCollisionData mExternalCollisions{};
+
+        /**
+         * @brief 물리 에셋에서 가져온 충돌체입니다.
+         */
+        FClothCollisionData mExtractedCollisions{};
+
+        /**
+         * @brief 다음 시뮬레이션 전에 충돌체 목록을 다시 모아야 하는지 나타냅니다.
+         */
+        bool mCollisionsDirty{};
+
+        /**
+         * @brief 천 두께를 흉내 내려고 충돌체 반지름에 더하는 값(m)입니다.
+         */
+        float mCollisionThickness{0.01f};
+
+        /**
+         * @brief 시뮬레이션 중에 쓰는 임시 배열입니다.
+         */
+        FClothingActorScratchData mScratch{};
     };
 
     /**
@@ -252,6 +318,24 @@ namespace PhysicsRuntime {
         bool ShouldSimulate() const override;
 
         /**
+         * @brief 모든 천에 바깥에서 정한 충돌체를 더합니다.
+         * @param[in] Data 컴포넌트 좌표 또는 뼈 좌표의 충돌체입니다.
+         */
+        void AddExternalCollisions(const FClothCollisionData& Data) override;
+
+        /**
+         * @brief 모든 천에서 바깥에서 정한 충돌체를 뺍니다.
+         */
+        void ClearExternalCollisions() override;
+
+        /**
+         * @brief 천들이 쓰는 충돌체를 모읍니다.
+         * @param[out] OutCollisions 모은 충돌체이며 기존 내용은 지웁니다.
+         * @param[in] IncludeExternal true이면 물리 에셋과 바깥 충돌체까지, false이면 천 에셋에 넣어 둔 충돌체만 모읍니다.
+         */
+        void GetCollisions(FClothCollisionData& OutCollisions, bool IncludeExternal = true) const override;
+
+        /**
          * @brief 천 하나의 현재 입자 위치를 복사합니다.
          * @details 에셋으로 만든 천은 기준 뼈 좌표이고, 격자 천은 월드 좌표입니다.
          * @param[in] ActorIndex 조회할 천의 순서입니다.
@@ -285,6 +369,14 @@ namespace PhysicsRuntime {
          * @param[in,out] Actor 법선을 갱신할 천입니다.
          */
         void ComputePhysicalMeshNormals(FClothingActorNv& Actor) const;
+
+        /**
+         * @brief 천 에셋의 물리 에셋에서 구와 캡슐을 꺼내 천의 충돌체로 둡니다.
+         * @details 캡슐은 양 끝 구 두 개와 둘을 잇는 캡슐 하나로 바꿉니다.
+         * @param[in] Asset 물리 에셋과 사용 뼈 이름을 가진 천 에셋입니다.
+         * @param[in,out] Actor 충돌체를 받을 천입니다.
+         */
+        void ExtractActorCollisions(const UClothingAssetCommon& Asset, FClothingActorNv& Actor) const;
 
     private:
 

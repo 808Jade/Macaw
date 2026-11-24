@@ -10,6 +10,7 @@
 #include "PhysicsRuntime/PhysicsConversion.h"
 #include "PhysicsRuntime/PhysicsStats.h"
 #include "PhysicsRuntime/UClothingAssetCommon.h"
+#include "PhysicsRuntime/UPhysicsAsset.h"
 #include "Core/Log/Log.h"
 
 #include <NvCloth/Cloth.h>
@@ -41,6 +42,11 @@ namespace PhysicsRuntime {
          * @brief 격자 테스트 천의 속도 감쇠 비율입니다. 흔들림이 시간이 지나면 멈추게 합니다.
          */
         constexpr float GridDamping{0.2f};
+
+        /**
+         * @brief NvCloth가 받는 구, 캡슐, 평면의 최대 개수입니다. 각각 32비트 마스크로 다루기 때문입니다.
+         */
+        constexpr Index_t MaxClothCollisionShapes{32};
 
         /**
          * @brief 배열 전체를 NvCloth 읽기 범위로 바꿉니다.
@@ -173,6 +179,45 @@ namespace PhysicsRuntime {
      */
     const Core::TArray<FVector>& FClothingActorNv::GetPreviousSkinnedPositions() const {
         return mSkinnedPhysicsMeshPositions[(mCurrentSkinnedPositionIndex + 1) % 2];
+    }
+
+    /**
+     * @brief 충돌체가 바뀌었으면 천 에셋, 물리 에셋, 바깥 충돌체를 하나의 목록으로 다시 모읍니다.
+     */
+    void FClothingActorNv::ConditionalRebuildCollisions() {
+        if (!mCollisionsDirty || mAssetCreatedFrom == nullptr || mCurrentLodIndex >= mAssetCreatedFrom->mLodData.size()) {
+            return;
+        }
+
+        mAggregatedCollisions.Reset();
+
+        // 천 에셋에 넣어 둔 충돌체, 물리 에셋의 충돌체, 바깥 충돌체 순서로 붙입니다.
+        mAggregatedCollisions.Append(mAssetCreatedFrom->mLodData[mCurrentLodIndex].mCollisionData);
+        mAggregatedCollisions.Append(mExtractedCollisions);
+        mAggregatedCollisions.Append(mExternalCollisions);
+
+        Index_t NumPlanes{};
+
+        for (const FClothCollisionPrim_Convex& Convex : mAggregatedCollisions.mConvexes) {
+            NumPlanes += Convex.mPlanes.size();
+        }
+
+        // NvCloth는 앞의 32개만 쓰므로 넘으면 뒤쪽 충돌체가 빠진다는 것을 알립니다.
+        if (mAggregatedCollisions.mSpheres.size() > MaxClothCollisionShapes || mAggregatedCollisions.mSphereConnections.size() > MaxClothCollisionShapes || NumPlanes > MaxClothCollisionShapes) {
+            MACAW_LOG(LogCloth, Warning, "Cloth collision has {} spheres, {} capsules and {} planes. Only the first {} of each are used. Assign a smaller physics asset to the clothing asset.", mAggregatedCollisions.mSpheres.size(), mAggregatedCollisions.mSphereConnections.size(), NumPlanes, MaxClothCollisionShapes);
+        }
+
+        mCollisionsDirty = false;
+    }
+
+    /**
+     * @brief 배열을 비우되 할당한 메모리는 남겨 다음 프레임에 다시 씁니다.
+     */
+    void FClothingActorScratchData::Reset() {
+        mSphereData.clear();
+        mCapsuleSphereIndices.clear();
+        mPlaneData.clear();
+        mConvexMasks.clear();
     }
 
     /**
@@ -463,6 +508,9 @@ namespace PhysicsRuntime {
             return false;
         }
 
+        // 몸과 부딪히도록 물리 에셋의 구와 캡슐을 꺼내 둡니다.
+        ExtractActorCollisions(Asset, NewActor);
+
         mActors.push_back(std::move(NewActor));
 
         // 새 천이 현재 상세 단계로 솔버에 들어가도록 모든 천을 다시 검사합니다.
@@ -485,6 +533,70 @@ namespace PhysicsRuntime {
         ComputePhysicalMeshNormals(mActors.back());
 
         return true;
+    }
+
+    /**
+     * @brief 천 에셋의 물리 에셋에서 구와 캡슐을 꺼내 천의 충돌체로 둡니다.
+     */
+    void FClothingSimulationNv::ExtractActorCollisions(const UClothingAssetCommon& Asset, FClothingActorNv& Actor) const {
+        Actor.mExtractedCollisions.Reset();
+
+        const UPhysicsAsset* const PhysicsAsset{Asset.mPhysicsAsset.Get()};
+
+        if (PhysicsAsset == nullptr) {
+            return;
+        }
+
+        bool AddedBodies{};
+
+        for (const std::unique_ptr<UBodySetup>& BodySetup : PhysicsAsset->mSkeletalBodySetups) {
+            if (BodySetup == nullptr) {
+                continue;
+            }
+
+            // 몸통 뼈는 물리 에셋을 정할 때 사용 뼈에 넣어 두었으므로 이름으로 번호를 찾습니다.
+            const auto Found{std::find(Asset.mUsedBoneNames.begin(), Asset.mUsedBoneNames.end(), BodySetup->GetBoneName())};
+            const Index_t MappedBoneIndex{Found != Asset.mUsedBoneNames.end() ? static_cast<Index_t>(Found - Asset.mUsedBoneNames.begin()) : InvalidIndex};
+            const FKAggregateGeom& AggGeom{BodySetup->GetAggGeom()};
+
+            for (const FKSphereElem& Sphere : AggGeom.mSphereElems) {
+                FClothCollisionPrim_Sphere NewSphere{};
+                NewSphere.mLocalPosition = Sphere.mCenter;
+                NewSphere.mRadius = Sphere.mRadius;
+                NewSphere.mBoneIndex = MappedBoneIndex;
+
+                Actor.mExtractedCollisions.mSpheres.push_back(NewSphere);
+                AddedBodies = true;
+            }
+
+            // 캡슐 축은 회전 전 Z축이고 길이는 양 끝 반구 중심 사이 거리입니다.
+            for (const FKSphylElem& Sphyl : AggGeom.mSphylElems) {
+                const FVector OrientedDirection{Sphyl.mRotation.RotateVector(FVector{0.0f, 0.0f, 1.0f})};
+                const FVector HalfDim{OrientedDirection * (Sphyl.mLength * 0.5f)};
+
+                FClothCollisionPrim_Sphere Sphere0{};
+                Sphere0.mLocalPosition = Sphyl.mCenter - HalfDim;
+                Sphere0.mRadius = Sphyl.mRadius;
+                Sphere0.mBoneIndex = MappedBoneIndex;
+
+                FClothCollisionPrim_Sphere Sphere1{};
+                Sphere1.mLocalPosition = Sphyl.mCenter + HalfDim;
+                Sphere1.mRadius = Sphyl.mRadius;
+                Sphere1.mBoneIndex = MappedBoneIndex;
+
+                Actor.mExtractedCollisions.mSpheres.push_back(Sphere0);
+                Actor.mExtractedCollisions.mSpheres.push_back(Sphere1);
+
+                FClothCollisionPrim_SphereConnection Connection{};
+                Connection.mSphereIndices[0] = Actor.mExtractedCollisions.mSpheres.size() - 2;
+                Connection.mSphereIndices[1] = Actor.mExtractedCollisions.mSpheres.size() - 1;
+
+                Actor.mExtractedCollisions.mSphereConnections.push_back(Connection);
+                AddedBodies = true;
+            }
+        }
+
+        Actor.mCollisionsDirty = Actor.mCollisionsDirty || AddedBodies;
     }
 
     /**
@@ -671,6 +783,11 @@ namespace PhysicsRuntime {
                 continue;
             }
 
+            Actor.mScratch.Reset();
+
+            // 충돌체가 바뀌었으면 목록을 다시 모읍니다.
+            Actor.ConditionalRebuildCollisions();
+
             // 모션 제약을 만들려면 시뮬레이션 메시 전체를 이번 포즈로 스키닝해야 합니다.
             Actor.SkinPhysicsMesh(Context);
 
@@ -682,6 +799,78 @@ namespace PhysicsRuntime {
 
             // 최대 거리가 0인 입자는 스키닝 위치에 붙어 애니메이션을 따라가고, 나머지는 그 거리 안에서만 흔들립니다.
             Actor.UpdateMotionConstraints(Context);
+
+            {
+                const Core::FScopedStatTimer CollisionTimer{PhysicsStats::ClothUpdateCollisions};
+                const FClothCollisionData& CollisionData{Actor.mAggregatedCollisions};
+                FClothingActorScratchData& Scratch{Actor.mScratch};
+                const FTransform RootBoneTransform{GetBoneTransformCS(Context.mBoneTransforms, Actor.mAssetCreatedFrom->mReferenceBoneIndex)};
+                const Core::TArray<Index_t>& UsedBoneIndices{Actor.mAssetCreatedFrom->mUsedBoneIndices};
+
+                // 구는 이번 프레임 뼈 위치로 옮긴 뒤 천 좌표(기준 뼈 좌표)로 바꾸고, 천 두께만큼 반지름을 키웁니다.
+                for (const FClothCollisionPrim_Sphere& Sphere : CollisionData.mSpheres) {
+                    FVector SphereLocation{Sphere.mLocalPosition};
+                    float RadiusScale{1.0f};
+                    FTransform BoneTransform{};
+
+                    // 물리 바디와 같이 뼈의 배율도 중심과 반지름에 적용합니다. 배율이 축마다 같다고 보고 가장 작은 축 배율을 반지름에 씁니다.
+                    if (Sphere.mBoneIndex < UsedBoneIndices.size() && UsedBoneIndices[Sphere.mBoneIndex] < Context.mBoneTransforms.size() && Context.mBoneTransforms[UsedBoneIndices[Sphere.mBoneIndex]].TryGetTransform(BoneTransform)) {
+                        const FVector AbsoluteScale{BoneTransform.mScale.Abs()};
+
+                        SphereLocation = BoneTransform.mLocation + BoneTransform.mRotation.RotateVector(Sphere.mLocalPosition * BoneTransform.mScale);
+                        RadiusScale = std::min({AbsoluteScale.x, AbsoluteScale.y, AbsoluteScale.z});
+                    }
+
+                    SphereLocation = RootBoneTransform.InverseTransformPositionNoScale(SphereLocation);
+                    Scratch.mSphereData.emplace_back(ToPxVec3(SphereLocation), Sphere.mRadius * RadiusScale + Actor.mCollisionThickness);
+                }
+
+                Cloth.setSpheres(MakeRange(Scratch.mSphereData), 0, Cloth.getNumSpheres());
+
+                // NvCloth는 앞의 32개 구만 남기고 캡슐도 32개까지만 받으므로, 남지 않는 구를 잇는 캡슐과 32개를 넘는 캡슐은 넣지 않습니다.
+                const Index_t NumKeptSpheres{std::min(Scratch.mSphereData.size(), MaxClothCollisionShapes)};
+
+                for (const FClothCollisionPrim_SphereConnection& Capsule : CollisionData.mSphereConnections) {
+                    if (Scratch.mCapsuleSphereIndices.size() / 2 >= MaxClothCollisionShapes) {
+                        break;
+                    }
+
+                    if (Capsule.mSphereIndices[0] >= NumKeptSpheres || Capsule.mSphereIndices[1] >= NumKeptSpheres) {
+                        continue;
+                    }
+
+                    Scratch.mCapsuleSphereIndices.push_back(static_cast<Uint32>(Capsule.mSphereIndices[0]));
+                    Scratch.mCapsuleSphereIndices.push_back(static_cast<Uint32>(Capsule.mSphereIndices[1]));
+                }
+
+                Cloth.setCapsules(MakeRange(Scratch.mCapsuleSphereIndices), 0, Cloth.getNumCapsules());
+
+                // 볼록 다면체는 평면마다 비트 하나를 쓰므로 평면이 32장을 넘으면 더 넣지 않습니다.
+                for (const FClothCollisionPrim_Convex& Convex : CollisionData.mConvexes) {
+                    if (Scratch.mPlaneData.size() >= MaxClothCollisionShapes) {
+                        continue;
+                    }
+
+                    Uint32& ConvexMask{Scratch.mConvexMasks.emplace_back()};
+
+                    for (const FVector4& Plane : Convex.mPlanes) {
+                        // 평면 위의 점과 법선을 천 좌표로 옮겨 평면을 다시 만듭니다.
+                        const FVector Normal{Plane.x, Plane.y, Plane.z};
+                        const FVector LocalNormal{RootBoneTransform.InverseTransformVectorNoScale(Normal)};
+                        const FVector LocalPoint{RootBoneTransform.InverseTransformPositionNoScale(Normal * Plane.w)};
+
+                        Scratch.mPlaneData.emplace_back(ToPxVec3(LocalNormal), -LocalNormal.Dot(LocalPoint));
+                        ConvexMask |= 1u << static_cast<Uint32>(Scratch.mPlaneData.size() - 1);
+
+                        if (Scratch.mPlaneData.size() >= MaxClothCollisionShapes) {
+                            break;
+                        }
+                    }
+                }
+
+                Cloth.setPlanes(MakeRange(Scratch.mPlaneData), 0, Cloth.getNumPlanes());
+                Cloth.setConvexes(MakeRange(Scratch.mConvexMasks), 0, Cloth.getNumConvexes());
+            }
 
             NumParticles += Cloth.getNumParticles();
         }
@@ -708,6 +897,41 @@ namespace PhysicsRuntime {
         }
 
         PhysicsStats::ClothParticles.Set(static_cast<double>(NumParticles));
+    }
+
+    /**
+     * @brief 모든 천에 바깥에서 정한 충돌체를 더합니다.
+     */
+    void FClothingSimulationNv::AddExternalCollisions(const FClothCollisionData& Data) {
+        for (FClothingActorNv& Actor : mActors) {
+            Actor.mExternalCollisions.Append(Data);
+            Actor.mCollisionsDirty = true;
+        }
+    }
+
+    /**
+     * @brief 모든 천에서 바깥에서 정한 충돌체를 뺍니다.
+     */
+    void FClothingSimulationNv::ClearExternalCollisions() {
+        for (FClothingActorNv& Actor : mActors) {
+            Actor.mExternalCollisions.Reset();
+            Actor.mCollisionsDirty = true;
+        }
+    }
+
+    /**
+     * @brief 천들이 쓰는 충돌체를 모읍니다.
+     */
+    void FClothingSimulationNv::GetCollisions(FClothCollisionData& OutCollisions, bool IncludeExternal) const {
+        OutCollisions.Reset();
+
+        for (const FClothingActorNv& Actor : mActors) {
+            if (IncludeExternal) {
+                OutCollisions.Append(Actor.mAggregatedCollisions);
+            } else if (Actor.mAssetCreatedFrom != nullptr && Actor.mCurrentLodIndex < Actor.mAssetCreatedFrom->mLodData.size()) {
+                OutCollisions.Append(Actor.mAssetCreatedFrom->mLodData[Actor.mCurrentLodIndex].mCollisionData);
+            }
+        }
     }
 
     /**
