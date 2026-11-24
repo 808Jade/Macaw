@@ -401,6 +401,15 @@ namespace Asset {
         bool SaveMaterial(const std::filesystem::path& Path, const Asset::UMaterial& Material, Core::FString& Error);
 
         /**
+         * @brief 캐시 객체의 주소를 유지하면서 머티리얼 설정과 텍스처 참조를 갱신합니다.
+         * @param[in,out] Target 설정을 적용할 기존 객체입니다.
+         * @param[in] Source 복사할 설정을 제공하는 객체입니다.
+         * @param[out] Error 텍스처 참조를 해석할 수 없는 경우의 원인입니다.
+         * @return 텍스처 참조까지 복원하면 true입니다.
+         */
+        bool ApplyMaterialSettings(Asset::UMaterial& Target, const Asset::UMaterial& Source, Core::FString& Error);
+
+        /**
          * @brief 검증한 CPU 메시 데이터를 바이너리 에셋 파일로 저장합니다.
          * @param[in] Path 저장할 메시 에셋의 경로입니다.
          * @param[in] Mesh 읽거나 직렬화할 메시 데이터입니다.
@@ -507,15 +516,6 @@ namespace Asset {
          * @return 메시와 연결 에셋을 저장하면 true이며 가져오기·검증·저장 실패 시 false입니다.
          */
         bool ImportMesh(const std::filesystem::path& Source, std::filesystem::path& Target, const Asset::FAssetImportOption& Option, Core::FString& Error);
-
-        /**
-         * @brief 캐시 객체의 주소를 유지하면서 머티리얼 설정과 텍스처 참조를 갱신합니다.
-         * @param[in,out] Target 설정을 적용할 기존 객체입니다.
-         * @param[in] Source 복사할 설정을 제공하는 객체입니다.
-         * @param[out] Error 텍스처 참조를 해석할 수 없는 경우의 원인입니다.
-         * @return 텍스처 참조까지 복원하면 true입니다.
-         */
-        bool ApplyMaterialSettings(Asset::UMaterial& Target, const Asset::UMaterial& Source, Core::FString& Error);
 
     private:
 

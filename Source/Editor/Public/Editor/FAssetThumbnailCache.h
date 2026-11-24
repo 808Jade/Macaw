@@ -279,6 +279,8 @@ namespace Editor {
          */
         std::unique_ptr<Asset::UMaterial> mDefaultMaterial{};
 
+        std::unique_ptr<Asset::UMaterial> mCaptureMaterial{};
+
         /**
          * @brief 썸네일 요청을 순차적으로 촬영하는 공통 뷰어입니다.
          */

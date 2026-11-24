@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <bit>
 #include <functional>
+#include <utility>
 
 using namespace Editor;
 
@@ -45,6 +46,7 @@ FAssetThumbnailCache::FAssetThumbnailCache(Asset::FAssetManager* Assets, RenderC
 	  mDefaultMesh{CoreUObject::NewObject<Asset::UStaticMesh>()},
 	  mDefaultMaterial{CoreUObject::NewObject<Asset::UMaterial>()},
 	  mCaptureViewer{Renderer, Assets} {
+    mCaptureViewer.GetShowFlags().mShadows = false;
     mDefaultMesh->SetMeshData(Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube));
     LoadPreviewSettings();
 }
@@ -76,6 +78,7 @@ void FAssetThumbnailCache::Invalidate() {
     mRequests.clear();
     mWorkerActive = false;
     mCaptureViewer.Close();
+    mCaptureMaterial.reset();
 
     for (auto& [Key, Thumbnail] : mThumbnails) {
         Thumbnail.mQueued = false;
@@ -151,6 +154,7 @@ void FAssetThumbnailCache::ProcessRequests() {
         std::unique_ptr<Viewer::FViewerCapture> Capture{};
 
         if (Prepared == Viewer::EViewerPrepareResult::Ready && mCaptureViewer.Resize(256, 256) && mCaptureViewer.Fit()) {
+            mCaptureViewer.SetViewMode(Pending.mType == Asset::EAssetType::Material ? Engine::EViewMode::Lit : Engine::EViewMode::Unlit);
             Capture = mCaptureViewer.Capture(Error, true);
         }
 
@@ -283,16 +287,20 @@ std::size_t FAssetThumbnailCache::MaterialSignature(const Asset::UMaterial* Mate
         Hash ^= static_cast<std::size_t>(Material->GetShader()->WritesGBuffer()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
     }
 
-    Hash ^= std::hash<Core::FString>{}(Material->GetBaseColorTexturePath()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
-    Hash ^= std::hash<Core::FString>{}(Material->GetNormalMapTexturePath()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
     Hash ^= static_cast<std::size_t>(Material->GetBlendMode()) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
 
-    for (const float Value : {Material->GetSpecularStrength(), Material->GetShininess(), Material->GetNormalStrength()}) {
+    for (const Core::FString* Path : {&Material->GetBaseColorTexturePath(), &Material->GetNormalMapTexturePath(), &Material->GetSpecularTexturePath(), &Material->GetEmissiveTexturePath(), &Material->GetReflectionTexturePath()}) {
+        Hash ^= std::hash<Core::FString>{}(*Path) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
+    }
+
+    for (const float Value : {Material->GetSpecularStrength(), Material->GetShininess(), Material->GetNormalStrength(), Material->GetReflectionStrength()}) {
         Hash ^= std::bit_cast<Uint32>(Value) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
     }
 
-    for (float Value : Material->GetBaseColor().ToArray()) {
-        Hash ^= std::bit_cast<Uint32>(Value) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
+    for (const FVector4* Color : {&Material->GetBaseColor(), &Material->GetSpecularColor(), &Material->GetAmbientColor(), &Material->GetEmissiveColor(), &Material->GetReflectionColor()}) {
+        for (const float Value : Color->ToArray()) {
+            Hash ^= std::bit_cast<Uint32>(Value) + 0x9E3779B9 + (Hash << 6) + (Hash >> 2);
+        }
     }
 
     return Hash ^ static_cast<std::size_t>(Material->IsTwoSided());
@@ -340,11 +348,27 @@ std::size_t FAssetThumbnailCache::AssetSignature(CoreUObject::UObject* Object, A
 }
 
 bool FAssetThumbnailCache::BindCaptureAsset(const FPendingThumbnail& Pending, Core::FString& Error) {
-    if (!mCaptureViewer.SetAsset(Pending.mObject, Pending.mType)) {
+    CoreUObject::UObject* Object{Pending.mObject};
+    const auto* Material{Pending.mType == Asset::EAssetType::Material ? CoreUObject::Cast<Asset::UMaterial>(Object) : nullptr};
+    std::unique_ptr<Asset::UMaterial> CaptureMaterial{};
+
+    if (Material != nullptr && Material->GetShader() != nullptr && Material->GetShader()->IsUnlit()) {
+        CaptureMaterial = CoreUObject::NewObject<Asset::UMaterial>();
+
+        if (!mAssets->ApplyMaterialSettings(*CaptureMaterial, *Material, Error) || !CaptureMaterial->SetShader(RenderCore::UShader::GetDefault())) {
+            return false;
+        }
+
+        Object = CaptureMaterial.get();
+    }
+
+    if (!mCaptureViewer.SetAsset(Object, Pending.mType)) {
         Error = mCaptureViewer.GetError();
 
         return false;
     }
+
+    mCaptureMaterial = std::move(CaptureMaterial);
 
     if (Pending.mType == Asset::EAssetType::SkeletalMesh) {
         auto* Content{static_cast<Viewer::FMeshViewerContent*>(mCaptureViewer.GetContent())};
