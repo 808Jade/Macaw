@@ -1737,6 +1737,20 @@ namespace Editor {
     }
 
     /**
+     * @brief 컴포넌트 천 시뮬레이션 결과를 뷰포트에 그릴지 반환합니다.
+     */
+    bool Editor::FEditorContext::IsClothDebugDrawEnabled() const {
+        return mClothDebugDrawEnabled;
+    }
+
+    /**
+     * @brief 컴포넌트 천 시뮬레이션 결과를 뷰포트에 그릴지 설정합니다.
+     */
+    void Editor::FEditorContext::SetClothDebugDrawEnabled(bool Enable) {
+        mClothDebugDrawEnabled = Enable;
+    }
+
+    /**
      * @brief 새 액터 배치 변환 제공자를 저장합니다.
      */
     void Editor::FEditorContext::SetPlacementProvider(std::function<FTransform()> Provider) {

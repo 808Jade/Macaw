@@ -205,6 +205,18 @@ namespace Editor {
 
             SetClothSimTest(SubMeshIndex);
         }});
+        mConsoleCommands.Register({"cloth.debug", "[on/off]", {"on", "off"}, [this](const Editor::FConsoleInvocation& Invocation) {
+            const Core::FString Value{Invocation.mArguments};
+
+            if (!Value.empty() && Value != "on" && Value != "off") {
+                AddLog(MakeUsage(Invocation));
+
+                return;
+            }
+
+            SetClothDebugDrawEnabled(Value.empty() ? !IsClothDebugDrawEnabled() : Value == "on");
+            AddLog(IsClothDebugDrawEnabled() ? "Cloth debug draw on." : "Cloth debug draw off.");
+        }});
         mConsoleCommands.Register({"Shadow Atlas", {}, {}, [this](const Editor::FConsoleInvocation& Invocation) {
             if (Invocation.mArguments.empty()) {
                 SetShadowAtlasOpen(true);

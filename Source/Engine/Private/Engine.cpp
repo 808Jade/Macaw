@@ -292,6 +292,8 @@ namespace Engine {
             Assets->SetPhysicsRuntime(&mPhysicsRuntime);
         }
 
+        // 에셋을 연결하면 스켈레탈 메시가 메시를 해석하며 천을 만들므로 천 시스템을 먼저 연결합니다.
+        Context->GetWorld()->SetClothingSystem(&mClothingSystem);
         Context->GetWorld()->SetAssets(Assets);
         Context->GetWorld()->SetPhysicsRuntime(&mPhysicsRuntime);
 

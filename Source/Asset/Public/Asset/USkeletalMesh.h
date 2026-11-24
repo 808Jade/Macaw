@@ -195,6 +195,12 @@ namespace Asset {
          */
         bool SetSectionClothingData(Index_t SubMeshIndex, Asset::FClothingSectionData ClothingData);
 
+        /**
+         * @brief 섹션에 연결된 천 에셋을 모읍니다.
+         * @param[out] OutClothingAssets 연결된 천 에셋의 비소유 주소이며 기존 내용은 지우고 같은 에셋은 한 번만 넣습니다.
+         */
+        void GetClothingAssetsInUse(Core::TArray<const PhysicsRuntime::UClothingAssetCommon*>& OutClothingAssets) const;
+
     private:
 
         /**

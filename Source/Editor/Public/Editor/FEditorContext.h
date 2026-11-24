@@ -768,6 +768,18 @@ namespace Editor {
         void DrawClothSimTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const;
 
         /**
+         * @brief 컴포넌트 천 시뮬레이션 결과를 뷰포트에 그릴지 반환합니다.
+         * @return 그리면 true입니다.
+         */
+        bool IsClothDebugDrawEnabled() const;
+
+        /**
+         * @brief 컴포넌트 천 시뮬레이션 결과를 뷰포트에 그릴지 설정합니다.
+         * @param[in] Enable 그릴지 지정합니다.
+         */
+        void SetClothDebugDrawEnabled(bool Enable);
+
+        /**
          * @brief 공통 편집 작업이 사용할 뷰포트 제공자를 설정합니다.
          * @param[in] Provider 호출 시점의 활성 뷰포트를 반환합니다.
          */
@@ -937,6 +949,11 @@ namespace Editor {
          * @brief 천 시뮬레이션 테스트로 시뮬레이션하는 섹션 번호입니다.
          */
         Index_t mClothSimTestSubMesh{InvalidIndex};
+
+        /**
+         * @brief 컴포넌트 천 시뮬레이션 결과를 뷰포트에 그릴지 나타냅니다.
+         */
+        bool mClothDebugDrawEnabled{};
 
         /**
          * @brief PIE 실행 중 원본 편집 상태의 수정을 제한하는 플래그입니다.

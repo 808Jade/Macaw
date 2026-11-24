@@ -288,4 +288,23 @@ namespace Asset {
         return true;
     }
 
+    /**
+     * @brief 섹션에 연결된 천 에셋을 모읍니다.
+     */
+    void Asset::USkeletalMesh::GetClothingAssetsInUse(Core::TArray<const PhysicsRuntime::UClothingAssetCommon*>& OutClothingAssets) const {
+        OutClothingAssets.clear();
+
+        for (const Asset::FClothingSectionData& SectionData : mSectionClothingData) {
+            if (!SectionData.IsValid()) {
+                continue;
+            }
+
+            const PhysicsRuntime::UClothingAssetCommon* const ClothingAsset{GetClothingAsset(SectionData.mAssetGuid)};
+
+            if (ClothingAsset != nullptr && std::find(OutClothingAssets.begin(), OutClothingAssets.end(), ClothingAsset) == OutClothingAssets.end()) {
+                OutClothingAssets.push_back(ClothingAsset);
+            }
+        }
+    }
+
 }

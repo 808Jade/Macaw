@@ -9,6 +9,7 @@
 #include "Core/Types.h"
 #include "Core/Math/FMatrix.h"
 #include "Core/Math/FVector.h"
+#include "PhysicsRuntime/IClothingSimulation.h"
 
 #include <NvCloth/PhaseConfig.h>
 #include <foundation/PxVec4.h>
@@ -79,6 +80,11 @@ namespace PhysicsRuntime {
          * @brief 솔버에 들어가 있는 천 상세 단계 번호이며 시뮬레이션하지 않으면 InvalidIndex입니다.
          */
         Index_t mCurrentLodIndex{InvalidIndex};
+
+        /**
+         * @brief 마지막 시뮬레이션 뒤에 삼각형으로 구한 기준 뼈 좌표의 입자 법선입니다.
+         */
+        Core::TArray<FVector> mCurrentNormals{};
     };
 
     /**
@@ -86,7 +92,7 @@ namespace PhysicsRuntime {
      * @details 팩토리는 천 시스템 모듈이 소유하므로 이 객체는 모듈보다 먼저 정리되어야 합니다.
      * @ingroup PhysicsRuntime
      */
-    class FClothingSimulationNv {
+    class FClothingSimulationNv final : public IClothingSimulation {
     public:
 
         /**
@@ -97,7 +103,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 등록한 천과 솔버를 해제합니다.
          */
-        ~FClothingSimulationNv();
+        ~FClothingSimulationNv() override;
 
         /**
          * @brief 솔버와 천을 두 객체가 해제하지 않도록 복사를 금지합니다.
@@ -122,7 +128,7 @@ namespace PhysicsRuntime {
          * @brief 등록한 천을 모두 해제한 뒤 솔버를 해제합니다.
          * @note 여러 번 호출해도 안전합니다.
          */
-        void Shutdown();
+        void Shutdown() override;
 
         /**
          * @brief 한 변을 고정한 격자 천을 만들어 솔버에 등록합니다.
@@ -149,6 +155,15 @@ namespace PhysicsRuntime {
         bool CreateActor(const UClothingAssetCommon& Asset, Index_t SimDataIndex, const FMatrix& ComponentToWorld, const Core::TArray<FMatrix>& ComponentSpaceTransforms, const Core::TArray<FMatrix>& RefToLocals);
 
         /**
+         * @brief 입력의 포즈와 변환으로 천 에셋의 천을 만들어 솔버에 넣습니다.
+         * @param[in] Asset 천 에셋이며 천보다 오래 살아 있어야 합니다.
+         * @param[in] SimDataIndex 결과를 돌려줄 때 쓸 번호입니다.
+         * @param[in] Context 현재 포즈와 변환을 담은 입력입니다.
+         * @return 천을 하나 이상 만들었으면 true입니다.
+         */
+        bool CreateActor(const UClothingAssetCommon& Asset, Index_t SimDataIndex, const FClothingSimulationContextCommon& Context) override;
+
+        /**
          * @brief 메시 상세 단계에 맞는 천 상세 단계를 골라 솔버의 천을 바꿉니다.
          * @details 새로 넣는 천은 입자를 현재 자세로 다시 놓고 관성, 충돌체, 모션 제약을 비웁니다.
          * @param[in] PredictedLod 메시의 상세 단계 번호입니다.
@@ -163,13 +178,34 @@ namespace PhysicsRuntime {
         /**
          * @brief 등록한 천을 솔버에서 빼고 천과 패브릭을 해제합니다.
          */
-        void DestroyActors();
+        void DestroyActors() override;
 
         /**
          * @brief 모든 천에 중력을 적용하고 솔버를 한 프레임 진행합니다.
          * @param[in] DeltaTime 진행할 초 단위 시간이며 너무 크면 잘라 냅니다.
          */
         void Simulate(float DeltaTime);
+
+        /**
+         * @brief 입력으로 천 에셋의 천을 한 프레임 진행합니다.
+         * @details 기준 뼈의 월드 변환을 매 프레임 천에 넣어 캐릭터의 이동과 회전이 관성으로 전해지게 하고,
+         *          솔버를 진행한 뒤 입자 법선을 다시 구합니다.
+         * @param[in] Context 이번 프레임의 포즈, 변환, 시간, 중력입니다.
+         */
+        void Simulate(const FClothingSimulationContextCommon& Context) override;
+
+        /**
+         * @brief 천마다 현재 입자 위치와 법선, 기준 뼈 변환을 복사합니다.
+         * @param[out] OutData 결과 번호를 키로 한 결과입니다.
+         * @param[in] Context 기준 뼈 변환을 구할 때 쓰는 입력입니다.
+         */
+        void GetSimulationData(Core::TMap<Index_t, FClothSimulData>& OutData, const FClothingSimulationContextCommon& Context) const override;
+
+        /**
+         * @brief 솔버에 들어간 천이 있는지 검사합니다.
+         * @return 시뮬레이션 중인 천이 하나라도 있으면 true입니다.
+         */
+        bool ShouldSimulate() const override;
 
         /**
          * @brief 천 하나의 현재 입자 위치를 복사합니다.
@@ -197,6 +233,14 @@ namespace PhysicsRuntime {
          * @return 격자가 없으면 0입니다.
          */
         Uint32 GetGridHeight() const;
+
+    private:
+
+        /**
+         * @brief 천의 현재 입자 위치로 삼각형 법선을 더해 입자 법선을 구합니다.
+         * @param[in,out] Actor 법선을 갱신할 천입니다.
+         */
+        void ComputePhysicalMeshNormals(FClothingActorNv& Actor) const;
 
     private:
 

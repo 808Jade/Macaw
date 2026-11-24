@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "PhysicsRuntime/IClothingSimulation.h"
+
 #include <PxPhysicsAPI.h>
 #include <memory>
 
@@ -71,6 +73,13 @@ namespace PhysicsRuntime {
          * @return 초기화되지 않았으면 nullptr입니다.
          */
         nv::cloth::ClothMeshQuadifier* GetMeshQuadifier() const;
+
+        /**
+         * @brief 이 모듈의 팩토리로 초기화한 천 시뮬레이션을 만듭니다.
+         * @return 새 시뮬레이션이며 모듈이 초기화되지 않았거나 솔버를 만들 수 없으면 nullptr입니다.
+         * @note 만든 시뮬레이션은 이 모듈을 종료하기 전에 해제해야 합니다.
+         */
+        std::unique_ptr<IClothingSimulation> CreateSimulation() const;
 
     private:
 

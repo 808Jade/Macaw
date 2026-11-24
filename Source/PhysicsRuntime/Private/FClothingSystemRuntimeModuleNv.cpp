@@ -5,6 +5,7 @@
  */
 
 #include "PhysicsRuntime/FClothingSystemRuntimeModuleNv.h"
+#include "PhysicsRuntime/FClothingSimulationNv.h"
 #include "Core/Log/Log.h"
 
 #include <NvCloth/Callbacks.h>
@@ -131,5 +132,18 @@ namespace PhysicsRuntime {
      */
     nv::cloth::ClothMeshQuadifier* FClothingSystemRuntimeModuleNv::GetMeshQuadifier() const {
         return mMeshQuadifier;
+    }
+
+    /**
+     * @brief 이 모듈의 팩토리로 초기화한 천 시뮬레이션을 만듭니다.
+     */
+    std::unique_ptr<IClothingSimulation> FClothingSystemRuntimeModuleNv::CreateSimulation() const {
+        auto Simulation{std::make_unique<FClothingSimulationNv>()};
+
+        if (!Simulation->Initialize(*this)) {
+            return nullptr;
+        }
+
+        return Simulation;
     }
 }

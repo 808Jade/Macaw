@@ -20,6 +20,7 @@
 #include "Engine/MeshPicking.h"
 #include "Engine/PrimitiveMesh.h"
 #include "Engine/Component/UShapeComponent.h"
+#include "Engine/Component/USkeletalMeshComponent.h"
 #include "Engine/ULevel.h"
 #include "Engine/AActor.h"
 #include "Engine/ADecalActor.h"
@@ -487,6 +488,17 @@ namespace Editor {
         mContext->DrawClothGridTest(mDrawInterface, mLineThickness);
         mContext->DrawClothAssetTest(mDrawInterface, mLineThickness);
         mContext->DrawClothSimTest(mDrawInterface, mLineThickness);
+
+        // 켜져 있으면 월드의 스켈레탈 메시 컴포넌트마다 마지막 천 결과를 그립니다.
+        if (mContext->IsClothDebugDrawEnabled() && World->GetPersistentLevel() != nullptr) {
+            for (const auto& Actor : World->GetPersistentLevel()->GetActors()) {
+                for (const auto& Component : Actor->GetComponents()) {
+                    if (const auto* SkeletalMeshComponent{CoreUObject::Cast<Engine::USkeletalMeshComponent>(Component.get())}) {
+                        SkeletalMeshComponent->DebugDrawClothing(mDrawInterface, mLineThickness);
+                    }
+                }
+            }
+        }
 
         if (World->GetPersistentLevel() != nullptr) {
             const Core::TArray<CoreUObject::TObjectRef<Engine::AActor>> SelectedActors{mContext->GetSelectedActors()};

@@ -154,6 +154,20 @@ namespace Engine {
     }
 
     /**
+     * @brief 천 시뮬레이션을 만들 때 쓸 천 시스템 모듈의 비소유 주소를 설정합니다.
+     */
+    void Engine::UWorld::SetClothingSystem(PhysicsRuntime::FClothingSystemRuntimeModuleNv* ClothingSystem) {
+        mClothingSystem = ClothingSystem;
+    }
+
+    /**
+     * @brief 천 시뮬레이션을 만들 때 쓸 천 시스템 모듈을 반환합니다.
+     */
+    PhysicsRuntime::FClothingSystemRuntimeModuleNv* Engine::UWorld::GetClothingSystem() const {
+        return mClothingSystem;
+    }
+
+    /**
      * @brief 월드가 소유한 물리 장면을 반환합니다.
      */
     PhysicsRuntime::FPhysicsScene* Engine::UWorld::GetPhysicsScene() const {

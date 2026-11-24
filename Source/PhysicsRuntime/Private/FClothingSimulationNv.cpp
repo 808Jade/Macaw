@@ -394,6 +394,20 @@ namespace PhysicsRuntime {
     }
 
     /**
+     * @brief 입력의 포즈와 변환으로 천 에셋의 천을 만들어 솔버에 넣습니다.
+     */
+    bool FClothingSimulationNv::CreateActor(const UClothingAssetCommon& Asset, Index_t SimDataIndex, const FClothingSimulationContextCommon& Context) {
+        if (!CreateActor(Asset, SimDataIndex, Context.mComponentToWorld, Context.mBoneTransforms, Context.mRefToLocals)) {
+            return false;
+        }
+
+        // 결과를 처음 꺼낼 때도 법선이 있도록 만든 직후의 입자로 법선을 구합니다.
+        ComputePhysicalMeshNormals(mActors.back());
+
+        return true;
+    }
+
+    /**
      * @brief 메시 상세 단계에 맞는 천 상세 단계를 골라 솔버의 천을 바꿉니다.
      */
     void FClothingSimulationNv::UpdateLod(Index_t PredictedLod, const FMatrix& ComponentToWorld, const Core::TArray<FMatrix>& ComponentSpaceTransforms, const Core::TArray<FMatrix>& RefToLocals, bool ForceNoRemap, bool ForceActorChecks) {
@@ -557,6 +571,152 @@ namespace PhysicsRuntime {
         }
 
         PhysicsStats::ClothParticles.Set(static_cast<double>(NumParticles));
+    }
+
+    /**
+     * @brief 입력으로 천 에셋의 천을 한 프레임 진행합니다.
+     */
+    void FClothingSimulationNv::Simulate(const FClothingSimulationContextCommon& Context) {
+        if (mSolver == nullptr || mActors.empty() || Context.mBoneTransforms.empty() || !(Context.mDeltaSeconds > 0.0f)) {
+            return;
+        }
+
+        const Core::FScopedStatTimer StatTimer{PhysicsStats::ClothSimulate};
+        Index_t NumParticles{};
+
+        UpdateLod(Context.mPredictedLod, Context.mComponentToWorld, Context.mBoneTransforms, Context.mRefToLocals, false, false);
+
+        for (const FClothingActorNv& Actor : mActors) {
+            if (Actor.mAssetCreatedFrom == nullptr || Actor.mCurrentLodIndex >= Actor.mLodData.size()) {
+                continue;
+            }
+
+            nv::cloth::Cloth& Cloth{*Actor.mLodData[Actor.mCurrentLodIndex].mCloth};
+
+            // 기준 뼈의 월드 변환이 지난 프레임과 달라진 만큼 NvCloth가 입자에 관성을 줍니다.
+            SetSimRootTransform(Cloth, Context.mComponentToWorld, Context.mBoneTransforms, Actor.mAssetCreatedFrom->mReferenceBoneIndex);
+            Cloth.setGravity(ToPxVec3(Context.mWorldGravity));
+            NumParticles += Cloth.getNumParticles();
+        }
+
+        if (mSolver->beginSimulation(Context.mDeltaSeconds)) {
+            const int ChunkCount{mSolver->getSimulationChunkCount()};
+
+            for (int ChunkIndex{}; ChunkIndex < ChunkCount; ++ChunkIndex) {
+                mSolver->simulateChunk(ChunkIndex);
+            }
+
+            mSolver->endSimulation();
+        }
+
+        for (FClothingActorNv& Actor : mActors) {
+            if (Actor.mAssetCreatedFrom != nullptr && Actor.mCurrentLodIndex < Actor.mLodData.size()) {
+                ComputePhysicalMeshNormals(Actor);
+            }
+        }
+
+        PhysicsStats::ClothParticles.Set(static_cast<double>(NumParticles));
+    }
+
+    /**
+     * @brief 천마다 현재 입자 위치와 법선, 기준 뼈 변환을 복사합니다.
+     */
+    void FClothingSimulationNv::GetSimulationData(Core::TMap<Index_t, FClothSimulData>& OutData, const FClothingSimulationContextCommon& Context) const {
+        if (mActors.empty()) {
+            OutData.clear();
+
+            return;
+        }
+
+        for (const FClothingActorNv& Actor : mActors) {
+            if (Actor.mAssetCreatedFrom == nullptr || Actor.mCurrentLodIndex >= Actor.mLodData.size()) {
+                continue;
+            }
+
+            const Index_t ReferenceBoneIndex{Actor.mAssetCreatedFrom->mReferenceBoneIndex};
+            FClothSimulData& ClothData{OutData[Actor.mSimDataIndex]};
+
+            if (ReferenceBoneIndex >= Context.mBoneTransforms.size()) {
+                MACAW_LOG(LogCloth, Warning, "Failed to write back cloth simulation data because the bone transforms are invalid.");
+                ClothData.Reset();
+
+                return;
+            }
+
+            // 입자는 크기를 뺀 기준 뼈 좌표이므로 크기를 뺀 기준 뼈 변환에 컴포넌트 월드 변환을 곱해 기준 변환을 만듭니다.
+            FTransform RootBoneTransform{GetBoneTransformCS(Context.mBoneTransforms, ReferenceBoneIndex)};
+            RootBoneTransform.mScale = FVector{1.0f, 1.0f, 1.0f};
+
+            FTransform RootBoneWorldTransform{};
+
+            if (!(RootBoneTransform.ToMatrix() * Context.mComponentToWorld).TryGetTransform(RootBoneWorldTransform)) {
+                ClothData.Reset();
+
+                continue;
+            }
+
+            const nv::cloth::Cloth& Cloth{*Actor.mLodData[Actor.mCurrentLodIndex].mCloth};
+            const nv::cloth::MappedRange<const physx::PxVec4> Particles{Cloth.getCurrentParticles()};
+
+            ClothData.Reset();
+            ClothData.mTransform = RootBoneWorldTransform;
+            ClothData.mComponentRelativeTransform = RootBoneTransform;
+            ClothData.mPositions.reserve(Particles.size());
+
+            for (const physx::PxVec4& Particle : Particles) {
+                ClothData.mPositions.push_back(ToFVector(Particle.getXYZ()));
+            }
+
+            ClothData.mNormals = Actor.mCurrentNormals;
+        }
+    }
+
+    /**
+     * @brief 솔버에 들어간 천이 있는지 검사합니다.
+     */
+    bool FClothingSimulationNv::ShouldSimulate() const {
+        return std::any_of(mActors.begin(), mActors.end(), [](const FClothingActorNv& Actor) {
+            return Actor.mCurrentLodIndex < Actor.mLodData.size();
+        });
+    }
+
+    /**
+     * @brief 천의 현재 입자 위치로 삼각형 법선을 더해 입자 법선을 구합니다.
+     */
+    void FClothingSimulationNv::ComputePhysicalMeshNormals(FClothingActorNv& Actor) const {
+        if (Actor.mAssetCreatedFrom == nullptr || Actor.mCurrentLodIndex >= Actor.mLodData.size()) {
+            return;
+        }
+
+        const nv::cloth::Cloth& Cloth{*Actor.mLodData[Actor.mCurrentLodIndex].mCloth};
+        const nv::cloth::MappedRange<const physx::PxVec4> Particles{Cloth.getCurrentParticles()};
+        const Core::TArray<Uint32>& Indices{Actor.mAssetCreatedFrom->mLodData[Actor.mCurrentLodIndex].mPhysicalMeshData.mIndices};
+
+        Actor.mCurrentNormals.assign(Particles.size(), FVector{0.0f, 0.0f, 0.0f});
+
+        // 입자가 닿은 삼각형마다 넓이만큼 큰 면 법선을 더한 뒤 마지막에 정규화합니다.
+        for (Index_t BaseIndex{}; BaseIndex + 2 < Indices.size(); BaseIndex += 3) {
+            const Uint32 IndexA{Indices[BaseIndex]};
+            const Uint32 IndexB{Indices[BaseIndex + 1]};
+            const Uint32 IndexC{Indices[BaseIndex + 2]};
+
+            if (IndexA >= Particles.size() || IndexB >= Particles.size() || IndexC >= Particles.size()) {
+                continue;
+            }
+
+            const FVector A{ToFVector(Particles[IndexA].getXYZ())};
+            const FVector B{ToFVector(Particles[IndexB].getXYZ())};
+            const FVector C{ToFVector(Particles[IndexC].getXYZ())};
+            const FVector TriangleNormal{(B - A).Cross(C - A)};
+
+            Actor.mCurrentNormals[IndexA] += TriangleNormal;
+            Actor.mCurrentNormals[IndexB] += TriangleNormal;
+            Actor.mCurrentNormals[IndexC] += TriangleNormal;
+        }
+
+        for (FVector& Normal : Actor.mCurrentNormals) {
+            Normal.Normalize();
+        }
     }
 
     /**
