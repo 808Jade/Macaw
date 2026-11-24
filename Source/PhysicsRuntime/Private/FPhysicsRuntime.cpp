@@ -13,6 +13,8 @@
 #include "Core/Log/Log.h"
 #include "CoreUObject/Reflection/NewObject.h"
 
+#include <vehicle/PxVehicleSDK.h>
+
 using namespace Core::Literals;
 
 namespace PhysicsRuntime {
@@ -109,6 +111,18 @@ namespace PhysicsRuntime {
             return false;
         }
 
+        // 차량 SDK는 기존 PxPhysics의 1유닛 = 1m 허용 오차 기준을 사용합니다.
+        mVehicleSdkInitialized = physx::PxInitVehicleSDK(*mPhysics);
+
+        if (!mVehicleSdkInitialized) {
+            MACAW_LOG(LogPhysics, Error, "Cannot initialize the PhysX Vehicle SDK.");
+            Shutdown();
+
+            return false;
+        }
+
+        physx::PxVehicleSetBasisVectors(physx::PxVec3{0.0f, 0.0f, 1.0f}, physx::PxVec3{1.0f, 0.0f, 0.0f});
+
         mCooking.reset(PxCreateCooking(PX_PHYSICS_VERSION, *mFoundation, physx::PxCookingParams{mTolerancesScale}));
 
         if (mCooking == nullptr) {
@@ -148,6 +162,11 @@ namespace PhysicsRuntime {
         mDispatcher.reset();
         mDefaultMaterial.reset();
         mCooking.reset();
+
+        if (mVehicleSdkInitialized) {
+            physx::PxCloseVehicleSDK();
+            mVehicleSdkInitialized = false;
+        }
 
         if (mExtensionsInitialized) {
             PxCloseExtensions();
