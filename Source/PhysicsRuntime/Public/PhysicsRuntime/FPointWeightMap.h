@@ -98,30 +98,30 @@ namespace PhysicsRuntime {
         /**
          * @brief 입자 하나의 값이 기준 이하인지 검사합니다.
          * @param[in] Index 입자 번호입니다.
-         * @param[in] Threshold 비교할 기준입니다.
+         * @param[in] Threshold 비교할 기준이며 기본값은 0.1 cm입니다.
          * @return 범위 안이고 값이 기준 이하이면 true입니다.
          */
-        bool IsBelowThreshold(Index_t Index, float Threshold = 0.1f) const;
+        bool IsBelowThreshold(Index_t Index, float Threshold = 0.001f) const;
 
         /**
          * @brief 삼각형의 세 입자 중 하나라도 기준 이하인지 검사합니다.
          * @param[in] Index0 첫 입자 번호입니다.
          * @param[in] Index1 둘째 입자 번호입니다.
          * @param[in] Index2 셋째 입자 번호입니다.
-         * @param[in] Threshold 비교할 기준입니다.
+         * @param[in] Threshold 비교할 기준이며 기본값은 0.1 cm입니다.
          * @return 하나라도 기준 이하이면 true입니다.
          */
-        bool AreAnyBelowThreshold(Index_t Index0, Index_t Index1, Index_t Index2, float Threshold = 0.1f) const;
+        bool AreAnyBelowThreshold(Index_t Index0, Index_t Index1, Index_t Index2, float Threshold = 0.001f) const;
 
         /**
          * @brief 삼각형의 세 입자가 모두 기준 이하인지 검사합니다.
          * @param[in] Index0 첫 입자 번호입니다.
          * @param[in] Index1 둘째 입자 번호입니다.
          * @param[in] Index2 셋째 입자 번호입니다.
-         * @param[in] Threshold 비교할 기준입니다.
+         * @param[in] Threshold 비교할 기준이며 기본값은 0.1 cm입니다.
          * @return 모두 기준 이하이면 true입니다.
          */
-        bool AreAllBelowThreshold(Index_t Index0, Index_t Index1, Index_t Index2, float Threshold = 0.1f) const;
+        bool AreAllBelowThreshold(Index_t Index0, Index_t Index1, Index_t Index2, float Threshold = 0.001f) const;
 
     public:
 

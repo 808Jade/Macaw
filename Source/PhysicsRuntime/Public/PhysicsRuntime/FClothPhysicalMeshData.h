@@ -69,6 +69,13 @@ namespace PhysicsRuntime {
          */
         FPointWeightMap& AddWeightMap(EWeightMapTargetCommon Target);
 
+        /**
+         * @brief 천끼리 부딪힐 입자를 고릅니다.
+         * @details 고정되지 않은 입자 중에서 처음부터 서로 거리 안에 있는 입자는 앞의 것만 남깁니다.
+         * @param[in] SelfCollisionRadius 고를 때 쓰는 거리(m)이며 0이면 아무것도 바꾸지 않습니다.
+         */
+        void BuildSelfCollisionData(float SelfCollisionRadius);
+
     public:
 
         /**
@@ -115,5 +122,10 @@ namespace PhysicsRuntime {
          * @brief 역질량이 0인 고정 입자의 수입니다.
          */
         Index_t mNumFixedVerts{};
+
+        /**
+         * @brief 천끼리 부딪힐 입자 번호입니다.
+         */
+        Core::TArray<Uint32> mSelfCollisionIndices{};
     };
 }

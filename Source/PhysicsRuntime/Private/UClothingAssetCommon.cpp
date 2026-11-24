@@ -6,6 +6,7 @@
 
 #include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "PhysicsRuntime/ClothingMeshUtils.h"
+#include "CoreUObject/Reflection/NewObject.h"
 
 #include <algorithm>
 
@@ -24,7 +25,9 @@ namespace PhysicsRuntime {
     /**
      * @brief 상세 단계가 없는 빈 에셋을 구성합니다.
      */
-    UClothingAssetCommon::UClothingAssetCommon() = default;
+    UClothingAssetCommon::UClothingAssetCommon()
+        : mClothConfig{CoreUObject::NewObject<UClothConfigNv>()} {
+    }
 
     /**
      * @brief 상세 단계 데이터를 정리합니다.
@@ -158,6 +161,35 @@ namespace PhysicsRuntime {
         }
 
         RefreshBoneMapping(SkeletonBoneNames);
+    }
+
+    /**
+     * @brief 설정의 천끼리 충돌 거리로 상세 단계마다 천끼리 부딪힐 입자를 다시 고릅니다.
+     */
+    void UClothingAssetCommon::BuildSelfCollisionData() {
+        if (mClothConfig == nullptr) {
+            return;
+        }
+
+        const float SelfCollisionRadius{mClothConfig->NeedsSelfCollisionIndices()};
+
+        for (FClothLODDataCommon& Lod : mLodData) {
+            Lod.mPhysicalMeshData.BuildSelfCollisionData(SelfCollisionRadius);
+        }
+    }
+
+    /**
+     * @brief 천 설정을 반환합니다.
+     */
+    UClothConfigNv* UClothingAssetCommon::GetClothConfig() {
+        return mClothConfig.get();
+    }
+
+    /**
+     * @brief 천 설정을 반환합니다.
+     */
+    const UClothConfigNv* UClothingAssetCommon::GetClothConfig() const {
+        return mClothConfig.get();
     }
 
     /**

@@ -10,6 +10,7 @@
 #include "Core/Math/FMatrix.h"
 #include "Core/Math/FVector.h"
 #include "PhysicsRuntime/IClothingSimulation.h"
+#include "PhysicsRuntime/UClothConfigNv.h"
 
 #include <NvCloth/PhaseConfig.h>
 #include <foundation/PxVec4.h>
@@ -195,6 +196,31 @@ namespace PhysicsRuntime {
          * @brief 시뮬레이션 중에 쓰는 임시 배열입니다.
          */
         FClothingActorScratchData mScratch{};
+
+        /**
+         * @brief 바람을 적용하는 방식이며 설정에서 받습니다.
+         */
+        EClothingWindMethodNv mWindMethod{EClothingWindMethodNv::Legacy};
+
+        /**
+         * @brief 입자를 스키닝 위치 쪽으로 당기는 지금의 스프링 세기이며 설정에서 받습니다.
+         */
+        float mCurrentAnimDriveSpringStiffness{};
+
+        /**
+         * @brief 입자 속도를 스키닝 속도에 맞추는 지금의 감쇠 세기이며 설정에서 받습니다.
+         */
+        float mCurrentAnimDriveDamperStiffness{};
+
+        /**
+         * @brief 설정의 중력 배율을 곱해 쓸 천 전용 중력을 쓰는지 나타냅니다.
+         */
+        bool mUseGravityOverride{};
+
+        /**
+         * @brief 천 전용 중력 가속도(m/s²)입니다.
+         */
+        FVector mGravityOverride{};
     };
 
     /**
@@ -377,6 +403,14 @@ namespace PhysicsRuntime {
          * @param[in,out] Actor 충돌체를 받을 천입니다.
          */
         void ExtractActorCollisions(const UClothingAssetCommon& Asset, FClothingActorNv& Actor) const;
+
+        /**
+         * @brief 설정을 천의 모든 상세 단계에 넣습니다.
+         * @details 감쇠와 항력은 세기 기준 횟수에 맞게 바꿔 넣습니다.
+         * @param[in] Config 넣을 설정입니다.
+         * @param[in,out] Actor 설정을 받을 천입니다.
+         */
+        void ApplyClothConfig(const UClothConfigNv& Config, FClothingActorNv& Actor) const;
 
     private:
 

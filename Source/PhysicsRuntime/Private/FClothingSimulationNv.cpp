@@ -22,6 +22,7 @@
 #include <NvClothExt/ClothMeshQuadifier.h>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <utility>
 
@@ -478,6 +479,9 @@ namespace PhysicsRuntime {
 
             ActorLodData.mCloth->setPhaseConfig(MakeRange(ActorLodData.mPhaseConfigs));
 
+            // 천끼리 부딪힐 입자를 넣습니다. 실제로 부딪히는지는 설정의 거리와 세기가 정합니다.
+            ActorLodData.mCloth->setSelfCollisionIndices(MakeRange(PhysMesh.mSelfCollisionIndices));
+
             // 입자마다 스키닝 위치를 중심, 최대 거리를 반지름으로 하는 구 안에서만 움직이게 합니다.
             const FPointWeightMap* const MaxDistances{PhysMesh.FindWeightMap(EWeightMapTargetCommon::MaxDistance)};
             const bool HasMaxDistances{MaxDistances != nullptr && MaxDistances->Num() == NumVerts};
@@ -510,6 +514,11 @@ namespace PhysicsRuntime {
 
         // 몸과 부딪히도록 물리 에셋의 구와 캡슐을 꺼내 둡니다.
         ExtractActorCollisions(Asset, NewActor);
+
+        // 세기, 감쇠, 관성 같은 설정을 넣습니다.
+        if (const UClothConfigNv* const Config{Asset.GetClothConfig()}) {
+            ApplyClothConfig(*Config, NewActor);
+        }
 
         mActors.push_back(std::move(NewActor));
 
@@ -597,6 +606,105 @@ namespace PhysicsRuntime {
         }
 
         Actor.mCollisionsDirty = Actor.mCollisionsDirty || AddedBodies;
+    }
+
+    /**
+     * @brief 설정을 천의 모든 상세 단계에 넣습니다.
+     */
+    void FClothingSimulationNv::ApplyClothConfig(const UClothConfigNv& Config, FClothingActorNv& Actor) const {
+        // 감쇠와 항력은 세기 기준 횟수 10 Hz일 때의 비율로 보고 실제 기준 횟수에 맞게 바꿉니다.
+        constexpr float DampStiffnessFrequency{10.0f};
+        const float DampStiffFreqRatio{DampStiffnessFrequency / Config.mStiffnessFrequency};
+        const auto AdjustRatio{[DampStiffFreqRatio](float Value) {
+            return 1.0f - std::exp2(DampStiffFreqRatio * std::log2(1.0f - Value));
+        }};
+        const FVector AdjustedDamping{AdjustRatio(Config.mDamping.x), AdjustRatio(Config.mDamping.y), AdjustRatio(Config.mDamping.z)};
+        const FVector AdjustedDragLin{AdjustRatio(Config.mLinearDrag.x), AdjustRatio(Config.mLinearDrag.y), AdjustRatio(Config.mLinearDrag.z)};
+        const FVector AdjustedDragAng{AdjustRatio(Config.mAngularDrag.x), AdjustRatio(Config.mAngularDrag.y), AdjustRatio(Config.mAngularDrag.z)};
+
+        for (FClothingActorNv::FActorLodData& LodData : Actor.mLodData) {
+            nv::cloth::Cloth* const LodCloth{LodData.mCloth};
+
+            if (LodCloth == nullptr) {
+                continue;
+            }
+
+            // 위상 종류마다 해당하는 세기 설정을 넣습니다.
+            for (Index_t PhaseIndex{}; PhaseIndex < LodData.mPhaseConfigs.size() && PhaseIndex < LodData.mPhaseTypes.size(); ++PhaseIndex) {
+                nv::cloth::PhaseConfig& PhaseConfig{LodData.mPhaseConfigs[PhaseIndex]};
+                const FClothConstraintSetupNv* ConfigToUse{};
+
+                switch (static_cast<nv::cloth::ClothFabricPhaseType::Enum>(LodData.mPhaseTypes[PhaseIndex])) {
+                    case nv::cloth::ClothFabricPhaseType::eVERTICAL:
+                        ConfigToUse = &Config.mVerticalConstraint;
+                        break;
+                    case nv::cloth::ClothFabricPhaseType::eHORIZONTAL:
+                        ConfigToUse = &Config.mHorizontalConstraint;
+                        break;
+                    case nv::cloth::ClothFabricPhaseType::eBENDING:
+                        ConfigToUse = &Config.mBendConstraint;
+                        break;
+                    case nv::cloth::ClothFabricPhaseType::eSHEARING:
+                        ConfigToUse = &Config.mShearConstraint;
+                        break;
+                    default:
+                        break;
+                }
+
+                if (ConfigToUse == nullptr) {
+                    continue;
+                }
+
+                PhaseConfig.mStiffness = ConfigToUse->mStiffness;
+                PhaseConfig.mStiffnessMultiplier = ConfigToUse->mStiffnessMultiplier;
+                PhaseConfig.mCompressionLimit = ConfigToUse->mCompressionLimit;
+                PhaseConfig.mStretchLimit = ConfigToUse->mStretchLimit;
+            }
+
+            LodCloth->setPhaseConfig(MakeRange(LodData.mPhaseConfigs));
+
+            // 항력과 양력 계수는 정확한 바람 방식에서만 씁니다.
+            if (Config.mClothingWindMethod == EClothingWindMethodNv::Accurate) {
+                LodCloth->setDragCoefficient(Config.mWindDragCoefficient);
+                LodCloth->setLiftCoefficient(Config.mWindLiftCoefficient);
+            } else {
+                LodCloth->setDragCoefficient(0.0f);
+                LodCloth->setLiftCoefficient(0.0f);
+            }
+
+            // 단순한 바람 방식에서 정확한 방식으로 바뀌면 남아 있던 입자 가속도를 지웁니다.
+            if (Actor.mWindMethod == EClothingWindMethodNv::Legacy && Config.mClothingWindMethod == EClothingWindMethodNv::Accurate) {
+                LodCloth->clearParticleAccelerations();
+            }
+
+            LodCloth->setSolverFrequency(Config.mSolverFrequency);
+            LodCloth->setStiffnessFrequency(Config.mStiffnessFrequency);
+            LodCloth->setAcceleationFilterWidth(2u * static_cast<Uint32>(Config.mSolverFrequency));
+
+            LodCloth->setSelfCollisionDistance(Config.mSelfCollisionRadius);
+            LodCloth->setSelfCollisionStiffness(Config.mSelfCollisionStiffness);
+
+            // 천끼리 부딪히려면 처음 모양의 입자 위치가 있어야 합니다.
+            if (Config.UseSelfCollisions()) {
+                LodCloth->setRestPositions(MakeRange(LodData.mRestPositions));
+            }
+
+            LodCloth->setDamping(ToPxVec3(AdjustedDamping));
+            LodCloth->setFriction(Config.mFriction);
+            LodCloth->setLinearDrag(ToPxVec3(AdjustedDragLin));
+            LodCloth->setAngularDrag(ToPxVec3(AdjustedDragAng));
+            LodCloth->setLinearInertia(ToPxVec3(Config.mLinearInertiaScale));
+            LodCloth->setAngularInertia(ToPxVec3(Config.mAngularInertiaScale));
+            LodCloth->setCentrifugalInertia(ToPxVec3(Config.mCentrifugalInertiaScale));
+
+            LodCloth->setTetherConstraintScale(Config.mTetherLimit);
+            LodCloth->setTetherConstraintStiffness(Config.mTetherStiffness);
+        }
+
+        Actor.mCollisionThickness = Config.mCollisionThickness;
+        Actor.mWindMethod = Config.mClothingWindMethod;
+        Actor.mCurrentAnimDriveSpringStiffness = Config.mAnimDriveSpringStiffness;
+        Actor.mCurrentAnimDriveDamperStiffness = Config.mAnimDriveDamperStiffness;
     }
 
     /**
@@ -795,7 +903,18 @@ namespace PhysicsRuntime {
 
             // 기준 뼈의 월드 변환이 지난 프레임과 달라진 만큼 NvCloth가 입자에 관성을 줍니다.
             SetSimRootTransform(Cloth, Context.mComponentToWorld, Context.mBoneTransforms, Actor.mAssetCreatedFrom->mReferenceBoneIndex);
-            Cloth.setGravity(ToPxVec3(Context.mWorldGravity));
+            // 설정이 중력을 덮어쓰면 그 값을, 아니면 천 전용 중력이나 월드 중력에 배율을 곱해 씁니다.
+            if (const UClothConfigNv* const Config{Actor.mAssetCreatedFrom->GetClothConfig()}) {
+                if (Config->mUseGravityOverride) {
+                    Cloth.setGravity(ToPxVec3(Config->mGravityOverride));
+                } else if (Actor.mUseGravityOverride) {
+                    Cloth.setGravity(ToPxVec3(Actor.mGravityOverride * Config->mGravityScale));
+                } else {
+                    Cloth.setGravity(ToPxVec3(Context.mWorldGravity * Config->mGravityScale));
+                }
+            } else {
+                Cloth.setGravity(ToPxVec3(Context.mWorldGravity));
+            }
 
             // 최대 거리가 0인 입자는 스키닝 위치에 붙어 애니메이션을 따라가고, 나머지는 그 거리 안에서만 흔들립니다.
             Actor.UpdateMotionConstraints(Context);

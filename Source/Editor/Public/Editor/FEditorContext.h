@@ -734,6 +734,15 @@ namespace Editor {
         bool SetClothPhysicsAssetTest(const Core::FString& Path);
 
         /**
+         * @brief 선택한 스켈레탈 메시의 천 에셋들의 설정 하나를 바꾸고 천을 다시 만듭니다.
+         * @details 이름 없이 부르면 첫 천 에셋의 설정 값을 모두 로그에 보여 줍니다.
+         * @param[in] Name 바꿀 설정 이름이며 비어 있으면 값을 보여 줍니다.
+         * @param[in] Values 넣을 값이며 벡터 설정에 값 하나를 주면 세 축에 같은 값을 넣습니다.
+         * @return 설정을 바꾸거나 보여 줬으면 true입니다.
+         */
+        bool SetClothConfigTest(const Core::FString& Name, const Core::TArray<float>& Values);
+
+        /**
          * @brief 선택한 컴포넌트가 스켈레탈 메시 컴포넌트이면 그것을, 액터이면 그 액터의 첫 스켈레탈 메시 컴포넌트를 찾습니다.
          * @return 찾은 컴포넌트이며 없으면 nullptr입니다.
          */

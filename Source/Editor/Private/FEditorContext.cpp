@@ -1467,6 +1467,144 @@ namespace Editor {
     }
 
     /**
+     * @brief 선택한 스켈레탈 메시의 천 에셋들의 설정 하나를 바꾸고 천을 다시 만듭니다.
+     */
+    bool Editor::FEditorContext::SetClothConfigTest(const Core::FString& Name, const Core::TArray<float>& Values) {
+        Engine::USkeletalMeshComponent* Component{FindSelectedSkeletalMeshComponent()};
+        Asset::USkeletalMesh* Mesh{Component != nullptr ? Component->GetSkeletalMesh() : nullptr};
+
+        if (Mesh == nullptr || Mesh->GetMeshClothingAssets().empty()) {
+            AddLog("Select a skeletal mesh with a clothing asset first. Run cloth.asset to create one.");
+
+            return false;
+        }
+
+        // 설정 이름과 값의 위치를 한곳에 모아 보여 주기와 바꾸기에 함께 씁니다.
+        const auto GetFloats{[](PhysicsRuntime::UClothConfigNv& Config) {
+            return Core::TArray<std::pair<Core::FString, float*>>{
+                {"vertical.stiffness", &Config.mVerticalConstraint.mStiffness},
+                {"vertical.stiffnessmultiplier", &Config.mVerticalConstraint.mStiffnessMultiplier},
+                {"vertical.stretchlimit", &Config.mVerticalConstraint.mStretchLimit},
+                {"vertical.compressionlimit", &Config.mVerticalConstraint.mCompressionLimit},
+                {"horizontal.stiffness", &Config.mHorizontalConstraint.mStiffness},
+                {"horizontal.stiffnessmultiplier", &Config.mHorizontalConstraint.mStiffnessMultiplier},
+                {"horizontal.stretchlimit", &Config.mHorizontalConstraint.mStretchLimit},
+                {"horizontal.compressionlimit", &Config.mHorizontalConstraint.mCompressionLimit},
+                {"bend.stiffness", &Config.mBendConstraint.mStiffness},
+                {"bend.stiffnessmultiplier", &Config.mBendConstraint.mStiffnessMultiplier},
+                {"bend.stretchlimit", &Config.mBendConstraint.mStretchLimit},
+                {"bend.compressionlimit", &Config.mBendConstraint.mCompressionLimit},
+                {"shear.stiffness", &Config.mShearConstraint.mStiffness},
+                {"shear.stiffnessmultiplier", &Config.mShearConstraint.mStiffnessMultiplier},
+                {"shear.stretchlimit", &Config.mShearConstraint.mStretchLimit},
+                {"shear.compressionlimit", &Config.mShearConstraint.mCompressionLimit},
+                {"selfcollisionradius", &Config.mSelfCollisionRadius},
+                {"selfcollisionstiffness", &Config.mSelfCollisionStiffness},
+                {"selfcollisioncullscale", &Config.mSelfCollisionCullScale},
+                {"friction", &Config.mFriction},
+                {"winddrag", &Config.mWindDragCoefficient},
+                {"windlift", &Config.mWindLiftCoefficient},
+                {"solverfrequency", &Config.mSolverFrequency},
+                {"stiffnessfrequency", &Config.mStiffnessFrequency},
+                {"gravityscale", &Config.mGravityScale},
+                {"tetherstiffness", &Config.mTetherStiffness},
+                {"tetherlimit", &Config.mTetherLimit},
+                {"collisionthickness", &Config.mCollisionThickness},
+                {"animdrivespring", &Config.mAnimDriveSpringStiffness},
+                {"animdrivedamper", &Config.mAnimDriveDamperStiffness},
+            };
+        }};
+        const auto GetVectors{[](PhysicsRuntime::UClothConfigNv& Config) {
+            return Core::TArray<std::pair<Core::FString, FVector*>>{
+                {"damping", &Config.mDamping},
+                {"lineardrag", &Config.mLinearDrag},
+                {"angulardrag", &Config.mAngularDrag},
+                {"linearinertia", &Config.mLinearInertiaScale},
+                {"angularinertia", &Config.mAngularInertiaScale},
+                {"centrifugalinertia", &Config.mCentrifugalInertiaScale},
+                {"gravityoverride", &Config.mGravityOverride},
+            };
+        }};
+
+        // 이름이 없으면 첫 천 에셋의 설정 값을 보여 줍니다.
+        if (Name.empty()) {
+            PhysicsRuntime::UClothConfigNv* Config{Mesh->GetMeshClothingAssets().front()->GetClothConfig()};
+
+            if (Config == nullptr) {
+                return false;
+            }
+
+            for (const auto& [EntryName, Value] : GetFloats(*Config)) {
+                AddLog(EntryName + " = " + std::to_string(*Value));
+            }
+
+            for (const auto& [EntryName, Value] : GetVectors(*Config)) {
+                AddLog(EntryName + " = " + std::to_string(Value->x) + " " + std::to_string(Value->y) + " " + std::to_string(Value->z));
+            }
+
+            AddLog(Core::FString{"usegravityoverride = "} + (Config->mUseGravityOverride ? "1" : "0"));
+            AddLog(Core::FString{"windmethod = "} + (Config->mClothingWindMethod == PhysicsRuntime::EClothingWindMethodNv::Accurate ? "1 (accurate)" : "0 (legacy)"));
+
+            return true;
+        }
+
+        if (Values.empty()) {
+            AddLog("Give a value for " + Name + ".");
+
+            return false;
+        }
+
+        bool Found{};
+
+        for (const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset : Mesh->GetMeshClothingAssets()) {
+            PhysicsRuntime::UClothConfigNv* Config{ClothingAsset->GetClothConfig()};
+
+            if (Config == nullptr) {
+                continue;
+            }
+
+            for (const auto& [EntryName, Value] : GetFloats(*Config)) {
+                if (EntryName == Name) {
+                    *Value = Values[0];
+                    Found = true;
+                }
+            }
+
+            for (const auto& [EntryName, Value] : GetVectors(*Config)) {
+                if (EntryName == Name) {
+                    *Value = Values.size() >= 3 ? FVector{Values[0], Values[1], Values[2]} : FVector{Values[0], Values[0], Values[0]};
+                    Found = true;
+                }
+            }
+
+            if (Name == "usegravityoverride") {
+                Config->mUseGravityOverride = Values[0] != 0.0f;
+                Found = true;
+            }
+
+            if (Name == "windmethod") {
+                Config->mClothingWindMethod = Values[0] != 0.0f ? PhysicsRuntime::EClothingWindMethodNv::Accurate : PhysicsRuntime::EClothingWindMethodNv::Legacy;
+                Found = true;
+            }
+
+            // 천끼리 충돌 거리가 바뀌었을 수 있으므로 부딪힐 입자를 다시 고릅니다.
+            ClothingAsset->BuildSelfCollisionData();
+        }
+
+        if (!Found) {
+            AddLog("Unknown cloth config '" + Name + "'. Run cloth.config without arguments to see the names.");
+
+            return false;
+        }
+
+        // 설정은 천을 만들 때 들어가므로 천을 다시 만듭니다.
+        Component->RecreateClothingActors();
+        AddLog("Cloth config " + Name + " set.");
+
+        return true;
+    }
+
+    /**
      * @brief 선택한 스켈레탈 메시의 천 에셋들이 부딪힐 물리 에셋을 바꾸고 천을 다시 만듭니다.
      */
     bool Editor::FEditorContext::SetClothPhysicsAssetTest(const Core::FString& Path) {

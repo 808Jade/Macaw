@@ -10,7 +10,10 @@
 #include "CoreUObject/TObjectRef.h"
 #include "CoreUObject/UObject.h"
 #include "PhysicsRuntime/FClothLODDataCommon.h"
+#include "PhysicsRuntime/UClothConfigNv.h"
 #include "PhysicsRuntime/UPhysicsAsset.h"
+
+#include <memory>
 
 #include "UClothingAssetCommon.generated.h"
 
@@ -65,6 +68,23 @@ namespace PhysicsRuntime {
          *          입자마다 가중치가 0이 아닌 뼈 영향 수도 다시 셉니다.
          */
         void InvalidateCachedData();
+
+        /**
+         * @brief 설정의 천끼리 충돌 거리로 상세 단계마다 천끼리 부딪힐 입자를 다시 고릅니다.
+         */
+        void BuildSelfCollisionData();
+
+        /**
+         * @brief 천 설정을 반환합니다.
+         * @return 에셋이 소유하는 설정입니다.
+         */
+        UClothConfigNv* GetClothConfig();
+
+        /**
+         * @brief 천 설정을 반환합니다.
+         * @return 에셋이 소유하는 설정입니다.
+         */
+        const UClothConfigNv* GetClothConfig() const;
 
         /**
          * @brief 사용 뼈 이름마다 스켈레톤의 뼈 번호를 다시 찾습니다.
@@ -123,5 +143,12 @@ namespace PhysicsRuntime {
          * @details 물리 에셋이 먼저 사라지면 비어 있는 것으로 보고 충돌을 쓰지 않습니다.
          */
         CoreUObject::TObjectRef<UPhysicsAsset> mPhysicsAsset{};
+
+    private:
+
+        /**
+         * @brief 천을 만들 때 NvCloth에 넣는 설정입니다.
+         */
+        std::unique_ptr<UClothConfigNv> mClothConfig{};
     };
 }

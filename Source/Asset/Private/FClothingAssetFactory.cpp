@@ -118,6 +118,7 @@ namespace Asset {
         // 물리 에셋을 정하면서 몸통 뼈까지 사용 뼈에 넣고 뼈 번호를 다시 찾습니다.
         NewAsset->SetPhysicsAsset(PhysicsAsset, SkeletonBoneNames);
         NewAsset->InvalidateCachedData();
+        NewAsset->BuildSelfCollisionData();
 
         return NewAsset;
     }

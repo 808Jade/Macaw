@@ -189,6 +189,27 @@ namespace Editor {
 
             SetClothPhysicsAssetTest(*Value);
         }});
+        mConsoleCommands.Register({"cloth.config", "[name value...]", {}, [this](const Editor::FConsoleInvocation& Invocation) {
+            std::istringstream Input{Core::FString{Invocation.mArguments}};
+            Core::FString Name{};
+            Core::TArray<float> Values{};
+            float Value{};
+
+            Input >> Name;
+
+            while (Input >> Value) {
+                Values.push_back(Value);
+            }
+
+            // 숫자가 아닌 값이 남아 있으면 잘못된 입력입니다.
+            if (!Input.eof()) {
+                AddLog(MakeUsage(Invocation));
+
+                return;
+            }
+
+            SetClothConfigTest(Lowercase(Name), Values);
+        }});
         mConsoleCommands.Register({"cloth.sim", "<section/off>", {"off"}, [this](const Editor::FConsoleInvocation& Invocation) {
             const std::optional<Core::FString> Value{ReadConsoleValue(Invocation.mArguments)};
 

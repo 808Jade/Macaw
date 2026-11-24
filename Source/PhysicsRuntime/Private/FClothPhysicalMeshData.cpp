@@ -76,4 +76,47 @@ namespace PhysicsRuntime {
     FPointWeightMap& FClothPhysicalMeshData::AddWeightMap(EWeightMapTargetCommon Target) {
         return mWeightMaps[static_cast<Uint32>(Target)];
     }
+
+    /**
+     * @brief 천끼리 부딪힐 입자를 고릅니다.
+     */
+    void FClothPhysicalMeshData::BuildSelfCollisionData(float SelfCollisionRadius) {
+        if (SelfCollisionRadius == 0.0f) {
+            return;
+        }
+
+        const float RadiusSquared{SelfCollisionRadius * SelfCollisionRadius};
+        const FPointWeightMap* const MaxDistances{FindWeightMap(EWeightMapTargetCommon::MaxDistance)};
+        constexpr Uint32 RemovedIndex{0xFFFFFFFFu};
+
+        // 고정 입자는 움직이지 않으므로 천끼리 부딪힐 필요가 없습니다.
+        mSelfCollisionIndices.clear();
+
+        for (Index_t VertIndex{}; VertIndex < mVertices.size(); ++VertIndex) {
+            if (MaxDistances == nullptr || !MaxDistances->IsBelowThreshold(VertIndex)) {
+                mSelfCollisionIndices.push_back(static_cast<Uint32>(VertIndex));
+            }
+        }
+
+        // 처음부터 거리 안에 붙어 있는 입자끼리는 늘 부딪힌 것으로 보이므로 뒤의 입자를 뺍니다.
+        for (Index_t Vert0Itr{}; Vert0Itr < mSelfCollisionIndices.size(); ++Vert0Itr) {
+            const Uint32 V0Index{mSelfCollisionIndices[Vert0Itr]};
+
+            if (V0Index == RemovedIndex) {
+                continue;
+            }
+
+            const FVector& V0Pos{mVertices[V0Index]};
+
+            for (Index_t Vert1Itr{Vert0Itr + 1}; Vert1Itr < mSelfCollisionIndices.size(); ++Vert1Itr) {
+                const Uint32 V1Index{mSelfCollisionIndices[Vert1Itr]};
+
+                if (V1Index != RemovedIndex && (mVertices[V1Index] - V0Pos).LengthSquared() < RadiusSquared) {
+                    mSelfCollisionIndices[Vert1Itr] = RemovedIndex;
+                }
+            }
+        }
+
+        std::erase(mSelfCollisionIndices, RemovedIndex);
+    }
 }
