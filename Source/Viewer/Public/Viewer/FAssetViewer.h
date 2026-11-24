@@ -17,6 +17,7 @@
 
 namespace Asset {
     class FAssetManager;
+    class UTexture2D;
 }
 
 namespace RenderCore {
@@ -247,6 +248,17 @@ namespace Viewer {
          * @brief 배경 격자의 월드 단위 간격이며 0은 표시하지 않습니다.
          */
         float mGridSpacing{};
+
+        /**
+         * @brief sRGB 텍스처를 UI에 저장된 색 그대로 보이도록 디코딩·인코딩을 거쳐 복사한 표시용 이미지입니다.
+         * @details sRGB 텍스처의 셰이더 리소스 뷰는 샘플링할 때 선형으로 디코딩하므로, 그대로 UI에 그리면 어둡게 보입니다.
+         */
+        mutable std::unique_ptr<Asset::UTexture2D> mDisplayTexture{};
+
+        /**
+         * @brief 표시용 이미지를 만든 원본 텍스처의 비소유 주소입니다. 원본이 바뀌면 다시 만듭니다.
+         */
+        mutable const Asset::UTexture2D* mDisplaySource{};
 
         /**
          * @brief 2D 이미지 Fit에 적용할 여백 배율입니다.

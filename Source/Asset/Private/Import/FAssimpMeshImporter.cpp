@@ -475,7 +475,13 @@ namespace Asset {
             const float SpecularDefault{SpecularTexture.GetSource() == Asset::EMeshImportTextureSource::None ? 0.0f : 1.0f};
             const float EmissiveDefault{EmissiveTexture.GetSource() == Asset::EMeshImportTextureSource::None ? 0.0f : 1.0f};
             const FVector4 SpecularColor{ReadColor(AI_MATKEY_COLOR_SPECULAR, {SpecularDefault, SpecularDefault, SpecularDefault, 1.0f})};
-            const FVector4 AmbientColor{ReadColor(AI_MATKEY_COLOR_AMBIENT, {1.0f, 1.0f, 1.0f, 1.0f})};
+            FVector4 AmbientColor{ReadColor(AI_MATKEY_COLOR_AMBIENT, {1.0f, 1.0f, 1.0f, 1.0f})};
+
+            // 검정 Ambient는 환경광을 전혀 받지 못하게 하므로, 지정되지 않은 값으로 보고 기본값(흰색)을 쓴다.
+            if (AmbientColor.x <= 0.0f && AmbientColor.y <= 0.0f && AmbientColor.z <= 0.0f) {
+                AmbientColor = {1.0f, 1.0f, 1.0f, 1.0f};
+            }
+
             const FVector4 EmissiveColor{ReadColor(AI_MATKEY_COLOR_EMISSIVE, {EmissiveDefault, EmissiveDefault, EmissiveDefault, 1.0f})};
             const FVector4 ReflectionColor{ReadColor(AI_MATKEY_COLOR_REFLECTIVE, {1.0f, 1.0f, 1.0f, 1.0f})};
 

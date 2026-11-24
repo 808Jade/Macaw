@@ -134,6 +134,12 @@ namespace Asset {
             // RGB는 Diffuse 색상에 DiffuseFactor를 곱한 값, A는 위에서 계산한 불투명도입니다.
             BaseColor = {static_cast<float>(Color[0] * Factor), static_cast<float>(Color[1] * Factor), static_cast<float>(Color[2] * Factor), static_cast<float>(Opacity)};
             AmbientColor = ReadColor(Lambert->Ambient.Get(), Lambert->AmbientFactor.Get());
+
+            // FBX의 Ambient는 대개 검정(0, 0, 0)이 기본값이다. 이 엔진은 환경광에 이 색을 곱하므로 검정이면 환경광을 전혀 받지 못한다.
+            // 환경광을 끄려는 의도로 쓰지 않으므로, 검정은 값이 지정되지 않은 것으로 보고 기본값(흰색)을 쓴다.
+            if (AmbientColor.x <= 0.0f && AmbientColor.y <= 0.0f && AmbientColor.z <= 0.0f) {
+                AmbientColor = {1.0f, 1.0f, 1.0f, 1.0f};
+            }
             EmissiveColor = ReadColor(Lambert->Emissive.Get(), Lambert->EmissiveFactor.Get());
         }
 
