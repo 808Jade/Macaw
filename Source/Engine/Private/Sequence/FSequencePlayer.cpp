@@ -421,15 +421,9 @@ namespace Engine {
             mCameraCaptured = true;
         }
 
-        // 실행 중이면 게임 뷰포트가 카메라 관리자의 시점으로 그리므로 뷰 타깃도 컷 카메라로 바꿉니다.
-        if (Engine::APlayerCameraManager* CameraManager{World->GetPlayerCameraManager()}) {
-            if (CameraManager->GetViewTarget() != Camera->GetOwner()) {
-                CameraManager->SetViewTarget(Camera->GetOwner());
-            }
+        if (World->SetActiveCamera(Camera)) {
+            mCutCamera = CoreUObject::MakeObjectRef(Camera);
         }
-
-        World->SetActiveCamera(Camera);
-        mCutCamera = CoreUObject::MakeObjectRef(Camera);
     }
 
 }

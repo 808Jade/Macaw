@@ -16,7 +16,25 @@ namespace Engine {
         Result.mLocation = mLocation.Lerp(Other.mLocation, Alpha);
         Result.mRotation = mRotation.Slerp(Other.mRotation, Alpha);
         Result.mFieldOfView = mFieldOfView + (Other.mFieldOfView - mFieldOfView) * Alpha;
-        Result.mDepthOfFieldSettings = Alpha < 0.5f ? mDepthOfFieldSettings : Other.mDepthOfFieldSettings;
+
+        const Engine::FDepthOfFieldSettings& From{mDepthOfFieldSettings};
+        const Engine::FDepthOfFieldSettings& To{Other.mDepthOfFieldSettings};
+        Engine::FDepthOfFieldSettings& DepthOfField{Result.mDepthOfFieldSettings};
+        DepthOfField = Alpha < 0.5f ? From : To;
+
+        if (Alpha > 0.0f && Alpha < 1.0f) {
+            if (From.mEnabled && To.mEnabled) {
+                DepthOfField.mFocalDistance = std::lerp(From.mFocalDistance, To.mFocalDistance, Alpha);
+                DepthOfField.mFocusWidth = std::lerp(From.mFocusWidth, To.mFocusWidth, Alpha);
+                DepthOfField.mTransitionDistance = std::lerp(From.mTransitionDistance, To.mTransitionDistance, Alpha);
+                DepthOfField.mMaxBlurRadius = std::lerp(From.mMaxBlurRadius, To.mMaxBlurRadius, Alpha);
+                DepthOfField.mFStop = std::lerp(From.mFStop, To.mFStop, Alpha);
+            } else if (From.mEnabled != To.mEnabled) {
+                // 한쪽만 DOF를 쓰면 해당 카메라의 초점을 유지한 채 블러 반경을 보간합니다.
+                DepthOfField = From.mEnabled ? From : To;
+                DepthOfField.mMaxBlurRadius *= From.mEnabled ? 1.0f - Alpha : Alpha;
+            }
+        }
 
         return Result;
     }

@@ -169,16 +169,28 @@ namespace Engine {
     }
 
     bool Engine::APlayerCameraManager::CalcViewTargetPOV(const Engine::AActor* Target, Engine::FMinimalViewInfo& ViewInfo) const {
-        for (const auto& Component : Target->GetComponents()) {
-            if (const auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(Component.get())}) {
-                if (!Camera->GetTransform().IsValid()) {
-                    return false;
+        const Engine::UCameraComponent* Camera{GetWorld()->GetActiveCamera()};
+
+        if (Camera == nullptr || Camera->GetOwner() != Target) {
+            Camera = nullptr;
+
+            for (const auto& Component : Target->GetComponents()) {
+                Camera = CoreUObject::Cast<Engine::UCameraComponent>(Component.get());
+
+                if (Camera != nullptr) {
+                    break;
                 }
-
-                ViewInfo = Camera->GetCameraViewInfo();
-
-                return true;
             }
+        }
+
+        if (Camera != nullptr) {
+            if (!Camera->GetTransform().IsValid()) {
+                return false;
+            }
+
+            ViewInfo = Camera->GetCameraViewInfo();
+
+            return true;
         }
 
         const FTransform Transform{Target->GetActorTransform()};
