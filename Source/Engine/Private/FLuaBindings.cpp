@@ -233,6 +233,9 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
             throw sol::error{"Invalid movement velocity"};
         }
     });
+    Actor["StopMovement"] = [](const FActorRef& Ref) {
+        ResolveMovement(Ref.Resolve()).StopMovement();
+    };
     Actor["PrintLocation"] = [](const FActorRef& Ref) {
         const auto& Target{Ref.Resolve()};
         const auto Location{Target.GetActorTransform().mLocation};

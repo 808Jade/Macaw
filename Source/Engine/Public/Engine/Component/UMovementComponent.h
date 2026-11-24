@@ -35,7 +35,7 @@ namespace Engine {
         Engine::UPrimitiveComponent* GetUpdatedPrimitive() const;
 
         const FVector& GetVelocity() const;
-        bool SetVelocity(const FVector& Velocity);
+        virtual bool SetVelocity(const FVector& Velocity);
 
         /** @brief 유효한 시간 간격과 이동 대상이 있는지 확인합니다. */
         bool ShouldSkipUpdate(float DeltaTime) const;

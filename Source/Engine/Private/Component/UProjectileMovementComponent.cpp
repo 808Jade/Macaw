@@ -5,9 +5,9 @@
  */
 
 #include "Engine/Component/UProjectileMovementComponent.h"
-#include "Engine/AActor.h"
-#include "Engine/UWorld.h"
+#include "Engine/Collision/FHitResult.h"
 #include "Engine/Component/USceneComponent.h"
+#include "Engine/UWorld.h"
 #include "Core/Math/FRotator.h"
 #include "Core/Literals.h"
 
@@ -32,15 +32,15 @@ namespace Engine {
      * @brief 초기 속도를 필요 시 월드 공간으로 변환하고 최대 속도를 적용하여 정지 상태를 해제합니다.
      */
     void Engine::UProjectileMovementComponent::BeginPlay() {
-        mVelocity = mInitialVelocity;
-        mStopped = false;
+        FVector Velocity{mInitialVelocity};
+        const Engine::USceneComponent* Component{GetUpdatedComponent()};
 
-        if (mInitialVelocityInLocalSpace && GetOwner() != nullptr && GetOwner()->GetRootComponent() != nullptr) {
-            mVelocity = GetOwner()->GetRootComponent()->GetTransform().mRotation.RotateVector(mVelocity);
+        if (mInitialVelocityInLocalSpace && Component != nullptr) {
+            Velocity = Component->GetTransform().mRotation.RotateVector(Velocity);
         }
 
-        if (mMaxSpeed > 0.0f) {
-            mVelocity = mVelocity.ClampedLength(mMaxSpeed);
+        if (!SetVelocity(Velocity)) {
+            StopSimulating();
         }
     }
 
@@ -49,52 +49,151 @@ namespace Engine {
      */
     void Engine::UProjectileMovementComponent::Tick(float DeltaTime) {
         Engine::UWorld* World{GetWorld()};
-        Engine::AActor* Owner{GetOwner()};
 
-        if (World == nullptr || (World->GetWorldType() != Engine::EWorldType::Game && World->GetWorldType() != Engine::EWorldType::PIE) || !HasBegunPlay() || mStopped || Owner == nullptr || Owner->IsPendingDestroy() || Owner->GetRootComponent() == nullptr || !std::isfinite(DeltaTime) || DeltaTime <= 0.0f) {
+        if (World == nullptr || (World->GetWorldType() != Engine::EWorldType::Game && World->GetWorldType() != Engine::EWorldType::PIE) || !HasBegunPlay() || mStopped || ShouldSkipUpdate(DeltaTime)) {
             return;
         }
 
-        FTransform Transform{Owner->GetRootComponent()->GetTransform()};
-        constexpr Core::FAcceleration StandardGravity{9.81_mps2};
         constexpr Core::FTime MaxStepTime{1.0f / 120_Hz};
-        const FVector Acceleration{0.0f, 0.0f, -(StandardGravity / 1_mps2) * mGravityScale};
         const float StepTime{DeltaTime / static_cast<float>(std::clamp(std::ceil(DeltaTime / (MaxStepTime / 1_s)), 1.0f, 128.0f))};
+        const FTransform Start{GetUpdatedComponent()->GetTransform()};
+        const bool Sweep{mSweepCollision};
+        Engine::UWorld::FDispatchScope Scope{Sweep ? World : nullptr};
+        FVector Location{Start.mLocation};
+        FVector Velocity{GetVelocity()};
         float Remaining{DeltaTime};
 
         while (Remaining > 0.0f) {
             const float Step{std::min(StepTime, Remaining)};
-            const FVector PreviousVelocity{mVelocity};
 
-            mVelocity += Acceleration * Step;
-
-            if (mMaxSpeed > 0.0f) {
-                mVelocity = mVelocity.ClampedLength(mMaxSpeed);
+            if (Sweep) {
+                if (!SimulateSweptStep(Step)) {
+                    return;
+                }
+            } else {
+                // 스윕을 끄면 기존과 같이 월드 위치를 서브스텝마다 적분해 프레임 끝에 한 번 적용합니다.
+                const FVector NextVelocity{ComputeVelocity(Velocity, Step)};
+                Location += ComputeMoveDelta(Velocity, NextVelocity, Step);
+                Velocity = NextVelocity;
             }
 
-            Transform.mLocation += (PreviousVelocity + mVelocity) * (0.5f * Step);
             Remaining = Step >= Remaining ? 0.0f : Remaining - Step;
         }
 
-        if (mRotationFollowsVelocity && mVelocity.LengthSquared() > 0.000001f) {
-            Transform.mRotation = mVelocity.Rotation().Quaternion();
+        if (!Sweep && Engine::UMovementComponent::SetVelocity(Velocity)) {
+            MoveUpdatedComponent(Location - Start.mLocation, ComputeMoveRotation(Start.mRotation, Velocity));
+        }
+    }
+
+    FVector Engine::UProjectileMovementComponent::LimitVelocity(const FVector& Velocity) const {
+        return mMaxSpeed > 0.0f ? Velocity.ClampedLength(mMaxSpeed) : Velocity;
+    }
+
+    FVector Engine::UProjectileMovementComponent::ComputeVelocity(const FVector& Velocity, float DeltaTime) const {
+        constexpr Core::FAcceleration StandardGravity{9.81_mps2};
+        const FVector Acceleration{0.0f, 0.0f, -(StandardGravity / 1_mps2) * mGravityScale};
+
+        return LimitVelocity(Velocity + Acceleration * DeltaTime);
+    }
+
+    FVector Engine::UProjectileMovementComponent::ComputeMoveDelta(const FVector& Velocity, const FVector& NextVelocity, float DeltaTime) {
+        return (Velocity + NextVelocity) * (0.5f * DeltaTime);
+    }
+
+    FQuat Engine::UProjectileMovementComponent::ComputeMoveRotation(const FQuat& Rotation, const FVector& Velocity) const {
+        return mRotationFollowsVelocity && Velocity.LengthSquared() > 0.000001f ? Velocity.Rotation().Quaternion() : Rotation;
+    }
+
+    bool Engine::UProjectileMovementComponent::SimulateSweptStep(float DeltaTime) {
+        // 0초에 반복해서 닿는 경우에도 한 서브스텝에서 처리할 충돌 횟수를 제한합니다.
+        constexpr int MaxImpactsPerStep{4};
+        float Remaining{DeltaTime};
+
+        for (int ImpactCount{}; ImpactCount < MaxImpactsPerStep && Remaining > 0.0f; ++ImpactCount) {
+            const Engine::USceneComponent* Component{GetUpdatedComponent()};
+
+            if (Component == nullptr) {
+                return false;
+            }
+
+            const auto Target{CoreUObject::MakeObjectRef(Component)};
+            const FVector Velocity{GetVelocity()};
+            const FVector NextVelocity{ComputeVelocity(Velocity, Remaining)};
+            const FVector Delta{ComputeMoveDelta(Velocity, NextVelocity, Remaining)};
+            const FQuat Rotation{ComputeMoveRotation(Component->GetTransform().mRotation, NextVelocity)};
+
+            if (!Engine::UMovementComponent::SetVelocity(NextVelocity)) {
+                StopSimulating();
+                return false;
+            }
+
+            Engine::FHitResult Hit{};
+            const bool Moved{SafeMoveUpdatedComponent(Delta, Rotation, true, Hit)};
+
+            // 충돌 콜백에서 정지하거나 대상·속도를 바꾼 경우에는 콜백이 지정한 상태를 유지합니다.
+            if (mStopped || !Target.IsValid() || GetUpdatedComponent() != Target.Get() || GetVelocity() != NextVelocity) {
+                return false;
+            }
+
+            if (!Hit.mBlockingHit) {
+                return Moved;
+            }
+
+            const float ImpactTime{Remaining * Hit.mTime};
+
+            if (!HandleImpact(Hit, ComputeVelocity(Velocity, ImpactTime))) {
+                return false;
+            }
+
+            if (mRotationFollowsVelocity) {
+                MoveUpdatedComponent({}, ComputeMoveRotation(Rotation, GetVelocity()));
+            }
+
+            Remaining = ImpactTime >= Remaining ? 0.0f : Remaining - ImpactTime;
         }
 
-        Owner->SetActorTransform(Transform);
+        return true;
+    }
+
+    bool Engine::UProjectileMovementComponent::HandleImpact(const Engine::FHitResult& Hit, const FVector& ImpactVelocity) {
+        if (mShouldBounce && !Hit.mStartPenetrating && Hit.mNormal.IsNormalized()) {
+            const float NormalSpeed{ImpactVelocity.Dot(Hit.mNormal)};
+
+            if (NormalSpeed < 0.0f) {
+                // 표면에 평행한 속도는 그대로 두고 수직 성분에만 반발 계수를 적용합니다.
+                const FVector ReflectedVelocity{LimitVelocity(ImpactVelocity - Hit.mNormal * ((1.0f + mBounciness) * NormalSpeed))};
+
+                if (!ReflectedVelocity.IsNearlyZero() && Engine::UMovementComponent::SetVelocity(ReflectedVelocity)) {
+                    return true;
+                }
+            }
+        }
+
+        StopSimulating();
+
+        return false;
     }
 
     /**
      * @brief 실행 종료 시 속도를 0으로 만들고 발사체 이동을 정지합니다.
      */
     void Engine::UProjectileMovementComponent::EndPlay() {
-        StopMovement();
+        StopSimulating();
     }
 
     /**
      * @brief 현재 속도를 0으로 만들고 다음 속도 설정 또는 실행 시작까지 이동을 정지합니다.
      */
     void Engine::UProjectileMovementComponent::StopMovement() {
-        mVelocity = {};
+        StopSimulating();
+    }
+
+    void Engine::UProjectileMovementComponent::StopMovementImmediately() {
+        StopSimulating();
+    }
+
+    void Engine::UProjectileMovementComponent::StopSimulating() {
+        Engine::UMovementComponent::StopMovementImmediately();
         mStopped = true;
     }
 
@@ -119,21 +218,13 @@ namespace Engine {
     }
 
     /**
-     * @brief 현재 월드 공간 발사체 속도를 조회합니다.
-     */
-    const FVector& Engine::UProjectileMovementComponent::GetVelocity() const {
-        return mVelocity;
-    }
-
-    /**
      * @brief 현재 월드 속도를 설정하고 최대 속도로 제한한 뒤 정지 상태를 해제합니다.
      */
     bool Engine::UProjectileMovementComponent::SetVelocity(const FVector& Velocity) {
-        if (!Velocity.IsFinite()) {
+        if (!Velocity.IsFinite() || !Engine::UMovementComponent::SetVelocity(LimitVelocity(Velocity))) {
             return false;
         }
 
-        mVelocity = mMaxSpeed > 0.0f ? Velocity.ClampedLength(mMaxSpeed) : Velocity;
         mStopped = false;
 
         return true;
@@ -157,7 +248,7 @@ namespace Engine {
         mMaxSpeed = Speed;
 
         if (mMaxSpeed > 0.0f) {
-            mVelocity = mVelocity.ClampedLength(mMaxSpeed);
+            Engine::UMovementComponent::SetVelocity(LimitVelocity(GetVelocity()));
         }
 
         return true;
@@ -184,7 +275,7 @@ namespace Engine {
     }
 
     /**
-     * @brief 초기 속도를 루트의 로컬 회전으로 변환하는지 조회합니다.
+     * @brief 초기 속도를 이동 대상의 로컬 회전으로 변환하는지 조회합니다.
      */
     bool Engine::UProjectileMovementComponent::GetInitialVelocityInLocalSpace() const {
         return mInitialVelocityInLocalSpace;
@@ -200,17 +291,47 @@ namespace Engine {
     }
 
     /**
-     * @brief 루트의 전방을 현재 속도 방향에 맞추는지 조회합니다.
+     * @brief 이동 대상의 전방을 현재 속도 방향에 맞추는지 조회합니다.
      */
     bool Engine::UProjectileMovementComponent::GetRotationFollowsVelocity() const {
         return mRotationFollowsVelocity;
     }
 
     /**
-     * @brief 이동 후 속도가 충분히 클 때 루트 회전이 속도 방향을 따르도록 설정합니다.
+     * @brief 이동 후 속도가 충분히 클 때 이동 대상의 회전이 속도 방향을 따르도록 설정합니다.
      */
     bool Engine::UProjectileMovementComponent::SetRotationFollowsVelocity(bool FollowsVelocity) {
         mRotationFollowsVelocity = FollowsVelocity;
+
+        return true;
+    }
+
+    bool Engine::UProjectileMovementComponent::GetSweepCollision() const {
+        return mSweepCollision;
+    }
+
+    void Engine::UProjectileMovementComponent::SetSweepCollision(bool SweepCollision) {
+        mSweepCollision = SweepCollision;
+    }
+
+    bool Engine::UProjectileMovementComponent::GetShouldBounce() const {
+        return mShouldBounce;
+    }
+
+    void Engine::UProjectileMovementComponent::SetShouldBounce(bool ShouldBounce) {
+        mShouldBounce = ShouldBounce;
+    }
+
+    float Engine::UProjectileMovementComponent::GetBounciness() const {
+        return mBounciness;
+    }
+
+    bool Engine::UProjectileMovementComponent::SetBounciness(float Bounciness) {
+        if (!std::isfinite(Bounciness) || Bounciness < 0.0f || Bounciness > 1.0f) {
+            return false;
+        }
+
+        mBounciness = Bounciness;
 
         return true;
     }
