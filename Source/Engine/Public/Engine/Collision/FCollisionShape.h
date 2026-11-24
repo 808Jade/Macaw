@@ -593,9 +593,10 @@ namespace Engine {
          * @param[in] Delta 형상을 이동할 월드 변위입니다.
          * @param[in] Rot 형상의 월드 회전입니다.
          * @param[in] Targets 검사할 스윕 대상 목록입니다.
+         * @param[in] ReportInitialPenetration 이동 방향에 관계없이 초기 관통을 보고할지 지정합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        Engine::FSweepResult Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets);
+        Engine::FSweepResult Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets, bool ReportInitialPenetration = false);
     }
 
 }

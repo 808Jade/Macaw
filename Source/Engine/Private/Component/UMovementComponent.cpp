@@ -7,9 +7,11 @@
 #include "Engine/Component/UMovementComponent.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Engine/AActor.h"
+#include "Engine/Collision/FHitResult.h"
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Engine/Component/USceneComponent.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace Engine {
@@ -74,24 +76,30 @@ namespace Engine {
         return !std::isfinite(DeltaTime) || DeltaTime <= 0.0f || GetUpdatedComponent() == nullptr;
     }
 
-    bool UMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation) {
-        Engine::USceneComponent* Component{GetUpdatedComponent()};
+    bool UMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool Sweep, Engine::FHitResult* OutHit) {
+        return MoveUpdatedComponentInternal(Delta, NewRotation, Sweep, false, OutHit);
+    }
 
-        if (Component == nullptr) {
-            return false;
+    bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool Sweep, Engine::FHitResult& OutHit) {
+        return MoveUpdatedComponentInternal(Delta, NewRotation, Sweep, true, &OutHit);
+    }
+
+    bool UMovementComponent::SlideAlongSurface(const FVector& Delta, const Engine::FHitResult& Hit, Engine::FHitResult* OutHit) {
+        if (Hit.mBlockingHit && !Hit.mStartPenetrating && Hit.mNormal.IsNormalized() && std::isfinite(Hit.mTime)) {
+            const float RemainingTime{1.0f - std::clamp(Hit.mTime, 0.0f, 1.0f)};
+            const FVector SlideDelta{(Delta - Hit.mNormal * Delta.Dot(Hit.mNormal)) * RemainingTime};
+            const Engine::USceneComponent* Component{GetUpdatedComponent()};
+
+            if (Component != nullptr && !SlideDelta.IsNearlyZero()) {
+                return MoveUpdatedComponentInternal(SlideDelta, Component->GetTransform().mRotation, true, true, OutHit);
+            }
         }
 
-        FTransform Transform{Component->GetTransform()};
-        Transform.mLocation += Delta;
-        Transform.mRotation = NewRotation;
-
-        Engine::AActor* TargetOwner{Component->GetOwner()};
-
-        if (Component == TargetOwner->GetRootComponent()) {
-            return TargetOwner->SetActorTransform(Transform);
+        if (OutHit != nullptr) {
+            OutHit->Init();
         }
 
-        return Component->SetTransform(Transform);
+        return false;
     }
 
     void UMovementComponent::StopMovementImmediately() {

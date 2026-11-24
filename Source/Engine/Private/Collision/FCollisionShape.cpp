@@ -423,16 +423,18 @@ namespace Engine {
     }
 
     /**
-     * @fn Engine::FSweepResult Engine::Collision::Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets)
      * @brief 형상을 이동시켜 대상 목록 중 최초 차단 접촉을 찾습니다.
      */
-    Engine::FSweepResult Engine::Collision::Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets) {
+    Engine::FSweepResult Engine::Collision::Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets, bool ReportInitialPenetration) {
         Engine::FSweepResult Result{};
 
         const float DeltaLen{Delta.Length()};
 
-        if (DeltaLen < 1e-8f || Targets.size() == 0)
+        const bool HasTranslation{DeltaLen >= 1e-8f};
+
+        if ((!HasTranslation && !ReportInitialPenetration) || Targets.empty()) {
             return Result;
+        }
 
         const Int32 TargetCount{static_cast<Int32>(std::min(Targets.size(), static_cast<Index_t>(std::numeric_limits<Int32>::max())))};
         Core::TArray<Uint8> Ignored{};
@@ -460,18 +462,31 @@ namespace Engine {
             if (!Engine::Collision::Overlap(Shape, Start, Rot, Target.GetShape(), Target.GetPos(), Target.GetRot(), &Contact))
                 continue;
 
-            if (Delta.Dot(Contact.GetNormal()) >= 0.0f) {
+            constexpr float PenetrationTolerance{1e-4f};
+            const bool Penetrating{Contact.GetPenetrationDepth() > PenetrationTolerance};
+
+            if (!(ReportInitialPenetration && Penetrating) && Delta.Dot(Contact.GetNormal()) >= 0.0f) {
                 Ignored[Index] = 1;
 
                 continue;
             }
 
+            if (Result.GetBlockingHit() && !Penetrating) {
+                continue;
+            }
+
             Result.SetBlockingHit(true);
-            Result.SetStartPenetrating(true);
+            Result.SetStartPenetrating(!ReportInitialPenetration || Penetrating);
             Result.SetTime(0.0f);
             Result.SetTargetIndex(Index);
             Result.SetContact(Contact);
 
+            if (Result.GetStartPenetrating()) {
+                return Result;
+            }
+        }
+
+        if (Result.GetBlockingHit() || !HasTranslation) {
             return Result;
         }
 
@@ -479,7 +494,7 @@ namespace Engine {
 
         if (Shape.IsBox())
             MinHalfSize = std::min({ Shape.GetBoxHalfExtent().x, Shape.GetBoxHalfExtent().y, Shape.GetBoxHalfExtent().z });
-        const Int32 Steps{MinHalfSize > 1e-4f ? std::clamp(static_cast<Int32>(std::ceil(DeltaLen / MinHalfSize)), 1, 64) : 1};
+        const Int32 Steps{MinHalfSize > 1e-4f ? static_cast<Int32>(std::clamp(std::ceil(DeltaLen / MinHalfSize), 1.0f, 64.0f)) : 1};
 
         for (Int32 Step{0}; Step < Steps; ++Step) {
             float Lo{static_cast<float>(Step) / Steps};
