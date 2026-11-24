@@ -305,6 +305,20 @@ namespace Core::Literals {
     constexpr Core::FForce operator""_kN(unsigned long long Value) { return Detail::MakeUnit<Core::FForce>(static_cast<long double>(Value), 1000.0L); }
 
     /**
+     * @brief 뉴턴미터(N·m) 값을 FTorque로 만듭니다.
+     * @param[in] Value 뉴턴미터(N·m) 단위로 표현한 수치입니다.
+     * @return 뉴턴미터 단위의 토크 값입니다.
+     */
+    constexpr Core::FTorque operator""_Nm(long double Value) { return Detail::MakeUnit<Core::FTorque>(Value, 1.0L); }
+
+    /**
+     * @brief 뉴턴미터(N·m) 값을 FTorque로 만듭니다.
+     * @param[in] Value 뉴턴미터(N·m) 단위로 표현한 수치입니다.
+     * @return 뉴턴미터 단위의 토크 값입니다.
+     */
+    constexpr Core::FTorque operator""_Nm(unsigned long long Value) { return Detail::MakeUnit<Core::FTorque>(static_cast<long double>(Value), 1.0L); }
+
+    /**
      * @brief 줄(J) 값을 FEnergy로 만듭니다.
      * @param[in] Value 줄(J) 단위로 표현한 수치입니다.
      * @return 줄 단위의 에너지 값입니다.
@@ -504,6 +518,8 @@ namespace Core::Literals {
     static_assert(36_kmh == 10_mps);
     static_assert(1_kg * 1_mps2 == 1_N);
     static_assert(1_N * 1_m / 1_s == 1_W);
+    static_assert(1_Nm * 1_rad == 1_J);
+    static_assert(1_Nm * 1_radps == 1_W);
     static_assert(1_km / 1_m == 1000.0f);
 
 }

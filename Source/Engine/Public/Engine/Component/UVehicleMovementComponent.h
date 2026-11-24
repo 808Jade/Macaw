@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Math/FTransform.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "CoreUObject/TDelegate.h"
 #include "Engine/Component/UPawnMovementComponent.h"
 #include "UVehicleMovementComponent.generated.h"
@@ -22,6 +23,8 @@ namespace PhysicsRuntime {
 
 namespace Engine {
 
+    class UStaticMeshComponent;
+
     /** @brief 차체 로컬 좌표와 미터·킬로그램 단위로 지정하는 바퀴 및 서스펜션 설정입니다. */
     USTRUCT()
     struct FVehicleWheelSettings {
@@ -31,25 +34,25 @@ namespace Engine {
         FVector mCenterOffset{};
 
         UPROPERTY(Edit, Serialize)
-        float mRadius{0.32f};
+        Core::FLength mRadius{Core::FLength::FromBase(0.32f)};
 
         UPROPERTY(Edit, Serialize)
-        float mWidth{0.22f};
+        Core::FLength mWidth{Core::FLength::FromBase(0.22f)};
 
         UPROPERTY(Edit, Serialize)
-        float mMass{20.0f};
+        Core::FMass mMass{Core::FMass::FromBase(20.0f)};
 
         UPROPERTY(Edit, Serialize)
-        float mMaxCompression{0.25f};
+        Core::FLength mMaxCompression{Core::FLength::FromBase(0.25f)};
 
         UPROPERTY(Edit, Serialize)
-        float mMaxDroop{0.2f};
+        Core::FLength mMaxDroop{Core::FLength::FromBase(0.2f)};
 
         UPROPERTY(Edit, Serialize)
-        float mSpringStrength{35000.0f};
+        Core::FSpringStiffness mSpringStrength{Core::FSpringStiffness::FromBase(35000.0f)};
 
         UPROPERTY(Edit, Serialize)
-        float mDamperRate{4500.0f};
+        Core::FLinearDampingCoefficient mDamperRate{Core::FLinearDampingCoefficient::FromBase(4500.0f)};
 
         bool operator==(const FVehicleWheelSettings&) const = default;
     };
@@ -57,7 +60,7 @@ namespace Engine {
     /** @brief 최근 서스펜션 업데이트에서 얻은 차체 로컬 자세와 접지 상태입니다. */
     struct FVehicleWheelState {
         FTransform mLocalPose{};
-        float mSuspensionJounce{};
+        Core::FLength mSuspensionJounce{};
         bool mInAir{true};
     };
 
@@ -77,6 +80,10 @@ namespace Engine {
         /** @brief 등록된 차량의 바퀴 결과를 값으로 복사합니다. */
         bool GetWheelState(Uint32 WheelIndex, Engine::FVehicleWheelState& OutState) const;
 
+        /** @brief 같은 Pawn의 충돌이 꺼진 메시를 바퀴에 연결합니다. nullptr로 연결을 해제합니다. */
+        bool SetWheelMesh(Uint32 WheelIndex, Engine::UStaticMeshComponent* Mesh);
+        Engine::UStaticMeshComponent* GetWheelMesh(Uint32 WheelIndex) const;
+
         void Tick(float DeltaTime) override;
         void EndPlay() override;
         bool SetTickGroup(Engine::ETickingGroup Group) override;
@@ -92,7 +99,13 @@ namespace Engine {
 
         /** @brief PrePhysics에서 Pawn의 이번 입력을 차량에 전달합니다. */
         virtual void ApplyVehicleInput(PhysicsRuntime::FVehicleManager& Manager, const PhysicsRuntime::FBodyInstance& Body,
-                                       const FVector& Input) = 0;
+                                       const FVector& Input);
+
+        /** @brief PostPhysics에서 차체 자세와 속도를 반영한 뒤 호출합니다. */
+        virtual void UpdateVehicleVisuals();
+
+        PhysicsRuntime::FVehicleManager* GetVehicleManager() const;
+        const PhysicsRuntime::FBodyInstance* GetRegisteredBody() const;
 
     private:
         class FPostPhysicsTick final : public Engine::FTickFunction {
@@ -106,8 +119,6 @@ namespace Engine {
             UVehicleMovementComponent& mTarget;
         };
 
-        PhysicsRuntime::FVehicleManager* GetVehicleManager() const;
-        const PhysicsRuntime::FBodyInstance* GetRegisteredBody() const;
         void OnBodyStateChanged(Engine::UPrimitiveComponent* Chassis, bool Created);
         void TryRegisterVehicle();
         void UnregisterVehicle();
@@ -115,6 +126,9 @@ namespace Engine {
 
         UPROPERTY(Edit, Serialize, Getter = GetWheelSettings, Setter = SetWheelSettings)
         Core::TArray<Engine::FVehicleWheelSettings> mWheelSettings{};
+
+        UPROPERTY(Serialize, Name = "WheelMeshes")
+        Core::TArray<CoreUObject::TObjectRef<Engine::UStaticMeshComponent>> mWheelMeshes{};
 
         CoreUObject::TObjectRef<Engine::UPrimitiveComponent> mChassis{};
         CoreUObject::FDelegateHandle mBodyStateHandle{};

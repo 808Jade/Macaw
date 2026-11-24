@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Engine/Component/UMovementComponent.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "UProjectileMovementComponent.generated.h"
 
 namespace Engine {
@@ -76,14 +77,14 @@ namespace Engine {
          * @brief 속도 크기의 상한을 반환합니다.
          * @return 월드 단위/초의 최대 속도이며 0이면 상한이 없습니다.
          */
-        float GetMaxSpeed() const;
+        Core::FSpeed GetMaxSpeed() const;
 
         /**
          * @brief 0 이상의 유한한 최대 속도를 저장하고 필요한 경우 현재 속도를 제한합니다.
          * @param[in] Speed 0 이상의 유한한 최대 속도이며 0이면 제한을 해제합니다.
          * @return 유효한 값을 적용하면 true이며 음수 또는 비유한 값이면 false입니다.
          */
-        bool SetMaxSpeed(float Speed);
+        bool SetMaxSpeed(Core::FSpeed Speed);
 
         /**
          * @brief -Z 방향 기본 중력 9.81에 곱할 배율을 반환합니다.
@@ -137,10 +138,10 @@ namespace Engine {
 
     private:
         FVector LimitVelocity(const FVector& Velocity) const;
-        FVector ComputeVelocity(const FVector& Velocity, float DeltaTime) const;
-        static FVector ComputeMoveDelta(const FVector& Velocity, const FVector& NextVelocity, float DeltaTime);
+        FVector ComputeVelocity(const FVector& Velocity, Core::FTime StepTime) const;
+        static FVector ComputeMoveDelta(const FVector& Velocity, const FVector& NextVelocity, Core::FTime StepTime);
         FQuat ComputeMoveRotation(const FQuat& Rotation, const FVector& Velocity) const;
-        bool SimulateSweptStep(float DeltaTime);
+        bool SimulateSweptStep(Core::FTime StepTime);
         bool HandleImpact(const Engine::FHitResult& Hit, const FVector& ImpactVelocity);
         void StopSimulating();
 
@@ -155,7 +156,7 @@ namespace Engine {
          * @brief 발사체 속도 크기의 상한이며 0이면 제한하지 않습니다.
          */
         UPROPERTY(Edit, Serialize, Getter = GetMaxSpeed, Setter = SetMaxSpeed)
-        float mMaxSpeed{100.0f};
+        Core::FSpeed mMaxSpeed{Core::FSpeed::FromBase(100.0f)};
 
         /**
          * @brief 월드 -Z 방향의 기본 중력 9.81에 곱할 0~100 배율입니다.

@@ -8,6 +8,7 @@
 #include "CoreUObject/Reflection/Cast.h"
 #include "Engine/AActor.h"
 #include "Engine/Component/UPrimitiveComponent.h"
+#include "Engine/Component/UStaticMeshComponent.h"
 #include "Engine/UWorld.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
 #include "PhysicsRuntime/FVehicleManager.h"
@@ -25,11 +26,12 @@
 namespace Engine {
 
     namespace {
-        bool IsPositiveFinite(float Value) {
-            return std::isfinite(Value) && Value > 0.0f;
+        template <Core::FDimension D>
+        bool IsPositiveFinite(Core::TQuantity<D, float> Value) {
+            return std::isfinite(Value.GetBase()) && Value > decltype(Value){};
         }
 
-        float ComputeWheelInertia(const FVehicleWheelSettings& Wheel) {
+        Core::FMomentOfInertia ComputeWheelInertia(const FVehicleWheelSettings& Wheel) {
             return 0.5f * Wheel.mMass * Wheel.mRadius * Wheel.mRadius;
         }
 
@@ -37,7 +39,8 @@ namespace Engine {
             return Wheel.mCenterOffset.IsFinite() && IsPositiveFinite(Wheel.mRadius) && IsPositiveFinite(Wheel.mWidth) &&
                    IsPositiveFinite(Wheel.mMass) && IsPositiveFinite(ComputeWheelInertia(Wheel)) &&
                    IsPositiveFinite(Wheel.mMaxCompression) && IsPositiveFinite(Wheel.mMaxDroop) &&
-                   IsPositiveFinite(Wheel.mSpringStrength) && std::isfinite(Wheel.mDamperRate) && Wheel.mDamperRate >= 0.0f;
+                   IsPositiveFinite(Wheel.mSpringStrength) &&
+                   std::isfinite(Wheel.mDamperRate.GetBase()) && Wheel.mDamperRate >= Core::FLinearDampingCoefficient{};
         }
 
         bool ConfigureWheels(physx::PxVehicleWheelsSimData& Data, const Core::TArray<FVehicleWheelSettings>& Settings,
@@ -54,23 +57,25 @@ namespace Engine {
             constexpr physx::PxU32 GravityAxisZ{2};
             physx::PxVehicleComputeSprungMasses(Count, WheelCenters.data(), CenterOfMass.p, Chassis.getMass(), GravityAxisZ, SprungMasses.data());
 
-            if (!std::all_of(SprungMasses.begin(), SprungMasses.begin() + Count, IsPositiveFinite)) {
+            if (!std::all_of(SprungMasses.begin(), SprungMasses.begin() + Count, [](physx::PxReal Mass) {
+                return IsPositiveFinite(Core::FMass::FromBase(Mass));
+            })) {
                 return false;
             }
 
             for (physx::PxU32 Wheel{}; Wheel < Count; ++Wheel) {
                 const FVehicleWheelSettings& Setting{Settings[Wheel]};
                 physx::PxVehicleWheelData WheelData{};
-                WheelData.mRadius = Setting.mRadius;
-                WheelData.mWidth = Setting.mWidth;
-                WheelData.mMass = Setting.mMass;
-                WheelData.mMOI = ComputeWheelInertia(Setting);
+                WheelData.mRadius = Setting.mRadius.GetBase();
+                WheelData.mWidth = Setting.mWidth.GetBase();
+                WheelData.mMass = Setting.mMass.GetBase();
+                WheelData.mMOI = ComputeWheelInertia(Setting).GetBase();
 
                 physx::PxVehicleSuspensionData Suspension{};
-                Suspension.mMaxCompression = Setting.mMaxCompression;
-                Suspension.mMaxDroop = Setting.mMaxDroop;
-                Suspension.mSpringStrength = Setting.mSpringStrength;
-                Suspension.mSpringDamperRate = Setting.mDamperRate;
+                Suspension.mMaxCompression = Setting.mMaxCompression.GetBase();
+                Suspension.mMaxDroop = Setting.mMaxDroop.GetBase();
+                Suspension.mSpringStrength = Setting.mSpringStrength.GetBase();
+                Suspension.mSpringDamperRate = Setting.mDamperRate.GetBase();
                 Suspension.mSprungMass = SprungMasses[Wheel];
 
                 const auto Offset{CenterOfMass.transformInv(WheelCenters[Wheel])};
@@ -123,9 +128,38 @@ namespace Engine {
         }
 
         const auto& Wheel{Results[WheelIndex]};
-        OutState = {PhysicsRuntime::ToFTransform(Wheel.localPose, {1.0f, 1.0f, 1.0f}), Wheel.suspJounce, Wheel.isInAir};
+        OutState = {PhysicsRuntime::ToFTransform(Wheel.localPose, {1.0f, 1.0f, 1.0f}), Core::FLength::FromBase(Wheel.suspJounce), Wheel.isInAir};
 
         return true;
+    }
+
+    bool UVehicleMovementComponent::SetWheelMesh(Uint32 WheelIndex, Engine::UStaticMeshComponent* Mesh) {
+        if (WheelIndex >= GetWheelSettings().size()) {
+            return false;
+        }
+
+        const auto Reference{CoreUObject::MakeObjectRef(Mesh)};
+        if (Mesh != nullptr && (GetOwner() == nullptr || Mesh->GetOwner() != GetOwner() || Mesh->IsCollisionEnabled() ||
+                               (GetWheelMesh(WheelIndex) != Mesh && std::ranges::find(mWheelMeshes, Reference) != mWheelMeshes.end()))) {
+            return false;
+        }
+
+        if (WheelIndex >= mWheelMeshes.size()) {
+            mWheelMeshes.resize(WheelIndex + 1);
+        }
+
+        mWheelMeshes[WheelIndex] = Reference;
+        return true;
+    }
+
+    Engine::UStaticMeshComponent* UVehicleMovementComponent::GetWheelMesh(Uint32 WheelIndex) const {
+        if (WheelIndex >= GetWheelSettings().size() || WheelIndex >= mWheelMeshes.size()) {
+            return nullptr;
+        }
+
+        auto* Mesh{mWheelMeshes[WheelIndex].Get()};
+
+        return Mesh != nullptr && Mesh->GetOwner() == GetOwner() && !Mesh->IsCollisionEnabled() ? Mesh : nullptr;
     }
 
     void UVehicleMovementComponent::Tick(float DeltaTime) {
@@ -139,6 +173,32 @@ namespace Engine {
 
         if (Body != nullptr && Manager != nullptr) {
             ApplyVehicleInput(*Manager, *Body, Input);
+        }
+    }
+
+    void UVehicleMovementComponent::ApplyVehicleInput(PhysicsRuntime::FVehicleManager&, const PhysicsRuntime::FBodyInstance&, const FVector&) {
+    }
+
+    void UVehicleMovementComponent::UpdateVehicleVisuals() {
+        const auto* Chassis{GetUpdatedPrimitive()};
+
+        if (Chassis == nullptr) {
+            return;
+        }
+
+        // 바퀴 오프셋은 이미 바디 로컬 미터 단위입니다. 차체 메시의 스케일을 다시 곱하지 않습니다.
+        const FTransform ChassisPose{Chassis->GetTransform().mLocation, Chassis->GetTransform().mRotation, {1.0f, 1.0f, 1.0f}};
+        for (Uint32 Wheel{}; Wheel < std::min(mWheelMeshes.size(), GetWheelSettings().size()); ++Wheel) {
+            auto* Mesh{GetWheelMesh(Wheel)};
+            FVehicleWheelState State{};
+
+            if (Mesh == nullptr || Mesh->GetWorld() != GetWorld() || !GetWheelState(Wheel, State)) {
+                continue;
+            }
+
+            FTransform WheelPose{State.mLocalPose * ChassisPose};
+            WheelPose.mScale = Mesh->GetTransform().mScale;
+            Mesh->SetTransform(WheelPose);
         }
     }
 
@@ -268,6 +328,7 @@ namespace Engine {
 
     void UVehicleMovementComponent::FPostPhysicsTick::ExecuteTick(float) {
         mTarget.SynchronizeVelocity();
+        mTarget.UpdateVehicleVisuals();
     }
 
 }

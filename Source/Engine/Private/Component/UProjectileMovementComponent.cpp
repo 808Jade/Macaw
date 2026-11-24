@@ -55,16 +55,18 @@ namespace Engine {
         }
 
         constexpr Core::FTime MaxStepTime{1.0f / 120_Hz};
-        const float StepTime{DeltaTime / static_cast<float>(std::clamp(std::ceil(DeltaTime / (MaxStepTime / 1_s)), 1.0f, 128.0f))};
+        const auto FrameTime{Core::FTime::FromBase(DeltaTime)};
+        const float StepCount{FrameTime / MaxStepTime};
+        const auto StepTime{FrameTime / std::clamp(std::ceil(StepCount), 1.0f, 128.0f)};
         const FTransform Start{GetUpdatedComponent()->GetTransform()};
         const bool Sweep{mSweepCollision};
         Engine::UWorld::FDispatchScope Scope{Sweep ? World : nullptr};
         FVector Location{Start.mLocation};
         FVector Velocity{GetVelocity()};
-        float Remaining{DeltaTime};
+        auto Remaining{FrameTime};
 
-        while (Remaining > 0.0f) {
-            const float Step{std::min(StepTime, Remaining)};
+        while (Remaining > 0_s) {
+            const auto Step{std::min(StepTime, Remaining)};
 
             if (Sweep) {
                 if (!SimulateSweptStep(Step)) {
@@ -77,7 +79,7 @@ namespace Engine {
                 Velocity = NextVelocity;
             }
 
-            Remaining = Step >= Remaining ? 0.0f : Remaining - Step;
+            Remaining -= Step;
         }
 
         if (!Sweep && Engine::UMovementComponent::SetVelocity(Velocity)) {
@@ -86,30 +88,33 @@ namespace Engine {
     }
 
     FVector Engine::UProjectileMovementComponent::LimitVelocity(const FVector& Velocity) const {
-        return mMaxSpeed > 0.0f ? Velocity.ClampedLength(mMaxSpeed) : Velocity;
+        return mMaxSpeed > 0_mps ? Velocity.ClampedLength(mMaxSpeed.GetBase()) : Velocity;
     }
 
-    FVector Engine::UProjectileMovementComponent::ComputeVelocity(const FVector& Velocity, float DeltaTime) const {
+    FVector Engine::UProjectileMovementComponent::ComputeVelocity(const FVector& Velocity, Core::FTime StepTime) const {
         constexpr Core::FAcceleration StandardGravity{9.81_mps2};
-        const FVector Acceleration{0.0f, 0.0f, -(StandardGravity / 1_mps2) * mGravityScale};
+        const auto VerticalSpeedDelta{-StandardGravity * mGravityScale * StepTime};
 
-        return LimitVelocity(Velocity + Acceleration * DeltaTime);
+        return LimitVelocity(Velocity + FVector{0.0f, 0.0f, VerticalSpeedDelta.GetBase()});
     }
 
-    FVector Engine::UProjectileMovementComponent::ComputeMoveDelta(const FVector& Velocity, const FVector& NextVelocity, float DeltaTime) {
-        return (Velocity + NextVelocity) * (0.5f * DeltaTime);
+    FVector Engine::UProjectileMovementComponent::ComputeMoveDelta(const FVector& Velocity, const FVector& NextVelocity, Core::FTime StepTime) {
+        return (Velocity + NextVelocity) * (0.5f * StepTime.GetBase());
     }
 
     FQuat Engine::UProjectileMovementComponent::ComputeMoveRotation(const FQuat& Rotation, const FVector& Velocity) const {
-        return mRotationFollowsVelocity && Velocity.LengthSquared() > 0.000001f ? Velocity.Rotation().Quaternion() : Rotation;
+        using FSpeedSquared = decltype(1_mps * 1_mps);
+        constexpr auto MinSpeedSquared{FSpeedSquared::FromBase(0.000001f)};
+        const auto SpeedSquared{FSpeedSquared::FromBase(Velocity.LengthSquared())};
+        return mRotationFollowsVelocity && SpeedSquared > MinSpeedSquared ? Velocity.Rotation().Quaternion() : Rotation;
     }
 
-    bool Engine::UProjectileMovementComponent::SimulateSweptStep(float DeltaTime) {
+    bool Engine::UProjectileMovementComponent::SimulateSweptStep(Core::FTime StepTime) {
         // 0초에 반복해서 닿는 경우에도 한 서브스텝에서 처리할 충돌 횟수를 제한합니다.
         constexpr int MaxImpactsPerStep{4};
-        float Remaining{DeltaTime};
+        auto Remaining{StepTime};
 
-        for (int ImpactCount{}; ImpactCount < MaxImpactsPerStep && Remaining > 0.0f; ++ImpactCount) {
+        for (int ImpactCount{}; ImpactCount < MaxImpactsPerStep && Remaining > 0_s; ++ImpactCount) {
             const Engine::USceneComponent* Component{GetUpdatedComponent()};
 
             if (Component == nullptr) {
@@ -139,7 +144,7 @@ namespace Engine {
                 return Moved;
             }
 
-            const float ImpactTime{Remaining * Hit.mTime};
+            const auto ImpactTime{Remaining * Hit.mTime};
 
             if (!HandleImpact(Hit, ComputeVelocity(Velocity, ImpactTime))) {
                 return false;
@@ -149,7 +154,7 @@ namespace Engine {
                 MoveUpdatedComponent({}, ComputeMoveRotation(Rotation, GetVelocity()));
             }
 
-            Remaining = ImpactTime >= Remaining ? 0.0f : Remaining - ImpactTime;
+            Remaining = ImpactTime >= Remaining ? 0_s : Remaining - ImpactTime;
         }
 
         return true;
@@ -157,11 +162,12 @@ namespace Engine {
 
     bool Engine::UProjectileMovementComponent::HandleImpact(const Engine::FHitResult& Hit, const FVector& ImpactVelocity) {
         if (mShouldBounce && !Hit.mStartPenetrating && Hit.mNormal.IsNormalized()) {
-            const float NormalSpeed{ImpactVelocity.Dot(Hit.mNormal)};
+            const auto NormalSpeed{Core::FSpeed::FromBase(ImpactVelocity.Dot(Hit.mNormal))};
 
-            if (NormalSpeed < 0.0f) {
+            if (NormalSpeed < 0_mps) {
                 // 표면에 평행한 속도는 그대로 두고 수직 성분에만 반발 계수를 적용합니다.
-                const FVector ReflectedVelocity{LimitVelocity(ImpactVelocity - Hit.mNormal * ((1.0f + mBounciness) * NormalSpeed))};
+                const auto NormalSpeedDelta{(1.0f + mBounciness) * NormalSpeed};
+                const FVector ReflectedVelocity{LimitVelocity(ImpactVelocity - Hit.mNormal * NormalSpeedDelta.GetBase())};
 
                 if (!ReflectedVelocity.IsNearlyZero() && Engine::UMovementComponent::SetVelocity(ReflectedVelocity)) {
                     return true;
@@ -233,21 +239,21 @@ namespace Engine {
     /**
      * @brief 속도 크기의 상한을 반환합니다.
      */
-    float Engine::UProjectileMovementComponent::GetMaxSpeed() const {
+    Core::FSpeed Engine::UProjectileMovementComponent::GetMaxSpeed() const {
         return mMaxSpeed;
     }
 
     /**
      * @brief 0 이상의 유한한 최대 속도를 저장하고 필요한 경우 현재 속도를 제한합니다.
      */
-    bool Engine::UProjectileMovementComponent::SetMaxSpeed(float Speed) {
-        if (!std::isfinite(Speed) || Speed < 0.0f) {
+    bool Engine::UProjectileMovementComponent::SetMaxSpeed(Core::FSpeed Speed) {
+        if (!std::isfinite(Speed.GetBase()) || Speed < 0_mps) {
             return false;
         }
 
         mMaxSpeed = Speed;
 
-        if (mMaxSpeed > 0.0f) {
+        if (mMaxSpeed > 0_mps) {
             Engine::UMovementComponent::SetVelocity(LimitVelocity(GetVelocity()));
         }
 

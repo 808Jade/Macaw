@@ -1,5 +1,6 @@
 #include "FLuaRuntime.h"
 
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/Math/FRotator.h"
 #include "Core/Math/FQuat.h"
 #include "Core/Math/FTransform.h"
@@ -7,16 +8,24 @@
 #include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "Engine/AActor.h"
 #include "Engine/Component/UActorComponent.h"
+#include "Engine/Component/UBillboardTextComponent.h"
 #include "Engine/Component/UCameraComponent.h"
+#include "Engine/Component/UPrimitiveComponent.h"
 #include "Engine/Component/UProjectileMovementComponent.h"
+#include "Engine/Component/USimpleVehicleMovementComponent.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
+#include "Engine/Component/UVehicleMovementComponent4W.h"
 #include "Engine/FWorldHit.h"
 #include "Engine/UWorld.h"
+#include "PhysicsRuntime/FVehicleManager.h"
+
+#include <PxRigidActor.h>
 
 #include <iostream>
 #include <tuple>
 
 using namespace Engine;
+using namespace Core::Literals;
 
 namespace {
 
@@ -173,6 +182,53 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Component["SetDepthOfFieldFocalDistance"] = [](const FLuaComponentRef& Ref, float Distance) {
         auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
         return Camera != nullptr && Camera->SetDepthOfFieldFocalDistance(Distance);
+    };
+    Component["SetDriveTorque"] = [](const FLuaComponentRef& Ref, float Torque, Uint32 WheelIndex) {
+        auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->SetDriveTorque(Torque * 1_Nm, WheelIndex);
+    };
+    Component["SetBrakeTorque"] = [](const FLuaComponentRef& Ref, float Torque, Uint32 WheelIndex) {
+        auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->SetBrakeTorque(Torque * 1_Nm, WheelIndex);
+    };
+    Component["SetSteerAngle"] = [](const FLuaComponentRef& Ref, float AngleDegrees, Uint32 WheelIndex) {
+        auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->SetSteerAngle(AngleDegrees * 1_deg, WheelIndex);
+    };
+    Component["SetDrive4WInput"] = [](const FLuaComponentRef& Ref, float Throttle, float Brake, float Steering) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent4W>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->SetDriveInput(Throttle, Brake, Steering);
+    };
+    Component["ResetDrive4W"] = [](const FLuaComponentRef& Ref) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent4W>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->ResetDrive();
+    };
+    Component["GetDrive4WState"] = [](const FLuaComponentRef& Ref) {
+        const auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent4W>(&Ref.Resolve())};
+        return Movement != nullptr ? std::tuple{Movement->GetCurrentGear(), Movement->GetForwardSpeed().GetBase()} : std::tuple{Int32{}, 0.0f};
+    };
+    Component["SetText"] = [](const FLuaComponentRef& Ref, const Core::FString& Text) {
+        auto* Billboard{CoreUObject::Cast<Engine::UBillboardTextComponent>(&Ref.Resolve())};
+        return Billboard != nullptr && Billboard->SetText(Text);
+    };
+    Component["SetVehicleDrivable"] = [](const FLuaComponentRef& Ref, bool Drivable) {
+        const auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
+        auto* Body{Primitive != nullptr ? Primitive->GetBodyInstance().GetPxRigidActor() : nullptr};
+        const auto Count{Body != nullptr ? Body->getNbShapes() : 0u};
+
+        for (physx::PxU32 Index{}; Index < Count; ++Index) {
+            physx::PxShape* Shape{};
+            if (Body->getShapes(&Shape, 1, Index) == 1) {
+                PhysicsRuntime::FVehicleManager::SetDrivableSurface(*Shape, Drivable);
+            }
+        }
+
+        return Count != 0;
+    };
+    Component["SetPhysicsVelocity"] = [](const FLuaComponentRef& Ref, const FVector& Linear, const FVector& Angular) {
+        auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
+        return Primitive != nullptr && Linear.IsFinite() && Angular.IsFinite() &&
+               Primitive->SetPhysicsLinearVelocity(Linear) && Primitive->SetPhysicsAngularVelocity(Angular);
     };
     Lua["SkeletalMeshComponent"] = Lua.get<sol::table>("Component");
     Lua["CameraComponent"] = Lua.get<sol::table>("Component");

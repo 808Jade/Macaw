@@ -154,6 +154,48 @@ function Component:SetDepthOfFieldSettings(Value) end
 ---@return boolean
 function Component:SetDepthOfFieldFocalDistance(Distance) end
 
+---@param Torque number N·m
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@return boolean
+function Component:SetDriveTorque(Torque, WheelIndex) end
+
+---@param Torque number N·m
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@return boolean
+function Component:SetBrakeTorque(Torque, WheelIndex) end
+
+---@param AngleDegrees number 도 단위 조향각
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@return boolean
+function Component:SetSteerAngle(AngleDegrees, WheelIndex) end
+
+---@param Throttle number -1부터 1까지, 음수는 후진 요청
+---@param Brake number 0부터 1까지
+---@param Steering number -1부터 1까지
+---@return boolean
+function Component:SetDrive4WInput(Throttle, Brake, Steering) end
+
+---@return boolean
+function Component:ResetDrive4W() end
+
+---@return integer Gear 후진 -1, 중립 0, 전진 1부터
+---@return number ForwardSpeed m/s
+function Component:GetDrive4WState() end
+
+---@param Text string 월드 빌보드에 표시할 문자열
+---@return boolean
+function Component:SetText(Text) end
+
+--- 현재 바디의 형상을 차량 서스펜션이 감지할 주행면으로 지정합니다.
+---@param Drivable boolean
+---@return boolean
+function Component:SetVehicleDrivable(Drivable) end
+
+---@param Linear MacawVector m/s
+---@param Angular MacawVector rad/s
+---@return boolean
+function Component:SetPhysicsVelocity(Linear, Angular) end
+
 ---@class MacawActor
 ---@field UUID string
 ---@field Location MacawVector

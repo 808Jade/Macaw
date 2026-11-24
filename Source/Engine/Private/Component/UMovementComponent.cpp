@@ -99,8 +99,8 @@ namespace Engine {
 
     bool UMovementComponent::SlideAlongSurface(const FVector& Delta, const Engine::FHitResult& Hit, Engine::FHitResult* OutHit) {
         if (Hit.mBlockingHit && !Hit.mStartPenetrating && Hit.mNormal.IsNormalized() && std::isfinite(Hit.mTime)) {
-            const float RemainingTime{1.0f - std::clamp(Hit.mTime, 0.0f, 1.0f)};
-            const FVector SlideDelta{(Delta - Hit.mNormal * Delta.Dot(Hit.mNormal)) * RemainingTime};
+            const float RemainingFraction{1.0f - std::clamp(Hit.mTime, 0.0f, 1.0f)};
+            const FVector SlideDelta{(Delta - Hit.mNormal * Delta.Dot(Hit.mNormal)) * RemainingFraction};
             const Engine::USceneComponent* Component{GetUpdatedComponent()};
 
             if (Component != nullptr && !SlideDelta.IsNearlyZero()) {

@@ -9,6 +9,7 @@
 #include "CoreUObject/TObjectRef.h"
 
 #include "Core/ReflectionMacros.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "CoreUObject/UObject.h"
 #include "Engine/EWorldType.h"
 #include "Engine/EWorldPlayState.h"
@@ -561,7 +562,7 @@ namespace Engine {
         /**
          * @brief 아직 고정 스텝으로 진행하지 않은 물리 시간(초)입니다.
          */
-        float mPhysicsTimeAccumulator{};
+        Core::FTime mPhysicsTimeAccumulator{};
 
         /**
          * @brief 프레임 말 갱신을 기다리는 컴포넌트 핸들입니다.

@@ -1,5 +1,6 @@
 #include "Engine/UWorld.h"
 
+#include "Core/Literals/UnitLiterals.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Engine/AActor.h"
 #include "Engine/Collision/FHitResult.h"
@@ -14,7 +15,8 @@ using namespace Engine;
 
 namespace {
 
-    constexpr float SweepClearance{0.01f};
+    using namespace Core::Literals;
+    constexpr auto SweepClearance{1_cm};
 
     struct FMovementSweepTargets {
         explicit FMovementSweepTargets(const Engine::UWorld& World, const Engine::AActor& Actor) {
@@ -68,11 +70,12 @@ namespace {
     };
 
     void RetryAfterPenetration(const FMovementSweepTargets& Targets, const Engine::FCollisionShape& Shape, const FVector& Delta, FTransform& Pose, Engine::FHitResult& Hit) {
-        if (!Hit.mNormal.IsNormalized() || !std::isfinite(Hit.mPenetrationDepth) || Hit.mPenetrationDepth <= 0.0f) {
+        if (!Hit.mNormal.IsNormalized() || !std::isfinite(Hit.mPenetrationDepth.GetBase()) || Hit.mPenetrationDepth <= 0_m) {
             return;
         }
 
-        const FVector Adjustment{Hit.mNormal * (Hit.mPenetrationDepth + SweepClearance)};
+        const auto Clearance{Hit.mPenetrationDepth + SweepClearance};
+        const FVector Adjustment{Hit.mNormal * Clearance.GetBase()};
         FTransform AdjustedPose{Pose};
         AdjustedPose.mLocation += Adjustment;
         const FVector RetryEnd{AdjustedPose.mLocation + Delta};
@@ -99,12 +102,13 @@ namespace {
     }
 
     FVector GetSweepDisplacement(const FVector& Delta, Engine::FHitResult& Hit) {
-        const float Length{Delta.Length()};
+        const auto Length{Core::FLength::FromBase(Delta.Length())};
         Hit.mDistance = Length * Hit.mTime;
         Hit.mLocation = Hit.mTraceStart + Delta * Hit.mTime;
 
-        if (Hit.mBlockingHit && Length > 0.0f) {
-            return Delta * std::max(0.0f, Hit.mTime - SweepClearance / Length);
+        if (Hit.mBlockingHit && Length > 0_m) {
+            const float ClearanceFraction{SweepClearance / Length};
+            return Delta * std::max(0.0f, Hit.mTime - ClearanceFraction);
         }
 
         return Delta;

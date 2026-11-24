@@ -181,7 +181,7 @@ namespace Engine {
         }
 
         mPhysicsScene = std::move(Scene);
-        mPhysicsTimeAccumulator = 0.0f;
+        mPhysicsTimeAccumulator = {};
 
         // 장면보다 먼저 등록된 컴포넌트는 등록 시점에 바디를 만들지 못했으므로 여기서 만듭니다.
         UpdateComponentPhysicsStates(true);
@@ -198,7 +198,7 @@ namespace Engine {
         }
 
         mPhysicsScene.reset();
-        mPhysicsTimeAccumulator = 0.0f;
+        mPhysicsTimeAccumulator = {};
     }
 
     /**
@@ -229,13 +229,14 @@ namespace Engine {
         }
 
         const PhysicsRuntime::FPhysicsSettings& Settings{mPhysicsRuntime->GetSettings()};
-        const float StepSeconds{Settings.mFixedStepSeconds};
+        const auto StepTime{Settings.mFixedStep};
+        const auto FrameTime{Core::FTime::FromBase(DeltaTime)};
 
-        mPhysicsTimeAccumulator = std::min(mPhysicsTimeAccumulator + DeltaTime, StepSeconds * static_cast<float>(Settings.mMaxStepsPerFrame));
+        mPhysicsTimeAccumulator = std::min(mPhysicsTimeAccumulator + FrameTime, StepTime * Settings.mMaxStepsPerFrame);
 
         // 접촉 목록과 움직인 바디 목록은 다음 Simulate에서 바뀌므로 스텝마다 결과를 전달합니다.
-        while (mPhysicsScene != nullptr && !mEndPlayRequested && !mShutdownRequested && mPhysicsTimeAccumulator >= StepSeconds && mPhysicsScene->Simulate(StepSeconds)) {
-            mPhysicsTimeAccumulator -= StepSeconds;
+        while (mPhysicsScene != nullptr && !mEndPlayRequested && !mShutdownRequested && mPhysicsTimeAccumulator >= StepTime && mPhysicsScene->Simulate(StepTime)) {
+            mPhysicsTimeAccumulator -= StepTime;
 
             DispatchPhysicsResults();
         }

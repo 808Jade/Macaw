@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "Engine/Collision/FCollisionShape.h"
+#include "Core/Literals/UnitLiterals.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -116,7 +117,7 @@ namespace Engine {
 
             if (Overlap && OutContact) {
                 OutContact->SetNormal(-OutContact->GetNormal());
-                OutContact->SetPoint(OutContact->GetPoint() + OutContact->GetNormal() * OutContact->GetPenetrationDepth());
+                OutContact->SetPoint(OutContact->GetPoint() + OutContact->GetNormal() * OutContact->GetPenetrationDepth().GetBase());
             }
 
             return Overlap;
@@ -163,7 +164,7 @@ namespace Engine {
             }
 
             OutContact->SetNormal(Normal);
-            OutContact->SetPenetrationDepth(A.GetRadius() + B.GetRadius() - Len);
+            OutContact->SetPenetrationDepth(Core::FLength::FromBase(A.GetRadius() + B.GetRadius() - Len));
             OutContact->SetPoint(C2 + Normal * B.GetRadius());
         }
 
@@ -209,7 +210,7 @@ namespace Engine {
 
         if (Len > 1e-6f) {
             OutContact->SetNormal(D / Len);
-            OutContact->SetPenetrationDepth(Capsule.GetRadius() - Len);
+            OutContact->SetPenetrationDepth(Core::FLength::FromBase(Capsule.GetRadius() - Len));
             OutContact->SetPoint(Q);
 
             return true;
@@ -232,7 +233,7 @@ namespace Engine {
         }
 
         OutContact->SetNormal(Box.GetAxis()[MinAxis] * (MinCoord >= 0.0f ? 1.0f : -1.0f));
-        OutContact->SetPenetrationDepth(Capsule.GetRadius() + MinGap);
+        OutContact->SetPenetrationDepth(Core::FLength::FromBase(Capsule.GetRadius() + MinGap));
         OutContact->SetPoint(P + OutContact->GetNormal() * MinGap);
 
         return true;
@@ -315,7 +316,7 @@ namespace Engine {
             const FVector Normal{MinAxis.Dot(A.GetCenter() - B.GetCenter()) < 0.0f ? -MinAxis : MinAxis};
 
             OutContact->SetNormal(Normal);
-            OutContact->SetPenetrationDepth(MinOverlap);
+            OutContact->SetPenetrationDepth(Core::FLength::FromBase(MinOverlap));
             OutContact->SetPoint(Engine::Collision::ClosestPointOnBox(A.GetCenter(), B));
         }
 
@@ -426,11 +427,13 @@ namespace Engine {
      * @brief 형상을 이동시켜 대상 목록 중 최초 차단 접촉을 찾습니다.
      */
     Engine::FSweepResult Engine::Collision::Sweep(const Engine::FCollisionShape& Shape, const FVector& Start, const FVector& Delta, const FQuat& Rot, const Core::TArray<Engine::FSweepTarget>& Targets, bool ReportInitialPenetration) {
+        using namespace Core::Literals;
         Engine::FSweepResult Result{};
 
-        const float DeltaLen{Delta.Length()};
+        const auto DeltaLength{Core::FLength::FromBase(Delta.Length())};
+        constexpr auto MinTranslation{Core::FLength::FromBase(1e-8f)};
 
-        const bool HasTranslation{DeltaLen >= 1e-8f};
+        const bool HasTranslation{DeltaLength >= MinTranslation};
 
         if ((!HasTranslation && !ReportInitialPenetration) || Targets.empty()) {
             return Result;
@@ -462,7 +465,7 @@ namespace Engine {
             if (!Engine::Collision::Overlap(Shape, Start, Rot, Target.GetShape(), Target.GetPos(), Target.GetRot(), &Contact))
                 continue;
 
-            constexpr float PenetrationTolerance{1e-4f};
+            constexpr auto PenetrationTolerance{0.1_mm};
             const bool Penetrating{Contact.GetPenetrationDepth() > PenetrationTolerance};
 
             if (!(ReportInitialPenetration && Penetrating) && Delta.Dot(Contact.GetNormal()) >= 0.0f) {
@@ -490,11 +493,10 @@ namespace Engine {
             return Result;
         }
 
-        float MinHalfSize{Shape.GetRadius()};
-
-        if (Shape.IsBox())
-            MinHalfSize = std::min({ Shape.GetBoxHalfExtent().x, Shape.GetBoxHalfExtent().y, Shape.GetBoxHalfExtent().z });
-        const Int32 Steps{MinHalfSize > 1e-4f ? static_cast<Int32>(std::clamp(std::ceil(DeltaLen / MinHalfSize), 1.0f, 64.0f)) : 1};
+        const auto& Extent{Shape.GetBoxHalfExtent()};
+        const auto MinHalfSize{Core::FLength::FromBase(Shape.IsBox() ? std::min({Extent.x, Extent.y, Extent.z}) : Shape.GetRadius())};
+        const float StepCount{MinHalfSize > 0.1_mm ? (DeltaLength / MinHalfSize).GetBase() : 1.0f};
+        const auto Steps{static_cast<Int32>(std::clamp(std::ceil(StepCount), 1.0f, 64.0f))};
 
         for (Int32 Step{0}; Step < Steps; ++Step) {
             float Lo{static_cast<float>(Step) / Steps};
@@ -518,7 +520,8 @@ namespace Engine {
 
             Result.SetTargetIndex(FirstOverlapAt(Hi, &Contact));
             Result.SetContact(Contact);
-            Result.SetTime(std::max(0.0f, Lo - 1e-3f / DeltaLen));
+            const float BackoffFraction{1_mm / DeltaLength};
+            Result.SetTime(std::max(0.0f, Lo - BackoffFraction));
 
             return Result;
         }
@@ -564,14 +567,14 @@ namespace Engine {
     /**
      * @brief 초기 겹침을 해소할 침투 깊이를 반환합니다.
      */
-    float Engine::FCollisionContact::GetPenetrationDepth() const {
+    Core::FLength Engine::FCollisionContact::GetPenetrationDepth() const {
         return mPenetrationDepth;
     }
 
     /**
      * @brief 초기 겹침을 해소할 침투 깊이를 설정합니다.
      */
-    void Engine::FCollisionContact::SetPenetrationDepth(float Value) {
+    void Engine::FCollisionContact::SetPenetrationDepth(Core::FLength Value) {
         mPenetrationDepth = Value;
     }
 

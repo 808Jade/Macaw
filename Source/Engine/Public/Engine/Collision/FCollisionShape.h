@@ -10,6 +10,7 @@
 #include "Core/ReflectionMacros.h"
 #include "CoreUObject/Reflection/TNativeEnum.h"
 #include "Core/Math/FVector.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FQuat.h"
 #include "FCollisionShape.generated.h"
 
@@ -150,13 +151,13 @@ namespace Engine {
          * @brief 초기 겹침을 해소할 침투 깊이를 반환합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        float GetPenetrationDepth() const;
+        Core::FLength GetPenetrationDepth() const;
 
         /**
          * @brief 초기 겹침을 해소할 침투 깊이를 설정합니다.
          * @param[in] Value 설정하거나 읽을 값입니다.
          */
-        void SetPenetrationDepth(float Value);
+        void SetPenetrationDepth(Core::FLength Value);
 
         /**
          * @brief 월드 접촉점을 반환합니다.
@@ -179,7 +180,7 @@ namespace Engine {
         /**
          * @brief 초기 겹침을 해소할 침투 깊이입니다.
          */
-        float mPenetrationDepth{};
+        Core::FLength mPenetrationDepth{};
 
         /**
          * @brief 월드 접촉점입니다.

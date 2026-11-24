@@ -5,6 +5,7 @@
  */
 
 #include "Engine/Component/URotationMovementComponent.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/UWorld.h"
 
@@ -24,6 +25,7 @@ namespace Engine {
      * @brief Game 또는 PIE의 실행 중 이동 대상을 회전하고 피벗의 월드 위치를 유지합니다.
      */
     void Engine::URotationMovementComponent::Tick(float DeltaTime) {
+        using namespace Core::Literals;
         const Engine::UWorld* World{GetWorld()};
 
         if (World == nullptr || (World->GetWorldType() != Engine::EWorldType::Game && World->GetWorldType() != Engine::EWorldType::PIE) || !HasBegunPlay() || ShouldSkipUpdate(DeltaTime)) {
@@ -31,7 +33,11 @@ namespace Engine {
         }
 
         const FQuat OldRotation{GetUpdatedComponent()->GetTransform().mRotation};
-        const FQuat DeltaRotation{(mRotationRate * DeltaTime).Normalized().Quaternion()};
+        const auto StepTime{Core::FTime::FromBase(DeltaTime)};
+        const auto Pitch{(mRotationRate.pitch * 1_degps) * StepTime};
+        const auto Yaw{(mRotationRate.yaw * 1_degps) * StepTime};
+        const auto Roll{(mRotationRate.roll * 1_degps) * StepTime};
+        const FQuat DeltaRotation{Core::Math::MakeRotator(Pitch, Yaw, Roll).Normalized().Quaternion()};
         const FQuat NewRotation{(mRotationInLocalSpace ? OldRotation * DeltaRotation : DeltaRotation * OldRotation).Normalized()};
 
         const FVector OldPivot{OldRotation.RotateVector(mPivotTranslation)};
