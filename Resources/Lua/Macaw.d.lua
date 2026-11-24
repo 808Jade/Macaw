@@ -169,18 +169,19 @@ function Component:SetBrakeTorque(Torque, WheelIndex) end
 ---@return boolean
 function Component:SetSteerAngle(AngleDegrees, WheelIndex) end
 
+---엔진이 있는 차량(4W 등)의 입력입니다. Simple 차량은 false를 반환합니다.
 ---@param Throttle number -1부터 1까지, 음수는 후진 요청
 ---@param Brake number 0부터 1까지
 ---@param Steering number -1부터 1까지
 ---@return boolean
-function Component:SetDrive4WInput(Throttle, Brake, Steering) end
+function Component:SetDriveInput(Throttle, Brake, Steering) end
 
 ---@return boolean
-function Component:ResetDrive4W() end
+function Component:ResetDrive() end
 
 ---@return integer Gear 후진 -1, 중립 0, 전진 1부터
 ---@return number ForwardSpeed m/s
-function Component:GetDrive4WState() end
+function Component:GetDriveState() end
 
 ---@param Text string 월드 빌보드에 표시할 문자열
 ---@return boolean

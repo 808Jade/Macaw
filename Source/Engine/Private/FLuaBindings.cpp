@@ -14,7 +14,7 @@
 #include "Engine/Component/UProjectileMovementComponent.h"
 #include "Engine/Component/USimpleVehicleMovementComponent.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
-#include "Engine/Component/UVehicleMovementComponent4W.h"
+#include "Engine/Component/UVehicleMovementComponent.h"
 #include "Engine/FWorldHit.h"
 #include "Engine/UWorld.h"
 #include "PhysicsRuntime/FVehicleManager.h"
@@ -195,16 +195,16 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};
         return Movement != nullptr && Movement->SetSteerAngle(AngleDegrees * 1_deg, WheelIndex);
     };
-    Component["SetDrive4WInput"] = [](const FLuaComponentRef& Ref, float Throttle, float Brake, float Steering) {
-        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent4W>(&Ref.Resolve())};
+    Component["SetDriveInput"] = [](const FLuaComponentRef& Ref, float Throttle, float Brake, float Steering) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
         return Movement != nullptr && Movement->SetDriveInput(Throttle, Brake, Steering);
     };
-    Component["ResetDrive4W"] = [](const FLuaComponentRef& Ref) {
-        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent4W>(&Ref.Resolve())};
+    Component["ResetDrive"] = [](const FLuaComponentRef& Ref) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
         return Movement != nullptr && Movement->ResetDrive();
     };
-    Component["GetDrive4WState"] = [](const FLuaComponentRef& Ref) {
-        const auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent4W>(&Ref.Resolve())};
+    Component["GetDriveState"] = [](const FLuaComponentRef& Ref) {
+        const auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
         return Movement != nullptr ? std::tuple{Movement->GetCurrentGear(), Movement->GetForwardSpeed().GetBase()} : std::tuple{Int32{}, 0.0f};
     };
     Component["SetText"] = [](const FLuaComponentRef& Ref, const Core::FString& Text) {

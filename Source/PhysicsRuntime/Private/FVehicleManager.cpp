@@ -36,19 +36,108 @@ namespace PhysicsRuntime {
 
         struct FFreeVehicle {
             void operator()(physx::PxVehicleWheels* Vehicle) const {
-                if (Vehicle->getVehicleType() == physx::PxVehicleTypes::eDRIVE4W) {
+                switch (Vehicle->getVehicleType()) {
+                case physx::PxVehicleTypes::eDRIVE4W:
                     static_cast<physx::PxVehicleDrive4W*>(Vehicle)->free();
-                } else {
+                    break;
+                default:
                     static_cast<physx::PxVehicleNoDrive*>(Vehicle)->free();
+                    break;
                 }
             }
         };
 
-        struct FDrive4WInput {
+        /** @brief 엔진이 있는 차량이면 공통 구동 상태를 반환합니다. NoDrive는 nullptr입니다. */
+        physx::PxVehicleDrive* AsDrive(physx::PxVehicleWheels& Vehicle) {
+            return Vehicle.getVehicleType() != physx::PxVehicleTypes::eNODRIVE ? static_cast<physx::PxVehicleDrive*>(&Vehicle) : nullptr;
+        }
+
+        const physx::PxVehicleDrive* AsDrive(const physx::PxVehicleWheels& Vehicle) {
+            return AsDrive(const_cast<physx::PxVehicleWheels&>(Vehicle));
+        }
+
+        void SetDriveToRestState(physx::PxVehicleDrive& Drive) {
+            switch (Drive.getVehicleType()) {
+            case physx::PxVehicleTypes::eDRIVE4W:
+                static_cast<physx::PxVehicleDrive4W&>(Drive).setToRestState();
+                break;
+            default:
+                break;
+            }
+        }
+
+        struct FDriveInput {
             float mThrottle{};
             float mBrake{};
             float mSteering{};
         };
+
+        struct FPedals {
+            float mAccel{};
+            float mBrake{};
+        };
+
+        /** @brief 엔진·기어·자동 변속·클러치를 설정합니다. 차종별 차이는 최대 토크로 지정합니다. */
+        void FillDrivetrain(physx::PxVehicleDriveSimData& Data, Core::FTorque PeakTorque) {
+            physx::PxVehicleEngineData Engine{};
+            Engine.mPeakTorque = PeakTorque.GetBase();
+            Engine.mMaxOmega = (540_radps).GetBase();
+            Engine.mTorqueCurve.clear();
+            Engine.mTorqueCurve.addPair(0.0f, 0.82f);
+            Engine.mTorqueCurve.addPair(0.35f, 1.0f);
+            Engine.mTorqueCurve.addPair(0.72f, 0.86f);
+            Engine.mTorqueCurve.addPair(1.0f, 0.45f);
+
+            physx::PxVehicleGearsData Gears{};
+            Gears.mRatios[physx::PxVehicleGearsData::eREVERSE] = -3.4f;
+            Gears.mRatios[physx::PxVehicleGearsData::eFIRST] = 3.6f;
+            Gears.mRatios[physx::PxVehicleGearsData::eSECOND] = 2.3f;
+            Gears.mSwitchTime = (0.24_s).GetBase();
+
+            physx::PxVehicleAutoBoxData AutoBox{};
+            AutoBox.setLatency((0.65_s).GetBase());
+            for (auto Gear{static_cast<physx::PxU32>(physx::PxVehicleGearsData::eFIRST)}; Gear < Gears.mNbRatios; ++Gear) {
+                AutoBox.mUpRatios[Gear] = 0.58f;
+                AutoBox.mDownRatios[Gear] = 0.27f;
+            }
+
+            physx::PxVehicleClutchData Clutch{};
+            Clutch.mStrength = FClutchStrength::FromBase(10.0f).GetBase();
+
+            Data.setEngineData(Engine);
+            Data.setGearsData(Gears);
+            Data.setAutoBoxData(AutoBox);
+            Data.setClutchData(Clutch);
+        }
+
+        void StartInFirstGear(physx::PxVehicleDrive& Drive) {
+            Drive.mDriveDynData.forceGearChange(physx::PxVehicleGearsData::eFIRST);
+            Drive.mDriveDynData.setUseAutoGears(true);
+        }
+
+        /** @brief 진행 방향을 바꿀 때는 먼저 멈추고, 전진 기어에 돌아오면 자동 변속을 이어갑니다. */
+        FPedals ResolveDriveDirection(physx::PxVehicleDrive& Drive, const FDriveInput& Input) {
+            auto& Dynamics{Drive.mDriveDynData};
+            FPedals Pedals{std::abs(Input.mThrottle), Input.mBrake};
+
+            if (Pedals.mAccel > 0.0f && Pedals.mBrake == 0.0f) {
+                const bool Reverse{Input.mThrottle < 0.0f};
+                const bool InReverse{Dynamics.getCurrentGear() == physx::PxVehicleGearsData::eREVERSE};
+                if (Reverse != InReverse) {
+                    constexpr auto DirectionChangeSpeed{0.5_mps};
+                    const auto ForwardSpeed{Core::FSpeed::FromBase(Drive.computeForwardSpeed())};
+                    if (Core::Math::Abs(ForwardSpeed) > DirectionChangeSpeed) {
+                        Pedals.mBrake = std::max(Pedals.mBrake, Pedals.mAccel);
+                        Pedals.mAccel = 0.0f;
+                    } else {
+                        Dynamics.forceGearChange(Reverse ? physx::PxVehicleGearsData::eREVERSE : physx::PxVehicleGearsData::eFIRST);
+                        Dynamics.setUseAutoGears(!Reverse);
+                    }
+                }
+            }
+
+            return Pedals;
+        }
 
         void ResetWheelResults(std::span<physx::PxWheelQueryResult> Results, const physx::PxVehicleWheelsSimData& Wheels,
                                const physx::PxRigidDynamic& Actor) {
@@ -61,7 +150,7 @@ namespace PhysicsRuntime {
             }
         }
 
-        void ApplyDrive4WInput(physx::PxVehicleDrive4W& Drive, const FDrive4WInput& Input, Core::FTime StepTime, bool InAir) {
+        void ApplyDrive4WInput(physx::PxVehicleDrive4W& Drive, const FDriveInput& Input, Core::FTime StepTime, bool InAir) {
             constexpr auto AccelRise{4.0f / 1_s};
             constexpr auto AccelFall{8.0f / 1_s};
             constexpr auto BrakeRise{8.0f / 1_s};
@@ -82,30 +171,11 @@ namespace PhysicsRuntime {
                 return Table;
             }()};
 
-            auto& Dynamics{Drive.mDriveDynData};
-            float Accel{std::abs(Input.mThrottle)};
-            float Brake{Input.mBrake};
-
-            // 진행 방향을 바꿀 때는 먼저 멈추고, 전진 기어에 돌아오면 자동 변속을 이어갑니다.
-            if (Accel > 0.0f && Brake == 0.0f) {
-                const bool Reverse{Input.mThrottle < 0.0f};
-                const bool InReverse{Dynamics.getCurrentGear() == physx::PxVehicleGearsData::eREVERSE};
-                if (Reverse != InReverse) {
-                    constexpr auto DirectionChangeSpeed{0.5_mps};
-                    const auto ForwardSpeed{Core::FSpeed::FromBase(Drive.computeForwardSpeed())};
-                    if (Core::Math::Abs(ForwardSpeed) > DirectionChangeSpeed) {
-                        Brake = std::max(Brake, Accel);
-                        Accel = 0.0f;
-                    } else {
-                        Dynamics.forceGearChange(Reverse ? physx::PxVehicleGearsData::eREVERSE : physx::PxVehicleGearsData::eFIRST);
-                        Dynamics.setUseAutoGears(!Reverse);
-                    }
-                }
-            }
+            const auto Pedals{ResolveDriveDirection(Drive, Input)};
 
             physx::PxVehicleDrive4WRawInputData Raw{};
-            Raw.setAnalogAccel(Brake > 0.0f ? 0.0f : Accel);
-            Raw.setAnalogBrake(Brake);
+            Raw.setAnalogAccel(Pedals.mBrake > 0.0f ? 0.0f : Pedals.mAccel);
+            Raw.setAnalogBrake(Pedals.mBrake);
             Raw.setAnalogSteer(Input.mSteering);
             physx::PxVehicleDrive4WSmoothAnalogRawInputsAndSetAnalogInputs(Smoothing, SteerBySpeed, Raw, StepTime.GetBase(), InAir, Drive);
         }
@@ -121,7 +191,7 @@ namespace PhysicsRuntime {
         std::unique_ptr<physx::PxVehicleWheels, FFreeVehicle> mDrive{};
         Core::TArray<FWheelControl> mWheelControls{};
         Core::TArray<physx::PxWheelQueryResult> mWheelResults{};
-        FDrive4WInput mDriveInput{};
+        FDriveInput mDriveInput{};
     };
 
     struct FVehicleManager::FRaycastBatch {
@@ -233,38 +303,11 @@ namespace PhysicsRuntime {
             DrivenWheels->setWheelData(Wheel, Data);
         }
 
-        physx::PxVehicleEngineData Engine{};
-        Engine.mPeakTorque = (420_Nm).GetBase();
-        Engine.mMaxOmega = (540_radps).GetBase();
-        Engine.mTorqueCurve.clear();
-        Engine.mTorqueCurve.addPair(0.0f, 0.82f);
-        Engine.mTorqueCurve.addPair(0.35f, 1.0f);
-        Engine.mTorqueCurve.addPair(0.72f, 0.86f);
-        Engine.mTorqueCurve.addPair(1.0f, 0.45f);
-
-        physx::PxVehicleGearsData Gears{};
-        Gears.mRatios[physx::PxVehicleGearsData::eREVERSE] = -3.4f;
-        Gears.mRatios[physx::PxVehicleGearsData::eFIRST] = 3.6f;
-        Gears.mRatios[physx::PxVehicleGearsData::eSECOND] = 2.3f;
-        Gears.mSwitchTime = (0.24_s).GetBase();
-
-        physx::PxVehicleAutoBoxData AutoBox{};
-        AutoBox.setLatency((0.65_s).GetBase());
-        for (auto Gear{static_cast<physx::PxU32>(physx::PxVehicleGearsData::eFIRST)}; Gear < Gears.mNbRatios; ++Gear) {
-            AutoBox.mUpRatios[Gear] = 0.58f;
-            AutoBox.mDownRatios[Gear] = 0.27f;
-        }
-
-        physx::PxVehicleClutchData Clutch{};
-        Clutch.mStrength = FClutchStrength::FromBase(10.0f).GetBase();
         physx::PxVehicleDifferential4WData Differential{};
         Differential.mType = physx::PxVehicleDifferential4WData::eDIFF_TYPE_LS_4WD;
 
         physx::PxVehicleDriveSimData4W DriveData{};
-        DriveData.setEngineData(Engine);
-        DriveData.setGearsData(Gears);
-        DriveData.setAutoBoxData(AutoBox);
-        DriveData.setClutchData(Clutch);
+        FillDrivetrain(DriveData, 420_Nm);
         DriveData.setDiffData(Differential);
         DriveData.setAckermannGeometryData(Geometry);
 
@@ -275,16 +318,15 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        Drive->mDriveDynData.forceGearChange(physx::PxVehicleGearsData::eFIRST);
-        Drive->mDriveDynData.setUseAutoGears(true);
+        StartInFirstGear(*Drive);
         mVehicles.push_back(std::move(Vehicle));
 
         return true;
     }
 
-    bool FVehicleManager::SetDrive4WInput(const FBodyInstance& Body, float Throttle, float Brake, float Steering) {
+    bool FVehicleManager::SetDriveInput(const FBodyInstance& Body, float Throttle, float Brake, float Steering) {
         auto* Vehicle{FindVehicle(Body)};
-        if (Vehicle == nullptr || Vehicle->mDrive->getVehicleType() != physx::PxVehicleTypes::eDRIVE4W ||
+        if (Vehicle == nullptr || AsDrive(*Vehicle->mDrive) == nullptr ||
             !std::isfinite(Throttle) || !std::isfinite(Brake) || !std::isfinite(Steering)) {
             return false;
         }
@@ -293,29 +335,28 @@ namespace PhysicsRuntime {
         return true;
     }
 
-    bool FVehicleManager::ResetDrive4W(const FBodyInstance& Body) {
+    bool FVehicleManager::ResetDrive(const FBodyInstance& Body) {
         auto* Vehicle{FindVehicle(Body)};
-        if (Vehicle == nullptr || Vehicle->mDrive->getVehicleType() != physx::PxVehicleTypes::eDRIVE4W) {
+        auto* Drive{Vehicle != nullptr ? AsDrive(*Vehicle->mDrive) : nullptr};
+        if (Drive == nullptr) {
             return false;
         }
 
-        auto& Drive{static_cast<physx::PxVehicleDrive4W&>(*Vehicle->mDrive)};
-        Drive.setToRestState();
-        Drive.mDriveDynData.forceGearChange(physx::PxVehicleGearsData::eFIRST);
-        Drive.mDriveDynData.setUseAutoGears(true);
+        SetDriveToRestState(*Drive);
+        StartInFirstGear(*Drive);
         Vehicle->mDriveInput = {};
-        ResetWheelResults(Vehicle->mWheelResults, Drive.mWheelsSimData, *Drive.getRigidDynamicActor());
+        ResetWheelResults(Vehicle->mWheelResults, Drive->mWheelsSimData, *Drive->getRigidDynamicActor());
         return true;
     }
 
-    Int32 FVehicleManager::GetDrive4WGear(const FBodyInstance& Body) const {
+    Int32 FVehicleManager::GetDriveGear(const FBodyInstance& Body) const {
         const auto* Vehicle{FindVehicle(Body)};
-        if (Vehicle == nullptr || Vehicle->mDrive->getVehicleType() != physx::PxVehicleTypes::eDRIVE4W) {
+        const auto* Drive{Vehicle != nullptr ? AsDrive(*Vehicle->mDrive) : nullptr};
+        if (Drive == nullptr) {
             return 0;
         }
 
-        const auto& Drive{static_cast<const physx::PxVehicleDrive4W&>(*Vehicle->mDrive)};
-        return static_cast<Int32>(Drive.mDriveDynData.getCurrentGear()) - physx::PxVehicleGearsData::eNEUTRAL;
+        return static_cast<Int32>(Drive->mDriveDynData.getCurrentGear()) - physx::PxVehicleGearsData::eNEUTRAL;
     }
 
     bool FVehicleManager::UnregisterVehicle(const FBodyInstance& Body) {
@@ -441,10 +482,13 @@ namespace PhysicsRuntime {
         FRaycastBatch& Batch{*mRaycastBatch};
         for (FVehicle& Vehicle : mVehicles) {
             const physx::PxVehicleWheelQueryResult Results{Vehicle.mWheelResults.data(), static_cast<physx::PxU32>(Vehicle.mWheelResults.size())};
-            if (Vehicle.mDrive->getVehicleType() == physx::PxVehicleTypes::eDRIVE4W) {
+            switch (Vehicle.mDrive->getVehicleType()) {
+            case physx::PxVehicleTypes::eDRIVE4W: {
                 auto& Drive{static_cast<physx::PxVehicleDrive4W&>(*Vehicle.mDrive)};
                 ApplyDrive4WInput(Drive, Vehicle.mDriveInput, StepTime, physx::PxVehicleIsInAir(Results));
-            } else {
+                break;
+            }
+            default: {
                 auto& Drive{static_cast<physx::PxVehicleNoDrive&>(*Vehicle.mDrive)};
                 for (physx::PxU32 Wheel{}; Wheel < Results.nbWheelQueryResults; ++Wheel) {
                     const auto& Control{Vehicle.mWheelControls[Wheel]};
@@ -452,6 +496,8 @@ namespace PhysicsRuntime {
                     Drive.setBrakeTorque(Wheel, Control.mBrakeTorque.GetBase());
                     Drive.setSteerAngle(Wheel, Control.mSteerAngle.GetBase());
                 }
+                break;
+            }
             }
 
             Batch.mStepVehicles.push_back(Vehicle.mDrive.get());

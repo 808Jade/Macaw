@@ -162,6 +162,42 @@ namespace Engine {
         return Mesh != nullptr && Mesh->GetOwner() == GetOwner() && !Mesh->IsCollisionEnabled() ? Mesh : nullptr;
     }
 
+    bool UVehicleMovementComponent::SetDriveInput(float Throttle, float Brake, float Steering) {
+        const auto* Body{GetRegisteredBody()};
+        auto* Manager{GetVehicleManager()};
+
+        return Body != nullptr && Manager != nullptr && Manager->SetDriveInput(*Body, Throttle, Brake, Steering);
+    }
+
+    bool UVehicleMovementComponent::ResetDrive() {
+        const auto* Body{GetRegisteredBody()};
+        auto* Manager{GetVehicleManager()};
+
+        if (Body == nullptr || Manager == nullptr || !Manager->ResetDrive(*Body)) {
+            return false;
+        }
+
+        SetVelocity({});
+        return true;
+    }
+
+    Int32 UVehicleMovementComponent::GetCurrentGear() const {
+        const auto* Body{GetRegisteredBody()};
+        const auto* Manager{GetVehicleManager()};
+
+        return Body != nullptr && Manager != nullptr ? Manager->GetDriveGear(*Body) : 0;
+    }
+
+    Core::FSpeed UVehicleMovementComponent::GetForwardSpeed() const {
+        const auto* Chassis{GetUpdatedPrimitive()};
+        if (Chassis == nullptr) {
+            return {};
+        }
+
+        const auto Forward{Chassis->GetTransform().mRotation.RotateVector({1.0f, 0.0f, 0.0f})};
+        return Core::FSpeed::FromBase(GetVelocity().Dot(Forward));
+    }
+
     void UVehicleMovementComponent::Tick(float DeltaTime) {
         if (!HasBegunPlay() || ShouldSkipUpdate(DeltaTime)) {
             return;

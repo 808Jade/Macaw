@@ -84,6 +84,18 @@ namespace Engine {
         bool SetWheelMesh(Uint32 WheelIndex, Engine::UStaticMeshComponent* Mesh);
         Engine::UStaticMeshComponent* GetWheelMesh(Uint32 WheelIndex) const;
 
+        /** @brief 엔진이 있는 차량의 입력입니다. 가속과 조향은 [-1, 1], 제동은 [0, 1]이며 음수 가속은 후진을 요청합니다. NoDrive 차량은 false를 반환합니다. */
+        bool SetDriveInput(float Throttle, float Brake, float Steering);
+
+        /** @brief 차체 위치를 보존하면서 속도와 구동계 상태를 초기화합니다. NoDrive 차량은 false를 반환합니다. */
+        bool ResetDrive();
+
+        /** @brief 후진은 -1, 중립은 0, 전진은 1부터 시작합니다. NoDrive 차량은 0입니다. */
+        Int32 GetCurrentGear() const;
+
+        /** @brief 차체 전방 기준의 부호 있는 속도(m/s)입니다. */
+        Core::FSpeed GetForwardSpeed() const;
+
         void Tick(float DeltaTime) override;
         void EndPlay() override;
         bool SetTickGroup(Engine::ETickingGroup Group) override;

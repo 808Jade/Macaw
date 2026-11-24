@@ -37,14 +37,14 @@ namespace PhysicsRuntime {
         /** @brief 전좌·전우·후좌·후우 바퀴로 4륜 구동 차량을 등록합니다. */
         bool RegisterDrive4W(const FBodyInstance& Body, const physx::PxVehicleWheelsSimData& Wheels);
 
-        /** @brief 다음 물리 스텝부터 사용할 4W 입력입니다. 음수 가속은 후진 요청입니다. */
-        bool SetDrive4WInput(const FBodyInstance& Body, float Throttle, float Brake, float Steering);
+        /** @brief 엔진이 있는 차량에 다음 물리 스텝부터 사용할 입력입니다. 음수 가속은 후진 요청입니다. NoDrive는 거부합니다. */
+        bool SetDriveInput(const FBodyInstance& Body, float Throttle, float Brake, float Steering);
 
-        /** @brief 4W의 엔진, 변속기, 입력과 강체 속도를 초기화합니다. 차체 위치는 보존합니다. */
-        bool ResetDrive4W(const FBodyInstance& Body);
+        /** @brief 엔진이 있는 차량의 엔진, 변속기, 입력과 강체 속도를 초기화합니다. 차체 위치는 보존합니다. */
+        bool ResetDrive(const FBodyInstance& Body);
 
-        /** @brief 전진 기어 번호를 반환합니다. 후진은 -1, 중립 또는 미등록 상태는 0입니다. */
-        Int32 GetDrive4WGear(const FBodyInstance& Body) const;
+        /** @brief 전진 기어 번호를 반환합니다. 후진은 -1, 중립·NoDrive·미등록 상태는 0입니다. */
+        Int32 GetDriveGear(const FBodyInstance& Body) const;
 
         /** @brief 바디가 유지된 상태에서 해당 차량 인스턴스와 제약을 해제합니다. */
         bool UnregisterVehicle(const FBodyInstance& Body);
