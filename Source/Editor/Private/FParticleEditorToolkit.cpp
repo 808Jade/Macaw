@@ -7,11 +7,14 @@
 #include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "Editor/FEditorContext.h"
 #include "Editor/FEditorToolkitHost.h"
+#include "Editor/Widget/FEditorQuantityInputWidget.h"
+#include "EditorStyle.h"
 #include "Engine/AParticleSystemActor.h"
 #include "Engine/AStaticMeshActor.h"
 #include "Engine/Component/UParticleSystemComponent.h"
 #include "Engine/Component/UStaticMeshComponent.h"
 #include "Engine/FProject.h"
+#include "Engine/FPrimitiveDrawInterface.h"
 #include "Engine/Particles/Module/UParticleModuleBeamNoise.h"
 #include "Engine/Particles/Module/UParticleModuleMeshRotationRate.h"
 #include "Engine/Particles/Module/UParticleModuleRequired.h"
@@ -30,7 +33,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <imgui.h>
+#include <format>
+#include <imgui_internal.h>
 #include <limits>
 
 using namespace Editor;
@@ -102,6 +106,9 @@ namespace Editor {
         void ResetParticles();
         void SetOrbit(bool Orbit);
         Int32 CountParticles() const;
+        bool HasFloor() const;
+        bool IsFloorVisible() const;
+        void SetFloorVisible(bool Visible);
 
         bool IsReady() const override;
         const FBox& GetBounds() const override;
@@ -112,6 +119,7 @@ namespace Editor {
     private:
         Viewer::FPreviewScene mScene;
         Engine::AParticleSystemActor* mActor{};
+        Engine::AStaticMeshActor* mGround{};
         FBox mBounds{{-0.5f, -0.5f, 0.0f}, {0.5f, 0.5f, 1.0f}};
         float mOrbitTime{};
         bool mOrbit{};
@@ -142,13 +150,14 @@ bool FParticleEditorPreview::Initialize(PhysicsRuntime::FPhysicsRuntime* Physics
     mActor->GetParticleSystemComponent()->SetEditorTickable(true);
 
     if (Physics != nullptr) {
-        auto* Ground{World.SpawnPrimitive(Engine::EPrimitiveType::Cube)};
+        mGround = World.SpawnPrimitive(Engine::EPrimitiveType::Cube);
 
-        if (Ground != nullptr) {
-            Ground->SetActorTransform({{0.0f, 0.0f, -0.15f}, {}, {20.0f, 20.0f, 0.3f}});
-            Ground->GetStaticMeshComponent()->SetCollisionPreset(PhysicsRuntime::ECollisionPreset::BlockAll);
+        if (mGround != nullptr) {
+            mGround->SetActorTransform({{0.0f, 0.0f, -0.15f}, {}, {20.0f, 20.0f, 0.3f}});
+            mGround->GetStaticMeshComponent()->SetCollisionPreset(PhysicsRuntime::ECollisionPreset::BlockAll);
             World.SetPhysicsRuntime(Physics);
             World.CreatePhysicsScene();
+            mGround->SetVisible(false);
         }
     }
 
@@ -179,6 +188,20 @@ void FParticleEditorPreview::SetOrbit(bool Orbit) {
 
 Int32 FParticleEditorPreview::CountParticles() const {
     return mActor->GetParticleSystemComponent()->GetActiveParticleCount();
+}
+
+bool FParticleEditorPreview::HasFloor() const {
+    return mGround != nullptr;
+}
+
+bool FParticleEditorPreview::IsFloorVisible() const {
+    return mGround != nullptr && mGround->IsVisible();
+}
+
+void FParticleEditorPreview::SetFloorVisible(bool Visible) {
+    if (mGround != nullptr) {
+        mGround->SetVisible(Visible);
+    }
 }
 
 bool FParticleEditorPreview::IsReady() const {
@@ -220,17 +243,25 @@ FParticleEditorToolkit::FParticleEditorToolkit(FEditorContext& Context, const st
 	  mMessages{Messages},
 	  mViewer{Context.GetRenderer(), &mAssets} {
     auto& Host{GetToolkitHost()};
-    Host.AddWidget("Preview", "Preview", [this](float) {
+    Host.SetDockSpaceName("ParticleWorkspace");
+    Host.SetLayoutBuilder([this](Uint32 DockSpace) {
+        BuildLayout(DockSpace);
+    });
+    Host.SetToolbar([this]() {
+        DrawToolbar();
+    });
+    Host.AddWidget("Preview", "Particle Preview", [this](float) {
         DrawPreview();
     }, EEditorDockRegion::Center, false);
     Host.GetTabManager().FindTab("Preview")->SetWindowFlags(ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     Host.AddWidget("Emitters", "Emitters", [this](float) {
         DrawEmitters();
     }, EEditorDockRegion::Left, false);
+    Host.GetTabManager().FindTab("Emitters")->SetWindowFlags(ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     Host.AddWidget("Properties", "Details", [this](float) {
         DrawDetails();
     }, EEditorDockRegion::Details, false);
-    Host.AddWidget("Curves", "Curves", [this](float) {
+    Host.AddWidget("Curves", "Curve Editor", [this](float) {
         DrawCurve();
     }, EEditorDockRegion::Bottom, false);
     GetTab().SetCanCloseHandler([this]() {
@@ -417,8 +448,7 @@ void FParticleEditorToolkit::MarkDirty() {
 void FParticleEditorToolkit::ResetCurveSelection() {
     mCurveProperty = nullptr;
     mCurveAxis = 0;
-    mCurveKey = -1;
-    mCurveDragging = false;
+    mCurveEditor.Reset();
 }
 
 void FParticleEditorToolkit::Select(ESelection Selection, Index_t Module) {
@@ -427,13 +457,24 @@ void FParticleEditorToolkit::Select(ESelection Selection, Index_t Module) {
     ResetCurveSelection();
 }
 
+void FParticleEditorToolkit::SelectEmitter(Index_t Emitter, ESelection Selection, Index_t Module) {
+    if (mEmitter != Emitter || mSelection != Selection || mModule != Module) {
+        mEmitter = Emitter;
+        Select(Selection, Module);
+    }
+}
+
 Engine::UParticleEmitter* FParticleEditorToolkit::GetEmitter() const {
     return mWorkingCopy->GetEmitter(mEmitter);
 }
 
 Engine::UParticleLODLevel* FParticleEditorToolkit::GetLevel() const {
     auto* Emitter{GetEmitter()};
-    return Emitter != nullptr && Emitter->GetNumLODLevels() > 0 ? Emitter->GetLODLevel(std::min(mLOD, Emitter->GetNumLODLevels() - 1)) : nullptr;
+    return Emitter != nullptr ? GetLevel(*Emitter) : nullptr;
+}
+
+Engine::UParticleLODLevel* FParticleEditorToolkit::GetLevel(Engine::UParticleEmitter& Emitter) const {
+    return Emitter.GetNumLODLevels() > 0 ? Emitter.GetLODLevel(std::min(mLOD, Emitter.GetNumLODLevels() - 1)) : nullptr;
 }
 
 CoreUObject::UObject* FParticleEditorToolkit::GetSelectedObject() const {
@@ -465,13 +506,28 @@ CoreUObject::UObject* FParticleEditorToolkit::GetSelectedObject() const {
     }
 }
 
-void FParticleEditorToolkit::DrawPreview() {
+void FParticleEditorToolkit::BuildLayout(Uint32 DockSpace) {
+    ImGuiID Right{};
+    const ImGuiID Left{ImGui::DockBuilderSplitNode(DockSpace, ImGuiDir_Left, 0.40f, nullptr, &Right)};
+    ImGuiID Preview{};
+    ImGuiID Emitters{};
+    const ImGuiID Details{ImGui::DockBuilderSplitNode(Left, ImGuiDir_Down, 0.44f, nullptr, &Preview)};
+    const ImGuiID Curves{ImGui::DockBuilderSplitNode(Right, ImGuiDir_Down, 0.46f, nullptr, &Emitters)};
+    GetToolkitHost().GetTabManager().ApplyLayout(Emitters, Emitters, Details, Curves, Preview);
+}
+
+void FParticleEditorToolkit::DrawToolbar() {
+    EditorStyle::PushViewportToolbar();
+
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetStyle().ItemSpacing.y);
+
     ImGui::BeginDisabled(!mContext.CanEditWorld() || !mDirty);
-    if (ImGui::Button("Save")) {
+    constexpr EditorStyle::EIcon SaveIcon{EditorStyle::EIcon::Save};
+    if (EditorStyle::LabelButton("Save", &SaveIcon)) {
         Save();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Revert")) {
+    if (EditorStyle::LabelButton("Revert")) {
         ImGui::OpenPopup("Revert Particle System");
     }
     ImGui::EndDisabled();
@@ -490,39 +546,80 @@ void FParticleEditorToolkit::DrawPreview() {
         ImGui::EndPopup();
     }
 
-    ImGui::SameLine();
-    if (ImGui::Button(mPaused ? "Play" : "Pause")) {
-        mPaused = !mPaused;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Restart")) {
+    ImGui::SameLine(0.0f, ImGui::GetFontSize());
+    constexpr EditorStyle::EIcon RestartIcon{EditorStyle::EIcon::Rotate};
+    if (EditorStyle::LabelButton("Restart Preview", &RestartIcon)) {
         mNeedsRestart = true;
     }
-    ImGui::SameLine();
-    ImGui::BeginDisabled(!mPaused);
-    if (ImGui::Button("Step")) {
-        mStepRequested = true;
+    ImGui::SameLine(0.0f, ImGui::GetFontSize());
+    if (ImGui::GetContentRegionAvail().x < ImGui::GetFontSize() * 19.0f) {
+        ImGui::NewLine();
     }
+    ImGui::BeginDisabled(!mContext.CanEditWorld());
+    DrawLODControls();
     ImGui::EndDisabled();
-
-    ImGui::SetNextItemWidth(100.0f);
-    ImGui::SliderFloat("Speed", &mSpeed, 0.05f, 4.0f, "%.2fx");
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Move Emitter", &mOrbit)) {
-        mPreview->SetOrbit(mOrbit);
-        mNeedsRestart = true;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Fit")) {
-        mNeedsFit = true;
-        mFitDelay = 0.25f;
-    }
-
-    ImGui::Text("LOD %zu  |  %d particles", mLOD, mPreview->CountParticles());
+    EditorStyle::PopViewportToolbar();
 
     if (!mError.empty()) {
         ImGui::TextWrapped("%s", mError.c_str());
     }
+}
+
+void FParticleEditorToolkit::DrawPreviewControls() {
+    EditorStyle::PushViewportToolbar();
+    constexpr EditorStyle::EIcon ViewIcon{EditorStyle::EIcon::Camera};
+    if (EditorStyle::LabelButton("View", &ViewIcon, true)) {
+        ImGui::OpenPopup("Preview View");
+    }
+
+    if (EditorStyle::BeginPopup("Preview View")) {
+        if (ImGui::MenuItem("Fit Particles")) {
+            mNeedsFit = true;
+            mFitDelay = 0.25f;
+        }
+        if (ImGui::MenuItem("Grid", nullptr, &mShowGrid)) {
+            mViewer.SetGridSpacing(mShowGrid ? 0.25f : 0.0f);
+        }
+        ImGui::MenuItem("Origin Axes", nullptr, &mShowOrigin);
+        ImGui::MenuItem("Bounds", nullptr, &mShowBounds);
+        const bool FloorVisible{mPreview->IsFloorVisible()};
+        if (ImGui::MenuItem("Floor", nullptr, FloorVisible, mPreview->HasFloor())) {
+            mPreview->SetFloorVisible(!FloorVisible);
+        }
+        EditorStyle::EndPopup();
+    }
+
+    ImGui::SameLine();
+    if (EditorStyle::IconButton(mPaused ? "Play Preview" : "Pause Preview", mPaused ? EditorStyle::EIcon::Play : EditorStyle::EIcon::Pause)) {
+        mPaused = !mPaused;
+    }
+    ImGui::SameLine();
+    if (EditorStyle::IconButton("Step Preview", EditorStyle::EIcon::Step, false, mPaused)) {
+        mStepRequested = true;
+    }
+    ImGui::SameLine();
+    EditorStyle::DrawFieldLabel("Speed", ImGui::CalcTextSize("Speed").x);
+    const Core::FString Speed{std::format("{:.2f}x###PlaybackSpeed", mSpeed)};
+    if (EditorStyle::LabelButton(Speed.c_str(), nullptr, true, true, "Preview Playback")) {
+        ImGui::OpenPopup("Preview Playback");
+    }
+
+    if (EditorStyle::BeginPopup("Preview Playback")) {
+        const float LabelWidth{ImGui::CalcTextSize("Move Emitter").x};
+        EditorStyle::DrawFieldLabel("Speed", LabelWidth, ImGui::GetFontSize() * 8.0f);
+        ImGui::SliderFloat("##Speed", &mSpeed, 0.05f, 4.0f, "%.2fx");
+        EditorStyle::DrawFieldLabel("Move Emitter", LabelWidth);
+        if (ImGui::Checkbox("##MoveEmitter", &mOrbit)) {
+            mPreview->SetOrbit(mOrbit);
+            mNeedsRestart = true;
+        }
+        EditorStyle::EndPopup();
+    }
+    EditorStyle::PopViewportToolbar();
+}
+
+void FParticleEditorToolkit::DrawPreview() {
+    DrawPreviewControls();
 
     const ImVec2 Size{ImGui::GetContentRegionAvail()};
     if (Size.x < 1.0f || Size.y < 1.0f || !mViewer.Resize(static_cast<Uint32>(Size.x), static_cast<Uint32>(Size.y))) {
@@ -551,17 +648,39 @@ void FParticleEditorToolkit::DrawPreview() {
         }
     }
 
-    if (mViewer.Render()) {
+    Engine::FPrimitiveDrawInterface Overlay{};
+    if (mShowOrigin) {
+        Overlay.DrawLine({}, {0.5f, 0.0f, 0.0f}, {0.9f, 0.28f, 0.28f}, false, 2.0f);
+        Overlay.DrawLine({}, {0.0f, 0.5f, 0.0f}, {0.30f, 0.78f, 0.42f}, false, 2.0f);
+        Overlay.DrawLine({}, {0.0f, 0.0f, 0.5f}, {0.35f, 0.59f, 0.94f}, false, 2.0f);
+    }
+    if (mShowBounds) {
+        Overlay.DrawBox(mPreview->GetBounds(), {0.24f, 0.83f, 0.76f}, false);
+    }
+
+    if (mViewer.Render(mShowBounds || mShowOrigin ? &Overlay : nullptr)) {
         const ImTextureRef Texture{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(mViewer.GetNativeTexture()))};
-        ImGui::GetWindowDrawList()->AddImage(Texture, Origin, {Origin.x + Size.x, Origin.y + Size.y});
+        auto* Draw{ImGui::GetWindowDrawList()};
+        const ImVec2 End{Origin.x + Size.x, Origin.y + Size.y};
+        Draw->AddImage(Texture, Origin, End);
+
+        const Core::FString Status{std::format("LOD {}   /   {} particles", mLOD, mPreview->CountParticles())};
+        const ImVec2 TextSize{ImGui::CalcTextSize(Status.c_str())};
+        const ImVec2 TextAt{Origin.x + 12.0f, End.y - TextSize.y - 8.0f};
+        Draw->PushClipRect(Origin, End, true);
+        Draw->AddRectFilled({TextAt.x - 6.0f, TextAt.y - 3.0f}, {TextAt.x + TextSize.x + 6.0f, TextAt.y + TextSize.y + 3.0f}, IM_COL32(13, 18, 24, 225), 4.0f);
+        Draw->AddText(TextAt, IM_COL32(225, 234, 243, 255), Status.c_str());
+        Draw->PopClipRect();
     }
 }
 
 void FParticleEditorToolkit::DrawLODControls() {
-    ImGui::TextUnformatted("LOD");
+    if (EditorStyle::IconButton("Higher Detail LOD", EditorStyle::EIcon::JumpStart, false, mLOD > 0)) {
+        ChangeLOD(mLOD - 1);
+    }
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(88.0f);
-    const Core::FString Current{"LOD " + std::to_string(mLOD)};
+    EditorStyle::DrawFieldLabel("LOD", ImGui::CalcTextSize("LOD").x, ImGui::GetFontSize() * 3.5f);
+    const Core::FString Current{std::to_string(mLOD)};
 
     if (ImGui::BeginCombo("##LOD", Current.c_str())) {
         for (Index_t Index{}; Index < mWorkingCopy->GetNumLODs(); ++Index) {
@@ -575,7 +694,12 @@ void FParticleEditorToolkit::DrawLODControls() {
     }
 
     ImGui::SameLine();
-    if (ImGui::SmallButton("+##LOD")) {
+    if (EditorStyle::IconButton("Lower Detail LOD", EditorStyle::EIcon::JumpEnd, false, mLOD + 1 < mWorkingCopy->GetNumLODs())) {
+        ChangeLOD(mLOD + 1);
+    }
+    ImGui::SameLine();
+    constexpr EditorStyle::EIcon AddIcon{EditorStyle::EIcon::Add};
+    if (EditorStyle::LabelButton("Add LOD", &AddIcon, false, true, "Duplicate the current LOD")) {
         mPreview->ResetParticles();
         if (mWorkingCopy->InsertLOD(mLOD + 1)) {
             ChangeLOD(mLOD + 1);
@@ -584,20 +708,19 @@ void FParticleEditorToolkit::DrawLODControls() {
     }
 
     ImGui::SameLine();
-    ImGui::BeginDisabled(mLOD == 0);
-    if (ImGui::SmallButton("-##LOD")) {
+    if (EditorStyle::LabelButton("Remove LOD", nullptr, false, mLOD > 0)) {
         mPreview->ResetParticles();
         if (mWorkingCopy->RemoveLOD(mLOD)) {
             ChangeLOD(mLOD - 1);
             MarkDirty();
         }
     }
-    ImGui::EndDisabled();
+}
 
+void FParticleEditorToolkit::DrawLODDistance() {
     float Distance{mWorkingCopy->GetLODDistance(mLOD)};
-    ImGui::SetNextItemWidth(95.0f);
     ImGui::BeginDisabled(mLOD == 0);
-    if (ImGui::DragFloat("Distance (m)", &Distance, 0.1f) && std::isfinite(Distance)) {
+    if (FEditorQuantityInputWidget::EditValue("##LOD Distance", Distance, Core::QuantityUnits::Meter)) {
         const float Minimum{std::nextafter(mWorkingCopy->GetLODDistance(mLOD - 1), std::numeric_limits<float>::infinity())};
         const float Maximum{mLOD + 1 < mWorkingCopy->GetNumLODs() ? std::nextafter(mWorkingCopy->GetLODDistance(mLOD + 1), 0.0f) : std::numeric_limits<float>::max()};
 
@@ -611,149 +734,226 @@ void FParticleEditorToolkit::DrawLODControls() {
 
 void FParticleEditorToolkit::DrawEmitters() {
     ImGui::BeginDisabled(!mContext.CanEditWorld());
-    DrawLODControls();
-    ImGui::Separator();
-    if (ImGui::Selectable("System Settings", mSelection == ESelection::System)) {
-        Select(ESelection::System);
-    }
-
-    for (Index_t Index{}; Index < mWorkingCopy->GetNumEmitters(); ++Index) {
-        ImGui::PushID(static_cast<int>(Index));
-        auto* Emitter{mWorkingCopy->GetEmitter(Index)};
-        const auto* TypeData{Emitter->GetLODLevel(0)->GetTypeDataModule()};
-        const Core::FString Name{Emitter->GetName().empty() ? "Emitter " + std::to_string(Index + 1) : Emitter->GetName()};
-        const Core::FString Label{Name + "  (" + ModuleLabel(TypeData != nullptr ? TypeData->GetClass() : nullptr) + ")###Emitter"};
-
-        if (ImGui::Selectable(Label.c_str(), mSelection != ESelection::System && mEmitter == Index)) {
-            mEmitter = Index;
-            Select(ESelection::Emitter);
-        }
-        ImGui::PopID();
-    }
-
-    if (ImGui::SmallButton("Add Emitter")) {
+    constexpr EditorStyle::EIcon AddIcon{EditorStyle::EIcon::Add};
+    if (EditorStyle::LabelButton("Add Emitter", &AddIcon)) {
         AddEmitter();
     }
     ImGui::SameLine();
-    ImGui::BeginDisabled(GetEmitter() == nullptr);
-    if (ImGui::SmallButton("Remove##Emitter")) {
-        RemoveEmitter();
+    if (EditorStyle::Button("System Settings", {}, mSelection == ESelection::System)) {
+        Select(ESelection::System);
     }
-    ImGui::EndDisabled();
 
-    if (auto* Level{GetLevel()}) {
-        ImGui::BeginDisabled(mEmitter == 0);
-        if (ImGui::SmallButton("Up##Emitter")) {
-            MoveEmitter(mEmitter - 1);
-        }
-        ImGui::EndDisabled();
-        ImGui::SameLine();
-        ImGui::BeginDisabled(mEmitter + 1 >= mWorkingCopy->GetNumEmitters());
-        if (ImGui::SmallButton("Down##Emitter")) {
-            MoveEmitter(mEmitter + 1);
-        }
-        ImGui::EndDisabled();
-        ImGui::SeparatorText("Modules");
-
-        bool Enabled{Level->IsEnabled()};
-
-        if (ImGui::Checkbox("Enable this emitter at current LOD", &Enabled)) {
-            Level->SetEnabled(Enabled);
-            MarkDirty();
+    std::function<void()> Command{};
+    const bool HasEmitters{mWorkingCopy->GetNumEmitters() > 0};
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(22, 27, 35, 255));
+    if (ImGui::BeginChild("Emitter Board", {}, ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_HorizontalScrollbar)) {
+        if (!HasEmitters) {
+            ImGui::TextDisabled("Add an emitter to build this particle system.");
         }
 
-        DrawTypeDataPicker();
-        DrawModuleList();
-    }
-    ImGui::EndDisabled();
-}
+        const float LaneWidth{ImGui::GetFontSize() * 16.0f};
+        const float LaneHeight{std::max(1.0f, ImGui::GetContentRegionAvail().y - ImGui::GetStyle().ScrollbarSize)};
 
-void FParticleEditorToolkit::DrawTypeDataPicker() {
-    const auto* TypeData{GetLevel()->GetTypeDataModule()};
-    const auto* Current{TypeData != nullptr ? TypeData->GetClass() : nullptr};
-    const auto Label{ModuleLabel(Current)};
-    const std::array<const CoreUObject::UClass*, 4> Types{nullptr, Engine::UParticleModuleTypeDataMesh::StaticClass(), Engine::UParticleModuleTypeDataBeam::StaticClass(), Engine::UParticleModuleTypeDataRibbon::StaticClass()};
-
-    if (ImGui::BeginCombo("Emitter Type", Label.c_str())) {
-        for (const auto* Type : Types) {
-            if (ImGui::Selectable(ModuleLabel(Type).c_str(), Type == Current) && Type != Current) {
-                SetTypeData(Type);
+        for (Index_t Index{}; Index < mWorkingCopy->GetNumEmitters(); ++Index) {
+            if (Index > 0) {
+                ImGui::SameLine();
             }
+
+            ImGui::PushID(static_cast<int>(Index));
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(33, 41, 52, 255));
+            if (ImGui::BeginChild("Emitter Lane", {LaneWidth, LaneHeight}, ImGuiChildFlags_Borders)) {
+                DrawEmitter(Index, *mWorkingCopy->GetEmitter(Index), Command);
+            }
+            ImGui::EndChild();
+            ImGui::PopStyleColor();
+
+            if (mScrollToEmitter && Index == mEmitter) {
+                ImGui::SetScrollHereX(1.0f);
+                mScrollToEmitter = false;
+            }
+            ImGui::PopID();
         }
-        ImGui::EndCombo();
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
+    ImGui::EndDisabled();
+
+    if (Command) {
+        Command();
     }
 }
 
-void FParticleEditorToolkit::DrawModuleList() {
-    auto* Level{GetLevel()};
-    if (ImGui::Selectable("Required", mSelection == ESelection::Required)) {
-        Select(ESelection::Required);
+void FParticleEditorToolkit::DrawEmitter(Index_t Index, Engine::UParticleEmitter& Emitter, std::function<void()>& Command) {
+    auto* Level{GetLevel(Emitter)};
+    const auto* TypeData{Level != nullptr ? Level->GetTypeDataModule() : nullptr};
+    const auto* CurrentType{TypeData != nullptr ? TypeData->GetClass() : nullptr};
+    const Core::FString Name{Emitter.GetName().empty() ? "Emitter " + std::to_string(Index + 1) : Emitter.GetName()};
+    const bool Selected{mSelection != ESelection::System && mEmitter == Index};
+    const float FontSize{ImGui::GetFontSize()};
+    const float HeadingWidth{std::max(1.0f, ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() * 2.05f)};
+    const ImVec2 Heading{ImGui::GetCursorScreenPos()};
+    const bool Pressed{EditorStyle::Selectable("##Emitter", Selected, 0, {HeadingWidth, FontSize * 2.5f})};
+    if (Pressed) {
+        SelectEmitter(Index, ESelection::Emitter);
     }
-    if (ImGui::Selectable("Spawn", mSelection == ESelection::Spawn)) {
-        Select(ESelection::Spawn);
+    if (ImGui::IsItemHovered() && ImGui::CalcTextSize(Name.c_str()).x > HeadingWidth - 26.0f) {
+        ImGui::SetTooltip("%s", Name.c_str());
     }
-    if (Level->GetTypeDataModule() != nullptr && ImGui::Selectable("Type Data", mSelection == ESelection::TypeData)) {
-        Select(ESelection::TypeData);
+
+    auto* Draw{ImGui::GetWindowDrawList()};
+    const ImU32 Accent{IM_COL32(81, 202, 188, 255)};
+    Draw->PushClipRect(Heading, {Heading.x + HeadingWidth, Heading.y + FontSize * 2.5f}, true);
+    EditorStyle::DrawIcon(EditorStyle::EIcon::Sprite, {Heading.x + 2.0f, Heading.y + FontSize * 0.65f}, FontSize, Accent);
+    Draw->AddText({Heading.x + FontSize + 9.0f, Heading.y + 2.0f}, ImGui::GetColorU32(ImGuiCol_Text), Name.c_str());
+    Draw->AddText({Heading.x + FontSize + 9.0f, Heading.y + FontSize + 5.0f}, ImGui::GetColorU32(ImGuiCol_TextDisabled), ModuleLabel(CurrentType).c_str());
+    Draw->PopClipRect();
+
+    ImGui::SameLine();
+    const bool Enabled{Level != nullptr && Level->IsEnabled()};
+    if (EditorStyle::IconButton("Emitter Enabled", Enabled ? EditorStyle::EIcon::Visible : EditorStyle::EIcon::Hidden, false, Level != nullptr, false, Enabled ? "Disable this emitter at the current LOD" : "Enable this emitter at the current LOD")) {
+        Level->SetEnabled(!Enabled);
+        MarkDirty();
+    }
+    ImGui::SameLine(0.0f, 2.0f);
+    if (EditorStyle::IconButton("Emitter Actions", EditorStyle::EIcon::More)) {
+        ImGui::OpenPopup("Emitter Actions");
+    }
+
+    if (EditorStyle::BeginPopup("Emitter Actions")) {
+        if (Level != nullptr && ImGui::BeginMenu("Emitter Type")) {
+            const std::array<const CoreUObject::UClass*, 4> Types{nullptr, Engine::UParticleModuleTypeDataMesh::StaticClass(), Engine::UParticleModuleTypeDataBeam::StaticClass(), Engine::UParticleModuleTypeDataRibbon::StaticClass()};
+            for (const auto* Type : Types) {
+                if (ImGui::MenuItem(ModuleLabel(Type).c_str(), nullptr, Type == CurrentType, Type != CurrentType)) {
+                    Command = [this, Index, Type]() {
+                        SelectEmitter(Index, ESelection::Emitter);
+                        SetTypeData(Type);
+                    };
+                }
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem("Move Left", nullptr, false, Index > 0)) {
+            Command = [this, Index]() {
+                SelectEmitter(Index, ESelection::Emitter);
+                MoveEmitter(Index - 1);
+            };
+        }
+        if (ImGui::MenuItem("Move Right", nullptr, false, Index + 1 < mWorkingCopy->GetNumEmitters())) {
+            Command = [this, Index]() {
+                SelectEmitter(Index, ESelection::Emitter);
+                MoveEmitter(Index + 1);
+            };
+        }
+        if (ImGui::MenuItem("Remove Emitter")) {
+            Command = [this, Index]() {
+                SelectEmitter(Index, ESelection::Emitter);
+                RemoveEmitter();
+            };
+        }
+        EditorStyle::EndPopup();
+    }
+
+    ImGui::Separator();
+    if (Level == nullptr) {
+        return;
+    }
+
+    DrawModuleRow(Index, ESelection::Required, 0, Level->GetRequiredModule(), "Required", IM_COL32(223, 189, 105, 255), false);
+    DrawModuleRow(Index, ESelection::Spawn, 0, Level->GetSpawnModule(), "Spawn", IM_COL32(89, 196, 180, 255), false);
+    if (TypeData != nullptr) {
+        DrawModuleRow(Index, ESelection::TypeData, 0, Level->GetTypeDataModule(), ModuleLabel(CurrentType).c_str(), IM_COL32(139, 171, 237, 255), false);
     }
 
     const auto& Modules{Level->GetModules()};
-    for (Index_t Index{}; Index < Modules.size(); ++Index) {
-        ImGui::PushID(static_cast<int>(Index));
-        auto& Module{*Modules[Index]};
-        bool Enabled{Module.IsEnabled()};
-        if (ImGui::Checkbox("##Enabled", &Enabled)) {
-            Module.SetEnabled(Enabled);
-            MarkDirty();
-        }
-        ImGui::SameLine();
-        const bool Compatible{CompatibleModule(*Module.GetClass(), Level->GetTypeDataModule())};
-        const Core::FString Label{ModuleLabel(Module.GetClass()) + (Compatible ? "" : " (inactive)")};
-        if (ImGui::Selectable(Label.c_str(), mSelection == ESelection::Module && mModule == Index)) {
-            Select(ESelection::Module, Index);
-        }
-        ImGui::PopID();
+    for (Index_t Slot{}; Slot < Modules.size(); ++Slot) {
+        auto* Module{Modules[Slot].get()};
+        const bool Compatible{CompatibleModule(*Module->GetClass(), TypeData)};
+        const Core::FString Label{ModuleLabel(Module->GetClass()) + (Compatible ? "" : " (inactive)")};
+        DrawModuleRow(Index, ESelection::Module, Slot, Module, Label.c_str(), IM_COL32(102, 121, 148, 255), true);
     }
 
-    const bool Matching{MatchingModules(*GetEmitter())};
-    ImGui::BeginDisabled(!Matching);
-    if (ImGui::SmallButton("Add Module")) {
+    DrawModuleMenu(Index, *Level);
+}
+
+void FParticleEditorToolkit::DrawModuleRow(Index_t Emitter, ESelection Selection, Index_t Index, Engine::UParticleModule* Module, const char* Label, Uint32 Accent, bool ToggleEnabled) {
+    ImGui::PushID(static_cast<int>(Selection));
+    ImGui::PushID(static_cast<int>(Index));
+    const bool Selected{mEmitter == Emitter && mSelection == Selection && mModule == Index};
+    const bool HasCurve{Module != nullptr && HasCurveTrack(*Module)};
+    const float CheckboxWidth{ToggleEnabled ? ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x : 0.0f};
+    const float CurveWidth{HasCurve ? ImGui::CalcTextSize("Curve").x + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().ItemSpacing.x : 0.0f};
+    const float Width{std::max(1.0f, ImGui::GetContentRegionAvail().x - CheckboxWidth - CurveWidth)};
+    const float Height{ImGui::GetFrameHeight()};
+    const ImVec2 Origin{ImGui::GetCursorScreenPos()};
+    auto* Draw{ImGui::GetWindowDrawList()};
+    Draw->AddRectFilled(Origin, {Origin.x + Width, Origin.y + Height}, IM_COL32(42, 52, 66, 255), 3.0f);
+    if (EditorStyle::Selectable("##Module", Selected, 0, {Width, Height})) {
+        SelectEmitter(Emitter, Selection, Index);
+    }
+    if (ImGui::IsItemHovered() && ImGui::CalcTextSize(Label).x > Width - 11.0f) {
+        ImGui::SetTooltip("%s", Label);
+    }
+
+    Draw->PushClipRect(Origin, {Origin.x + Width, Origin.y + Height}, true);
+    Draw->AddRectFilled({Origin.x, Origin.y + 2.0f}, {Origin.x + 3.0f, Origin.y + Height - 2.0f}, Accent, 1.0f);
+    Draw->AddText({Origin.x + 8.0f, Origin.y + (Height - ImGui::GetFontSize()) * 0.5f}, ImGui::GetColorU32(ImGuiCol_Text), Label);
+    Draw->PopClipRect();
+
+    if (ToggleEnabled) {
+        ImGui::SameLine();
+        bool Enabled{Module->IsEnabled()};
+        if (ImGui::Checkbox("##Enabled", &Enabled)) {
+            Module->SetEnabled(Enabled);
+            MarkDirty();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Enable or disable %s at this LOD", Label);
+        }
+    }
+
+    if (HasCurve) {
+        ImGui::SameLine();
+        if (EditorStyle::Button("Curve", {}, Selected && mCurveProperty != nullptr)) {
+            SelectEmitter(Emitter, Selection, Index);
+            GetToolkitHost().GetTabManager().TryInvokeTab("Curves");
+        }
+    }
+
+    ImGui::PopID();
+    ImGui::PopID();
+}
+
+void FParticleEditorToolkit::DrawModuleMenu(Index_t Emitter, const Engine::UParticleLODLevel& Level) {
+    const bool Matching{MatchingModules(*mWorkingCopy->GetEmitter(Emitter))};
+    constexpr EditorStyle::EIcon AddIcon{EditorStyle::EIcon::Add};
+    if (EditorStyle::LabelButton("Module", &AddIcon, true, Matching, Matching ? "Add a module" : "Module layout differs between LODs")) {
         ImGui::OpenPopup("Particle Modules");
     }
 
-    if (ImGui::BeginPopup("Particle Modules")) {
-        for (const auto* Class : CoreUObject::FReflectionRegistry::GetDerivedClasses(Engine::UParticleModule::StaticClass())) {
-            if (!Class->CanCreate() || Class == Engine::UParticleModuleRequired::StaticClass() || Class == Engine::UParticleModuleSpawn::StaticClass() || Class->IsChildOf(Engine::UParticleModuleTypeDataBase::StaticClass()) || !CompatibleModule(*Class, Level->GetTypeDataModule())) {
-                continue;
+    const bool ModuleSelected{mEmitter == Emitter && mSelection == ESelection::Module && mModule < Level.GetModules().size()};
+    if (EditorStyle::BeginPopup("Particle Modules")) {
+        if (ImGui::BeginMenu("Add Module", Matching)) {
+            for (const auto* Class : CoreUObject::FReflectionRegistry::GetDerivedClasses(Engine::UParticleModule::StaticClass())) {
+                if (!Class->CanCreate() || Class == Engine::UParticleModuleRequired::StaticClass() || Class == Engine::UParticleModuleSpawn::StaticClass() || Class->IsChildOf(Engine::UParticleModuleTypeDataBase::StaticClass()) || !CompatibleModule(*Class, Level.GetTypeDataModule())) {
+                    continue;
+                }
+                if (ImGui::MenuItem(ModuleLabel(Class).c_str())) {
+                    SelectEmitter(Emitter, ESelection::Emitter);
+                    AddModule(*Class);
+                }
             }
-
-            if (ImGui::MenuItem(ModuleLabel(Class).c_str())) {
-                AddModule(*Class);
-            }
+            ImGui::EndMenu();
         }
-        ImGui::EndPopup();
-    }
-
-    ImGui::SameLine();
-    ImGui::BeginDisabled(mSelection != ESelection::Module);
-    if (ImGui::SmallButton("Remove##Module")) {
-        RemoveModule();
-    }
-    ImGui::BeginDisabled(mModule == 0);
-    if (ImGui::SmallButton("Up##Module")) {
-        MoveModule(mModule - 1);
-    }
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    ImGui::BeginDisabled(mModule + 1 >= Modules.size());
-    if (ImGui::SmallButton("Down##Module")) {
-        MoveModule(mModule + 1);
-    }
-    ImGui::EndDisabled();
-    ImGui::EndDisabled();
-    ImGui::EndDisabled();
-
-    if (!Matching) {
-        ImGui::TextWrapped("Module layout differs between LODs. Module order is shared by the runtime.");
+        if (ImGui::MenuItem("Move Module Up", nullptr, false, Matching && ModuleSelected && mModule > 0)) {
+            MoveModule(mModule - 1);
+        }
+        if (ImGui::MenuItem("Move Module Down", nullptr, false, Matching && ModuleSelected && mModule + 1 < Level.GetModules().size())) {
+            MoveModule(mModule + 1);
+        }
+        if (ImGui::MenuItem("Remove Module", nullptr, false, Matching && ModuleSelected)) {
+            RemoveModule();
+        }
+        EditorStyle::EndPopup();
     }
 }
 
@@ -770,6 +970,7 @@ void FParticleEditorToolkit::AddEmitter() {
 
     mEmitter = mWorkingCopy->GetNumEmitters();
     mWorkingCopy->AddEmitter(std::move(Emitter));
+    mScrollToEmitter = true;
     Select(ESelection::Emitter);
     MarkDirty();
 }
@@ -787,6 +988,7 @@ void FParticleEditorToolkit::RemoveEmitter() {
 void FParticleEditorToolkit::MoveEmitter(Index_t Target) {
     if (mWorkingCopy->MoveEmitter(mEmitter, Target)) {
         mEmitter = Target;
+        mScrollToEmitter = true;
         MarkDirty();
     }
 }

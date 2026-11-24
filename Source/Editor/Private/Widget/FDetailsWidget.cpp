@@ -241,20 +241,6 @@ namespace Editor {
             return DisplayName(Name);
         }
 
-        bool DrawQuantityInput(const char* Label, float& BaseValue, const Core::FQuantityUnit& Unit) {
-            Editor::FEditorQuantityInputWidget Input{Label, BaseValue, Unit};
-            Input.Draw(0.0f);
-
-            const auto Edited{Input.GetEditedValue()};
-            if (!Edited.has_value() || *Edited == BaseValue) {
-                return false;
-            }
-
-            BaseValue = *Edited;
-
-            return true;
-        }
-
         /**
          * @brief 프로퍼티 이름에 따른 고급 항목 분류를 확인합니다.
          * @param Name 조회하거나 표시할 이름입니다.
@@ -1869,10 +1855,10 @@ namespace Editor {
                 return false;
             }
 
-            return DrawQuantityInput(Label, Quantity->mBaseValue, *Unit);
+            return FEditorQuantityInputWidget::EditValue(Label, Quantity->mBaseValue, *Unit);
         } else if (auto* FloatValue{std::get_if<float>(&Value)}) {
             if (Property->GetMetaData("DisplayUnit") == Core::QuantityUnits::Meter.mSymbol) {
-                return DrawQuantityInput(Label, *FloatValue, Core::QuantityUnits::Meter);
+                return FEditorQuantityInputWidget::EditValue(Label, *FloatValue, Core::QuantityUnits::Meter);
             }
 
             return ImGui::DragFloat(Label, FloatValue, 0.025f);

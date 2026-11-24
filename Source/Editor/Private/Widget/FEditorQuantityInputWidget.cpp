@@ -14,6 +14,19 @@ FEditorQuantityInputWidget::FEditorQuantityInputWidget(Core::FString Label, floa
 	  mUnit{Unit} {
 }
 
+bool FEditorQuantityInputWidget::EditValue(const char* Label, float& BaseValue, const Core::FQuantityUnit& Unit) {
+    FEditorQuantityInputWidget Input{Label, BaseValue, Unit};
+    Input.Draw(0.0f);
+
+    const auto Edited{Input.GetEditedValue()};
+    if (!Edited.has_value() || *Edited == BaseValue) {
+        return false;
+    }
+
+    BaseValue = *Edited;
+    return true;
+}
+
 std::optional<float> FEditorQuantityInputWidget::GetEditedValue() const {
     return mEditedValue;
 }
@@ -67,17 +80,17 @@ void FEditorQuantityInputWidget::DrawContent(float) {
     }
 
     ImGui::BeginGroup();
+    if (HasLabel) {
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(Label, LabelEnd);
+        ImGui::SameLine(0.0f, Style.ItemInnerSpacing.x);
+    }
+
     ImGui::SetNextItemWidth(Width - (UnitWidth > 0.0f ? UnitWidth + Gap : 0.0f));
     DrawNumber(ImGui::CalcItemWidth(), *Number);
 
     if (UnitWidth > 0.0f) {
         DrawUnit(UnitWidth, Gap);
-    }
-
-    if (HasLabel) {
-        ImGui::SameLine(0.0f, Style.ItemInnerSpacing.x);
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(Label, LabelEnd);
     }
 
     ImGui::EndGroup();

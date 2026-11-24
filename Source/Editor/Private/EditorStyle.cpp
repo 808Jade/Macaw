@@ -768,6 +768,21 @@ namespace Editor {
         return Pressed;
     }
 
+    void Editor::EditorStyle::DrawFieldLabel(const char* Label, float LabelWidth, float FieldWidth) {
+        const ImVec2 Origin{ImGui::GetCursorScreenPos()};
+        const float Width{LabelWidth >= 0.0f ? LabelWidth : std::max(0.0f, ImGui::GetContentRegionAvail().x * 0.43f)};
+        ImGui::AlignTextToFramePadding();
+        ImGui::PushClipRect(Origin, {Origin.x + Width, Origin.y + ImGui::GetFrameHeight()}, true);
+        ImGui::TextUnformatted(Label);
+        if (ImGui::CalcTextSize(Label).x > Width) {
+            ImGui::SetItemTooltip("%s", Label);
+        }
+        ImGui::PopClipRect();
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::SetCursorScreenPos({Origin.x + Width + ImGui::GetStyle().ItemSpacing.x, Origin.y});
+        ImGui::SetNextItemWidth(FieldWidth);
+    }
+
     /**
      * @brief EditorStyle 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
      */

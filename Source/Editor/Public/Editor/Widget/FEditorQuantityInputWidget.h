@@ -10,6 +10,8 @@ namespace Editor {
         ~FEditorQuantityInputWidget() override = default;
 
     public:
+        static bool EditValue(const char* Label, float& BaseValue, const Core::FQuantityUnit& Unit);
+
         std::optional<float> GetEditedValue() const;
         void SetMixedValue(bool Mixed);
         void SetAxisColor(Uint32 Color);

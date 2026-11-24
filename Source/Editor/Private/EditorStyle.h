@@ -278,6 +278,8 @@ namespace Editor {
          */
         float GetLabelButtonWidth(const char* Label, const EIcon* Icon = nullptr, bool Dropdown = false);
 
+        void DrawFieldLabel(const char* Label, float LabelWidth = -1.0f, float FieldWidth = -1.0f);
+
         /**
          * @brief 에셋 에디터 툴바의 찾아보기 버튼이 콘텐츠 브라우저에서 에셋을 선택할 때 호출할 처리기를 지정합니다.
          * @param[in] Handler 에셋 경로를 받아 콘텐츠 브라우저를 이동시키는 함수이며 비우면 버튼을 비활성화합니다.

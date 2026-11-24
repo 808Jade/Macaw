@@ -2,8 +2,12 @@
 
 #include "FAssetEditorToolkit.h"
 #include "Editor/FAssetPicker.h"
-#include "Engine/Curves/FFloatCurveKey.h"
+#include "Editor/Widget/FCurveEditorWidget.h"
 #include "Viewer/FAssetViewer.h"
+
+#include <array>
+#include <functional>
+#include <optional>
 
 namespace Asset {
     class FAssetManager;
@@ -61,21 +65,28 @@ namespace Editor {
         void MarkDirty();
         void ResetCurveSelection();
         void Select(Editor::FParticleEditorToolkit::ESelection Selection, Index_t Module = 0);
+        void SelectEmitter(Index_t Emitter, Editor::FParticleEditorToolkit::ESelection Selection, Index_t Module = 0);
         Engine::UParticleEmitter* GetEmitter() const;
         Engine::UParticleLODLevel* GetLevel() const;
+        Engine::UParticleLODLevel* GetLevel(Engine::UParticleEmitter& Emitter) const;
         CoreUObject::UObject* GetSelectedObject() const;
 
-        void DrawPreview();
-        void DrawEmitters();
+        void BuildLayout(Uint32 DockSpace);
+        void DrawToolbar();
         void DrawLODControls();
-        void DrawModuleList();
-        void DrawTypeDataPicker();
+        void DrawLODDistance();
+        void DrawPreview();
+        void DrawPreviewControls();
+        void DrawEmitters();
+        void DrawEmitter(Index_t Index, Engine::UParticleEmitter& Emitter, std::function<void()>& Command);
+        void DrawModuleRow(Index_t Emitter, Editor::FParticleEditorToolkit::ESelection Selection, Index_t Index, Engine::UParticleModule* Module, const char* Label, Uint32 Accent, bool ToggleEnabled);
+        void DrawModuleMenu(Index_t Emitter, const Engine::UParticleLODLevel& Level);
         void DrawDetails();
         void DrawCurve();
+        bool HasCurveTrack(const CoreUObject::UObject& Object) const;
         bool DrawProperty(void* Object, const CoreUObject::FProperty& Property);
         bool DrawDistribution(void* Object, const CoreUObject::FProperty& Property);
         bool DrawArray(void* Object, const CoreUObject::FProperty& Property);
-        bool DrawCurveTrack(Core::TArray<Engine::FFloatCurveKey>& Keys);
 
         void AddEmitter();
         void RemoveEmitter();
@@ -103,11 +114,10 @@ namespace Editor {
         Index_t mEmitter{};
         Index_t mLOD{};
         Index_t mModule{};
+        std::array<char, 128> mDetailsFilter{};
         const CoreUObject::FProperty* mCurveProperty{};
         Int32 mCurveAxis{};
-        Int32 mCurveKey{-1};
-        FVector4 mCurveDragRange{};
-        bool mCurveDragging{};
+        Editor::FCurveEditorWidget mCurveEditor{"Curve Editor"};
 
         float mSpeed{1.0f};
         float mFitDelay{};
@@ -116,6 +126,10 @@ namespace Editor {
         bool mStepRequested{};
         bool mNeedsRestart{};
         bool mNeedsFit{true};
+        bool mShowGrid{true};
+        bool mShowOrigin{};
+        bool mShowBounds{};
+        bool mScrollToEmitter{};
         bool mDirty{};
     };
 
