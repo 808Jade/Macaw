@@ -143,6 +143,11 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Hit["ImpactPoint"] = sol::readonly(&Engine::FHitResult::mImpactPoint);
     Hit["Normal"] = sol::readonly(&Engine::FHitResult::mNormal);
     Hit["Time"] = sol::readonly(&Engine::FHitResult::mTime);
+    Hit["Distance"] = sol::readonly(&Engine::FHitResult::mDistance);
+    Hit["Location"] = sol::readonly(&Engine::FHitResult::mLocation);
+    Hit["ImpactNormal"] = sol::readonly(&Engine::FHitResult::mImpactNormal);
+    Hit["StartPenetrating"] = sol::readonly(&Engine::FHitResult::mStartPenetrating);
+    Hit["PenetrationDepth"] = sol::readonly(&Engine::FHitResult::mPenetrationDepth);
 
     auto RaycastHit{Lua.new_usertype<Engine::FWorldHit>("RaycastHit", sol::no_constructor)};
     RaycastHit["IsHit"] = sol::property([](const Engine::FWorldHit& Value) {
@@ -344,6 +349,29 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     };
     Actor["SetActorTransform"] = [](const FActorRef& Ref, const FTransform& Value) {
         return Ref.Resolve().SetActorTransform(Value);
+    };
+    Actor["GetActorLocation"] = [](const FActorRef& Ref) {
+        return Ref.Resolve().GetActorLocation();
+    };
+    Actor["SetActorLocation"] = [](const FActorRef& Ref, const FVector& NewLocation, sol::optional<bool> Sweep) {
+        if (!NewLocation.IsFinite()) {
+            throw sol::error{"Invalid actor location"};
+        }
+
+        Engine::FHitResult Hit{};
+        const bool Moved{Ref.Resolve().SetActorLocation(NewLocation, Sweep.value_or(false), &Hit)};
+
+        return std::make_tuple(Moved, Hit);
+    };
+    Actor["AddActorWorldOffset"] = [](const FActorRef& Ref, const FVector& DeltaLocation, sol::optional<bool> Sweep) {
+        if (!DeltaLocation.IsFinite()) {
+            throw sol::error{"Invalid actor offset"};
+        }
+
+        Engine::FHitResult Hit{};
+        const bool Moved{Ref.Resolve().AddActorWorldOffset(DeltaLocation, Sweep.value_or(false), &Hit)};
+
+        return std::make_tuple(Moved, Hit);
     };
     Actor["GetComponentByClass"] = [](const FActorRef& Ref, const Core::FString& ClassName) -> sol::optional<FLuaComponentRef> {
         const auto* Class{CoreUObject::FReflectionRegistry::FindClass(ClassName)};

@@ -111,6 +111,11 @@ function DepthOfFieldSettings.new() end
 ---@field ImpactPoint MacawVector
 ---@field Normal MacawVector
 ---@field Time number
+---@field Distance number
+---@field Location MacawVector
+---@field ImpactNormal MacawVector
+---@field StartPenetrating boolean
+---@field PenetrationDepth number
 HitResult = {}
 
 ---@class MacawRaycastHit
@@ -292,6 +297,23 @@ function Actor:GetActorTransform() end
 ---@param Value MacawTransform
 ---@return boolean
 function Actor:SetActorTransform(Value) end
+
+---@return MacawVector
+function Actor:GetActorLocation() end
+
+--- 액터를 지정한 월드 위치로 옮깁니다. Sweep이 true이면 루트 컴포넌트의 바디로 이동 경로를 쓸어, 응답이 Block인 바디에 막히는 지점에서 멈춥니다.
+---@param NewLocation MacawVector
+---@param Sweep boolean?
+---@return boolean Moved
+---@return MacawHitResult SweepHitResult
+function Actor:SetActorLocation(NewLocation, Sweep) end
+
+--- 액터를 월드 변위만큼 옮깁니다. Sweep이 true이면 루트 컴포넌트의 바디로 이동 경로를 쓸어, 응답이 Block인 바디에 막히는 지점에서 멈춥니다.
+---@param DeltaLocation MacawVector
+---@param Sweep boolean?
+---@return boolean Moved
+---@return MacawHitResult SweepHitResult
+function Actor:AddActorWorldOffset(DeltaLocation, Sweep) end
 
 --- 지정한 클래스 또는 그 파생 클래스에 해당하는 첫 번째 컴포넌트를 반환합니다.
 --- 일치하는 컴포넌트가 없으면 nil을 반환합니다. 등록되지 않았거나 컴포넌트가 아닌 클래스 이름을 넘기면 오류가 발생합니다.

@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/CollisionTypes.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/FVehicleManager.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
@@ -28,18 +29,26 @@ namespace PhysicsRuntime {
         constexpr physx::PxU32 MaxContactPointsPerPair{8};
 
         /**
-         * @brief 모든 강체 쌍을 충돌시키고 새 접촉과 CCD 접촉을 알리도록 지정합니다.
+         * @brief 두 형상의 응답이 모두 Block인 쌍만 충돌시키고 새 접촉과 CCD 접촉을 알리도록 지정합니다.
          * @param[in] Attributes0 첫 번째 형상의 필터 속성입니다.
+         * @param[in] FilterData0 첫 번째 형상의 필터 데이터이며, word0에 응답이 있습니다.
          * @param[in] Attributes1 두 번째 형상의 필터 속성입니다.
+         * @param[in] FilterData1 두 번째 형상의 필터 데이터이며, word0에 응답이 있습니다.
          * @param[out] PairFlags 형상 쌍에 적용할 접촉 처리 플래그입니다.
-         * @return 형상 쌍을 유지하는 기본 필터 플래그입니다.
-         * @note 충돌 채널 필터링은 아직 사용하지 않으므로 필터 데이터와 상수 블록은 읽지 않습니다.
+         * @return Block 쌍이면 기본 필터 플래그, 아니면 접촉을 만들지 않는 억제 플래그입니다.
+         * @note 겹침은 시뮬레이션이 아니라 장면 쿼리로 찾으므로, Overlap 쌍도 접촉을 만들지 않습니다.
          */
-        physx::PxFilterFlags SimulationFilterShader(physx::PxFilterObjectAttributes Attributes0, physx::PxFilterData, physx::PxFilterObjectAttributes Attributes1, physx::PxFilterData, physx::PxPairFlags& PairFlags, const void*, physx::PxU32) {
+        physx::PxFilterFlags SimulationFilterShader(physx::PxFilterObjectAttributes Attributes0, physx::PxFilterData FilterData0, physx::PxFilterObjectAttributes Attributes1, physx::PxFilterData FilterData1, physx::PxPairFlags& PairFlags, const void*, physx::PxU32) {
             if (physx::PxFilterObjectIsTrigger(Attributes0) || physx::PxFilterObjectIsTrigger(Attributes1)) {
                 PairFlags = physx::PxPairFlag::eTRIGGER_DEFAULT;
 
                 return physx::PxFilterFlag::eDEFAULT;
+            }
+
+            const auto Response{PhysicsRuntime::CombineCollisionResponse(static_cast<PhysicsRuntime::ECollisionResponse>(FilterData0.word0), static_cast<PhysicsRuntime::ECollisionResponse>(FilterData1.word0))};
+
+            if (Response != PhysicsRuntime::ECollisionResponse::Block) {
+                return physx::PxFilterFlag::eSUPPRESS;
             }
 
             PairFlags = physx::PxPairFlag::eCONTACT_DEFAULT | physx::PxPairFlag::eDETECT_CCD_CONTACT | physx::PxPairFlag::eNOTIFY_TOUCH_FOUND | physx::PxPairFlag::eNOTIFY_CONTACT_POINTS;

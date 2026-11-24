@@ -72,6 +72,11 @@ namespace Editor {
              * @brief 고급 프로퍼티로 분류할지 여부입니다.
              */
             bool mAdvanced{};
+
+            /**
+             * @brief ShowOnlyInnerProperties 구조체에서 이 행이 그리는 멤버이며, 구조체 전체를 그리면 nullptr입니다.
+             */
+            const CoreUObject::FProperty* mInnerProperty{};
         };
 
         /**

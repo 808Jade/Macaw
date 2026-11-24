@@ -19,9 +19,11 @@
 namespace Engine {
 
     /**
-     * @brief 겹침 이벤트를 켠 기본 상태로 구성합니다.
+     * @brief 겹침만 감지하는 OverlapAll 프리셋과 겹침 이벤트를 켠 기본 상태로 구성합니다.
      */
     Engine::UShapeComponent::UShapeComponent() {
+        // 언리얼의 셰이프 컴포넌트처럼 막지 않고 겹침만 감지하는 것이 기본입니다.
+        SetCollisionPreset(PhysicsRuntime::ECollisionPreset::OverlapAll);
         SetGenerateOverlapEvents(true);
     }
 

@@ -11,6 +11,7 @@
 
 #include "Core/ReflectionMacros.h"
 #include "CoreUObject/UObject.h"
+#include "Core/Math/FVector.h"
 #include "Engine/Tick/FTickFunction.h"
 #include "AActor.generated.h"
 
@@ -110,6 +111,31 @@ namespace Engine {
          * @return 루트 컴포넌트의 변환이며, 루트가 없으면 기본 변환입니다.
          */
         FTransform GetActorTransform() const;
+
+        /**
+         * @brief 루트 컴포넌트의 월드 위치를 반환합니다.
+         * @return 루트가 없으면 원점입니다.
+         */
+        FVector GetActorLocation() const;
+
+        /**
+         * @brief 액터를 지정한 월드 위치로 옮기고, 요청하면 이동 경로를 쓸어 막히는 지점에서 멈춥니다.
+         * @param[in] NewLocation 루트 컴포넌트의 새 월드 위치입니다.
+         * @param[in] Sweep true이면 루트 컴포넌트의 바디로 이동 경로를 쓸어 막히는 지점에서 멈춥니다.
+         * @param[out] OutSweepHitResult 막힌 지점의 정보를 받을 주소이며, nullptr이면 받지 않습니다.
+         * @return 루트가 있고 이동을 적용했으면 true입니다. 막혀서 덜 움직였어도 true입니다.
+         */
+        bool SetActorLocation(const FVector& NewLocation, bool Sweep = false, Engine::FHitResult* OutSweepHitResult = nullptr);
+
+        /**
+         * @brief 액터를 월드 변위만큼 옮기고, 요청하면 이동 경로를 쓸어 막히는 지점에서 멈춥니다.
+         * @param[in] DeltaLocation 이동할 월드 변위(m)입니다.
+         * @param[in] Sweep true이면 루트 컴포넌트의 바디로 이동 경로를 쓸어 막히는 지점에서 멈춥니다.
+         * @param[out] OutSweepHitResult 막힌 지점의 정보를 받을 주소이며, nullptr이면 받지 않습니다.
+         * @return 루트가 있고 이동을 적용했으면 true입니다. 막혀서 덜 움직였어도 true입니다.
+         * @note 언리얼처럼 루트 컴포넌트의 바디만 쓸고, 나머지 컴포넌트는 함께 옮기기만 합니다.
+         */
+        bool AddActorWorldOffset(const FVector& DeltaLocation, bool Sweep = false, Engine::FHitResult* OutSweepHitResult = nullptr);
 
         /**
          * @brief 월드에서 이 액터를 제거합니다. 실행 전달 중이면 안전한 시점까지 미룹니다.

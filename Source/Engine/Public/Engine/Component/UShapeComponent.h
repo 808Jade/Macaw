@@ -31,7 +31,7 @@ namespace Engine {
 
     public:
         /**
-         * @brief 겹침 이벤트를 켠 기본 상태로 구성합니다.
+         * @brief 겹침만 감지하는 OverlapAll 프리셋과 겹침 이벤트를 켠 기본 상태로 구성합니다.
          */
         UShapeComponent();
 

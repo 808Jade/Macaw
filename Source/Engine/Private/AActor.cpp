@@ -207,6 +207,31 @@ namespace Engine {
     }
 
     /**
+     * @brief 루트 컴포넌트의 월드 위치를 반환합니다.
+     */
+    FVector Engine::AActor::GetActorLocation() const {
+        return mRootComponent != nullptr ? mRootComponent->GetTransform().mLocation : FVector{};
+    }
+
+    /**
+     * @brief 액터를 지정한 월드 위치로 옮기고, 요청하면 이동 경로를 쓸어 막히는 지점에서 멈춥니다.
+     */
+    bool Engine::AActor::SetActorLocation(const FVector& NewLocation, bool Sweep, Engine::FHitResult* OutSweepHitResult) {
+        if (mRootComponent == nullptr) {
+            return false;
+        }
+
+        return AddActorWorldOffset(NewLocation - mRootComponent->GetTransform().mLocation, Sweep, OutSweepHitResult);
+    }
+
+    /**
+     * @brief 액터를 월드 변위만큼 옮기고, 요청하면 이동 경로를 쓸어 막히는 지점에서 멈춥니다.
+     */
+    bool Engine::AActor::AddActorWorldOffset(const FVector& DeltaLocation, bool Sweep, Engine::FHitResult* OutSweepHitResult) {
+        return mRootComponent != nullptr && mRootComponent->MoveComponent(DeltaLocation, Sweep, OutSweepHitResult);
+    }
+
+    /**
      * @brief 월드에서 이 액터를 제거합니다. 실행 전달 중이면 안전한 시점까지 미룹니다.
      */
     bool Engine::AActor::Destroy() {

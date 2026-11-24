@@ -7,6 +7,7 @@
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Asset/UStaticMesh.h"
 #include "Engine/AActor.h"
+#include "Engine/Collision/FHitResult.h"
 #include "Engine/Component/UActorComponent.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/UWorld.h"
@@ -408,6 +409,92 @@ namespace Engine {
      */
     bool Engine::UPrimitiveComponent::ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const {
         return mBodyInstance.OverlapMulti(OutOverlaps);
+    }
+
+    /**
+     * @brief 충돌 프리셋을 적용합니다.
+     */
+    void Engine::UPrimitiveComponent::SetCollisionPreset(PhysicsRuntime::ECollisionPreset Preset) {
+        mBodyInstance.SetCollisionPreset(Preset);
+    }
+
+    /**
+     * @brief 쿼리·시뮬레이션 참여 방식을 반환합니다.
+     */
+    PhysicsRuntime::ECollisionEnabled Engine::UPrimitiveComponent::GetCollisionEnabled() const {
+        return mBodyInstance.GetCollisionEnabled();
+    }
+
+    /**
+     * @brief 쿼리·시뮬레이션 참여 방식을 바꿉니다.
+     */
+    void Engine::UPrimitiveComponent::SetCollisionEnabled(PhysicsRuntime::ECollisionEnabled CollisionEnabled) {
+        mBodyInstance.SetCollisionEnabled(CollisionEnabled);
+    }
+
+    /**
+     * @brief 다른 모든 바디에 대한 응답을 바꿉니다.
+     */
+    void Engine::UPrimitiveComponent::SetCollisionResponseToAllChannels(PhysicsRuntime::ECollisionResponse Response) {
+        mBodyInstance.SetCollisionResponse(Response);
+    }
+
+    /**
+     * @brief 바디가 있으면 이동 경로를 쓸어 응답이 Block인 바디에 막히는 지점에서 멈추고 양쪽에 Hit 이벤트를 보냅니다.
+     */
+    bool Engine::UPrimitiveComponent::MoveComponentImpl(const FVector& Delta, bool Sweep, Engine::FHitResult& OutHit) {
+        if (!Sweep || !mBodyInstance.IsValidBodyInstance()) {
+            return ApplyMove(Delta);
+        }
+
+        Engine::AActor* const Owner{GetOwner()};
+        const PhysicsRuntime::FIgnoreBodyPredicate IgnoreOwnActor{[this, Owner](const PhysicsRuntime::FBodyInstance& Body) {
+            const Engine::UPrimitiveComponent* Component{Body.GetOwnerComponent()};
+
+            return Component == this || (Component != nullptr && Owner != nullptr && Component->GetOwner() == Owner);
+        }};
+        PhysicsRuntime::FBodySweepHit SweepHit{};
+
+        if (!mBodyInstance.Sweep(Delta, SweepHit, IgnoreOwnActor)) {
+            return ApplyMove(Delta);
+        }
+
+        Engine::UPrimitiveComponent* const OtherComponent{SweepHit.mBody != nullptr ? SweepHit.mBody->GetOwnerComponent() : nullptr};
+        const float Length{Delta.Length()};
+        const FVector Start{GetTransform().mLocation};
+
+        OutHit.mBlockingHit = true;
+        OutHit.mStartPenetrating = SweepHit.mStartPenetrating;
+        OutHit.mTime = SweepHit.mDistance / Length;
+        OutHit.mDistance = SweepHit.mDistance;
+        OutHit.mLocation = Start + Delta * OutHit.mTime;
+        OutHit.mImpactPoint = SweepHit.mImpactPoint;
+        OutHit.mNormal = SweepHit.mImpactNormal;
+        OutHit.mImpactNormal = SweepHit.mImpactNormal;
+        OutHit.mPenetrationDepth = SweepHit.mPenetrationDepth;
+        OutHit.SetComponent(OtherComponent);
+        OutHit.SetActor(OtherComponent != nullptr ? OtherComponent->GetOwner() : nullptr);
+
+        // 막은 표면에 붙어 다음 이동이 시작부터 겹치지 않도록 1 cm 물러난 위치까지만 옮깁니다.
+        constexpr float PullBackDistance{0.01f};
+        const float MoveDistance{std::max(0.0f, SweepHit.mDistance - PullBackDistance)};
+
+        if (!ApplyMove(Delta * (MoveDistance / Length))) {
+            return false;
+        }
+
+        // Hit 이벤트 안에서 액터가 파괴될 수 있으므로 지연 삭제 범위 안에서 보내고, 상대에게 보내기 전에 핸들을 다시 확인합니다.
+        Engine::UWorld::FDispatchScope Scope{GetWorld()};
+        const CoreUObject::TObjectRef<Engine::UPrimitiveComponent> SelfHandle{CoreUObject::MakeObjectRef(this)};
+        const CoreUObject::TObjectRef<Engine::UPrimitiveComponent> OtherHandle{CoreUObject::MakeObjectRef(OtherComponent)};
+
+        OnHit(OutHit.GetActor(), OtherComponent, OutHit);
+
+        if (Engine::UPrimitiveComponent* Self{SelfHandle.Get()}, *Other{OtherHandle.Get()}; Self != nullptr && Other != nullptr) {
+            Other->OnHit(Self->GetOwner(), Self, Engine::FHitResult::GetReversedHit(OutHit, Self, Self->GetOwner()));
+        }
+
+        return true;
     }
 
     /**

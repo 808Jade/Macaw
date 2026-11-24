@@ -900,6 +900,25 @@ namespace Editor {
                 }
 
                 const std::string_view Category{DetailCategory(*Class, Property)};
+
+                // 언리얼처럼 내부 멤버만 보이는 구조체는 멤버마다 행을 만들고, 멤버에 카테고리가 있으면 그 카테고리에 둡니다.
+                if (const CoreUObject::UStruct* Struct{Property->GetStruct()}; Struct != nullptr && Property->HasFlag(Core::EPropertyFlags::ShowOnlyInnerProperties)) {
+                    for (const CoreUObject::FProperty* Child : Struct->GetProperties()) {
+                        if (!IsVisibleProperty(Child)) {
+                            continue;
+                        }
+
+                        const std::string_view ChildCategory{Child->GetCategory().empty() ? Category : std::string_view{Child->GetCategory()}};
+                        const Core::FString ChildLabel{PropertyLabel(Child)};
+
+                        if (MatchesSearch(ChildCategory, ChildLabel, Child->GetName())) {
+                            Rows.push_back({Property, Targets, ChildCategory, ChildLabel, IsAdvancedProperty(Child->GetName()), Child});
+                        }
+                    }
+
+                    continue;
+                }
+
                 const Core::FString Label{Name == "AnimClass" ? "Animation Mode" : LuaScript && Name == "ScriptPath" ? "Script" : PropertyLabel(Property)};
 
                 if (Name == "Transform" ? TransformMatches : MatchesSearch(Category, Label, Name)) {
@@ -1329,7 +1348,7 @@ namespace Editor {
 
         if (InnerOnly || ImGui::TreeNodeEx(Row.mLabel.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAllColumns)) {
             for (const CoreUObject::FProperty* Child : Struct->GetProperties()) {
-                if (!IsVisibleProperty(Child)) {
+                if (!IsVisibleProperty(Child) || (Row.mInnerProperty != nullptr && Child != Row.mInnerProperty)) {
                     continue;
                 }
 

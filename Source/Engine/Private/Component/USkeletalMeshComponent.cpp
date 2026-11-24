@@ -439,8 +439,9 @@ namespace Engine {
 
             auto Body{std::make_unique<PhysicsRuntime::FBodyInstance>()};
 
-            // 물리 에셋의 바디는 시뮬레이션을 끈 키네마틱으로 시작합니다.
+            // 물리 에셋의 바디는 시뮬레이션을 끈 키네마틱으로 시작하고, 충돌 설정은 컴포넌트의 바디 인스턴스를 따릅니다.
             Body->SetSimulatePhysics(false);
+            Body->CopyCollisionSettings(GetBodyInstance());
             Body->mInstanceBodyIndex = BodyIndex;
             Body->mInstanceBoneIndex = BoneIndex;
 

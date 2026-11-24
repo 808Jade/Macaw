@@ -299,6 +299,43 @@ namespace Engine {
         virtual bool ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const;
 
         /**
+         * @brief 충돌 프리셋을 적용합니다.
+         * @param[in] Preset 적용할 프리셋입니다.
+         */
+        void SetCollisionPreset(PhysicsRuntime::ECollisionPreset Preset);
+
+        /**
+         * @brief 쿼리·시뮬레이션 참여 방식을 반환합니다.
+         * @return 참여 방식입니다.
+         */
+        PhysicsRuntime::ECollisionEnabled GetCollisionEnabled() const;
+
+        /**
+         * @brief 쿼리·시뮬레이션 참여 방식을 바꿉니다.
+         * @param[in] CollisionEnabled 새 참여 방식입니다.
+         */
+        void SetCollisionEnabled(PhysicsRuntime::ECollisionEnabled CollisionEnabled);
+
+        /**
+         * @brief 다른 모든 바디에 대한 응답을 바꿉니다.
+         * @param[in] Response 새 응답입니다.
+         */
+        void SetCollisionResponseToAllChannels(PhysicsRuntime::ECollisionResponse Response);
+
+    protected:
+        /**
+         * @brief 바디가 있으면 이동 경로를 쓸어 응답이 Block인 바디에 막히는 지점에서 멈추고 양쪽에 Hit 이벤트를 보냅니다.
+         * @param[in] Delta 이동할 월드 변위(m)입니다.
+         * @param[in] Sweep 이동 경로를 쓸지 여부입니다.
+         * @param[out] OutHit 막힌 지점의 정보입니다.
+         * @return 이동을 적용했으면 true입니다.
+         * @note 같은 액터의 바디에는 막히지 않습니다. 바디가 없거나 쿼리에 참여하지 않으면 쓸지 않고 옮깁니다.
+         */
+        bool MoveComponentImpl(const FVector& Delta, bool Sweep, Engine::FHitResult& OutHit) override;
+
+    public:
+
+        /**
          * @brief 물리 시뮬레이션 설정과 실제 바디를 가진 바디 인스턴스를 반환합니다.
          * @return 이 객체가 보관하는 값의 참조입니다.
          */
