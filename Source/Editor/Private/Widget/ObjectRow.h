@@ -12,7 +12,13 @@ namespace CoreUObject {
     class UObject;
 }
 
+namespace Engine {
+    class USceneComponent;
+}
+
 namespace Editor {
+
+    class FEditorContext;
 
     /**
      * @brief 액터와 컴포넌트를 아이콘, 이름, 타입 컬럼의 테이블 행으로 표시합니다.
@@ -40,6 +46,8 @@ namespace Editor {
          * @param[in] Object 타입을 표시할 객체입니다.
          */
         void DrawType(const CoreUObject::UObject* Object);
+
+        Engine::USceneComponent* DrawAttachmentDragDrop(Editor::FEditorContext& Context, CoreUObject::UObject* Object, bool AllowRootChange = false);
     }
 
 }

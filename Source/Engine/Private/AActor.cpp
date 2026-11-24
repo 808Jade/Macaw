@@ -61,6 +61,12 @@ namespace Engine {
         DispatchEndPlay();
 
         for (const auto& Component : mComponents) {
+            if (mWorld != nullptr) {
+                if (auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(Component.get())}) {
+                    Scene->DetachExternalAttachments();
+                }
+            }
+
             Component->UnregisterComponent();
         }
 
@@ -117,6 +123,24 @@ namespace Engine {
         return mComponents;
     }
 
+    Engine::UActorComponent* Engine::AActor::FindDefaultComponent(const CoreUObject::UClass* Class, const Core::FName& Name) const {
+        Engine::UActorComponent* Match{mRootComponent != nullptr && mRootComponent->IsA(Class) ? mRootComponent : nullptr};
+
+        for (const auto& Component : mComponents) {
+            if (Component->IsA(Class)) {
+                if (Component->GetFName() == Name) {
+                    return Component.get();
+                }
+
+                if (Match == nullptr) {
+                    Match = Component.get();
+                }
+            }
+        }
+
+        return Match;
+    }
+
     Engine::AActor::FComponentCollisionDelegate& Engine::AActor::GetOnComponentCollision() {
         return mOnComponentCollision;
     }
@@ -134,6 +158,10 @@ namespace Engine {
     bool Engine::AActor::SetRootComponent(Engine::USceneComponent* Component) {
         if (Component == mRootComponent) {
             return true;
+        }
+
+        if ((mRootComponent != nullptr && mRootComponent->GetAttachParent() != nullptr) || (Component != nullptr && Component->GetAttachParent() != nullptr)) {
+            return false;
         }
 
         if (Component != nullptr && std::none_of(mComponents.begin(), mComponents.end(), [Component](const auto& Entry) {
@@ -156,47 +184,48 @@ namespace Engine {
         return true;
     }
 
+    bool Engine::AActor::CanPromoteRootComponent(const Engine::USceneComponent* Component) const {
+        return Component != nullptr && Component != mRootComponent && Component->GetOwner() == this && !mPendingDestroy && !mChangingWorld;
+    }
+
+    bool Engine::AActor::PromoteRootComponent(Engine::USceneComponent* Component) {
+        if (!CanPromoteRootComponent(Component)) {
+            return false;
+        }
+
+        Engine::USceneComponent* PreviousRoot{mRootComponent};
+        Engine::USceneComponent* ExternalParent{PreviousRoot != nullptr ? PreviousRoot->GetAttachParent() : nullptr};
+        Core::TArray<Engine::USceneComponent*> PreviousChildren{};
+
+        if (PreviousRoot != nullptr) {
+            for (const auto& Entry : mComponents) {
+                auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(Entry.get())};
+
+                if (Scene != nullptr && Scene != PreviousRoot && Scene != Component && Scene->GetAttachParent() == nullptr) {
+                    PreviousChildren.push_back(Scene);
+                }
+            }
+
+            PreviousRoot->mAttachChildren.reserve(PreviousRoot->mAttachChildren.size() + PreviousChildren.size());
+            PreviousRoot->UpdateAttachParent(nullptr);
+        }
+
+        Component->UpdateAttachParent(nullptr);
+        mRootComponent = Component;
+        Component->UpdateAttachParent(ExternalParent);
+
+        for (Engine::USceneComponent* Child : PreviousChildren) {
+            Child->UpdateAttachParent(PreviousRoot);
+        }
+
+        return true;
+    }
+
     /**
      * @brief 루트 공간 컴포넌트에 액터의 변환을 적용합니다.
      */
     bool Engine::AActor::SetActorTransform(const FTransform& Transform) {
-        if (mRootComponent == nullptr) {
-            return false;
-        }
-
-        const FTransform Previous{mRootComponent->GetTransform()};
-
-        if (!mRootComponent->SetTransform(Transform)) {
-            return false;
-        }
-
-        // 컴포넌트 변환은 월드 기준이고 계층이 없으므로, 충돌 도형 같은 나머지 컴포넌트를 루트와 함께 옮깁니다.
-        const FQuat Inverse{Previous.mRotation.Inverse()};
-        const FQuat Rotation{Transform.mRotation * Inverse};
-        const auto ScaleRatio{[](float New, float Old) {
-            return Old != 0.0f ? New / Old : 1.0f;
-        }};
-
-        const FVector Ratio{ScaleRatio(Transform.mScale.x, Previous.mScale.x), ScaleRatio(Transform.mScale.y, Previous.mScale.y), ScaleRatio(Transform.mScale.z, Previous.mScale.z)};
-
-        for (const auto& Component : mComponents) {
-            auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(Component.get())};
-
-            if (Scene == nullptr || Scene == mRootComponent) {
-                continue;
-            }
-
-            FTransform Moved{Scene->GetTransform()};
-            const FVector Local{Inverse.RotateVector(Moved.mLocation - Previous.mLocation)};
-
-            Moved.mLocation = Transform.mLocation + Transform.mRotation.RotateVector(FVector{Local.x * Ratio.x, Local.y * Ratio.y, Local.z * Ratio.z});
-            Moved.mRotation = Rotation * Moved.mRotation;
-            Moved.mScale = FVector{Moved.mScale.x * Ratio.x, Moved.mScale.y * Ratio.y, Moved.mScale.z * Ratio.z};
-
-            Scene->SetTransform(Moved);
-        }
-
-        return true;
+        return mRootComponent != nullptr && mRootComponent->SetTransform(Transform);
     }
 
     /**

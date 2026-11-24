@@ -5,6 +5,7 @@
  */
 
 #include "Widget/ObjectRow.h"
+#include "Editor/FEditorContext.h"
 #include "EditorStyle.h"
 #include "FEditorAnimation.h"
 #include "Engine/AActor.h"
@@ -27,6 +28,7 @@
 
 #include <imgui.h>
 #include <cctype>
+#include <cstring>
 
 namespace Editor {
 
@@ -171,6 +173,60 @@ namespace Editor {
     void Editor::ObjectRow::DrawType(const CoreUObject::UObject* Object) {
         ImGui::TableNextColumn();
         ImGui::TextDisabled("%s", GetTypeLabel(Object).c_str());
+    }
+
+    Engine::USceneComponent* Editor::ObjectRow::DrawAttachmentDragDrop(Editor::FEditorContext& Context, CoreUObject::UObject* Object, bool AllowRootChange) {
+        constexpr const char* PayloadType{"MACAW_ATTACHMENT"};
+        const auto* Actor{CoreUObject::Cast<Engine::AActor>(Object)};
+        auto* Scene{Actor != nullptr ? Actor->GetRootComponent() : CoreUObject::Cast<Engine::USceneComponent>(Object)};
+
+        if (!Context.CanEditWorld() || (Scene == nullptr && (!AllowRootChange || Actor == nullptr))) {
+            return nullptr;
+        }
+
+        const bool CanDrag{Scene != nullptr && (Actor != nullptr || Scene != Scene->GetOwner()->GetRootComponent())};
+
+        if (CanDrag && ImGui::BeginDragDropSource()) {
+            const CoreUObject::FObjectHandle Handle{Scene->GetHandle()};
+
+            ImGui::SetDragDropPayload(PayloadType, &Handle, sizeof(Handle));
+            ImGui::TextUnformatted(Object->GetName().c_str());
+            ImGui::EndDragDropSource();
+        }
+
+        const ImGuiPayload* Payload{ImGui::GetDragDropPayload()};
+
+        if (Payload == nullptr || !Payload->IsDataType(PayloadType) || Payload->DataSize != static_cast<int>(sizeof(CoreUObject::FObjectHandle))) {
+            return nullptr;
+        }
+
+        CoreUObject::FObjectHandle Handle{};
+        std::memcpy(&Handle, Payload->Data, sizeof(Handle));
+        auto* Child{CoreUObject::Cast<Engine::USceneComponent>(Context.ResolveObject(CoreUObject::TObjectRef<CoreUObject::UObject>::FromHandle(Handle)))};
+        const bool OnOwnRoot{Child != nullptr && Child != Scene && Scene == Child->GetOwner()->GetRootComponent()};
+        const bool CanPromote{AllowRootChange && Child != nullptr && (OnOwnRoot || Actor == Child->GetOwner()) && Context.CanPromoteRootComponent(Child)};
+        auto* Parent{OnOwnRoot ? nullptr : Scene};
+        Engine::USceneComponent* RootCandidate{};
+
+        if ((CanPromote || (Scene != nullptr && Context.CanAttachComponent(Child, Parent))) && ImGui::BeginDragDropTarget()) {
+            const ImGuiPayload* Accepted{ImGui::AcceptDragDropPayload(PayloadType, ImGuiDragDropFlags_AcceptBeforeDelivery)};
+
+            if (Accepted != nullptr && Accepted->IsDelivery()) {
+                if (!CanPromote) {
+                    Context.AttachComponent(Child, Parent);
+                } else if (Actor != nullptr) {
+                    Context.PromoteRootComponent(Child);
+                } else {
+                    RootCandidate = Child;
+                }
+            } else if (CanPromote && Accepted != nullptr && Accepted->IsPreview()) {
+                ImGui::SetTooltip("%s", Actor != nullptr ? "Make New Root" : "Choose how to attach this component");
+            }
+
+            ImGui::EndDragDropTarget();
+        }
+
+        return RootCandidate;
     }
 
 }

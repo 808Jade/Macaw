@@ -99,6 +99,9 @@ namespace Engine {
          */
         bool SetRootComponent(Engine::USceneComponent* Component);
 
+        bool CanPromoteRootComponent(const Engine::USceneComponent* Component) const;
+        bool PromoteRootComponent(Engine::USceneComponent* Component);
+
         /**
          * @brief 루트 공간 컴포넌트에 액터의 변환을 적용합니다.
          * @param[in] Transform 적용할 위치, 회전과 스케일입니다.
@@ -229,6 +232,9 @@ namespace Engine {
          * @note 렌더링과 에디터 피킹에만 영향을 주며 Tick과 충돌은 그대로 동작합니다.
          */
         void SetVisible(bool Visible);
+
+    protected:
+        Engine::UActorComponent* FindDefaultComponent(const CoreUObject::UClass* Class, const Core::FName& Name) const;
 
     private:
         /**

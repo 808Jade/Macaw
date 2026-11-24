@@ -9,7 +9,6 @@
 #include "Core/Input.h"
 #include "Engine/UWorld.h"
 #include "Core/Math/FRotator.h"
-#include "CoreUObject/Reflection/Cast.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include <algorithm>
 #include <cmath>
@@ -35,7 +34,7 @@ namespace Engine {
      * @brief 이 액터에 소속된 카메라 컴포넌트를 조회합니다.
      */
     Engine::UCameraComponent* Engine::ACameraActor::GetCameraComponent() const {
-        return CoreUObject::Cast<Engine::UCameraComponent>(GetRootComponent());
+        return static_cast<Engine::UCameraComponent*>(FindDefaultComponent(Engine::UCameraComponent::StaticClass(), Core::FName{"CameraComponent"}));
     }
 
     /**
@@ -52,7 +51,8 @@ namespace Engine {
             return;
         }
 
-        FTransform Transform{Camera->GetTransform()};
+        const FTransform Previous{Camera->GetTransform()};
+        FTransform Transform{Previous};
         FRotator Rotation{Transform.mRotation.Rotator()};
 
         if (Input.IsDown(EKey::MouseRight, EInputRoute::Game)) {
@@ -67,7 +67,17 @@ namespace Engine {
         Transform.mLocation += Movement.Normalized() * DeltaTime * (Input.IsDown(EKey::Shift, EInputRoute::Game) ? 12.0f : 4.0f);
 
         if (Input.IsDown(EKey::MouseRight, EInputRoute::Game) || Movement.LengthSquared() > 0.0f) {
-            Camera->SetTransform(Transform);
+            if (GetRootComponent() == nullptr || Camera == GetRootComponent()) {
+                Camera->SetTransform(Transform);
+
+                return;
+            }
+
+            FTransform RootTransform{GetActorTransform()};
+            const FQuat RotationDelta{Transform.mRotation * Previous.mRotation.Inverse()};
+            RootTransform.mLocation = Transform.mLocation + RotationDelta * (RootTransform.mLocation - Previous.mLocation);
+            RootTransform.mRotation = (RotationDelta * RootTransform.mRotation).Normalized();
+            SetActorTransform(RootTransform);
         }
     }
 

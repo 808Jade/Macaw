@@ -780,6 +780,47 @@ namespace Editor {
         return Added;
     }
 
+    bool Editor::FEditorContext::CanAttachComponent(const Engine::USceneComponent* Component, const Engine::USceneComponent* Parent) const {
+        return CanModifyScene() && GetWorld()->ContainsObject(Component) && (Parent == nullptr || GetWorld()->ContainsObject(Parent)) && Component->CanSetAttachParent(Parent);
+    }
+
+    bool Editor::FEditorContext::AttachComponent(Engine::USceneComponent* Component, Engine::USceneComponent* Parent) {
+        if (!CanAttachComponent(Component, Parent)) {
+            return false;
+        }
+
+        FSceneEditScope Edit{*this};
+
+        if (!Component->SetAttachParent(Parent)) {
+            return false;
+        }
+
+        NoteSceneEdit();
+
+        return true;
+    }
+
+    bool Editor::FEditorContext::CanPromoteRootComponent(const Engine::USceneComponent* Component) const {
+        return CanModifyScene() && GetWorld()->ContainsObject(Component) && Component->GetOwner()->CanPromoteRootComponent(Component);
+    }
+
+    bool Editor::FEditorContext::PromoteRootComponent(Engine::USceneComponent* Component) {
+        if (!CanPromoteRootComponent(Component)) {
+            return false;
+        }
+
+        FSceneEditScope Edit{*this};
+
+        if (!Component->GetOwner()->PromoteRootComponent(Component)) {
+            return false;
+        }
+
+        ++mSelectionRevision;
+        NoteSceneEdit();
+
+        return true;
+    }
+
     /**
      * @brief 현재 선택에서 사용할 수 있는 카메라 컴포넌트를 조회합니다.
      */

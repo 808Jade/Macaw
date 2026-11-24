@@ -54,6 +54,10 @@ namespace Engine {
          */
         FMatrix GetWorldMatrix() const;
 
+        Engine::USceneComponent* GetAttachParent() const;
+        bool CanSetAttachParent(const Engine::USceneComponent* Parent) const;
+        bool SetAttachParent(Engine::USceneComponent* Parent);
+
         /**
          * @brief 컴포넌트를 월드 변위만큼 옮기고, 요청하면 이동 경로를 쓸어 막히는 지점에서 멈춥니다.
          * @param[in] Delta 이동할 월드 변위(m)입니다.
@@ -82,11 +86,22 @@ namespace Engine {
         bool ApplyMove(const FVector& Delta);
 
     private:
+        friend class AActor;
+
+        const Engine::USceneComponent* GetEffectiveAttachParent() const;
+        void UpdateAttachParent(Engine::USceneComponent* Parent);
+        void ApplyParentTransform(const FTransform& Previous, const FTransform& Current);
+        void DetachExternalAttachments();
+
+    private:
         /**
          * @brief 컴포넌트의 위치·회전·스케일입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Transform", Getter = GetTransform, Setter = SetTransform)
         FTransform mTransform{};
+
+        Engine::USceneComponent* mAttachParent{};
+        Core::TArray<Engine::USceneComponent*> mAttachChildren{};
     };
 
 }

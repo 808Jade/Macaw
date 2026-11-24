@@ -763,25 +763,30 @@ namespace Editor {
     void Editor::FDetailsWidget::DrawComponentTree(Engine::AActor* Actor, CoreUObject::TObjectRef<CoreUObject::UObject> Selected) {
         Editor::FEditorContext* Context{GetEditorContext()};
         const CoreUObject::TObjectRef<CoreUObject::UObject> ActorHandle{CoreUObject::MakeObjectRef(Actor)};
-        Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>> Components{};
-
-        if (auto* Root{Actor->GetRootComponent()}) {
-            Components.push_back(CoreUObject::MakeObjectRef(Root));
-        }
+        Engine::USceneComponent* Root{Actor->GetRootComponent()};
+        Core::TMap<const Engine::USceneComponent*, Core::TArray<Engine::UActorComponent*>> Children{};
 
         for (const auto& Component : Actor->GetComponents()) {
-            if (Component.get() != Actor->GetRootComponent()) {
-                Components.push_back(CoreUObject::MakeObjectRef(Component));
+            const auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(Component.get())};
+            const Engine::USceneComponent* Parent{};
+
+            if (Scene != nullptr && Scene != Root) {
+                Parent = Scene->GetAttachParent() != nullptr ? Scene->GetAttachParent() : Root;
+            }
+
+            if (Scene != Root || Root == nullptr) {
+                Children[Parent].push_back(Component.get());
             }
         }
 
         constexpr std::size_t MaxVisibleRows{8};
         const float RowHeight{ImGui::GetTextLineHeight() + ImGui::GetStyle().CellPadding.y * 2.0f};
-        const float Height{static_cast<float>(std::min(Components.size() + 1, MaxVisibleRows)) * RowHeight + 4.0f};
+        const float Height{static_cast<float>(std::min(Actor->GetComponents().size() + 1, MaxVisibleRows)) * RowHeight + 4.0f};
         constexpr ImGuiTableFlags Flags{ImGuiTableFlags_BordersOuter | ImGuiTableFlags_ScrollY};
+        bool OpenRootDropMenu{};
 
         if (ImGui::BeginTable("##Components", 1, Flags, {0.0f, Height})) {
-            const auto DrawRow{[this, Context, Selected](CoreUObject::TObjectRef<CoreUObject::UObject> Handle, float Indent) {
+            const auto DrawRow{[this, Context, Selected, &OpenRootDropMenu](CoreUObject::TObjectRef<CoreUObject::UObject> Handle, float Indent) {
                 CoreUObject::UObject* Object{Context->ResolveObject(Handle)};
 
                 if (Object == nullptr) {
@@ -800,21 +805,81 @@ namespace Editor {
                     }
                 }
 
-                if (CoreUObject::Cast<Engine::AActor>(Object) != nullptr && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                const auto* RowActor{CoreUObject::Cast<Engine::AActor>(Object)};
+
+                if (RowActor != nullptr && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                     Context->OpenInSequencer(CoreUObject::Cast<Engine::ALevelSequenceActor>(Object));
                 }
 
                 ImGui::SetItemTooltip("%s", ObjectRow::GetTypeLabel(Object).c_str());
+
+                auto* Scene{RowActor != nullptr ? RowActor->GetRootComponent() : CoreUObject::Cast<Engine::USceneComponent>(Object)};
+
+                if (Scene != nullptr && Scene->GetAttachParent() != nullptr && ImGui::BeginPopupContextItem("AttachmentMenu")) {
+                    if (ImGui::MenuItem("Detach from Parent", nullptr, false, Context->CanAttachComponent(Scene, nullptr))) {
+                        Context->AttachComponent(Scene, nullptr);
+                    }
+
+                    ImGui::EndPopup();
+                }
+
+                if (auto* Candidate{ObjectRow::DrawAttachmentDragDrop(*Context, Object, true)}) {
+                    mRootDropComponent = CoreUObject::MakeObjectRef(Candidate);
+                    OpenRootDropMenu = true;
+                }
+
                 ImGui::PopID();
+            }};
+
+            const float IndentStep{ImGui::GetTreeNodeToLabelSpacing()};
+            const auto Visit{[&](const auto& VisitChildren, const Engine::USceneComponent* Parent, float Indent) -> void {
+                const auto It{Children.find(Parent)};
+
+                if (It == Children.end()) {
+                    return;
+                }
+
+                for (Engine::UActorComponent* Component : It->second) {
+                    DrawRow(CoreUObject::MakeObjectRef(Component), Indent);
+
+                    if (const auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(Component)}) {
+                        VisitChildren(VisitChildren, Scene, Indent + IndentStep);
+                    }
+                }
             }};
 
             DrawRow(ActorHandle, 0.0f);
 
-            for (CoreUObject::TObjectRef<CoreUObject::UObject> Handle : Components) {
-                DrawRow(Handle, ImGui::GetTreeNodeToLabelSpacing());
+            if (Root != nullptr) {
+                DrawRow(CoreUObject::MakeObjectRef(Root), IndentStep);
+                Visit(Visit, Root, IndentStep * 2.0f);
             }
 
+            Visit(Visit, nullptr, IndentStep);
+
             ImGui::EndTable();
+        }
+
+        if (OpenRootDropMenu) {
+            ImGui::OpenPopup("RootComponentDrop");
+        }
+
+        if (ImGui::BeginPopup("RootComponentDrop")) {
+            auto* Component{CoreUObject::Cast<Engine::USceneComponent>(Context->ResolveObject(mRootDropComponent))};
+
+            if (Component == nullptr || Component->GetOwner() != Actor || !Context->CanPromoteRootComponent(Component)) {
+                ImGui::CloseCurrentPopup();
+            } else {
+                if (ImGui::MenuItem("Make New Root")) {
+                    Context->PromoteRootComponent(Component);
+                }
+
+                if (ImGui::MenuItem("Attach to Current Root", nullptr, false, Context->CanAttachComponent(Component, nullptr))) {
+                    Context->AttachComponent(Component, nullptr);
+                }
+            }
+
+            ImGui::EndPopup();
         }
     }
 
@@ -1422,6 +1487,12 @@ namespace Editor {
     }
 
     void Editor::FDetailsWidget::DrawTransform(const FDetailRow& Row) {
+        struct FTransformEdit {
+            CoreUObject::TObjectRef<CoreUObject::UObject> mTarget{};
+            FTransform mTransform{};
+            std::size_t mDepth{};
+        };
+
         Editor::FEditorContext* Context{GetEditorContext()};
         const CoreUObject::UObject* Object{Context->ResolveObject(Row.mTargets.front())};
 
@@ -1512,6 +1583,8 @@ namespace Editor {
                 }
 
                 const Uint64 Token{Context->BeginSceneEdit()};
+                Core::TArray<FTransformEdit> Edits{};
+                Edits.reserve(Row.mTargets.size());
 
                 for (CoreUObject::TObjectRef<CoreUObject::UObject> Target : Row.mTargets) {
                     CoreUObject::UObject* Current{Context->ResolveObject(Target)};
@@ -1547,7 +1620,23 @@ namespace Editor {
                         Transform.mScale = {NewPart[0], NewPart[1], NewPart[2]};
                     }
 
-                    Context->EditProperty(Target, Row.mProperty, Transform, Interactive);
+                    const auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(Current)};
+                    const Engine::USceneComponent* Parent{Scene != nullptr ? Scene->GetAttachParent() : nullptr};
+                    std::size_t Depth{};
+
+                    while (Parent != nullptr) {
+                        const Engine::USceneComponent* Root{Parent->GetOwner()->GetRootComponent()};
+                        Parent = Root != nullptr ? Root->GetAttachParent() : nullptr;
+                        ++Depth;
+                    }
+
+                    Edits.push_back({Target, Transform, Depth});
+                }
+
+                std::ranges::stable_sort(Edits, {}, &FTransformEdit::mDepth);
+
+                for (const FTransformEdit& Edit : Edits) {
+                    Context->EditProperty(Edit.mTarget, Row.mProperty, Edit.mTransform, Interactive);
                 }
 
                 Context->EndSceneEdit(Token);

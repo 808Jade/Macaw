@@ -458,6 +458,12 @@ namespace Editor {
          */
         Engine::UActorComponent* AddComponent(const CoreUObject::UClass* Class);
 
+        bool CanAttachComponent(const Engine::USceneComponent* Component, const Engine::USceneComponent* Parent) const;
+        bool AttachComponent(Engine::USceneComponent* Component, Engine::USceneComponent* Parent);
+
+        bool CanPromoteRootComponent(const Engine::USceneComponent* Component) const;
+        bool PromoteRootComponent(Engine::USceneComponent* Component);
+
         /**
          * @brief 현재 선택에서 사용할 수 있는 카메라 컴포넌트를 조회합니다.
          * @return 대상의 비소유 주소이며, 없거나 유효하지 않으면 nullptr입니다.

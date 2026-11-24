@@ -27,6 +27,7 @@ namespace Engine {
     class AActor;
     class ULightComponent;
     class UMeshComponent;
+    class USceneComponent;
     class USkeletalMeshComponent;
 }
 
@@ -400,6 +401,8 @@ namespace Editor {
          * @brief Details 컴포넌트 검색 입력 버퍼입니다.
          */
         Core::TStaticArray<char, 128> mComponentSearch{};
+
+        CoreUObject::TObjectRef<Engine::USceneComponent> mRootDropComponent{};
 
         /**
          * @brief 브라우저와 동일한 에셋 목록입니다.

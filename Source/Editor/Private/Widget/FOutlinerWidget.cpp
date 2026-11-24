@@ -11,14 +11,13 @@
 #include "Engine/AActor.h"
 #include "Engine/UWorld.h"
 #include "Engine/Component/UCameraComponent.h"
-#include "Engine/Component/UActorComponent.h"
+#include "Engine/Component/USceneComponent.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Engine/EPrimitiveType.h"
 #include "Widget/ObjectRow.h"
 
 #include <imgui_internal.h>
 #include <algorithm>
-#include <iterator>
 
 namespace Editor {
 
@@ -26,6 +25,13 @@ namespace Editor {
      * @brief 이 파일에서 사용하는 내부 보조 기능과 상태를 묶습니다.
      */
     namespace {
+        using FActorRef = CoreUObject::TObjectRef<Engine::AActor>;
+
+        struct FOutlinerRow {
+            FActorRef mActor{};
+            float mIndent{};
+        };
+
         /**
          * @brief 객체·클래스 이름이 Outliner 필터에 맞는지 검사합니다.
          * @param[in] Filter 객체·클래스 이름을 검사할 필터입니다.
@@ -34,6 +40,48 @@ namespace Editor {
          */
         bool MatchesFilter(const ImGuiTextFilter& Filter, const CoreUObject::UObject* Object) {
             return Filter.PassFilter(Object->GetName().c_str()) || Filter.PassFilter(ObjectRow::GetTypeLabel(Object).c_str());
+        }
+
+        Core::TArray<FOutlinerRow> BuildActorRows(const FEditorContext& Context, const Core::TArray<FActorRef>& Actors, const ImGuiTextFilter& Filter) {
+            Core::TMap<const Engine::AActor*, Core::TArray<Engine::AActor*>> Children{};
+
+            for (FActorRef Handle : Actors) {
+                auto* Actor{CoreUObject::Cast<Engine::AActor>(Context.ResolveObject(Handle))};
+
+                if (Actor == nullptr) {
+                    continue;
+                }
+
+                const Engine::USceneComponent* Root{Actor->GetRootComponent()};
+                const Engine::USceneComponent* Parent{Root != nullptr ? Root->GetAttachParent() : nullptr};
+
+                Children[Parent != nullptr ? Parent->GetOwner() : nullptr].push_back(Actor);
+            }
+
+            Core::TArray<FOutlinerRow> Rows{};
+            Rows.reserve(Actors.size());
+            const float IndentStep{ImGui::GetTreeNodeToLabelSpacing()};
+            const auto Visit{[&](const auto& VisitChildren, const Engine::AActor* Parent, float Indent) -> void {
+                const auto It{Children.find(Parent)};
+
+                if (It == Children.end()) {
+                    return;
+                }
+
+                for (Engine::AActor* Actor : It->second) {
+                    const bool Matches{MatchesFilter(Filter, Actor)};
+
+                    if (Matches) {
+                        Rows.push_back({CoreUObject::MakeObjectRef(Actor), Indent});
+                    }
+
+                    VisitChildren(VisitChildren, Actor, Matches ? Indent + IndentStep : Indent);
+                }
+            }};
+
+            Visit(Visit, nullptr, 0.0f);
+
+            return Rows;
         }
 
         /**
@@ -130,15 +178,7 @@ namespace Editor {
         const ImGuiTextFilter Filter{mSearch.data()};
         const auto Actors{Context->GetActorRefs()};
         const Core::TArray<CoreUObject::TObjectRef<Engine::AActor>> Selection{Context->GetSelectedActors()};
-        Core::TArray<CoreUObject::TObjectRef<Engine::AActor>> Visible{};
-
-        for (CoreUObject::TObjectRef<Engine::AActor> Handle : Actors) {
-            const Engine::AActor* Actor{CoreUObject::Cast<Engine::AActor>(Context->ResolveObject(Handle))};
-
-            if (Actor != nullptr && MatchesFilter(Filter, Actor)) {
-                Visible.push_back(Handle);
-            }
-        }
+        const auto Visible{BuildActorRows(*Context, Actors, Filter)};
 
         const bool CanEdit{Context->CanEditWorld()};
         bool DuplicateRequested{};
@@ -160,7 +200,7 @@ namespace Editor {
             ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("DirectionalLightActor").x);
             ImGui::TableHeadersRow();
 
-            for (CoreUObject::TObjectRef<Engine::AActor> Handle : Visible) {
+            for (const auto& [Handle, Indent] : Visible) {
                 Engine::AActor* Actor{CoreUObject::Cast<Engine::AActor>(Context->ResolveObject(Handle))};
 
                 if (Actor == nullptr) {
@@ -188,25 +228,25 @@ namespace Editor {
                 const float RowAlpha{ImGui::GetStyle().Alpha * (Actor->IsVisible() ? 1.0f : 0.5f)};
 
                 ImGui::PushStyleVar(ImGuiStyleVar_Alpha, RowAlpha);
-                ObjectRow::DrawLabel(Actor, Selected);
+                ObjectRow::DrawLabel(Actor, Selected, Indent);
                 ImGui::PopStyleVar();
 
                 if (ImGui::IsItemClicked()) {
-                    const auto Anchor{Selection.empty() ? Visible.end() : std::find(Visible.begin(), Visible.end(), Selection.back())};
+                    const auto Anchor{Selection.empty() ? Visible.end() : std::ranges::find(Visible, Selection.back(), &FOutlinerRow::mActor)};
 
                     if (ImGui::GetIO().KeyCtrl) {
                         Context->ToggleActorSelection(Handle);
                     } else if (ImGui::GetIO().KeyShift && Anchor != Visible.end()) {
                         // 클릭한 액터가 마지막에 오도록 앵커 방향으로 범위를 수집합니다.
-                        const auto Clicked{std::find(Visible.begin(), Visible.end(), Handle)};
+                        const auto Clicked{std::ranges::find(Visible, Handle, &FOutlinerRow::mActor)};
                         Core::TArray<CoreUObject::TObjectRef<Engine::AActor>> Range{};
+                        const auto Step{Anchor <= Clicked ? 1 : -1};
 
-                        if (Anchor <= Clicked) {
-                            Range.assign(Anchor, Clicked + 1);
-                        } else {
-                            Range.assign(std::make_reverse_iterator(Anchor + 1), std::make_reverse_iterator(Clicked));
+                        for (auto Row{Anchor}; Row != Clicked; Row += Step) {
+                            Range.push_back(Row->mActor);
                         }
 
+                        Range.push_back(Handle);
                         Context->SetSelectedActors(Range);
                     } else {
                         Context->SelectActor(Handle);
@@ -226,6 +266,12 @@ namespace Editor {
                     DuplicateRequested = ImGui::MenuItem("Duplicate", nullptr, false, CanEdit) || DuplicateRequested;
                     DeleteRequested = ImGui::MenuItem("Delete", "Del", false, CanEdit) || DeleteRequested;
 
+                    Engine::USceneComponent* Root{Actor->GetRootComponent()};
+
+                    if (Root != nullptr && Root->GetAttachParent() != nullptr && ImGui::MenuItem("Detach from Parent", nullptr, false, Context->CanAttachComponent(Root, nullptr))) {
+                        Context->AttachComponent(Root, nullptr);
+                    }
+
                     ImGui::Separator();
 
                     if (ImGui::MenuItem("Use as PIE Camera", nullptr, false, CanEdit && Context->GetSelectedCamera() != nullptr)) {
@@ -234,6 +280,8 @@ namespace Editor {
 
                     ImGui::EndPopup();
                 }
+
+                ObjectRow::DrawAttachmentDragDrop(*Context, Actor);
 
                 ImGui::PushStyleVar(ImGuiStyleVar_Alpha, RowAlpha);
                 ObjectRow::DrawType(Actor);
