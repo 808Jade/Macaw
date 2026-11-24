@@ -1529,6 +1529,10 @@ namespace Editor {
                 return DrawAssetPicker(Label, *String, Asset::EAssetType::Skeleton, "None");
             }
 
+            if (Name == "PhysicsAssetOverride") {
+                return DrawAssetPicker(Label, *String, Asset::EAssetType::PhysicsAsset, "Use mesh physics asset");
+            }
+
             if (Name == "Animation") {
                 return DrawAssetPicker(Label, *String, Asset::EAssetType::AnimSequence, "None");
             }

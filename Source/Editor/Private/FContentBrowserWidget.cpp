@@ -10,6 +10,7 @@
 #include "FAssetEditorManager.h"
 #include "Editor/FImGuiUIScale.h"
 #include "Editor/FEditorContext.h"
+#include "FPhysicsAssetEditing.h"
 #include "Editor/FEditorAssetCatalog.h"
 #include "Editor/FAssetThumbnailCache.h"
 #include "Editor/FAssetDragDrop.h"
@@ -111,6 +112,8 @@ namespace {
             return "Skeletal Mesh";
         case Asset::EAssetType::Skeleton:
             return "Skeleton";
+        case Asset::EAssetType::PhysicsAsset:
+            return "Physics Asset";
         case Asset::EAssetType::Shader:
             return "Shader";
         case Asset::EAssetType::Material:
@@ -310,15 +313,15 @@ void FContentBrowserWidget::DrawContent() {
     DrawContentBreadcrumbs();
     ImGui::SetNextItemWidth(120.0f);
 
-    const char* FilterName{!mContentFilter.has_value() ? "All Assets" : *mContentFilter == Asset::EAssetType::Mesh         ? "Meshes" : *mContentFilter == Asset::EAssetType::SkeletalMesh ? "Skeletal Meshes" : *mContentFilter == Asset::EAssetType::Skeleton ? "Skeletons" : *mContentFilter == Asset::EAssetType::Shader ? "Shaders" : *mContentFilter == Asset::EAssetType::Material ? "Materials" : *mContentFilter == Asset::EAssetType::Texture ? "Textures" : *mContentFilter == Asset::EAssetType::Sequence ? "Sequences" : *mContentFilter == Asset::EAssetType::AnimSequence ? "Animation Sequences" : *mContentFilter == Asset::EAssetType::BlendSpace ? "Blend Spaces" : *mContentFilter == Asset::EAssetType::AnimGraph ? "Anim Graphs" : *mContentFilter == Asset::EAssetType::ParticleSystem ? "Particle Systems" : "Scenes"};
+    const char* FilterName{!mContentFilter.has_value() ? "All Assets" : *mContentFilter == Asset::EAssetType::Mesh         ? "Meshes" : *mContentFilter == Asset::EAssetType::SkeletalMesh ? "Skeletal Meshes" : *mContentFilter == Asset::EAssetType::Skeleton ? "Skeletons" : *mContentFilter == Asset::EAssetType::PhysicsAsset ? "Physics Assets" :*mContentFilter == Asset::EAssetType::Shader ? "Shaders" : *mContentFilter == Asset::EAssetType::Material ? "Materials" : *mContentFilter == Asset::EAssetType::Texture ? "Textures" : *mContentFilter == Asset::EAssetType::Sequence ? "Sequences" : *mContentFilter == Asset::EAssetType::AnimSequence ? "Animation Sequences" : *mContentFilter == Asset::EAssetType::BlendSpace ? "Blend Spaces" : *mContentFilter == Asset::EAssetType::AnimGraph ? "Anim Graphs" : *mContentFilter == Asset::EAssetType::ParticleSystem ? "Particle Systems" : "Scenes"};
 
     if (ImGui::BeginCombo("##AssetType", FilterName)) {
         if (ImGui::Selectable("All Assets", !mContentFilter.has_value())) {
             mContentFilter.reset();
         }
 
-        for (Asset::EAssetType Type : {Asset::EAssetType::Mesh, Asset::EAssetType::SkeletalMesh, Asset::EAssetType::Skeleton, Asset::EAssetType::Material, Asset::EAssetType::Shader, Asset::EAssetType::Texture, Asset::EAssetType::Scene, Asset::EAssetType::Sequence, Asset::EAssetType::AnimSequence, Asset::EAssetType::BlendSpace, Asset::EAssetType::AnimGraph, Asset::EAssetType::ParticleSystem}) {
-            const char* Name{Type == Asset::EAssetType::Mesh ? "Meshes" : Type == Asset::EAssetType::SkeletalMesh ? "Skeletal Meshes" : Type == Asset::EAssetType::Skeleton ? "Skeletons" : Type == Asset::EAssetType::Shader ? "Shaders" : Type == Asset::EAssetType::Material ? "Materials" : Type == Asset::EAssetType::Texture ? "Textures" : Type == Asset::EAssetType::Sequence ? "Sequences" : Type == Asset::EAssetType::AnimSequence ? "Animation Sequences" : Type == Asset::EAssetType::BlendSpace ? "Blend Spaces" : Type == Asset::EAssetType::AnimGraph ? "Anim Graphs" : Type == Asset::EAssetType::ParticleSystem ? "Particle Systems" : "Scenes"};
+        for (Asset::EAssetType Type : {Asset::EAssetType::Mesh, Asset::EAssetType::SkeletalMesh, Asset::EAssetType::Skeleton, Asset::EAssetType::PhysicsAsset, Asset::EAssetType::Material, Asset::EAssetType::Shader, Asset::EAssetType::Texture, Asset::EAssetType::Scene, Asset::EAssetType::Sequence, Asset::EAssetType::AnimSequence, Asset::EAssetType::BlendSpace, Asset::EAssetType::AnimGraph, Asset::EAssetType::ParticleSystem}) {
+            const char* Name{Type == Asset::EAssetType::Mesh ? "Meshes" : Type == Asset::EAssetType::SkeletalMesh ? "Skeletal Meshes" : Type == Asset::EAssetType::Skeleton ? "Skeletons" : Type == Asset::EAssetType::PhysicsAsset ? "Physics Assets" : Type == Asset::EAssetType::Shader ? "Shaders" : Type == Asset::EAssetType::Material ? "Materials" : Type == Asset::EAssetType::Texture ? "Textures" : Type == Asset::EAssetType::Sequence ? "Sequences" : Type == Asset::EAssetType::AnimSequence ? "Animation Sequences" : Type == Asset::EAssetType::BlendSpace ? "Blend Spaces" : Type == Asset::EAssetType::AnimGraph ? "Anim Graphs" : Type == Asset::EAssetType::ParticleSystem ? "Particle Systems" : "Scenes"};
 
             if (ImGui::Selectable(Name, mContentFilter == Type)) {
                 mContentFilter = Type;
@@ -643,6 +646,20 @@ void FContentBrowserWidget::DrawContentContextMenu() {
 
     if (const auto Type{mAssetTypes.find(mSelectedContentPath)}; !mSelectedContentPath.empty() && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::SkeletalMesh) {
         ImGui::Separator();
+
+        // 메시로 물리 에셋 파일을 자동 생성해 저장한 뒤 그 파일을 에디터로 연다.
+        if (ImGui::MenuItem("Create Physics Asset", nullptr, false, CanEdit)) {
+            std::filesystem::path CreatedPath{};
+            Core::FString CreateError{};
+
+            if (PhysicsAssetEditing::CreatePhysicsAssetFile(*mContext->GetProject()->GetAssets(), mSelectedContentPath, CreatedPath, CreateError)) {
+                mRefreshContent = true;
+                mSelectedContentPath = CreatedPath;
+                mAssetEditors.OpenContentAsset(CreatedPath, Asset::EAssetType::PhysicsAsset);
+            } else {
+                mContext->AddLog(CreateError.empty() ? "Cannot create the physics asset" : CreateError);
+            }
+        }
 
         if (ImGui::MenuItem("Physics Asset Editor")) {
             mAssetEditors.OpenContentAsset(mSelectedContentPath, Asset::EAssetType::PhysicsAsset);

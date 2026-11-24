@@ -224,6 +224,69 @@ namespace Editor {
         }
     }
 
+    namespace {
+        /**
+         * @brief 메시가 기본으로 쓸 물리 에셋을 콤보 상자로 고르고 메시 파일에 저장합니다.
+         * @param[in,out] Assets 에셋 관리자입니다.
+         * @param[in,out] Mesh 물리 에셋 경로를 바꿀 스켈레탈 메시입니다.
+         * @param[in] MeshPath 스켈레탈 메시의 콘텐츠 경로입니다.
+         * @param[out] Error 실패 원인입니다.
+         */
+        void DrawPhysicsAssetPicker(Asset::FAssetManager& Assets, Asset::USkeletalMesh& Mesh, const Core::FString& MeshPath, Core::FString& Error) {
+            const Core::FString Current{Mesh.GetPhysicsAssetPath()};
+
+            if (!ImGui::BeginCombo("Physics Asset", Current.empty() ? "None (generated)" : Current.c_str())) {
+                return;
+            }
+
+            Core::FString Selected{Current};
+            bool Picked{};
+            Core::FString ListError{};
+
+            if (ImGui::Selectable("None (generated)", Current.empty())) {
+                Selected.clear();
+                Picked = true;
+            }
+
+            for (const auto& Candidate : Assets.GetAssetPaths(ListError)) {
+                Asset::EAssetType Type{};
+
+                if (Asset::FAssetFile::GetType(Assets.ResolvePath(Candidate, ListError), Type, ListError) && Type == Asset::EAssetType::PhysicsAsset) {
+                    const Core::FString Relative{Core::FilePath::ToGenericUtf8(Candidate)};
+
+                    if (ImGui::Selectable(Relative.c_str(), Relative == Current)) {
+                        Selected = Relative;
+                        Picked = true;
+                    }
+                }
+            }
+
+            ImGui::EndCombo();
+
+            if (!Picked || Selected == Current) {
+                return;
+            }
+
+            // 버전 1 메시는 본을 파일 안에 내장하는데 저장하면 새 형식으로 쓰여 본이 사라질 수 있으므로 막는다.
+            if (Assets.FindLegacySkeleton(Core::FilePath::FromUtf8(MeshPath)) != nullptr) {
+                Error = "This mesh uses an embedded skeleton, so its file cannot be saved safely. Set the physics asset on the component instead.";
+
+                return;
+            }
+
+            Mesh.SetPhysicsAssetPath(Selected);
+            Error.clear();
+
+            if (!Assets.SaveSkeletalMesh(Core::FilePath::FromUtf8(MeshPath), Mesh, Error)) {
+                Mesh.SetPhysicsAssetPath(Current);
+
+                if (Error.empty()) {
+                    Error = "Cannot save the skeletal mesh.";
+                }
+            }
+        }
+    }
+
     void Editor::FMeshViewer::DrawSkeletonPicker() {
         const char* Label{mSkeletonPath.empty() ? mSkeleton == nullptr ? "None" : "Embedded Skeleton" : mSkeletonPath.c_str()};
 
@@ -376,6 +439,7 @@ namespace Editor {
 
         if (mSkeletalMesh != nullptr) {
             DrawSkeletonPicker();
+            DrawPhysicsAssetPicker(*mAssets, *mSkeletalMesh.Get(), mPath, mError);
         }
 
         if (!mError.empty()) {
