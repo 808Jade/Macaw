@@ -7,6 +7,7 @@
 #include "Core/Types.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
+#include "PhysicsRuntime/FVehicleManager.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
 #include "PhysicsRuntime/PhysicsStats.h"
 #include "Core/Log/Log.h"
@@ -110,6 +111,7 @@ namespace PhysicsRuntime {
             PvdClient->setScenePvdFlag(physx::PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
         }
 
+        mVehicleManager = std::make_unique<PhysicsRuntime::FVehicleManager>(*mScene, Runtime);
         mRuntime = &Runtime;
 
         return true;
@@ -120,6 +122,7 @@ namespace PhysicsRuntime {
      */
     void PhysicsRuntime::FPhysicsScene::Shutdown() {
         mContacts.clear();
+        mVehicleManager.reset();
         mScene.reset();
         mRuntime = nullptr;
     }
@@ -129,6 +132,10 @@ namespace PhysicsRuntime {
      */
     PhysicsRuntime::FPhysicsRuntime* PhysicsRuntime::FPhysicsScene::GetRuntime() const {
         return mRuntime;
+    }
+
+    PhysicsRuntime::FVehicleManager* PhysicsRuntime::FPhysicsScene::GetVehicleManager() const {
+        return mVehicleManager.get();
     }
 
     /**
@@ -150,6 +157,7 @@ namespace PhysicsRuntime {
             const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::Simulate};
 
             mContacts.clear();
+            mVehicleManager->Step(StepSeconds);
             mScene->simulate(StepSeconds);
             mScene->fetchResults(true);
         }

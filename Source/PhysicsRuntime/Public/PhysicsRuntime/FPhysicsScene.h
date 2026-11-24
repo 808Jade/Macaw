@@ -17,6 +17,7 @@
 namespace PhysicsRuntime {
 
     class FPhysicsRuntime;
+    class FVehicleManager;
 
     /**
      * @brief 월드 하나의 PhysX 장면과 시뮬레이션 결과를 관리합니다.
@@ -74,6 +75,9 @@ namespace PhysicsRuntime {
          * @return 조회한 값의 비소유 주소이며, 초기화 전이면 nullptr입니다.
          */
         PhysicsRuntime::FPhysicsRuntime* GetRuntime() const;
+
+        /** @brief 이 장면의 차량 관리자이며, 초기화 전에는 nullptr입니다. */
+        PhysicsRuntime::FVehicleManager* GetVehicleManager() const;
 
         /**
          * @brief 장면을 한 스텝 진행하고 결과를 받을 때까지 기다립니다.
@@ -142,6 +146,8 @@ namespace PhysicsRuntime {
          * @brief 이 객체가 단독 소유하는 PhysX 장면입니다.
          */
         std::unique_ptr<physx::PxScene, PhysicsRuntime::FPhysXRelease> mScene{};
+
+        std::unique_ptr<PhysicsRuntime::FVehicleManager> mVehicleManager{};
 
         /**
          * @brief 장면과 바디가 SDK 객체를 빌리는 PhysX 런타임이며, 장면보다 오래 유지됩니다.

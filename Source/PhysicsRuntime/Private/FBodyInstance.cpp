@@ -8,6 +8,7 @@
 #include "PhysicsRuntime/FBodyInstance.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/FVehicleManager.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
 #include "PhysicsRuntime/UBodySetup.h"
 #include "Core/Log/Log.h"
@@ -31,6 +32,12 @@ namespace PhysicsRuntime {
          */
         bool IsNonNegativeFinite(float Value) {
             return std::isfinite(Value) && Value >= 0.0f;
+        }
+
+        void UnregisterVehicle(FPhysicsScene* Scene, const FBodyInstance& Body) {
+            if (auto* Vehicles{Scene != nullptr ? Scene->GetVehicleManager() : nullptr}) {
+                Vehicles->UnregisterVehicle(Body);
+            }
         }
     }
 
@@ -153,6 +160,7 @@ namespace PhysicsRuntime {
      * @brief 실제 바디를 장면에서 제거하고 해제합니다.
      */
     void PhysicsRuntime::FBodyInstance::TermBody() {
+        UnregisterVehicle(mScene, *this);
         mActor.reset();
         mScene = nullptr;
         mOwnerComponent = nullptr;
@@ -463,6 +471,10 @@ namespace PhysicsRuntime {
 
         if (Dynamic == nullptr) {
             return;
+        }
+
+        if (!Simulate) {
+            UnregisterVehicle(mScene, *this);
         }
 
         // CCD가 켜진 채로 키네마틱이 될 수 없으므로 CCD를 먼저 끄고 마지막에 다시 맞춥니다.

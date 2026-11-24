@@ -1,0 +1,66 @@
+/**
+ * @file FVehicleManager.h
+ * @brief 물리 장면의 차량 인스턴스와 서스펜션 쿼리를 관리합니다.
+ * @ingroup PhysicsRuntime
+ */
+
+#pragma once
+
+#include "Core/Types.h"
+
+#include <memory>
+#include <span>
+
+namespace physx {
+    class PxScene;
+    class PxShape;
+    class PxVehicleWheelsSimData;
+    struct PxWheelQueryResult;
+}
+
+namespace PhysicsRuntime {
+
+    struct FBodyInstance;
+    class FPhysicsRuntime;
+    class FPhysicsScene;
+
+    /** @brief 장면에 등록된 차체의 차량 구동과 바퀴 결과를 관리합니다. */
+    class FVehicleManager {
+    public:
+        FVehicleManager(physx::PxScene& Scene, FPhysicsRuntime& Runtime);
+        ~FVehicleManager();
+
+        /** @brief 장면에 속한 동적 바디에 NoDrive 차량을 한 대 등록합니다. */
+        bool RegisterNoDrive(const FBodyInstance& Body, const physx::PxVehicleWheelsSimData& Wheels);
+
+        /** @brief 바디가 유지된 상태에서 해당 차량 인스턴스와 제약을 해제합니다. */
+        bool UnregisterVehicle(const FBodyInstance& Body);
+
+        /** @brief 다음 스텝부터 바퀴에 적용할 구동 토크(N·m)를 지정합니다. */
+        bool SetDriveTorque(const FBodyInstance& Body, Uint32 WheelIndex, float Torque);
+
+        /** @brief 마지막 업데이트의 바퀴 결과를 빌립니다. 스텝 진행이나 장면 구성 변경 전에 사용합니다. */
+        std::span<const physx::PxWheelQueryResult> GetWheelQueryResults(const FBodyInstance& Body) const;
+
+        Index_t GetVehicleCount() const;
+
+        /** @brief 지정한 형상을 서스펜션 레이가 검사할 주행면으로 표시하거나 해제합니다. */
+        static void SetDrivableSurface(physx::PxShape& Shape, bool Drivable);
+
+    private:
+        friend class FPhysicsScene;
+
+        struct FVehicle;
+        struct FRaycastBatch;
+
+        bool EnsureRaycastCapacity(Uint32 WheelCount);
+        void Step(float StepSeconds);
+
+        // 장면과 런타임은 차량 및 쿼리보다 오래 유지됩니다.
+        physx::PxScene& mScene;
+        FPhysicsRuntime& mRuntime;
+        std::unique_ptr<FRaycastBatch> mRaycastBatch{};
+        Core::TArray<FVehicle> mVehicles{};
+    };
+
+}
