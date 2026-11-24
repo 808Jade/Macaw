@@ -37,6 +37,18 @@ namespace PhysicsRuntime {
         /** @brief 전좌·전우·후좌·후우 바퀴로 4륜 구동 차량을 등록합니다. */
         bool RegisterDrive4W(const FBodyInstance& Body, const physx::PxVehicleWheelsSimData& Wheels);
 
+        /**
+         * @brief 좌·우 쌍을 앞에서부터 나열한 4개 이상 짝수 바퀴로 스키드 스티어 탱크를 등록합니다.
+         * @details 모든 바퀴가 구동되고 조향하지 않습니다. 조향 입력은 좌우 추력 차이로 바뀌며, 가속 0에서 조향만 주면 제자리에서 회전합니다.
+         */
+        bool RegisterDriveTank(const FBodyInstance& Body, const physx::PxVehicleWheelsSimData& Wheels);
+
+        /**
+         * @brief 앞바퀴(0)가 조향하고 뒷바퀴(1)가 구동하는 2륜 차량을 등록합니다.
+         * @details 매 물리 스텝 차체에 롤 안정화 토크를 가해 직진·정지 중에는 서 있고, 회전할 때는 안쪽으로 기울게 합니다.
+         */
+        bool RegisterDrive2W(const FBodyInstance& Body, const physx::PxVehicleWheelsSimData& Wheels);
+
         /** @brief 엔진이 있는 차량에 다음 물리 스텝부터 사용할 입력입니다. 음수 가속은 후진 요청입니다. NoDrive는 거부합니다. */
         bool SetDriveInput(const FBodyInstance& Body, float Throttle, float Brake, float Steering);
 

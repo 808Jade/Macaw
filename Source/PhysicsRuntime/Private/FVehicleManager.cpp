@@ -10,6 +10,8 @@
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 
 #include <vehicle/PxVehicleDrive4W.h>
+#include <vehicle/PxVehicleDriveNW.h>
+#include <vehicle/PxVehicleDriveTank.h>
 #include <vehicle/PxVehicleNoDrive.h>
 #include <vehicle/PxVehicleUpdate.h>
 #include <vehicle/PxVehicleUtilControl.h>
@@ -40,6 +42,12 @@ namespace PhysicsRuntime {
                 case physx::PxVehicleTypes::eDRIVE4W:
                     static_cast<physx::PxVehicleDrive4W*>(Vehicle)->free();
                     break;
+                case physx::PxVehicleTypes::eDRIVETANK:
+                    static_cast<physx::PxVehicleDriveTank*>(Vehicle)->free();
+                    break;
+                case physx::PxVehicleTypes::eDRIVENW:
+                    static_cast<physx::PxVehicleDriveNW*>(Vehicle)->free();
+                    break;
                 default:
                     static_cast<physx::PxVehicleNoDrive*>(Vehicle)->free();
                     break;
@@ -60,6 +68,12 @@ namespace PhysicsRuntime {
             switch (Drive.getVehicleType()) {
             case physx::PxVehicleTypes::eDRIVE4W:
                 static_cast<physx::PxVehicleDrive4W&>(Drive).setToRestState();
+                break;
+            case physx::PxVehicleTypes::eDRIVETANK:
+                static_cast<physx::PxVehicleDriveTank&>(Drive).setToRestState();
+                break;
+            case physx::PxVehicleTypes::eDRIVENW:
+                static_cast<physx::PxVehicleDriveNW&>(Drive).setToRestState();
                 break;
             default:
                 break;
@@ -150,7 +164,8 @@ namespace PhysicsRuntime {
             }
         }
 
-        void ApplyDrive4WInput(physx::PxVehicleDrive4W& Drive, const FDriveInput& Input, Core::FTime StepTime, bool InAir) {
+        /** @brief 조향 차량(4W, 2W)이 공유하는 페달·조향 스무딩입니다. */
+        const physx::PxVehiclePadSmoothingData& GetSteeredSmoothing() {
             constexpr auto AccelRise{4.0f / 1_s};
             constexpr auto AccelFall{8.0f / 1_s};
             constexpr auto BrakeRise{8.0f / 1_s};
@@ -161,6 +176,11 @@ namespace PhysicsRuntime {
                 {AccelRise.GetBase(), BrakeRise.GetBase(), BrakeRise.GetBase(), SteerRise.GetBase(), SteerRise.GetBase()},
                 {AccelFall.GetBase(), BrakeFall.GetBase(), BrakeFall.GetBase(), SteerFall.GetBase(), SteerFall.GetBase()}
             };
+            return Smoothing;
+        }
+
+        /** @brief 속도가 높을수록 허용 조향 비율을 줄입니다. */
+        const physx::PxFixedSizeLookupTable<8>& GetSteerBySpeed() {
             static const auto SteerBySpeed{[] {
                 physx::PxFixedSizeLookupTable<8> Table{};
                 Table.addPair((0_mps).GetBase(), 1.0f);
@@ -170,14 +190,106 @@ namespace PhysicsRuntime {
                 Table.addPair((36_mps).GetBase(), 0.12f);
                 return Table;
             }()};
+            return SteerBySpeed;
+        }
 
+        /** @brief 4W와 NW의 원시 입력은 같은 구조입니다. */
+        void FillSteeredRawInput(physx::PxVehicleDrive& Drive, const FDriveInput& Input, physx::PxVehicleDrive4WRawInputData& Raw) {
             const auto Pedals{ResolveDriveDirection(Drive, Input)};
-
-            physx::PxVehicleDrive4WRawInputData Raw{};
             Raw.setAnalogAccel(Pedals.mBrake > 0.0f ? 0.0f : Pedals.mAccel);
             Raw.setAnalogBrake(Pedals.mBrake);
             Raw.setAnalogSteer(Input.mSteering);
-            physx::PxVehicleDrive4WSmoothAnalogRawInputsAndSetAnalogInputs(Smoothing, SteerBySpeed, Raw, StepTime.GetBase(), InAir, Drive);
+        }
+
+        void ApplyDrive4WInput(physx::PxVehicleDrive4W& Drive, const FDriveInput& Input, Core::FTime StepTime, bool InAir) {
+            physx::PxVehicleDrive4WRawInputData Raw{};
+            FillSteeredRawInput(Drive, Input, Raw);
+            physx::PxVehicleDrive4WSmoothAnalogRawInputsAndSetAnalogInputs(GetSteeredSmoothing(), GetSteerBySpeed(), Raw, StepTime.GetBase(), InAir, Drive);
+        }
+
+        void ApplyDriveNWInput(physx::PxVehicleDriveNW& Drive, const FDriveInput& Input, Core::FTime StepTime, bool InAir) {
+            physx::PxVehicleDriveNWRawInputData Raw{};
+            FillSteeredRawInput(Drive, Input, Raw);
+            physx::PxVehicleDriveNWSmoothAnalogRawInputsAndSetAnalogInputs(GetSteeredSmoothing(), GetSteerBySpeed(), Raw, StepTime.GetBase(), InAir, Drive);
+        }
+
+        /**
+         * @brief 2륜 차체가 쓰러지지 않도록 전방축 기준 롤을 PD 제어합니다.
+         * @details 목표 기울기는 원심력 평형각 atan(v·ω_yaw / g)을 줄여 쓰는 게임식 값이라, 회전하는 쪽으로 살짝 기울고 직진·정지 중에는 수직을 유지합니다.
+         *          요 각속도는 차체 흔들림에 민감하므로 목표를 저역 통과로 다듬어 기울기와 요 각속도가 서로 키우는 진동을 막습니다.
+         *          질량·관성에 무관하게 튜닝하도록 각가속도로 가합니다.
+         */
+        void ApplyRollStabilizer(physx::PxRigidDynamic& Actor, const physx::PxVec3& Gravity, Core::FTime StepTime, float& SmoothedTargetRoll) {
+            constexpr float RollStiffness{150.0f}; // 1/s²
+            constexpr float RollDamping{22.0f};    // 1/s, 임계 감쇠(2√k ≈ 24.5)보다 약간 작게
+            constexpr float LeanScale{0.5f};       // 물리 평형각 대비 비율
+            constexpr auto MaxLean{20_deg};
+            constexpr auto TargetSmoothingTime{0.25_s};
+
+            const float GravityMagnitude{Gravity.magnitude()};
+            const physx::PxVec3 WorldUp{-Gravity / GravityMagnitude};
+            const auto Rotation{Actor.getGlobalPose().q};
+            const auto Forward{Rotation.rotate({1.0f, 0.0f, 0.0f})};
+            const auto Side{Rotation.rotate({0.0f, 1.0f, 0.0f})};
+            const auto Up{Rotation.rotate({0.0f, 0.0f, 1.0f})};
+            const auto AngularVelocity{Actor.getAngularVelocity()};
+
+            // 전방축 기준 오른손 회전각입니다. 양수면 +Y 쪽이 올라가 -Y 쪽으로 기웁니다.
+            const float Roll{std::atan2(Side.dot(WorldUp), Up.dot(WorldUp))};
+            const float ForwardSpeed{Actor.getLinearVelocity().dot(Forward)};
+            const float YawRate{AngularVelocity.dot(WorldUp)};
+            const float RawTargetRoll{-std::clamp(LeanScale * std::atan(ForwardSpeed * YawRate / GravityMagnitude), -MaxLean.GetBase(), MaxLean.GetBase())};
+            const float Blend{1.0f - std::exp(-(StepTime / TargetSmoothingTime).GetBase())};
+            SmoothedTargetRoll += (RawTargetRoll - SmoothedTargetRoll) * Blend;
+
+            const float RollAcceleration{RollStiffness * (SmoothedTargetRoll - Roll) - RollDamping * AngularVelocity.dot(Forward)};
+            Actor.addTorque(Forward * RollAcceleration, physx::PxForceMode::eACCELERATION);
+        }
+
+        void ApplyDriveTankInput(physx::PxVehicleDriveTank& Drive, const FDriveInput& Input, Core::FTime StepTime) {
+            constexpr auto AccelRise{4.0f / 1_s};
+            constexpr auto AccelFall{8.0f / 1_s};
+            constexpr auto BrakeRise{8.0f / 1_s};
+            constexpr auto BrakeFall{10.0f / 1_s};
+            constexpr auto ThrustRise{4.0f / 1_s};
+            constexpr auto ThrustFall{6.0f / 1_s};
+            static constexpr physx::PxVehiclePadSmoothingData Smoothing{
+                {AccelRise.GetBase(), BrakeRise.GetBase(), BrakeRise.GetBase(), ThrustRise.GetBase(), ThrustRise.GetBase()},
+                {AccelFall.GetBase(), BrakeFall.GetBase(), BrakeFall.GetBase(), ThrustFall.GetBase(), ThrustFall.GetBase()}
+            };
+
+            // 가속 0에서 조향만 줘도 기어 판단은 가속 부호로 하고, 엔진 출력은 좌우 중 큰 추력으로 냅니다.
+            const auto Pedals{ResolveDriveDirection(Drive, Input)};
+            const bool Braking{Pedals.mBrake > 0.0f};
+            auto& Dynamics{Drive.mDriveDynData};
+            const bool InReverse{Dynamics.getCurrentGear() == physx::PxVehicleGearsData::eREVERSE};
+
+            // 제자리 회전은 1단에 고정해 최대 토크를 냅니다. 주행 중 고단 기어에 머물면 회전력이 부족합니다.
+            const bool Pivot{Input.mThrottle == 0.0f && Input.mSteering != 0.0f && !Braking};
+            if (Pivot && !InReverse) {
+                if (Dynamics.getCurrentGear() != physx::PxVehicleGearsData::eFIRST) {
+                    Dynamics.forceGearChange(physx::PxVehicleGearsData::eFIRST);
+                }
+                Dynamics.setUseAutoGears(false);
+            } else if (Input.mThrottle > 0.0f && !InReverse) {
+                Dynamics.setUseAutoGears(true);
+            }
+
+            // 후진 중에는 자동차처럼 조향을 뒤집어, 오른쪽 조향이면 차체 뒤쪽이 오른쪽으로 갑니다.
+            const float Steering{Input.mThrottle < 0.0f ? -Input.mSteering : Input.mSteering};
+            const float Left{std::clamp(Input.mThrottle + Steering, -1.0f, 1.0f)};
+            const float Right{std::clamp(Input.mThrottle - Steering, -1.0f, 1.0f)};
+
+            // 후진 기어에서는 양의 추력이 바퀴를 뒤로 돌리므로 원하는 회전 방향을 유지하도록 부호를 뒤집습니다.
+            const float Direction{InReverse ? -1.0f : 1.0f};
+
+            physx::PxVehicleDriveTankRawInputData Raw{physx::PxVehicleDriveTankControlModel::eSPECIAL};
+            Raw.setAnalogAccel(Braking ? 0.0f : std::max(std::abs(Left), std::abs(Right)));
+            Raw.setAnalogLeftThrust(Braking ? 0.0f : Left * Direction);
+            Raw.setAnalogRightThrust(Braking ? 0.0f : Right * Direction);
+            Raw.setAnalogLeftBrake(Pedals.mBrake);
+            Raw.setAnalogRightBrake(Pedals.mBrake);
+            physx::PxVehicleDriveTankSmoothAnalogRawInputsAndSetAnalogInputs(Smoothing, Raw, StepTime.GetBase(), Drive);
         }
     }
 
@@ -192,6 +304,8 @@ namespace PhysicsRuntime {
         Core::TArray<FWheelControl> mWheelControls{};
         Core::TArray<physx::PxWheelQueryResult> mWheelResults{};
         FDriveInput mDriveInput{};
+        bool mBalanced{};
+        float mTargetRoll{};
     };
 
     struct FVehicleManager::FRaycastBatch {
@@ -324,6 +438,119 @@ namespace PhysicsRuntime {
         return true;
     }
 
+    bool FVehicleManager::RegisterDriveTank(const FBodyInstance& Body, const physx::PxVehicleWheelsSimData& Wheels) {
+        const physx::PxU32 WheelCount{Wheels.getNbWheels()};
+        FVehicle Vehicle{};
+        if (WheelCount < 4 || WheelCount % 2 != 0 || !PrepareVehicle(Body, Wheels, Vehicle)) {
+            return false;
+        }
+
+        // 쌍마다 좌측이 우측보다 y가 작고, 쌍은 앞에서 뒤로 x가 줄어들어야 합니다.
+        for (physx::PxU32 Pair{}; Pair < WheelCount / 2; ++Pair) {
+            const auto& Left{Vehicle.mWheelResults[Pair * 2].localPose.p};
+            const auto& Right{Vehicle.mWheelResults[Pair * 2 + 1].localPose.p};
+            if (!(Right.y > Left.y)) {
+                return false;
+            }
+
+            if (Pair > 0) {
+                const auto& FrontLeft{Vehicle.mWheelResults[Pair * 2 - 2].localPose.p};
+                const auto& FrontRight{Vehicle.mWheelResults[Pair * 2 - 1].localPose.p};
+                if (!(FrontLeft.x > Left.x && FrontRight.x > Right.x)) {
+                    return false;
+                }
+            }
+        }
+
+        auto FreeWheels{[](physx::PxVehicleWheelsSimData* Data) { Data->free(); }};
+        std::unique_ptr<physx::PxVehicleWheelsSimData, decltype(FreeWheels)> TrackWheels{physx::PxVehicleWheelsSimData::allocate(WheelCount)};
+        if (TrackWheels == nullptr) {
+            return false;
+        }
+
+        *TrackWheels = Wheels;
+        for (physx::PxU32 Wheel{}; Wheel < WheelCount; ++Wheel) {
+            auto Data{TrackWheels->getWheelData(Wheel)};
+            Data.mMaxSteer = 0.0f;
+            TrackWheels->setWheelData(Wheel, Data);
+
+            // 바퀴가 많으면 측면 그립 합이 커져 제자리 회전을 막으므로 횡방향 강성을 낮춥니다.
+            constexpr float TrackLateralStiffnessScale{0.4f};
+            auto Tire{TrackWheels->getTireData(Wheel)};
+            Tire.mLatStiffY *= TrackLateralStiffnessScale;
+            TrackWheels->setTireData(Wheel, Tire);
+        }
+
+        physx::PxVehicleDriveSimData DriveData{};
+        FillDrivetrain(DriveData, 1000_Nm);
+
+        auto* Actor{Body.GetPxRigidDynamic()};
+        auto* Drive{physx::PxVehicleDriveTank::create(mRuntime.GetPhysics(), Actor, *TrackWheels, DriveData, WheelCount)};
+        Vehicle.mDrive.reset(Drive);
+        if (Drive == nullptr || Drive->getRigidDynamicActor() != Actor) {
+            return false;
+        }
+
+        // 좌우 추력이 반대 방향일 수 있어야 제자리 회전이 가능합니다.
+        Drive->setDriveModel(physx::PxVehicleDriveTankControlModel::eSPECIAL);
+        StartInFirstGear(*Drive);
+        mVehicles.push_back(std::move(Vehicle));
+
+        return true;
+    }
+
+    bool FVehicleManager::RegisterDrive2W(const FBodyInstance& Body, const physx::PxVehicleWheelsSimData& Wheels) {
+        constexpr physx::PxU32 WheelCount{2};
+        constexpr physx::PxU32 FrontWheel{0};
+        constexpr physx::PxU32 RearWheel{1};
+        FVehicle Vehicle{};
+        if (Wheels.getNbWheels() != WheelCount || !PrepareVehicle(Body, Wheels, Vehicle) ||
+            !(Vehicle.mWheelResults[FrontWheel].localPose.p.x > Vehicle.mWheelResults[RearWheel].localPose.p.x)) {
+            return false;
+        }
+
+        auto FreeWheels{[](physx::PxVehicleWheelsSimData* Data) { Data->free(); }};
+        std::unique_ptr<physx::PxVehicleWheelsSimData, decltype(FreeWheels)> BikeWheels{physx::PxVehicleWheelsSimData::allocate(WheelCount)};
+        if (BikeWheels == nullptr) {
+            return false;
+        }
+
+        // NW는 조향 입력을 모든 바퀴의 최대 조향각에 곱하므로 뒷바퀴는 0으로 둡니다.
+        *BikeWheels = Wheels;
+        constexpr auto MaxSteerAngle{30_deg};
+        for (const auto [Wheel, MaxSteer] : {std::pair{FrontWheel, MaxSteerAngle.GetBase()}, std::pair{RearWheel, 0.0f}}) {
+            auto Data{BikeWheels->getWheelData(Wheel)};
+            Data.mMaxSteer = MaxSteer;
+            BikeWheels->setWheelData(Wheel, Data);
+
+            // 폭이 좁은 차체는 롤 관성이 작아, 질량 중심 아래에 작용하는 타이어 횡력이 바깥쪽으로 쓰러뜨립니다.
+            // 타이어 힘을 질량 중심 높이에 가해 롤·피치 모멘트를 없애고, 기울기는 롤 안정화가 전담하게 합니다.
+            auto TireOffset{BikeWheels->getTireForceAppPointOffset(Wheel)};
+            TireOffset.z = 0.0f;
+            BikeWheels->setTireForceAppPointOffset(Wheel, TireOffset);
+        }
+
+        physx::PxVehicleDifferentialNWData Differential{};
+        Differential.setDrivenWheel(RearWheel, true);
+
+        physx::PxVehicleDriveSimDataNW DriveData{};
+        FillDrivetrain(DriveData, 110_Nm);
+        DriveData.setDiffData(Differential);
+
+        auto* Actor{Body.GetPxRigidDynamic()};
+        auto* Drive{physx::PxVehicleDriveNW::create(mRuntime.GetPhysics(), Actor, *BikeWheels, DriveData, WheelCount)};
+        Vehicle.mDrive.reset(Drive);
+        if (Drive == nullptr || Drive->getRigidDynamicActor() != Actor) {
+            return false;
+        }
+
+        StartInFirstGear(*Drive);
+        Vehicle.mBalanced = true;
+        mVehicles.push_back(std::move(Vehicle));
+
+        return true;
+    }
+
     bool FVehicleManager::SetDriveInput(const FBodyInstance& Body, float Throttle, float Brake, float Steering) {
         auto* Vehicle{FindVehicle(Body)};
         if (Vehicle == nullptr || AsDrive(*Vehicle->mDrive) == nullptr ||
@@ -345,6 +572,7 @@ namespace PhysicsRuntime {
         SetDriveToRestState(*Drive);
         StartInFirstGear(*Drive);
         Vehicle->mDriveInput = {};
+        Vehicle->mTargetRoll = 0.0f;
         ResetWheelResults(Vehicle->mWheelResults, Drive->mWheelsSimData, *Drive->getRigidDynamicActor());
         return true;
     }
@@ -488,6 +716,14 @@ namespace PhysicsRuntime {
                 ApplyDrive4WInput(Drive, Vehicle.mDriveInput, StepTime, physx::PxVehicleIsInAir(Results));
                 break;
             }
+            case physx::PxVehicleTypes::eDRIVETANK:
+                ApplyDriveTankInput(static_cast<physx::PxVehicleDriveTank&>(*Vehicle.mDrive), Vehicle.mDriveInput, StepTime);
+                break;
+            case physx::PxVehicleTypes::eDRIVENW: {
+                auto& Drive{static_cast<physx::PxVehicleDriveNW&>(*Vehicle.mDrive)};
+                ApplyDriveNWInput(Drive, Vehicle.mDriveInput, StepTime, physx::PxVehicleIsInAir(Results));
+                break;
+            }
             default: {
                 auto& Drive{static_cast<physx::PxVehicleNoDrive&>(*Vehicle.mDrive)};
                 for (physx::PxU32 Wheel{}; Wheel < Results.nbWheelQueryResults; ++Wheel) {
@@ -498,6 +734,10 @@ namespace PhysicsRuntime {
                 }
                 break;
             }
+            }
+
+            if (Vehicle.mBalanced) {
+                ApplyRollStabilizer(*Vehicle.mDrive->getRigidDynamicActor(), mScene.getGravity(), StepTime, Vehicle.mTargetRoll);
             }
 
             Batch.mStepVehicles.push_back(Vehicle.mDrive.get());
