@@ -27,18 +27,28 @@ namespace Engine {
 
     void UMovementComponent::SetExplicitUpdatedComponent(const CoreUObject::TObjectRef<Engine::USceneComponent>& Component) {
         // 로드와 복제에서 GUID에 핸들을 연결할 때도 이 프로퍼티의 setter를 거칩니다.
-        mExplicitUpdatedComponent = Component;
+        if (const auto* Target{Component.Get()}; Target != nullptr && !CanUseUpdatedComponent(*Target)) {
+            mExplicitUpdatedComponent.Reset();
+        } else {
+            mExplicitUpdatedComponent = Component;
+        }
+
         UpdateTickEnabledState();
     }
 
     Engine::USceneComponent* UMovementComponent::ResolveUpdatedComponent() const {
-        const Engine::AActor* Owner{GetOwner()};
-
-        if (mUseOwnerRoot) {
-            return Owner != nullptr ? Owner->GetRootComponent() : nullptr;
+        if (!mUseOwnerRoot) {
+            return mExplicitUpdatedComponent.Get();
         }
 
-        return mExplicitUpdatedComponent.Get();
+        const Engine::AActor* Owner{GetOwner()};
+        Engine::USceneComponent* Root{Owner != nullptr ? Owner->GetRootComponent() : nullptr};
+
+        return Root != nullptr && CanUseUpdatedComponent(*Root) ? Root : nullptr;
+    }
+
+    bool UMovementComponent::CanUseUpdatedComponent(const Engine::USceneComponent&) const {
+        return true;
     }
 
     Engine::USceneComponent* UMovementComponent::GetUpdatedComponent() const {

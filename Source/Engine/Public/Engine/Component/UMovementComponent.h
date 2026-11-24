@@ -61,6 +61,10 @@ namespace Engine {
 
         void RegisterComponentTickFunctions(bool Register) override;
 
+    protected:
+        /** @brief 자동으로 선택하거나 직렬화로 복원한 이동 대상을 검사합니다. */
+        virtual bool CanUseUpdatedComponent(const Engine::USceneComponent& Component) const;
+
     private:
         friend class AActor;
 
