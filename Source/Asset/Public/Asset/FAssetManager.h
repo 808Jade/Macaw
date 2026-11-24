@@ -381,7 +381,7 @@ namespace Asset {
          * @param[out] Error 실패 원인입니다.
          * @return 저장에 성공하면 true입니다.
          */
-        bool SaveRegisteredAsset(const std::filesystem::path& Path, Asset::EAssetType Type, CoreUObject::UObject& Object, Core::FString& Error);
+        bool SaveRegisteredAsset(const std::filesystem::path& Path, Asset::EAssetType Type, CoreUObject::UObject& Object, Core::FString& Error, bool ReplaceCached = false);
 
         /**
          * @brief 캐시 객체의 주소를 유지하면서 파일의 최신 설정을 다시 적용합니다.

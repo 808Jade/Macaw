@@ -20,6 +20,7 @@ namespace Engine {
     struct FParticleRenderData;
     class UParticleEmitter;
     class UParticleLODLevel;
+    class UParticleModuleTypeDataBase;
     class UParticleSystemComponent;
     class UPrimitiveComponent;
 
@@ -136,6 +137,8 @@ namespace Engine {
         Uint64 GetParticleMemoryBytes() const;
 
     protected:
+        const Engine::UParticleModuleTypeDataBase* GetCurrentTypeData() const;
+
         /**
          * @brief 상속한 인스턴스가 파티클마다 더 필요한 바이트 수입니다. Init 안에서 부릅니다.
          */

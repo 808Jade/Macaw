@@ -68,12 +68,17 @@ namespace Engine {
 
     void Engine::FParticleRibbonEmitterInstance::Init(const Engine::UParticleEmitter& Template, Engine::UParticleSystemComponent& Component) {
         Engine::FParticleEmitterInstance::Init(Template, Component);
-        mRibbonTypeData = mCurrentLODLevel != nullptr ? CoreUObject::Cast<Engine::UParticleModuleTypeDataRibbon>(mCurrentLODLevel->GetTypeDataModule()) : nullptr;
+        mRibbonTypeData = CoreUObject::Cast<Engine::UParticleModuleTypeDataRibbon>(GetCurrentTypeData());
         mHasLastSource = false;
         mTrailHasPoints = false;
         mTrailId = 0;
         mTiledDistance = 0.0f;
         mDistanceAccumulated = 0.0f;
+    }
+
+    void Engine::FParticleRibbonEmitterInstance::SetCurrentLODIndex(Int32 LODIndex) {
+        Engine::FParticleEmitterInstance::SetCurrentLODIndex(LODIndex);
+        mRibbonTypeData = CoreUObject::Cast<Engine::UParticleModuleTypeDataRibbon>(GetCurrentTypeData());
     }
 
     void Engine::FParticleRibbonEmitterInstance::FillRenderData(Engine::FParticleRenderData& Out) const {

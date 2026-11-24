@@ -80,7 +80,12 @@ namespace Engine {
 
     void Engine::FParticleBeamEmitterInstance::Init(const Engine::UParticleEmitter& Template, Engine::UParticleSystemComponent& Component) {
         Engine::FParticleEmitterInstance::Init(Template, Component);
-        mBeamTypeData = mCurrentLODLevel != nullptr ? CoreUObject::Cast<Engine::UParticleModuleTypeDataBeam>(mCurrentLODLevel->GetTypeDataModule()) : nullptr;
+        mBeamTypeData = CoreUObject::Cast<Engine::UParticleModuleTypeDataBeam>(GetCurrentTypeData());
+    }
+
+    void Engine::FParticleBeamEmitterInstance::SetCurrentLODIndex(Int32 LODIndex) {
+        Engine::FParticleEmitterInstance::SetCurrentLODIndex(LODIndex);
+        mBeamTypeData = CoreUObject::Cast<Engine::UParticleModuleTypeDataBeam>(GetCurrentTypeData());
     }
 
     void Engine::FParticleBeamEmitterInstance::FillRenderData(Engine::FParticleRenderData& Out) const {

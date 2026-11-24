@@ -147,7 +147,7 @@ namespace Editor {
          * @param[in] Predicate 열린 머티리얼 경로를 판정할 조건입니다.
          * @return 조건에 맞는 열린 머티리얼이 있으면 true입니다.
          */
-        bool HasOpenMaterial(const std::function<bool(const std::filesystem::path&)>& Predicate) const;
+        bool HasOpenAsset(Asset::EAssetType Type, const std::function<bool(const std::filesystem::path&)>& Predicate) const;
 
         /**
          * @brief 소스 편집기에 조건에 맞는 저장하지 않은 소스가 열려 있는지 검사합니다.

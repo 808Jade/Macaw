@@ -2540,7 +2540,7 @@ namespace Asset {
         return Result;
     }
 
-    bool Asset::FAssetManager::SaveRegisteredAsset(const std::filesystem::path& Path, Asset::EAssetType Type, CoreUObject::UObject& Object, Core::FString& Error) {
+    bool Asset::FAssetManager::SaveRegisteredAsset(const std::filesystem::path& Path, Asset::EAssetType Type, CoreUObject::UObject& Object, Core::FString& Error, bool ReplaceCached) {
         const Asset::FAssetTypeHandler* Handler{FindAssetTypeHandler(Type)};
 
         if (Handler == nullptr || !Object.IsA(Handler->mClass)) {
@@ -2551,13 +2551,30 @@ namespace Asset {
 
         const auto Target{ResolvePath(Path, Error)};
 
-        if (Target.empty() || !ValidateAssetIdentity(Target, Object.GetGuid(), Error)) {
+        if (Target.empty()) {
             return false;
         }
 
         const Core::FString Key{CacheKey(GetRelativePath(Target, Error))};
 
-        if (Key.empty() || !CheckCacheSlot(mRegisteredAssets, Key, &Object, Error)) {
+        if (Key.empty() || (!ReplaceCached && !CheckCacheSlot(mRegisteredAssets, Key, &Object, Error))) {
+            return false;
+        }
+
+        const auto Existing{mRegisteredAssets.find(Key)};
+        if (ReplaceCached) {
+            Asset::EAssetType ExistingType{};
+
+            if (Existing == mRegisteredAssets.end() || !Existing->second->IsA(Handler->mClass) || !Asset::FAssetFile::GetType(Target, ExistingType, Error) || ExistingType != Type) {
+                Error = "The asset to replace is no longer available at this path";
+
+                return false;
+            }
+        }
+
+        const Core::FGuid Identity{GetSaveIdentity(Target, ReplaceCached ? Existing->second->GetGuid() : Object.GetGuid())};
+
+        if (!ValidateAssetIdentity(Target, Identity, Error)) {
             return false;
         }
 
@@ -2573,7 +2590,46 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        return Asset::FAssetFile::Save(Target, Type, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Object.GetGuid()));
+        std::unique_ptr<CoreUObject::UObject> Replacement{};
+
+        if (ReplaceCached) {
+            Replacement = Handler->mClass->CreateInstance();
+            Serialization::FJsonArchive Reader{Core::EArchiveMode::Loading};
+
+            if (Replacement == nullptr) {
+                Error = "Cannot create the replacement asset object";
+
+                return false;
+            }
+
+            if (Reader.Parse(Payload)) {
+                Replacement->Serialize(Reader);
+            }
+
+            if (Reader.HasError()) {
+                Error = Reader.GetError();
+
+                return false;
+            }
+
+            Replacement->RestoreGuid(Identity);
+            Replacement->SetName(Core::FilePath::ToUtf8(Target.stem()));
+
+            if (Handler->mPostLoad && !Handler->mPostLoad(*Replacement, Error)) {
+                return false;
+            }
+        }
+
+        if (!Asset::FAssetFile::Save(Target, Type, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, Identity)) {
+            return false;
+        }
+
+        if (Replacement != nullptr) {
+            mRetired.push_back(std::move(Existing->second));
+            Existing->second = std::move(Replacement);
+        }
+
+        return true;
     }
 
     /**

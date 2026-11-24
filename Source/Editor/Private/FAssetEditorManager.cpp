@@ -9,6 +9,7 @@
 #include "FMaterialEditorToolkit.h"
 #include "FTextureEditorToolkit.h"
 #include "FPhysicsAssetEditorToolkit.h"
+#include "FParticleEditorToolkit.h"
 #include "FPhysicsAssetEditing.h"
 #include "Asset/FAssetFile.h"
 #include "FEditorWorkspace.h"
@@ -24,6 +25,7 @@
 #include "Engine/AActor.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
 #include "Engine/UWorld.h"
+#include "Engine/Particles/ParticleAssets.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Asset/UMaterial.h"
 #include "Asset/UTexture2D.h"
@@ -490,9 +492,9 @@ void FAssetEditorManager::SetChangedHandler(std::function<void()> Handler) {
     mChanged = std::move(Handler);
 }
 
-bool FAssetEditorManager::HasOpenMaterial(const std::function<bool(const std::filesystem::path&)>& Predicate) const {
-    return std::any_of(mEditors.begin(), mEditors.end(), [&Predicate](const auto& Editor) {
-        return Editor->GetAssetType() == Asset::EAssetType::Material && Predicate(Editor->GetAssetPath());
+bool FAssetEditorManager::HasOpenAsset(Asset::EAssetType Type, const std::function<bool(const std::filesystem::path&)>& Predicate) const {
+    return std::any_of(mEditors.begin(), mEditors.end(), [Type, &Predicate](const auto& Editor) {
+        return Editor->GetAssetType() == Type && Predicate(Editor->GetAssetPath());
     });
 }
 
@@ -645,6 +647,14 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         if (Content->Open(Path, Error)) {
             const Core::FString Name{Content->GetWindowId()};
             Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);
+        }
+    } else if (Type == Asset::EAssetType::ParticleSystem) {
+        if (auto* Particle{Engine::LoadParticleSystem(*Assets, Path, Error)}) {
+            auto ParticleEditor{std::make_unique<FParticleEditorToolkit>(*mContext, Path, mCatalog, mThumbnails, mMessages)};
+
+            if (ParticleEditor->Open(*Particle, Error)) {
+                Toolkit = std::move(ParticleEditor);
+            }
         }
     } else if (Type == Asset::EAssetType::PhysicsAsset) {
         // 경로가 실제 물리 에셋 파일이면 그 파일을 편집하고, 스켈레탈 메시면 메시가 쓰는 물리 에셋을 편집합니다.

@@ -57,6 +57,8 @@ namespace Engine {
          */
         bool SetTemplatePath(const Core::FString& Path);
 
+        bool SetPreviewTemplate(Engine::UParticleSystem* Template);
+
         /**
          * @brief 로드한 템플릿이며 경로가 비었거나 로드에 실패하면 nullptr입니다.
          */

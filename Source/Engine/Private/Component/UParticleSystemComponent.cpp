@@ -60,6 +60,21 @@ namespace Engine {
         return true;
     }
 
+    bool Engine::UParticleSystemComponent::SetPreviewTemplate(Engine::UParticleSystem* Template) {
+        const Engine::UWorld* World{GetWorld()};
+
+        if (World == nullptr || World->GetWorldType() != Engine::EWorldType::EditorPreview || !IsRegistered() || !mTemplatePath.empty()) {
+            return false;
+        }
+
+        mTemplate = Template;
+        mMaterials.clear();
+        mMeshes.clear();
+        RestartForTemplate();
+
+        return true;
+    }
+
     Engine::UParticleSystem* Engine::UParticleSystemComponent::GetTemplate() const {
         return mTemplate.Get();
     }

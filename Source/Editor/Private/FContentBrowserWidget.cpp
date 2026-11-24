@@ -538,8 +538,12 @@ Core::FString FContentBrowserWidget::FindContentActionBlocker(const std::filesys
         return "지금 열려 있는 씬입니다. 다른 씬을 연 뒤에 다시 시도하세요.";
     }
 
-    if (mAssetEditors.HasOpenMaterial(Contains)) {
+    if (mAssetEditors.HasOpenAsset(Asset::EAssetType::Material, Contains)) {
         return "편집 중인 머티리얼입니다. 머티리얼 편집기를 닫은 뒤에 다시 시도하세요.";
+    }
+
+    if (mAssetEditors.HasOpenAsset(Asset::EAssetType::ParticleSystem, Contains)) {
+        return "편집 중인 파티클 시스템입니다. 파티클 편집기를 닫은 뒤에 다시 시도하세요.";
     }
 
     if (mAssetEditors.HasUnsavedSource(Contains)) {

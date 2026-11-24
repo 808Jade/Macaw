@@ -11,6 +11,7 @@
 #include "Engine/Particles/UParticleModule.h"
 #include "Engine/Particles/Module/UParticleModuleRequired.h"
 #include "Engine/Particles/Module/UParticleModuleSpawn.h"
+#include "Engine/Particles/Module/UParticleModuleTypeDataBase.h"
 #include "Engine/Component/UParticleSystemComponent.h"
 #include "Asset/UMaterial.h"
 #include "Core/Math/FMatrix.h"
@@ -147,6 +148,12 @@ namespace Engine {
         mCurrentLODIndex = Index;
         mCurrentLODLevel = Level;
 
+        if (mSecondsSinceCreation == 0.0f) {
+            mEmitterTime = -Level->GetRequiredModule()->GetDelayForLoop(0).GetBase();
+            mBurstFired.clear();
+            return;
+        }
+
         // Burst 기록은 항목 번호로 남습니다. 항목 수가 다른 레벨로 오면 이미 터진 Burst가 다시
         // 터지지 않도록, 이번 루프에서 시간이 지난 항목은 터진 것으로 둡니다.
         const auto& Bursts{mCurrentLODLevel->GetSpawnModule()->GetBurstList()};
@@ -158,6 +165,14 @@ namespace Engine {
                 mBurstFired[Burst] = mEmitterTime >= Bursts[Burst].mTime ? 1 : 0;
             }
         }
+    }
+
+    const Engine::UParticleModuleTypeDataBase* Engine::FParticleEmitterInstance::GetCurrentTypeData() const {
+        const auto* Initial{mTemplate != nullptr ? mTemplate->GetLODLevel(0) : nullptr};
+        const auto* Expected{Initial != nullptr ? Initial->GetTypeDataModule() : nullptr};
+        const auto* Selected{mCurrentLODLevel != nullptr ? mCurrentLODLevel->GetTypeDataModule() : nullptr};
+
+        return Expected != nullptr && Selected != nullptr && Expected->GetClass() == Selected->GetClass() ? Selected : Expected;
     }
 
     void Engine::FParticleEmitterInstance::FillRenderData(Engine::FParticleRenderData& Out) const {

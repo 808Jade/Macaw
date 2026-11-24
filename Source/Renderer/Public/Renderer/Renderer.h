@@ -353,7 +353,7 @@ namespace Renderer {
          * @param[out] Code 성공 시 컴파일된 셰이더를 받습니다.
          * @return 성공하면 true, 컴파일에 실패하면 false입니다.
          */
-        bool Compile(const char* Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code);
+        bool Compile(const std::filesystem::path& Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code);
 
         /**
          * @brief 월드 선은 깊이를 기록하고 편집 오버레이 선은 깊이 검사 없이 그립니다.

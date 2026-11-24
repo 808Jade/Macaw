@@ -30,6 +30,7 @@ namespace Engine {
     class FParticleBeamEmitterInstance final : public Engine::FParticleEmitterInstance {
     public:
         void Init(const Engine::UParticleEmitter& Template, Engine::UParticleSystemComponent& Component) override;
+        void SetCurrentLODIndex(Int32 LODIndex) override;
 
         void FillRenderData(Engine::FParticleRenderData& Out) const override;
 

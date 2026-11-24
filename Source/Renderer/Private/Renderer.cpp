@@ -798,7 +798,7 @@ namespace Renderer {
     /**
      * @brief 프로젝트 HLSL 소스를 지정한 진입점과 프로파일로 컴파일합니다.
      */
-    bool Renderer::FRenderer::Compile(const char* Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code) {
+    bool Renderer::FRenderer::Compile(const std::filesystem::path& Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code) {
         RenderCore::FShaderDescription Description{};
         Description.mSourcePath = mShaderDirectory / Source;
         Description.mIncludeDirectories = {mShaderDirectory};
@@ -873,23 +873,24 @@ namespace Renderer {
             return false;
         }
 
-        // 파티클 셰이더를 갖고 있지 않은 기존 프로젝트도 파티클만 빼고 열 수 있습니다.
         std::error_code ParticleShaderError{};
+        const auto SpriteSource{std::filesystem::absolute(FindTextContent(mShaderDirectory.parent_path(), "Shaders/ParticleSprite.hlsl"))};
+        const auto TrailSource{std::filesystem::absolute(FindTextContent(mShaderDirectory.parent_path(), "Shaders/ParticleTrail.hlsl"))};
 
-        if (std::filesystem::is_regular_file(mShaderDirectory / "ParticleSprite.hlsl", ParticleShaderError)) {
-            if (!Compile("ParticleSprite.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("ParticleSprite.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+        if (std::filesystem::is_regular_file(SpriteSource, ParticleShaderError)) {
+            if (!Compile(SpriteSource, "VertexMain", "vs_5_0", VertexCode) || !Compile(SpriteSource, "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
                 return false;
             }
         } else {
-            Core::ErrorHandler::Report("Renderer", "ParticleSprite.hlsl is missing from the project shaders; particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
+            Core::ErrorHandler::Report("Renderer", "ParticleSprite.hlsl is missing; sprite particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
         }
 
-        if (std::filesystem::is_regular_file(mShaderDirectory / "ParticleTrail.hlsl", ParticleShaderError)) {
-            if (!Compile("ParticleTrail.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("ParticleTrail.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateTrailShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+        if (std::filesystem::is_regular_file(TrailSource, ParticleShaderError)) {
+            if (!Compile(TrailSource, "VertexMain", "vs_5_0", VertexCode) || !Compile(TrailSource, "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateTrailShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
                 return false;
             }
         } else {
-            Core::ErrorHandler::Report("Renderer", "ParticleTrail.hlsl is missing from the project shaders; beam and ribbon particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
+            Core::ErrorHandler::Report("Renderer", "ParticleTrail.hlsl is missing; beam and ribbon particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
         }
 
         if (!Compile("PostProcess.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("PostProcess.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mPostProcessResources->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {

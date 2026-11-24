@@ -32,7 +32,12 @@ namespace Engine {
     void Engine::FParticleMeshEmitterInstance::Init(const Engine::UParticleEmitter& Template, Engine::UParticleSystemComponent& Component) {
         // 부모가 인스턴스 Payload까지 포함한 칸 크기와 현재 LOD를 정합니다.
         Engine::FParticleEmitterInstance::Init(Template, Component);
-        mMeshTypeData = mCurrentLODLevel != nullptr ? CoreUObject::Cast<Engine::UParticleModuleTypeDataMesh>(mCurrentLODLevel->GetTypeDataModule()) : nullptr;
+        mMeshTypeData = CoreUObject::Cast<Engine::UParticleModuleTypeDataMesh>(GetCurrentTypeData());
+    }
+
+    void Engine::FParticleMeshEmitterInstance::SetCurrentLODIndex(Int32 LODIndex) {
+        Engine::FParticleEmitterInstance::SetCurrentLODIndex(LODIndex);
+        mMeshTypeData = CoreUObject::Cast<Engine::UParticleModuleTypeDataMesh>(GetCurrentTypeData());
     }
 
     void Engine::FParticleMeshEmitterInstance::FillRenderData(Engine::FParticleRenderData& Out) const {
