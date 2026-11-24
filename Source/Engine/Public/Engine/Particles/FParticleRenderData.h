@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Math/FBox.h"
 #include "Core/Math/FMatrix.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FVector4.h"
@@ -69,15 +70,19 @@ namespace Engine {
         Uint32 mSubImagesVertical{1};
     };
 
+    struct FParticleMeshInstance {
+    public:
+        FMatrix mWorld{};
+        FMatrix mWorldInverse{};
+        FBox mBounds{};
+    };
+
     /**
-     * @brief 에미터 하나의 메시 파티클 묶음입니다. 렌더러는 파티클마다 일반 메시처럼 그립니다.
+     * @brief 에미터 하나의 메시 파티클 인스턴스 묶음입니다.
      */
     struct FParticleMeshBatch {
     public:
-        /**
-         * @brief 파티클마다의 메시 로컬→월드 행렬(행 벡터 규약)입니다. 역행렬이 없는 행렬은 넣지 않습니다.
-         */
-        Core::TArray<FMatrix> mInstances{};
+        Core::TArray<Engine::FParticleMeshInstance> mInstances{};
 
         CoreUObject::TObjectRef<Asset::UStaticMesh> mMesh{};
 

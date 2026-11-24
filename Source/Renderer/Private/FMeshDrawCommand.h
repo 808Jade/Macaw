@@ -14,6 +14,10 @@ namespace Asset {
     class UStaticMesh;
 }
 
+namespace Engine {
+    struct FParticleMeshInstance;
+}
+
 namespace Renderer {
 
     class FRenderer;
@@ -74,6 +78,8 @@ namespace Renderer {
          * @brief 객체 행렬과 UV 변환을 가진 렌더 프리미티브입니다.
          */
         const Renderer::FScenePrimitive* mPrimitive{};
+
+        const Engine::FParticleMeshInstance* mParticleInstance{};
 
         /**
          * @brief 이 드로의 첫 인덱스 오프셋입니다.

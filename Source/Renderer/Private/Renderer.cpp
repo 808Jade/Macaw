@@ -47,6 +47,7 @@
 #include "FTextRenderer.h"
 #include "FSpriteRenderer.h"
 #include "FParticleRenderer.h"
+#include "Engine/Particles/FParticleRenderData.h"
 #include "Engine/EditorMesh.h"
 #include "Core/Math/FVector4.h"
 
@@ -523,9 +524,9 @@ namespace Renderer {
         const Renderer::FTranslucencyMeshPass::FRenderParameters TranslucencyParameters{mSpriteRenderer.get(), mTextRenderer.get(), mParticleRenderer.get(), mOverlayBlend.Get(), mDepthReadOnly.Get(), mDepthDisabled.Get(), mRasterizer.Get(), mWireframeRasterizer.Get()};
 
         if (!Visualization) {
-            const Uint32 TranslucencyDrawCalls{mTranslucencyMeshPass->Render(Family, false, TranslucencyParameters)};
-            mStats.mDrawCalls += TranslucencyDrawCalls;
-            mStats.mVisiblePrimitives += TranslucencyDrawCalls;
+            const auto Translucency{mTranslucencyMeshPass->Render(Family, false, TranslucencyParameters)};
+            mStats.mDrawCalls += Translucency.mDrawCalls;
+            mStats.mVisiblePrimitives += Translucency.mVisiblePrimitives;
         }
 
         FinishLighting();
@@ -540,9 +541,9 @@ namespace Renderer {
 
         mContext->OMSetRenderTargets(1, &RenderTarget, Target->GetDepthView());
 
-        const Uint32 EditorDrawCalls{mTranslucencyMeshPass->Render(Family, true, TranslucencyParameters)};
-        mStats.mDrawCalls += EditorDrawCalls;
-        mStats.mVisiblePrimitives += EditorDrawCalls;
+        const auto Editor{mTranslucencyMeshPass->Render(Family, true, TranslucencyParameters)};
+        mStats.mDrawCalls += Editor.mDrawCalls;
+        mStats.mVisiblePrimitives += Editor.mVisiblePrimitives;
 
         if (Family.mEditorElements != nullptr) {
             DrawMeshes(Family.mEditorElements, true);
@@ -1681,7 +1682,11 @@ namespace Renderer {
      */
     Uint32 Renderer::FRenderer::SubmitMeshCommands(ID3D11RasterizerState* Rasterizer, Renderer::EMeshPass Pass, std::span<const Renderer::FMeshDrawCommand> Commands, bool MarkDecalReceivers) {
         const bool OpaquePass{Pass == Renderer::EMeshPass::OpaqueMeshPass};
+        const bool TranslucencyPass{Pass == Renderer::EMeshPass::TranslucencyMeshPass};
         const bool SurfacePass{Pass != Renderer::EMeshPass::ShadowDepth};
+        const auto ReceivesDecals{[](const Renderer::FMeshDrawCommand& Command) {
+            return Command.mParticleInstance == nullptr && Command.mPrimitive->mProxy.mReceivesDecals;
+        }};
 
         if (std::any_of(Commands.begin(), Commands.end(), [](const Renderer::FMeshDrawCommand& Command) {
             return Command.mPipeline->IsInstanced();
@@ -1690,7 +1695,8 @@ namespace Renderer {
             Instances.reserve(Commands.size());
 
             for (const Renderer::FMeshDrawCommand& Command : Commands) {
-                Instances.push_back(Command.mPrimitive->mObjectConstants);
+                const Engine::FParticleMeshInstance* Particle{Command.mParticleInstance};
+                Instances.push_back(Particle != nullptr ? Renderer::FObjectConstants{Particle->mWorld, Particle->mWorldInverse} : Command.mPrimitive->mObjectConstants);
             }
 
             Core::FString Error{};
@@ -1710,12 +1716,12 @@ namespace Renderer {
 
         for (Index_t First{}; First < Commands.size();) {
             const Renderer::FMeshDrawCommand& Command{Commands[First]};
-            const bool ReceivesDecals{Command.mPrimitive->mProxy.mReceivesDecals};
+            const bool Receives{ReceivesDecals(Command)};
             Index_t End{static_cast<Index_t>(First + 1)};
 
-            if (Command.mPipeline->IsInstanced() && Pass != Renderer::EMeshPass::TranslucencyMeshPass) {
+            if (Command.mPipeline->IsInstanced() && (!TranslucencyPass || Command.mParticleInstance != nullptr)) {
                 while (End < Commands.size() && Commands[End].mPipeline == Command.mPipeline && Commands[End].mMaterial == Command.mMaterial && Commands[End].mMesh == Command.mMesh && Commands[End].mFirstIndex == Command.mFirstIndex && Commands[End].mIndexCount == Command.mIndexCount) {
-                    if (MarkDecalReceivers && Commands[End].mPrimitive->mProxy.mReceivesDecals != ReceivesDecals) {
+                    if ((TranslucencyPass && Commands[End].mParticleInstance == nullptr) || (MarkDecalReceivers && ReceivesDecals(Commands[End]) != Receives)) {
                         break;
                     }
 
@@ -1727,7 +1733,7 @@ namespace Renderer {
 
             if (OpaquePass && !mForwardShading) {
                 const Uint32 SurfaceStencil{Command.mPipeline->WritesGBuffer() ? Renderer::GBuffer::Surface : Renderer::GBuffer::Prelit};
-                const Uint32 Stencil{SurfaceStencil | (MarkDecalReceivers && ReceivesDecals ? Renderer::GBuffer::ReceivesDecals : 0u)};
+                const Uint32 Stencil{SurfaceStencil | (MarkDecalReceivers && Receives ? Renderer::GBuffer::ReceivesDecals : 0u)};
 
                 if (LastStencil != Stencil) {
                     mContext->OMSetDepthStencilState(mGBufferDepth.Get(), Stencil);

@@ -84,11 +84,6 @@ namespace Renderer {
          * @brief 마지막으로 GPU에 업로드한 천 결과 개정입니다.
          */
         Core::FRevision mUploadedClothRevision{};
-
-        /**
-         * @brief 파티클 컴포넌트의 메시 파티클마다 만든 자식 프리미티브입니다. 메시 패스가 일반 메시처럼 그립니다.
-         */
-        Core::TArray<Renderer::FScenePrimitive> mParticleMeshes{};
     };
 
 }

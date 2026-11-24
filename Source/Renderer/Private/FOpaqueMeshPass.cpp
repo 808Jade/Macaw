@@ -43,16 +43,15 @@ namespace Renderer {
     /**
      * @brief SubMesh마다 덮어쓰기·슬롯·기본 머티리얼 순으로 머티리얼을 정해 해당 파이프라인 드로를 추가합니다.
      */
-    void Renderer::FOpaqueMeshPass::AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily& Family, Core::TArray<Renderer::FMeshDrawCommand>& Commands) {
-        const bool Skinned{Primitive.mProxy.mSkeletalMesh != nullptr};
-        const bool ReceiveShadows{Family.mShowFlags.mShadows && Primitive.mProxy.mReceiveShadow};
+    void Renderer::FOpaqueMeshPass::AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily& Family, Core::TArray<Renderer::FMeshDrawCommand>& Commands, const Engine::FParticleMeshBatch* ParticleBatch) {
+        const bool Skinned{ParticleBatch == nullptr && Primitive.mProxy.mSkeletalMesh != nullptr};
+        const bool ReceiveShadows{Family.mShowFlags.mShadows && (ParticleBatch != nullptr || Primitive.mProxy.mReceiveShadow)};
 
         const auto& SubMeshes{Mesh.GetMeshData().GetSubMeshes()};
 
         for (Index_t SubMeshIndex{}; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
             const Asset::FSubMesh& SubMesh{SubMeshes[SubMeshIndex]};
-            Asset::UMaterial* SlotMaterial{SubMesh.GetMaterialIndex() < Primitive.mProxy.mMaterials.size() ? Primitive.mProxy.mMaterials[SubMesh.GetMaterialIndex()] : nullptr};
-            Asset::UMaterial* Material{Primitive.mProxy.mMaterial != nullptr ? Primitive.mProxy.mMaterial.Get() : SlotMaterial != nullptr ? SlotMaterial : mDefaultMaterial.Get()};
+            Asset::UMaterial* Material{ResolveMaterial(Primitive, SubMesh.GetMaterialIndex(), mDefaultMaterial.Get(), ParticleBatch)};
 
             if (Material->GetBlendMode() != Asset::EBlendMode::Opaque) {
                 continue;

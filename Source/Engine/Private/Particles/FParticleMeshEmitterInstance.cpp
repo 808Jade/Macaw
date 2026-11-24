@@ -62,6 +62,7 @@ namespace Engine {
         const FMatrix ComponentToWorld{mComponent->GetWorldMatrix()};
         // Local Space는 컴포넌트 행렬에 스케일이 있고, World Space는 위치를 빼고 크기에만 곱합니다.
         const FVector WorldScale{GetComponentScale()};
+        const FBox& MeshBounds{Mesh->GetBounds()};
         constexpr float RadiansToDegrees{180.0f / std::numbers::pi_v<float>};
 
         Batch.mInstances.reserve(static_cast<Index_t>(mActiveParticles));
@@ -87,7 +88,7 @@ namespace Engine {
             FMatrix Inverse{};
 
             if (World.TryInverse(Inverse)) {
-                Batch.mInstances.push_back(World);
+                Batch.mInstances.push_back({World, Inverse, MeshBounds.Transformed(World)});
             }
         }
     }

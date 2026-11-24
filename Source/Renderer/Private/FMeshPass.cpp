@@ -9,12 +9,14 @@
 
 #include "FScene.h"
 #include "FScenePrimitive.h"
+#include "Asset/UMaterial.h"
 #include "Asset/UStaticMesh.h"
 #include "Asset/USkeletalMesh.h"
 #include "Core/Math/FBox.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FVector4.h"
 #include "Engine/FSceneViewFamily.h"
+#include "Engine/Particles/FParticleRenderData.h"
 
 #include <algorithm>
 #include <functional>
@@ -108,7 +110,7 @@ namespace Renderer {
             }
 
             const auto PreviousCount{Commands.size()};
-            AddCommands(Primitive, *Mesh, Family, Commands);
+            AddCommands(Primitive, *Mesh, Family, Commands, nullptr);
 
             if (Commands.size() != PreviousCount) {
                 ++Primitives;
@@ -116,10 +118,9 @@ namespace Renderer {
         }};
 
         for (const Renderer::FScenePrimitive& Primitive : Scene.GetPrimitives()) {
-            // 파티클 컴포넌트는 내장 메시로 그리지 않고 메시 파티클만 일반 메시처럼 그립니다.
             if (Primitive.mProxy.mParticles != nullptr) {
-                for (const Renderer::FScenePrimitive& Particle : Primitive.mParticleMeshes) {
-                    AddPrimitive(Particle);
+                if (GetType() != Renderer::EMeshPass::ShadowDepth && Includes(Primitive, Family)) {
+                    AddParticleCommands(Primitive, Family, ViewProjection, Commands, Primitives);
                 }
 
                 continue;
@@ -155,6 +156,53 @@ namespace Renderer {
         });
 
         return true;
+    }
+
+    Asset::UMaterial* Renderer::FMeshPass::ResolveMaterial(const Renderer::FScenePrimitive& Primitive, Index_t MaterialIndex, Asset::UMaterial* Default, const Engine::FParticleMeshBatch* ParticleBatch) {
+        if (ParticleBatch == nullptr && Primitive.mProxy.mMaterial != nullptr) {
+            return Primitive.mProxy.mMaterial.Get();
+        }
+
+        const auto& Slots{ParticleBatch != nullptr ? ParticleBatch->mMaterials : Primitive.mProxy.mMaterials};
+        Asset::UMaterial* SlotMaterial{MaterialIndex < Slots.size() ? Slots[MaterialIndex].Get() : nullptr};
+
+        return SlotMaterial != nullptr ? SlotMaterial : Default;
+    }
+
+    void Renderer::FMeshPass::AddParticleCommands(const Renderer::FScenePrimitive& Primitive, const Engine::FSceneViewFamily& Family, const FMatrix& ViewProjection, Core::TArray<Renderer::FMeshDrawCommand>& Commands, Uint32& Primitives) {
+        Core::TArray<Renderer::FMeshDrawCommand> Sections{};
+        const auto Visible{[&ViewProjection](const Engine::FParticleMeshInstance& Instance) {
+            return IsVisible(ViewProjection, Instance.mBounds);
+        }};
+
+        for (const Engine::FParticleMeshBatch& Batch : Primitive.mProxy.mParticles->mMeshes) {
+            Asset::UStaticMesh* Mesh{Batch.mMesh.Get()};
+            const auto First{std::ranges::find_if(Batch.mInstances, Visible)};
+
+            if (First == Batch.mInstances.end() || Mesh == nullptr || (!Mesh->HasResources() && !Mesh->CreateResources(mDevice))) {
+                continue;
+            }
+
+            Sections.clear();
+            AddCommands(Primitive, *Mesh, Family, Sections, &Batch);
+
+            if (Sections.empty()) {
+                continue;
+            }
+
+            for (auto Instance{First}; Instance != Batch.mInstances.end(); ++Instance) {
+                if (!Visible(*Instance)) {
+                    continue;
+                }
+
+                for (const Renderer::FMeshDrawCommand& Section : Sections) {
+                    Commands.push_back(Section);
+                    Commands.back().mParticleInstance = &*Instance;
+                }
+
+                ++Primitives;
+            }
+        }
     }
 
 }

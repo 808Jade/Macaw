@@ -30,14 +30,14 @@ namespace Renderer {
         return Renderer::EMeshPass::TranslucencyMeshPass;
     }
 
-    Uint32 Renderer::FTranslucencyMeshPass::Render(const Engine::FSceneViewFamily& Family, bool EditorIcons, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
+    Renderer::FTranslucencyMeshPass::FRenderResult Renderer::FTranslucencyMeshPass::Render(const Engine::FSceneViewFamily& Family, bool EditorIcons, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
         using FParticleBatch = const Engine::FParticleSpriteBatch*;
         using FParticleTrail = const Engine::FParticleTrailBatch*;
         using FPrimitive = std::variant<const Engine::FPrimitiveSceneProxy*, Engine::FDrawText, std::size_t, FParticleBatch, FParticleTrail>;
         using FCommand = std::pair<float, FPrimitive>;
         Core::TArray<FCommand> Commands{};
         Core::TArray<Renderer::FMeshDrawCommand> MeshCommands{};
-        Uint32 DrawCalls{};
+        Renderer::FTranslucencyMeshPass::FRenderResult Result{};
 
         const auto Depth{[&Family](const FVector& Position, bool ScreenSpace) {
             const FVector4 Clip{FVector4{Position, 1.0f} * Family.mView.mViewProjection};
@@ -76,7 +76,8 @@ namespace Renderer {
 
             if (BuildCommands(*Scene, Family, Family.mView.mViewProjection, MeshCommands, Primitives)) {
                 for (std::size_t Index{}; Index < MeshCommands.size(); ++Index) {
-                    const FBox& Bounds{MeshCommands[Index].mPrimitive->mProxy.mBounds};
+                    const Renderer::FMeshDrawCommand& MeshCommand{MeshCommands[Index]};
+                    const FBox& Bounds{MeshCommand.mParticleInstance != nullptr ? MeshCommand.mParticleInstance->mBounds : MeshCommand.mPrimitive->mProxy.mBounds};
                     const FVector Center{(Bounds.mMinimum + Bounds.mMaximum) * 0.5f};
                     Commands.emplace_back(Depth(Center, false), FPrimitive{Index});
                 }
@@ -141,7 +142,27 @@ namespace Renderer {
         mRenderer->mViewBuffer.Update(mContext, Family.mView.mViewProjection);
         mRenderer->mViewBuffer.Bind(mContext, RenderCore::EShaderStage::Vertex | RenderCore::EShaderStage::Pixel, 1);
 
+        Core::TArray<Renderer::FMeshDrawCommand> MeshRun{};
+        const auto SubmitMeshRun{[&]() {
+            if (MeshRun.empty()) {
+                return;
+            }
+
+            ID3D11RasterizerState* Rasterizer{Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : nullptr};
+            mContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            Result.mDrawCalls += mRenderer->SubmitMeshCommands(Rasterizer, GetType(), MeshRun, false);
+            Result.mVisiblePrimitives += static_cast<Uint32>(MeshRun.size());
+            MeshRun.clear();
+        }};
+
         for (const FCommand& Command : Commands) {
+            if (const auto* MeshIndex{std::get_if<std::size_t>(&Command.second)}) {
+                MeshRun.push_back(MeshCommands[*MeshIndex]);
+                continue;
+            }
+
+            SubmitMeshRun();
+
             bool Drawn{};
 
             if (const auto* Sprite{std::get_if<const Engine::FPrimitiveSceneProxy*>(&Command.second)}) {
@@ -156,12 +177,6 @@ namespace Renderer {
                 mContext->RSSetState(Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : Parameters.mRasterizer);
 
                 Drawn = Parameters.mParticleRenderer != nullptr && Parameters.mParticleRenderer->DrawTrail(mContext, **Trail, Family.mView);
-            } else if (const auto* MeshIndex{std::get_if<std::size_t>(&Command.second)}) {
-                const Renderer::FMeshDrawCommand& MeshCommand{MeshCommands[*MeshIndex]};
-                ID3D11RasterizerState* Rasterizer{Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : nullptr};
-                mContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-                Drawn = mRenderer->SubmitMeshCommands(Rasterizer, GetType(), std::span<const Renderer::FMeshDrawCommand>{&MeshCommand, 1}, false) != 0;
             } else {
                 mContext->RSSetState(Parameters.mRasterizer);
 
@@ -169,13 +184,15 @@ namespace Renderer {
             }
 
             if (Drawn) {
-                ++DrawCalls;
+                ++Result.mDrawCalls;
+                ++Result.mVisiblePrimitives;
             }
         }
 
+        SubmitMeshRun();
         mContext->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFFu);
 
-        return DrawCalls;
+        return Result;
     }
 
     Uint32 Renderer::FTranslucencyMeshPass::RenderOverlayTexts(const Engine::FSceneViewFamily& Family, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
@@ -247,16 +264,15 @@ namespace Renderer {
         return Family.mShowFlags.mPrimitives;
     }
 
-    void Renderer::FTranslucencyMeshPass::AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily& Family, Core::TArray<Renderer::FMeshDrawCommand>& Commands) {
-        const bool Skinned{Primitive.mProxy.mSkeletalMesh != nullptr};
-        const bool ReceiveShadows{Family.mShowFlags.mShadows && Primitive.mProxy.mReceiveShadow};
+    void Renderer::FTranslucencyMeshPass::AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily& Family, Core::TArray<Renderer::FMeshDrawCommand>& Commands, const Engine::FParticleMeshBatch* ParticleBatch) {
+        const bool Skinned{ParticleBatch == nullptr && Primitive.mProxy.mSkeletalMesh != nullptr};
+        const bool ReceiveShadows{Family.mShowFlags.mShadows && (ParticleBatch != nullptr || Primitive.mProxy.mReceiveShadow)};
 
         const auto& SubMeshes{Mesh.GetMeshData().GetSubMeshes()};
 
         for (Index_t SubMeshIndex{}; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
             const Asset::FSubMesh& SubMesh{SubMeshes[SubMeshIndex]};
-            Asset::UMaterial* SlotMaterial{SubMesh.GetMaterialIndex() < Primitive.mProxy.mMaterials.size() ? Primitive.mProxy.mMaterials[SubMesh.GetMaterialIndex()] : nullptr};
-            Asset::UMaterial* Material{Primitive.mProxy.mMaterial != nullptr ? Primitive.mProxy.mMaterial.Get() : SlotMaterial != nullptr ? SlotMaterial : mRenderer->GetDefaultMaterial()};
+            Asset::UMaterial* Material{ResolveMaterial(Primitive, SubMesh.GetMaterialIndex(), mRenderer->GetDefaultMaterial(), ParticleBatch)};
 
             if (Material == nullptr || Material->GetBlendMode() != Asset::EBlendMode::Translucent || !Material->CreateResources(mDevice, mContext)) {
                 continue;
