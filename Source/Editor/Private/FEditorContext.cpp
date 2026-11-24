@@ -127,6 +127,7 @@ namespace Editor {
         // 엔진이 천 팩토리를 해제하기 전에 테스트 천을 먼저 정리합니다.
         SetClothGridTest(false);
         ClearClothAssetTest();
+        ClearClothSimTest();
 
         if (mPlayLocked || IsChangingState()) {
             return;
@@ -1390,7 +1391,7 @@ namespace Editor {
         constexpr float Spacing{1.0f / static_cast<float>(GridSize - 1)};
         auto Simulation{std::make_unique<PhysicsRuntime::FClothingSimulationNv>()};
 
-        if (!Simulation->Initialize(mEngine->GetClothingSystem().GetSoftwareFactory()) || !Simulation->CreateGridActor({-0.5f, 0.0f, 2.0f}, GridSize, GridSize, Spacing)) {
+        if (!Simulation->Initialize(mEngine->GetClothingSystem()) || !Simulation->CreateGridActor({-0.5f, 0.0f, 2.0f}, GridSize, GridSize, Spacing)) {
             AddLog("Cannot create the cloth grid. See the Console for details.");
 
             return;
@@ -1608,6 +1609,129 @@ namespace Editor {
                 const bool Fixed{PhysMesh.mInverseMasses[Start] == 0.0f && PhysMesh.mInverseMasses[End] == 0.0f};
 
                 DrawInterface.DrawLine(WorldMatrix.TransformPosition(PhysMesh.mVertices[Start]), WorldMatrix.TransformPosition(PhysMesh.mVertices[End]), Fixed ? FixedColor : MovableColor, true, Thickness);
+            }
+        }
+    }
+
+    /**
+     * @brief 선택한 스켈레탈 메시의 섹션 하나를 천으로 시뮬레이션합니다.
+     */
+    bool Editor::FEditorContext::SetClothSimTest(Index_t SubMeshIndex) {
+        ClearClothSimTest();
+
+        if (mEngine == nullptr) {
+            return false;
+        }
+
+        // 천 에셋이 없으면 만들고 연결합니다. 실패하면 그 함수가 이유를 기록합니다.
+        if (!SetClothAssetTest(SubMeshIndex)) {
+            return false;
+        }
+
+        Engine::USkeletalMeshComponent* Component{mClothAssetTestComponent.Get()};
+        ClearClothAssetTest();
+
+        if (Component == nullptr || Component->GetSkeletalMesh() == nullptr) {
+            return false;
+        }
+
+        const Asset::USkeletalMesh& Mesh{*Component->GetSkeletalMesh()};
+        const Asset::FClothingSectionData* SectionData{Mesh.GetSectionClothingData(SubMeshIndex)};
+        const PhysicsRuntime::UClothingAssetCommon* ClothingAsset{SectionData != nullptr ? Mesh.GetClothingAsset(SectionData->mAssetGuid) : nullptr};
+
+        if (ClothingAsset == nullptr) {
+            return false;
+        }
+
+        // 컴포넌트 좌표 뼈 행렬과 스키닝 행렬이 있어야 입자를 현재 자세로 놓을 수 있습니다.
+        const Engine::FSkeletalMeshPose& Pose{Component->GetPose()};
+
+        if (Pose.GetGlobalTransforms().empty() || Pose.GetSkinMatrices().empty()) {
+            AddLog("The selected component has no evaluated pose yet.");
+
+            return false;
+        }
+
+        auto Simulation{std::make_unique<PhysicsRuntime::FClothingSimulationNv>()};
+
+        if (!Simulation->Initialize(mEngine->GetClothingSystem()) || !Simulation->CreateActor(*ClothingAsset, SectionData->mCorrespondClothAssetIndex, Component->GetWorldMatrix(), Pose.GetGlobalTransforms(), Pose.GetSkinMatrices())) {
+            AddLog("Cannot create the cloth actor. See the Console for details.");
+
+            return false;
+        }
+
+        mClothSimTest = std::move(Simulation);
+        mClothSimTestComponent = CoreUObject::MakeObjectRef(Component);
+        mClothSimTestSubMesh = SubMeshIndex;
+        AddLog("Cloth sim on for section " + std::to_string(SubMeshIndex) + ". Use stat cloth for timing.");
+
+        return true;
+    }
+
+    /**
+     * @brief 천 시뮬레이션 테스트를 끄고 천과 솔버를 해제합니다.
+     */
+    void Editor::FEditorContext::ClearClothSimTest() {
+        mClothSimTest.reset();
+        mClothSimTestComponent.Reset();
+        mClothSimTestSubMesh = InvalidIndex;
+    }
+
+    /**
+     * @brief 천 시뮬레이션 테스트가 켜져 있으면 천을 한 프레임 진행합니다.
+     */
+    void Editor::FEditorContext::TickClothSimTest(float DeltaTime) {
+        if (mClothSimTest != nullptr) {
+            mClothSimTest->Simulate(DeltaTime);
+        }
+    }
+
+    /**
+     * @brief 천 시뮬레이션 테스트의 입자 사이를 선분으로 그립니다.
+     */
+    void Editor::FEditorContext::DrawClothSimTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const {
+        const Engine::USkeletalMeshComponent* Component{mClothSimTestComponent.Get()};
+
+        if (mClothSimTest == nullptr || Component == nullptr || Component->GetSkeletalMesh() == nullptr) {
+            return;
+        }
+
+        const Asset::USkeletalMesh& Mesh{*Component->GetSkeletalMesh()};
+        const Asset::FClothingSectionData* SectionData{Mesh.GetSectionClothingData(mClothSimTestSubMesh)};
+        const PhysicsRuntime::UClothingAssetCommon* ClothingAsset{SectionData != nullptr && SectionData->IsValid() ? Mesh.GetClothingAsset(SectionData->mAssetGuid) : nullptr};
+
+        if (ClothingAsset == nullptr || !ClothingAsset->IsValidLod(SectionData->mAssetLodIndex)) {
+            return;
+        }
+
+        Core::TArray<FVector> Particles{};
+        const PhysicsRuntime::FClothPhysicalMeshData& PhysMesh{ClothingAsset->mLodData[SectionData->mAssetLodIndex].mPhysicalMeshData};
+
+        if (!mClothSimTest->GetParticles(0, Particles) || Particles.size() != PhysMesh.mVertices.size()) {
+            return;
+        }
+
+        // 입자는 기준 뼈 좌표이므로 기준 뼈의 월드 변환으로 월드 위치를 구합니다.
+        const Core::TArray<FMatrix>& GlobalTransforms{Component->GetPose().GetGlobalTransforms()};
+        const Index_t ReferenceBoneIndex{ClothingAsset->mReferenceBoneIndex};
+        const FMatrix WorldMatrix{Component->GetWorldMatrix()};
+        const FMatrix SimRootMatrix{ReferenceBoneIndex < GlobalTransforms.size() ? GlobalTransforms[ReferenceBoneIndex] * WorldMatrix : WorldMatrix};
+        FTransform SimRootTransform{};
+
+        if (!SimRootMatrix.TryGetTransform(SimRootTransform)) {
+            return;
+        }
+
+        const FVector FixedColor{0.95f, 0.2f, 0.2f};
+        const FVector MovableColor{0.3f, 0.9f, 0.3f};
+
+        for (Index_t TriangleBaseIndex{}; TriangleBaseIndex + 2 < PhysMesh.mIndices.size(); TriangleBaseIndex += 3) {
+            for (Index_t Corner{}; Corner < 3; ++Corner) {
+                const Uint32 Start{PhysMesh.mIndices[TriangleBaseIndex + Corner]};
+                const Uint32 End{PhysMesh.mIndices[TriangleBaseIndex + (Corner + 1) % 3]};
+                const bool Fixed{PhysMesh.mInverseMasses[Start] == 0.0f && PhysMesh.mInverseMasses[End] == 0.0f};
+
+                DrawInterface.DrawLine(SimRootTransform.TransformPositionNoScale(Particles[Start]), SimRootTransform.TransformPositionNoScale(Particles[End]), Fixed ? FixedColor : MovableColor, true, Thickness);
             }
         }
     }

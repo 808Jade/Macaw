@@ -10,6 +10,7 @@
 #include <memory>
 
 namespace nv::cloth {
+    class ClothMeshQuadifier;
     class Factory;
     class PxAssertHandler;
 }
@@ -65,6 +66,12 @@ namespace PhysicsRuntime {
          */
         nv::cloth::Factory* GetSoftwareFactory() const;
 
+        /**
+         * @brief 삼각형 메시를 사각형 메시로 바꾸는 도구를 반환합니다.
+         * @return 초기화되지 않았으면 nullptr입니다.
+         */
+        nv::cloth::ClothMeshQuadifier* GetMeshQuadifier() const;
+
     private:
 
         /**
@@ -86,5 +93,10 @@ namespace PhysicsRuntime {
          * @brief 천, 패브릭, 솔버를 만드는 CPU 팩토리입니다.
          */
         nv::cloth::Factory* mClothFactory{};
+
+        /**
+         * @brief 패브릭을 굽기 전에 삼각형 메시를 사각형 메시로 바꾸는 도구입니다.
+         */
+        nv::cloth::ClothMeshQuadifier* mMeshQuadifier{};
     };
 }

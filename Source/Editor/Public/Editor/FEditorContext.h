@@ -740,6 +740,34 @@ namespace Editor {
         void DrawClothAssetTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const;
 
         /**
+         * @brief 선택한 스켈레탈 메시의 섹션 하나를 천으로 시뮬레이션합니다.
+         * @details 섹션에 천 에셋이 없으면 먼저 만들고, 현재 자세로 천을 만들어 솔버에 넣습니다.
+         *          컴포넌트에 천을 붙이기 전까지 천 생성 과정을 확인하기 위한 임시 기능입니다.
+         * @param[in] SubMeshIndex 시뮬레이션할 섹션 번호입니다.
+         * @return 천을 만들어 시뮬레이션을 시작했으면 true입니다.
+         */
+        bool SetClothSimTest(Index_t SubMeshIndex);
+
+        /**
+         * @brief 천 시뮬레이션 테스트를 끄고 천과 솔버를 해제합니다.
+         */
+        void ClearClothSimTest();
+
+        /**
+         * @brief 천 시뮬레이션 테스트가 켜져 있으면 천을 한 프레임 진행합니다.
+         * @param[in] DeltaTime 초 단위 프레임 시간입니다.
+         */
+        void TickClothSimTest(float DeltaTime);
+
+        /**
+         * @brief 천 시뮬레이션 테스트의 입자 사이를 선분으로 그립니다.
+         * @details 두 끝 입자가 모두 고정된 변은 빨강, 나머지는 초록으로 그립니다.
+         * @param[in,out] DrawInterface 선분을 수집할 그리기 인터페이스입니다.
+         * @param[in] Thickness 선분 두께입니다.
+         */
+        void DrawClothSimTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const;
+
+        /**
          * @brief 공통 편집 작업이 사용할 뷰포트 제공자를 설정합니다.
          * @param[in] Provider 호출 시점의 활성 뷰포트를 반환합니다.
          */
@@ -894,6 +922,21 @@ namespace Editor {
          * @brief 천 에셋 테스트로 그릴 섹션 번호입니다.
          */
         Index_t mClothAssetTestSubMesh{InvalidIndex};
+
+        /**
+         * @brief 천 시뮬레이션 테스트의 시뮬레이션이며 꺼져 있으면 비어 있습니다.
+         */
+        std::unique_ptr<PhysicsRuntime::FClothingSimulationNv> mClothSimTest{};
+
+        /**
+         * @brief 천 시뮬레이션 테스트로 천을 만든 스켈레탈 메시 컴포넌트입니다.
+         */
+        CoreUObject::TObjectRef<Engine::USkeletalMeshComponent> mClothSimTestComponent{};
+
+        /**
+         * @brief 천 시뮬레이션 테스트로 시뮬레이션하는 섹션 번호입니다.
+         */
+        Index_t mClothSimTestSubMesh{InvalidIndex};
 
         /**
          * @brief PIE 실행 중 원본 편집 상태의 수정을 제한하는 플래그입니다.

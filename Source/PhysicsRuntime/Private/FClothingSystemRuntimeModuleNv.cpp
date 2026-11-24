@@ -9,6 +9,7 @@
 
 #include <NvCloth/Callbacks.h>
 #include <NvCloth/Factory.h>
+#include <NvClothExt/ClothMeshQuadifier.h>
 
 namespace PhysicsRuntime {
 
@@ -88,9 +89,10 @@ namespace PhysicsRuntime {
         nv::cloth::InitializeNvCloth(&mAllocator, mErrorCallback.get(), mAssertHandler.get(), nullptr);
 
         mClothFactory = NvClothCreateFactoryCPU();
+        mMeshQuadifier = NvClothCreateMeshQuadifier();
 
-        if (mClothFactory == nullptr) {
-            MACAW_LOG(LogCloth, Error, "Cannot create the NvCloth CPU factory.");
+        if (mClothFactory == nullptr || mMeshQuadifier == nullptr) {
+            MACAW_LOG(LogCloth, Error, "Cannot create the NvCloth CPU factory or mesh quadifier.");
             ShutdownModule();
 
             return false;
@@ -105,6 +107,9 @@ namespace PhysicsRuntime {
      * @brief CPU 팩토리를 해제한 뒤 콜백을 해제합니다.
      */
     void FClothingSystemRuntimeModuleNv::ShutdownModule() {
+        delete mMeshQuadifier;
+        mMeshQuadifier = nullptr;
+
         if (mClothFactory != nullptr) {
             NvClothDestroyFactory(mClothFactory);
             mClothFactory = nullptr;
@@ -119,5 +124,12 @@ namespace PhysicsRuntime {
      */
     nv::cloth::Factory* FClothingSystemRuntimeModuleNv::GetSoftwareFactory() const {
         return mClothFactory;
+    }
+
+    /**
+     * @brief 삼각형 메시를 사각형 메시로 바꾸는 도구를 반환합니다.
+     */
+    nv::cloth::ClothMeshQuadifier* FClothingSystemRuntimeModuleNv::GetMeshQuadifier() const {
+        return mMeshQuadifier;
     }
 }

@@ -5,6 +5,7 @@
  */
 
 #include "PhysicsRuntime/ClothingMeshUtils.h"
+#include "PhysicsRuntime/FClothPhysicalMeshData.h"
 #include "Core/Log/Log.h"
 
 #include <cmath>
@@ -146,6 +147,56 @@ namespace PhysicsRuntime {
             const FVector Axis{ZIsLargest ? FVector{1.0f, 0.0f, 0.0f} : FVector{0.0f, 0.0f, 1.0f}};
 
             return (Axis - Normal * Axis.Dot(Normal)).Normalized();
+        }
+    }
+
+    /**
+     * @brief 천 입자를 현재 자세로 옮긴 뒤 기준 변환의 좌표로 바꿉니다.
+     */
+    void ClothingMeshUtils::SkinPhysicsMesh(const Core::TArray<Index_t>& BoneMap, const FClothPhysicalMeshData& InMesh, const FTransform& PostTransform, const Core::TArray<FMatrix>& BoneMatrices, Core::TArray<FVector>& OutPositions, Core::TArray<FVector>& OutNormals) {
+        const Index_t NumVerts{InMesh.mVertices.size()};
+
+        OutPositions.assign(NumVerts, FVector{0.0f, 0.0f, 0.0f});
+        OutNormals.assign(NumVerts, FVector{0.0f, 0.0f, 0.0f});
+
+        for (Index_t VertIndex{}; VertIndex < NumVerts; ++VertIndex) {
+            const FClothVertBoneData& BoneData{InMesh.mBoneData[VertIndex]};
+            const FVector& RefParticle{InMesh.mVertices[VertIndex]};
+            const FVector& RefNormal{InMesh.mNormals[VertIndex]};
+            FVector& OutPosition{OutPositions[VertIndex]};
+            FVector& OutNormal{OutNormals[VertIndex]};
+
+            float TotalWeight{};
+
+            // 뼈마다 바인드 포즈 위치를 현재 자세로 옮긴 결과를 가중치만큼 더합니다.
+            for (Index_t InfluenceIndex{}; InfluenceIndex < BoneData.mNumInfluences; ++InfluenceIndex) {
+                const Uint32 UsedBoneIndex{BoneData.mBoneIndices[InfluenceIndex]};
+
+                if (UsedBoneIndex >= BoneMap.size() || BoneMap[UsedBoneIndex] >= BoneMatrices.size()) {
+                    continue;
+                }
+
+                const FMatrix& BoneMatrix{BoneMatrices[BoneMap[UsedBoneIndex]]};
+                const float Weight{BoneData.mBoneWeights[InfluenceIndex]};
+
+                OutPosition += BoneMatrix.TransformPosition(RefParticle) * Weight;
+                OutNormal += BoneMatrix.TransformVector(RefNormal) * Weight;
+                TotalWeight += Weight;
+            }
+
+            // 뼈 영향이 없는 입자는 메시 스키닝과 같이 바인드 포즈 위치에 둡니다.
+            if (TotalWeight == 0.0f) {
+                OutPosition = RefParticle;
+                OutNormal = RefNormal;
+            }
+
+            // 크기는 스키닝 행렬에 이미 들어 있으므로 기준 변환의 위치와 회전만 되돌립니다.
+            OutPosition = PostTransform.InverseTransformPositionNoScale(OutPosition);
+            OutNormal = PostTransform.InverseTransformVectorNoScale(OutNormal);
+
+            if (OutNormal.LengthSquared() > 1.e-8f) {
+                OutNormal = OutNormal.Normalized();
+            }
         }
     }
 

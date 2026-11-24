@@ -178,6 +178,33 @@ namespace Editor {
 
             SetClothAssetTest(SubMeshIndex);
         }});
+        mConsoleCommands.Register({"cloth.sim", "<section/off>", {"off"}, [this](const Editor::FConsoleInvocation& Invocation) {
+            const std::optional<Core::FString> Value{ReadConsoleValue(Invocation.mArguments)};
+
+            if (Value && *Value == "off") {
+                ClearClothSimTest();
+                AddLog("Cloth sim off.");
+
+                return;
+            }
+
+            if (!Value || Value->empty()) {
+                AddLog(MakeUsage(Invocation));
+
+                return;
+            }
+
+            Uint32 SubMeshIndex{};
+            const auto [End, Error]{std::from_chars(Value->data(), Value->data() + Value->size(), SubMeshIndex)};
+
+            if (Error != std::errc{} || End != Value->data() + Value->size()) {
+                AddLog(MakeUsage(Invocation));
+
+                return;
+            }
+
+            SetClothSimTest(SubMeshIndex);
+        }});
         mConsoleCommands.Register({"Shadow Atlas", {}, {}, [this](const Editor::FConsoleInvocation& Invocation) {
             if (Invocation.mArguments.empty()) {
                 SetShadowAtlasOpen(true);
