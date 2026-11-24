@@ -750,6 +750,21 @@ namespace Engine {
         mClothingSimulationContext.mWorldGravity = Runtime != nullptr ? Runtime->GetSettings().mGravity : FVector{0.0f, 0.0f, -9.81f};
         mClothingSimulationContext.mDeltaSeconds = std::min(DeltaTime, MaxPhysicsDelta);
         mClothingSimulationContext.mPredictedLod = 0;
+        mClothingSimulationContext.mMaxDistanceScale = mClothMaxDistanceScale;
+    }
+
+    /**
+     * @brief 천 입자의 최대 거리에 곱할 배율을 반환합니다.
+     */
+    float USkeletalMeshComponent::GetClothMaxDistanceScale() const {
+        return mClothMaxDistanceScale;
+    }
+
+    /**
+     * @brief 천 입자의 최대 거리에 곱할 배율을 설정합니다.
+     */
+    void USkeletalMeshComponent::SetClothMaxDistanceScale(float Scale) {
+        mClothMaxDistanceScale = Scale;
     }
 
     /**

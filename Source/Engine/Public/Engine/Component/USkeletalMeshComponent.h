@@ -212,6 +212,19 @@ namespace Engine {
         void DebugDrawClothing(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const;
 
         /**
+         * @brief 천 입자의 최대 거리에 곱할 배율을 반환합니다.
+         * @return 1이면 천 에셋의 최대 거리를 그대로 씁니다.
+         */
+        float GetClothMaxDistanceScale() const;
+
+        /**
+         * @brief 천 입자의 최대 거리에 곱할 배율을 설정합니다.
+         * @details 0이면 모든 입자가 스키닝 위치에 붙어 애니메이션만 따라갑니다.
+         * @param[in] Scale 최대 거리 배율입니다.
+         */
+        void SetClothMaxDistanceScale(float Scale);
+
+        /**
          * @brief 본 하나의 부모 기준 변환을 변경합니다.
          * @param Bone 본 인덱스입니다.
          * @param Transform 부모 기준 아핀 행렬입니다.
@@ -669,6 +682,11 @@ namespace Engine {
          * @brief 천 시뮬레이션에 넘기는 이번 프레임의 입력입니다.
          */
         PhysicsRuntime::FClothingSimulationContextCommon mClothingSimulationContext{};
+
+        /**
+         * @brief 천 입자의 최대 거리에 곱할 배율이며 매 프레임 천 시뮬레이션 입력에 넣습니다.
+         */
+        float mClothMaxDistanceScale{1.0f};
 
         /**
          * @brief 메시 천 에셋 번호를 키로 한 마지막 천 시뮬레이션 결과입니다.

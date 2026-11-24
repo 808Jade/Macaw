@@ -47,5 +47,10 @@ namespace PhysicsRuntime {
          * @brief 메시의 상세 단계 번호입니다.
          */
         Index_t mPredictedLod{};
+
+        /**
+         * @brief 입자마다의 최대 거리에 곱할 배율이며 1이면 천 에셋 값을 그대로 씁니다.
+         */
+        float mMaxDistanceScale{1.0f};
     };
 }

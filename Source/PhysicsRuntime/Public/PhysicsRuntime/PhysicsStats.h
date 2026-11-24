@@ -56,6 +56,11 @@ namespace PhysicsRuntime {
         extern Core::FStat ClothSimulate;
 
         /**
+         * @brief 천 시뮬레이션 메시를 현재 포즈로 스키닝하는 처리 시간을 측정하는 통계 항목이며 cloth 그룹에 속합니다.
+         */
+        extern Core::FStat ClothSkinPhysMesh;
+
+        /**
          * @brief 마지막으로 진행한 천 입자 수이며 cloth 그룹에 속합니다.
          */
         extern Core::FStat ClothParticles;

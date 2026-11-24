@@ -14,6 +14,8 @@
 #include <NvCloth/PhaseConfig.h>
 #include <foundation/PxVec4.h>
 
+#include <array>
+
 namespace nv::cloth {
     class Cloth;
     class ClothMeshQuadifier;
@@ -62,6 +64,33 @@ namespace PhysicsRuntime {
         };
 
         /**
+         * @brief 현재 뼈 포즈로 현재 천 상세 단계의 입자를 스키닝해 현재 스키닝 버퍼에 저장합니다.
+         * @details 결과는 기준 뼈 좌표이며 모션 제약을 만들 때 씁니다.
+         * @param[in] Context 이번 프레임의 뼈 행렬과 스키닝 행렬입니다.
+         */
+        void SkinPhysicsMesh(const FClothingSimulationContextCommon& Context);
+
+        /**
+         * @brief 현재 스키닝 위치로 모션 제약과 분리 제약을 갱신합니다.
+         * @details 모션 제약은 스키닝 위치를 중심, 최대 거리에 배율을 곱한 값을 반지름으로 하는 구이며 입자는 그 밖으로 나가지 못합니다.
+         *          분리 제약은 스키닝 위치에서 법선 반대로 뒤쪽 거리만큼 물러난 곳을 중심, 뒤쪽 반지름을 반지름으로 하는 구이며 입자는 그 안으로 들어가지 못합니다.
+         * @param[in] Context 최대 거리 배율을 담은 입력입니다.
+         */
+        void UpdateMotionConstraints(const FClothingSimulationContextCommon& Context);
+
+        /**
+         * @brief 이번 프레임에 스키닝한 입자 위치를 반환합니다.
+         * @return 기준 뼈 좌표의 입자 위치입니다.
+         */
+        const Core::TArray<FVector>& GetCurrentSkinnedPositions() const;
+
+        /**
+         * @brief 지난 프레임에 스키닝한 입자 위치를 반환합니다.
+         * @return 기준 뼈 좌표의 입자 위치입니다.
+         */
+        const Core::TArray<FVector>& GetPreviousSkinnedPositions() const;
+
+        /**
          * @brief 천 상세 단계 순서의 데이터입니다.
          */
         Core::TArray<FActorLodData> mLodData{};
@@ -85,6 +114,21 @@ namespace PhysicsRuntime {
          * @brief 마지막 시뮬레이션 뒤에 삼각형으로 구한 기준 뼈 좌표의 입자 법선입니다.
          */
         Core::TArray<FVector> mCurrentNormals{};
+
+        /**
+         * @brief 이번 프레임 스키닝 결과를 쓸 버퍼 번호(0 또는 1)이며 시뮬레이션 뒤에 바꿉니다.
+         */
+        Index_t mCurrentSkinnedPositionIndex{};
+
+        /**
+         * @brief 기준 뼈 좌표로 스키닝한 입자 위치이며, 지난 프레임 값도 쓸 수 있도록 두 벌을 번갈아 씁니다.
+         */
+        std::array<Core::TArray<FVector>, 2> mSkinnedPhysicsMeshPositions{};
+
+        /**
+         * @brief 기준 뼈 좌표로 스키닝한 입자 법선입니다.
+         */
+        Core::TArray<FVector> mSkinnedPhysicsMeshNormals{};
     };
 
     /**
@@ -188,8 +232,8 @@ namespace PhysicsRuntime {
 
         /**
          * @brief 입력으로 천 에셋의 천을 한 프레임 진행합니다.
-         * @details 기준 뼈의 월드 변환을 매 프레임 천에 넣어 캐릭터의 이동과 회전이 관성으로 전해지게 하고,
-         *          솔버를 진행한 뒤 입자 법선을 다시 구합니다.
+         * @details 입자를 현재 포즈로 스키닝해 모션 제약을 갱신하고, 기준 뼈의 월드 변환을 천에 넣어 캐릭터의 이동과 회전이 관성으로 전해지게 합니다.
+         *          솔버를 진행한 뒤 입자 법선을 다시 구하고 스키닝 버퍼를 바꿉니다.
          * @param[in] Context 이번 프레임의 포즈, 변환, 시간, 중력입니다.
          */
         void Simulate(const FClothingSimulationContextCommon& Context) override;

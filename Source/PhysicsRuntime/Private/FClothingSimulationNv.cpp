@@ -103,6 +103,79 @@ namespace PhysicsRuntime {
     }
 
     /**
+     * @brief 현재 뼈 포즈로 현재 천 상세 단계의 입자를 스키닝해 현재 스키닝 버퍼에 저장합니다.
+     */
+    void FClothingActorNv::SkinPhysicsMesh(const FClothingSimulationContextCommon& Context) {
+        if (mAssetCreatedFrom == nullptr || mCurrentLodIndex >= mAssetCreatedFrom->mLodData.size()) {
+            return;
+        }
+
+        const Core::FScopedStatTimer StatTimer{PhysicsStats::ClothSkinPhysMesh};
+        const FClothPhysicalMeshData& PhysMesh{mAssetCreatedFrom->mLodData[mCurrentLodIndex].mPhysicalMeshData};
+        const FTransform RootBoneTransform{GetBoneTransformCS(Context.mBoneTransforms, mAssetCreatedFrom->mReferenceBoneIndex)};
+
+        ClothingMeshUtils::SkinPhysicsMesh(mAssetCreatedFrom->mUsedBoneIndices, PhysMesh, RootBoneTransform, Context.mRefToLocals, mSkinnedPhysicsMeshPositions[mCurrentSkinnedPositionIndex], mSkinnedPhysicsMeshNormals);
+    }
+
+    /**
+     * @brief 현재 스키닝 위치로 모션 제약과 분리 제약을 갱신합니다.
+     */
+    void FClothingActorNv::UpdateMotionConstraints(const FClothingSimulationContextCommon& Context) {
+        if (mAssetCreatedFrom == nullptr || mCurrentLodIndex >= mLodData.size() || mCurrentLodIndex >= mAssetCreatedFrom->mLodData.size() || mLodData[mCurrentLodIndex].mCloth == nullptr) {
+            return;
+        }
+
+        const Core::TArray<FVector>& CurrentSkinnedPositions{GetCurrentSkinnedPositions()};
+        nv::cloth::Cloth& CurrentCloth{*mLodData[mCurrentLodIndex].mCloth};
+        const FClothPhysicalMeshData& PhysMesh{mAssetCreatedFrom->mLodData[mCurrentLodIndex].mPhysicalMeshData};
+
+        // 입자마다 이번 프레임 스키닝 위치를 중심으로 하는 구를 주어 그 밖으로 나가지 못하게 합니다.
+        nv::cloth::Range<physx::PxVec4> MotionConstraints{CurrentCloth.getMotionConstraints()};
+        const Index_t NumMotionConstraints{std::min<Index_t>(CurrentCloth.getNumMotionConstraints(), CurrentSkinnedPositions.size())};
+        const FPointWeightMap* const MaxDistances{PhysMesh.FindWeightMap(EWeightMapTargetCommon::MaxDistance)};
+
+        if (MaxDistances != nullptr && MaxDistances->Num() > 0 && MaxDistances->Num() >= NumMotionConstraints) {
+            for (Index_t ConstraintIndex{}; ConstraintIndex < NumMotionConstraints; ++ConstraintIndex) {
+                MotionConstraints[static_cast<Uint32>(ConstraintIndex)] = physx::PxVec4{ToPxVec3(CurrentSkinnedPositions[ConstraintIndex]), (*MaxDistances)[ConstraintIndex] * Context.mMaxDistanceScale};
+            }
+        } else {
+            // 최대 거리를 칠하지 않았으면 반지름을 무한으로 두어 제한하지 않습니다.
+            for (Index_t ConstraintIndex{}; ConstraintIndex < NumMotionConstraints; ++ConstraintIndex) {
+                MotionConstraints[static_cast<Uint32>(ConstraintIndex)] = physx::PxVec4{ToPxVec3(CurrentSkinnedPositions[ConstraintIndex]), std::numeric_limits<float>::max()};
+            }
+        }
+
+        // 뒤쪽 거리와 반지름을 칠했으면 법선 반대쪽에 구를 두어 입자가 몸 안으로 파고들지 못하게 합니다.
+        const FPointWeightMap* const BackstopDistances{PhysMesh.FindWeightMap(EWeightMapTargetCommon::BackstopDistance)};
+        const FPointWeightMap* const BackstopRadiuses{PhysMesh.FindWeightMap(EWeightMapTargetCommon::BackstopRadius)};
+
+        if (BackstopDistances != nullptr && BackstopDistances->Num() > 0 && BackstopRadiuses != nullptr && BackstopRadiuses->Num() > 0) {
+            nv::cloth::Range<physx::PxVec4> SeparationConstraints{CurrentCloth.getSeparationConstraints()};
+            const Index_t NumSeparationConstraints{std::min({static_cast<Index_t>(CurrentCloth.getNumSeparationConstraints()), CurrentSkinnedPositions.size(), mSkinnedPhysicsMeshNormals.size(), BackstopDistances->Num(), BackstopRadiuses->Num()})};
+
+            for (Index_t ConstraintIndex{}; ConstraintIndex < NumSeparationConstraints; ++ConstraintIndex) {
+                const FVector Center{CurrentSkinnedPositions[ConstraintIndex] - mSkinnedPhysicsMeshNormals[ConstraintIndex] * (*BackstopDistances)[ConstraintIndex]};
+
+                SeparationConstraints[static_cast<Uint32>(ConstraintIndex)] = physx::PxVec4{ToPxVec3(Center), (*BackstopRadiuses)[ConstraintIndex]};
+            }
+        }
+    }
+
+    /**
+     * @brief 이번 프레임에 스키닝한 입자 위치를 반환합니다.
+     */
+    const Core::TArray<FVector>& FClothingActorNv::GetCurrentSkinnedPositions() const {
+        return mSkinnedPhysicsMeshPositions[mCurrentSkinnedPositionIndex];
+    }
+
+    /**
+     * @brief 지난 프레임에 스키닝한 입자 위치를 반환합니다.
+     */
+    const Core::TArray<FVector>& FClothingActorNv::GetPreviousSkinnedPositions() const {
+        return mSkinnedPhysicsMeshPositions[(mCurrentSkinnedPositionIndex + 1) % 2];
+    }
+
+    /**
      * @brief 솔버가 없는 빈 시뮬레이션을 구성합니다.
      */
     FClothingSimulationNv::FClothingSimulationNv() = default;
@@ -376,6 +449,13 @@ namespace PhysicsRuntime {
             SetSimRootTransform(*ActorLodData.mCloth, ComponentToWorld, ComponentSpaceTransforms, Asset.mReferenceBoneIndex);
             ActorLodData.mCloth->clearInertia();
 
+            // 첫 프레임은 상세 단계 0이 맡으므로 그 스키닝 결과로 두 버퍼를 채워 지난 프레임 값도 있게 합니다.
+            if (LodIndex == 0) {
+                NewActor.mSkinnedPhysicsMeshPositions[0] = SkinnedVerts;
+                NewActor.mSkinnedPhysicsMeshPositions[1] = SkinnedVerts;
+                NewActor.mSkinnedPhysicsMeshNormals = SkinnedNormals;
+            }
+
             NewActor.mLodData.push_back(std::move(ActorLodData));
         }
 
@@ -586,16 +666,23 @@ namespace PhysicsRuntime {
 
         UpdateLod(Context.mPredictedLod, Context.mComponentToWorld, Context.mBoneTransforms, Context.mRefToLocals, false, false);
 
-        for (const FClothingActorNv& Actor : mActors) {
+        for (FClothingActorNv& Actor : mActors) {
             if (Actor.mAssetCreatedFrom == nullptr || Actor.mCurrentLodIndex >= Actor.mLodData.size()) {
                 continue;
             }
+
+            // 모션 제약을 만들려면 시뮬레이션 메시 전체를 이번 포즈로 스키닝해야 합니다.
+            Actor.SkinPhysicsMesh(Context);
 
             nv::cloth::Cloth& Cloth{*Actor.mLodData[Actor.mCurrentLodIndex].mCloth};
 
             // 기준 뼈의 월드 변환이 지난 프레임과 달라진 만큼 NvCloth가 입자에 관성을 줍니다.
             SetSimRootTransform(Cloth, Context.mComponentToWorld, Context.mBoneTransforms, Actor.mAssetCreatedFrom->mReferenceBoneIndex);
             Cloth.setGravity(ToPxVec3(Context.mWorldGravity));
+
+            // 최대 거리가 0인 입자는 스키닝 위치에 붙어 애니메이션을 따라가고, 나머지는 그 거리 안에서만 흔들립니다.
+            Actor.UpdateMotionConstraints(Context);
+
             NumParticles += Cloth.getNumParticles();
         }
 
@@ -610,9 +697,14 @@ namespace PhysicsRuntime {
         }
 
         for (FClothingActorNv& Actor : mActors) {
-            if (Actor.mAssetCreatedFrom != nullptr && Actor.mCurrentLodIndex < Actor.mLodData.size()) {
-                ComputePhysicalMeshNormals(Actor);
+            if (Actor.mAssetCreatedFrom == nullptr || Actor.mCurrentLodIndex >= Actor.mLodData.size()) {
+                continue;
             }
+
+            ComputePhysicalMeshNormals(Actor);
+
+            // 다음 프레임 스키닝은 다른 버퍼에 써서 이번 프레임 값을 지난 프레임 값으로 남깁니다.
+            Actor.mCurrentSkinnedPositionIndex = (Actor.mCurrentSkinnedPositionIndex + 1) % 2;
         }
 
         PhysicsStats::ClothParticles.Set(static_cast<double>(NumParticles));
