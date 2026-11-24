@@ -46,6 +46,7 @@
 #include "FEditorMeshConstants.h"
 #include "FTextRenderer.h"
 #include "FSpriteRenderer.h"
+#include "FParticleRenderer.h"
 #include "Engine/EditorMesh.h"
 #include "Core/Math/FVector4.h"
 
@@ -231,6 +232,7 @@ namespace Renderer {
         mLineVertices = Core::TArray<Renderer::FLineVertex>{};
         mTextRenderer.reset();
         mSpriteRenderer.reset();
+        mParticleRenderer.reset();
         mPostProcessResources.reset();
         mSkyResources.reset();
         mGridResources.reset();
@@ -510,7 +512,7 @@ namespace Renderer {
 
         mLineViewBuffer.Update(mContext.Get(), LineView);
 
-        const Renderer::FTranslucencyMeshPass::FRenderParameters TranslucencyParameters{mSpriteRenderer.get(), mTextRenderer.get(), mOverlayBlend.Get(), mDepthReadOnly.Get(), mDepthDisabled.Get(), mRasterizer.Get(), mWireframeRasterizer.Get()};
+        const Renderer::FTranslucencyMeshPass::FRenderParameters TranslucencyParameters{mSpriteRenderer.get(), mTextRenderer.get(), mParticleRenderer.get(), mOverlayBlend.Get(), mDepthReadOnly.Get(), mDepthDisabled.Get(), mRasterizer.Get(), mWireframeRasterizer.Get()};
 
         if (!Visualization) {
             const Uint32 TranslucencyDrawCalls{mTranslucencyMeshPass->Render(Family, false, TranslucencyParameters)};
@@ -556,6 +558,7 @@ namespace Renderer {
         mStats.mGpuBytes = Scene->GetPrimitiveCount() * sizeof(Renderer::FObjectConstants) + sizeof(FMatrix) + sizeof(Renderer::FEditorMeshConstants) + mLineBuffer.GetResourceBytes() + Target->GetResourceBytes();
         mStats.mGpuBytes += mTextRenderer != nullptr ? mTextRenderer->GetResourceBytes() : 0;
         mStats.mGpuBytes += mSpriteRenderer != nullptr ? mSpriteRenderer->GetResourceBytes() : 0;
+        mStats.mGpuBytes += mParticleRenderer != nullptr ? mParticleRenderer->GetResourceBytes() : 0;
         mStats.mGpuBytes += mStats.mShadowAtlasBytes;
         mStats.mGpuBytes += mMeshInstanceBuffer.GetResourceBytes();
 
@@ -862,6 +865,17 @@ namespace Renderer {
             return false;
         }
 
+        // 파티클 셰이더를 갖고 있지 않은 기존 프로젝트도 파티클만 빼고 열 수 있습니다.
+        std::error_code ParticleShaderError{};
+
+        if (std::filesystem::is_regular_file(mShaderDirectory / "ParticleSprite.hlsl", ParticleShaderError)) {
+            if (!Compile("ParticleSprite.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("ParticleSprite.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+                return false;
+            }
+        } else {
+            Core::ErrorHandler::Report("Renderer", "ParticleSprite.hlsl is missing from the project shaders; particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
+        }
+
         if (!Compile("PostProcess.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("PostProcess.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mPostProcessResources->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
             return false;
         }
@@ -963,6 +977,7 @@ namespace Renderer {
         mTranslucencyMeshPass = std::make_unique<Renderer::FTranslucencyMeshPass>(*this, mDevice.Get(), mContext.Get(), mMeshes);
         mTextRenderer = std::make_unique<Renderer::FTextRenderer>();
         mSpriteRenderer = std::make_unique<Renderer::FSpriteRenderer>();
+        mParticleRenderer = std::make_unique<Renderer::FParticleRenderer>();
         mPostProcessResources = std::make_unique<Renderer::FPostProcessResources>();
         mSkyResources = std::make_unique<Renderer::FSkyResources>();
         mGridResources = std::make_unique<Renderer::FGridResources>();
@@ -1001,7 +1016,7 @@ namespace Renderer {
             return false;
         }
 
-        if (!mSpriteRenderer->Initialize(mDevice.Get())) {
+        if (!mSpriteRenderer->Initialize(mDevice.Get()) || !mParticleRenderer->Initialize(mDevice.Get())) {
             return false;
         }
 

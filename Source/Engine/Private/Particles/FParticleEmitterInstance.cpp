@@ -1,11 +1,15 @@
 #include "Engine/Particles/FParticleEmitterInstance.h"
 #include "Engine/Particles/FBaseParticle.h"
+#include "Engine/Particles/FParticleRenderData.h"
+#include "Engine/Particles/ParticleHelper.h"
+#include "Engine/Particles/Module/UParticleModuleSubUV.h"
 #include "Engine/Particles/UParticleEmitter.h"
 #include "Engine/Particles/UParticleLODLevel.h"
 #include "Engine/Particles/UParticleModule.h"
 #include "Engine/Particles/Module/UParticleModuleRequired.h"
 #include "Engine/Particles/Module/UParticleModuleSpawn.h"
 #include "Engine/Component/UParticleSystemComponent.h"
+#include "Asset/UMaterial.h"
 #include "Core/Math/FMatrix.h"
 
 #include <algorithm>
@@ -64,6 +68,17 @@ namespace Engine {
         mBurstFired.clear();
         mBoundingBox = EmptyBox();
         mRandomStream.GenerateNewSeed();
+        mSubUVDataOffset = 0;
+
+        if (mCurrentLODLevel != nullptr) {
+            for (const auto& Module : mCurrentLODLevel->GetModules()) {
+                if (Module->IsA<Engine::UParticleModuleSubUV>()) {
+                    mSubUVDataOffset = Template.GetModuleOffset(Module.get());
+
+                    break;
+                }
+            }
+        }
 
         // 시간이 음수인 동안(지연)은 생성하지 않습니다.
         mEmitterTime = mCurrentLODLevel != nullptr ? -mCurrentLODLevel->GetRequiredModule()->GetDelayForLoop(0).GetBase() : 0.0f;
@@ -138,6 +153,47 @@ namespace Engine {
             for (Index_t Burst{}; Burst < Bursts.size(); ++Burst) {
                 mBurstFired[Burst] = mEmitterTime >= Bursts[Burst].mTime ? 1 : 0;
             }
+        }
+    }
+
+    void Engine::FParticleEmitterInstance::FillRenderData(Engine::FParticleRenderData& Out, Asset::UMaterial* Material) const {
+        if (mCurrentLODLevel == nullptr) {
+            return;
+        }
+
+        const Engine::UParticleModuleRequired& Required{*mCurrentLODLevel->GetRequiredModule()};
+        const bool SubUV{Required.UsesSubUV() && mSubUVDataOffset > 0};
+        const bool LocalSpace{IsLocalSpace() && mComponent != nullptr};
+        const FMatrix SimulationToWorldMatrix{LocalSpace ? mComponent->GetWorldMatrix() : FMatrix::Identity()};
+        // 사각형은 카메라 축으로 펼쳐 월드 행렬의 스케일을 받지 못하므로 크기에 직접 곱합니다.
+        const FVector Scale{GetComponentScale()};
+        Engine::FParticleSpriteBatch& Batch{Out.mSprites.emplace_back()};
+
+        Batch.mMaterial = Material;
+        Batch.mSortMode = Required.GetSortMode();
+        Batch.mSubImagesHorizontal = SubUV ? Required.GetSubImagesHorizontal() : 1;
+        Batch.mSubImagesVertical = SubUV ? Required.GetSubImagesVertical() : 1;
+        Batch.mInstances.resize(static_cast<Index_t>(mActiveParticles));
+
+        // Freeze는 갱신만 멈추는 상태라 멈춘 자리에 계속 보여야 하므로 건너뛰지 않습니다.
+        for (Int32 Index{}; Index < mActiveParticles; ++Index) {
+            const Uint8* Base{mParticleData + static_cast<Index_t>(mParticleIndices[Index]) * static_cast<Index_t>(mParticleStride)};
+            const Engine::FBaseParticle& Particle{*reinterpret_cast<const Engine::FBaseParticle*>(Base)};
+            const FVector Position{LocalSpace ? SimulationToWorldMatrix.TransformPosition(Particle.mLocation) : Particle.mLocation};
+            Engine::FParticleSpriteInstance& Instance{Batch.mInstances[static_cast<Index_t>(Index)]};
+
+            Instance.mPosition[0] = Position.x;
+            Instance.mPosition[1] = Position.y;
+            Instance.mPosition[2] = Position.z;
+            Instance.mRotation = Particle.mRotation;
+            Instance.mSize[0] = std::abs(Particle.mSize.x * Scale.x);
+            Instance.mSize[1] = std::abs(Particle.mSize.y * Scale.y);
+            Instance.mSubImageIndex = SubUV ? Engine::ParticleHelper::GetPayload<Engine::FFullSubUVPayload>(Base, mSubUVDataOffset).mImageIndex : 0.0f;
+            Instance.mCounter = Particle.mFlags & Engine::EParticleState::CounterMask;
+            Instance.mColor[0] = Particle.mColor.x;
+            Instance.mColor[1] = Particle.mColor.y;
+            Instance.mColor[2] = Particle.mColor.z;
+            Instance.mColor[3] = Particle.mColor.w;
         }
     }
 

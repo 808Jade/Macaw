@@ -33,6 +33,7 @@ namespace Renderer {
 
     class FTextRenderer;
     class FSpriteRenderer;
+    class FParticleRenderer;
     class FMaterialPipeline;
     class FShaderInstance;
     class FLightingResources;
@@ -509,6 +510,11 @@ namespace Renderer {
          * @brief 투명 텍스처 쿼드 렌더러입니다.
          */
         std::unique_ptr<Renderer::FSpriteRenderer> mSpriteRenderer{};
+
+        /**
+         * @brief 스프라이트 파티클 렌더러이며 프로젝트에 ParticleSprite.hlsl이 없으면 셰이더 없이 둡니다.
+         */
+        std::unique_ptr<Renderer::FParticleRenderer> mParticleRenderer{};
 
         /**
          * @brief 셰이더 컴파일·캐시·재로드 관리자입니다.

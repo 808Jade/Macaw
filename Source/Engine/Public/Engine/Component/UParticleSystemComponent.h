@@ -14,11 +14,15 @@
 
 #include "UParticleSystemComponent.generated.h"
 
+namespace Asset {
+    class UMaterial;
+}
+
 namespace Engine {
 
     class FParticleEmitterInstance;
-    class FPrimitiveDrawInterface;
     class UParticleSystem;
+    struct FParticleRenderData;
 
     /**
      * @brief 템플릿 에셋의 에미터마다 인스턴스를 만들어 매 Tick 시뮬레이션합니다.
@@ -105,11 +109,6 @@ namespace Engine {
          */
         Int32 GetActiveParticleCount() const;
 
-        /**
-         * @brief 파티클 위치마다 작은 십자와 경계 상자를 그립니다.
-         */
-        void DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface, bool Selected, float Thickness) const;
-
         void Tick(float DeltaTime) override;
 
         void UnregisterComponent() override;
@@ -121,6 +120,11 @@ namespace Engine {
         FBox GetWorldBounds() const override;
 
         bool ShouldCreateRenderState() const override;
+
+        /**
+         * @brief 그림자와 데칼을 받지 않고 마지막으로 만든 그리기 데이터를 담은 프록시입니다.
+         */
+        Engine::FPrimitiveSceneProxy CreateSceneProxy() const override;
 
     private:
         void OnRegister() override;
@@ -152,6 +156,17 @@ namespace Engine {
 
         bool IsPreviewLODActive() const;
 
+        /**
+         * @brief 인스턴스 상태로 그리기 데이터를 새로 만들고 렌더 상태 갱신을 예약합니다.
+         */
+        void UpdateRenderData();
+
+        /**
+         * @brief 에미터 머티리얼 경로를 로드합니다. 한 번 찾은 결과는 이 컴포넌트가 기억합니다.
+         * @return 경로가 비었거나 로드에 실패하면 nullptr입니다.
+         */
+        Asset::UMaterial* ResolveMaterial(const Core::FString& Path);
+
     private:
         UPROPERTY(Edit, Serialize, Category = "Particles", Name = "Template", Meta = (AssetType = "ParticleSystem", EmptyLabel = "None"), Getter = GetTemplatePath, Setter = SetTemplatePath)
         Core::FString mTemplatePath{};
@@ -180,6 +195,16 @@ namespace Engine {
          * @brief 활성화할 때 뷰가 없어 LOD를 정하지 못했으면 true입니다.
          */
         bool mPendingActivateLOD{};
+
+        /**
+         * @brief 마지막으로 만든 그리기 데이터이며 프록시가 공유합니다.
+         */
+        std::shared_ptr<const Engine::FParticleRenderData> mRenderData{};
+
+        /**
+         * @brief 경로별로 찾은 에미터 머티리얼이며 실패한 경로는 nullptr로 남깁니다.
+         */
+        Core::TMap<Core::FString, CoreUObject::TObjectRef<Asset::UMaterial>> mMaterials{};
     };
 
 }

@@ -9,6 +9,8 @@
 #include "FScene.h"
 #include "FScenePrimitive.h"
 #include "FSpriteRenderer.h"
+#include "FParticleRenderer.h"
+#include "Engine/Particles/FParticleRenderData.h"
 #include "FTextRenderer.h"
 #include "Renderer/Renderer.h"
 #include "Asset/UMaterial.h"
@@ -29,7 +31,8 @@ namespace Renderer {
     }
 
     Uint32 Renderer::FTranslucencyMeshPass::Render(const Engine::FSceneViewFamily& Family, bool EditorIcons, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
-        using FPrimitive = std::variant<const Engine::FPrimitiveSceneProxy*, Engine::FDrawText, std::size_t>;
+        using FParticleBatch = const Engine::FParticleSpriteBatch*;
+        using FPrimitive = std::variant<const Engine::FPrimitiveSceneProxy*, Engine::FDrawText, std::size_t, FParticleBatch>;
         using FCommand = std::pair<float, FPrimitive>;
         Core::TArray<FCommand> Commands{};
         Core::TArray<Renderer::FMeshDrawCommand> MeshCommands{};
@@ -81,7 +84,17 @@ namespace Renderer {
             for (const Renderer::FScenePrimitive& Primitive : Scene->GetPrimitives()) {
                 const Engine::FPrimitiveSceneProxy& Proxy{Primitive.mProxy};
 
-                if (Proxy.mSprite.has_value() && Family.mShowFlags.mSprites) {
+                if (Proxy.mParticles != nullptr) {
+                    // 같은 컴포넌트의 에미터는 같은 깊이 키라 안정 정렬로 배열 순서가 유지됩니다.
+                    const FVector Center{(Proxy.mBounds.mMinimum + Proxy.mBounds.mMaximum) * 0.5f};
+                    const float Value{Depth(Center, false)};
+
+                    for (const Engine::FParticleSpriteBatch& Batch : Proxy.mParticles->mSprites) {
+                        if (!Batch.mInstances.empty()) {
+                            Commands.emplace_back(Value, FPrimitive{&Batch});
+                        }
+                    }
+                } else if (Proxy.mSprite.has_value() && Family.mShowFlags.mSprites) {
                     Commands.emplace_back(Depth(Proxy.mWorld.TransformPosition({}), false), FPrimitive{&Proxy});
                 } else if (Proxy.mText.has_value() && Proxy.mText->mDepthTest && Family.mShowFlags.mText) {
                     Engine::FDrawText Text{*Proxy.mText};
@@ -128,6 +141,10 @@ namespace Renderer {
                 mContext->RSSetState(Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : Parameters.mRasterizer);
 
                 Drawn = Parameters.mSpriteRenderer != nullptr && Parameters.mSpriteRenderer->Draw(mContext, **Sprite, Family.mView);
+            } else if (const auto* Batch{std::get_if<FParticleBatch>(&Command.second)}) {
+                mContext->RSSetState(Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : Parameters.mRasterizer);
+
+                Drawn = Parameters.mParticleRenderer != nullptr && Parameters.mParticleRenderer->Draw(mContext, **Batch, Family.mView);
             } else if (const auto* MeshIndex{std::get_if<std::size_t>(&Command.second)}) {
                 const Renderer::FMeshDrawCommand& MeshCommand{MeshCommands[*MeshIndex]};
                 ID3D11RasterizerState* Rasterizer{Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : nullptr};

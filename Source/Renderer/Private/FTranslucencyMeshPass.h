@@ -11,6 +11,7 @@
 namespace Renderer {
 
     class FSpriteRenderer;
+    class FParticleRenderer;
     class FTextRenderer;
 
     /**
@@ -32,6 +33,7 @@ namespace Renderer {
              * @brief 텍스트 그리기를 제공하는 렌더러의 비소유 주소입니다.
              */
             Renderer::FTextRenderer* mTextRenderer{};
+            Renderer::FParticleRenderer* mParticleRenderer{};
 
             /**
              * @brief 반투명 렌더링에 사용할 블렌드 상태의 비소유 주소입니다.

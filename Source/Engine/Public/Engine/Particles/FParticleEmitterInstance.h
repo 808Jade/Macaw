@@ -13,9 +13,14 @@
 
 #include <cstdint>
 
+namespace Asset {
+    class UMaterial;
+}
+
 namespace Engine {
 
     struct FBaseParticle;
+    struct FParticleRenderData;
     class UParticleEmitter;
     class UParticleLODLevel;
     class UParticleSystemComponent;
@@ -60,6 +65,12 @@ namespace Engine {
          * @details 살아 있는 파티클은 그대로 두고 다음 Tick부터 새 레벨의 모듈로 갱신·생성합니다.
          */
         virtual void SetCurrentLODIndex(Int32 LODIndex);
+
+        /**
+         * @brief 살아 있는 파티클을 월드 공간 그리기 데이터로 바꿔 Out 끝에 붙입니다.
+         * @param Material 현재 LOD의 Required 머티리얼이며 없으면 nullptr입니다.
+         */
+        virtual void FillRenderData(Engine::FParticleRenderData& Out, Asset::UMaterial* Material) const;
 
         /**
          * @brief 루프를 모두 끝내 더 생성하지 않는 상태입니다.
@@ -208,6 +219,11 @@ namespace Engine {
          * @brief 인스턴스 전용 Payload 시작 위치입니다. 0이면 없습니다.
          */
         Int32 mInstancePayloadOffset{};
+
+        /**
+         * @brief SubUV 모듈 Payload 위치입니다. 0이면 SubUV 모듈이 없습니다.
+         */
+        Int32 mSubUVDataOffset{};
 
         /**
          * @brief 초당 생성에서 남은 소수 부분입니다.

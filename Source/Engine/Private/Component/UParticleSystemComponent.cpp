@@ -2,13 +2,17 @@
 #include "Engine/Component/UCameraComponent.h"
 #include "Engine/Particles/FBaseParticle.h"
 #include "Engine/Particles/FParticleEmitterInstance.h"
+#include "Engine/Particles/FParticleRenderData.h"
 #include "Engine/Particles/ParticleAssets.h"
 #include "Engine/Particles/UParticleEmitter.h"
+#include "Engine/Particles/UParticleLODLevel.h"
 #include "Engine/Particles/UParticleSystem.h"
-#include "Engine/FPrimitiveDrawInterface.h"
+#include "Engine/Particles/Module/UParticleModuleRequired.h"
+#include "Engine/FPrimitiveSceneProxy.h"
 #include "Engine/UWorld.h"
 #include "Asset/FAssetManager.h"
 #include "Asset/FMeshData.h"
+#include "Asset/UMaterial.h"
 #include "Core/FilePath.h"
 #include "Core/Log/Log.h"
 
@@ -20,11 +24,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogParticles, Log, All);
 namespace Engine {
 
     namespace {
-
-        /**
-         * @brief 디버그 십자의 반 길이(m)입니다.
-         */
-        constexpr float DebugCrossHalfLength{0.03f};
 
         /**
          * @brief 파티클이 없을 때 쓰는 경계 상자의 반 크기(m)입니다.
@@ -89,6 +88,7 @@ namespace Engine {
 
         // 새 인스턴스는 LOD 0으로 시작하므로 지금 LOD를 다시 적용합니다.
         ApplyLODLevel(IsPreviewLODActive() ? mPreviewLODOverride : mLODLevel);
+        UpdateRenderData();
     }
 
     void Engine::UParticleSystemComponent::ActivateSystem(bool Reset) {
@@ -126,6 +126,7 @@ namespace Engine {
 
     void Engine::UParticleSystemComponent::ResetParticles() {
         mEmitterInstances.clear();
+        UpdateRenderData();
     }
 
     bool Engine::UParticleSystemComponent::HasCompleted() const {
@@ -179,24 +180,6 @@ namespace Engine {
         return Count;
     }
 
-    void Engine::UParticleSystemComponent::DrawDebug(Engine::FPrimitiveDrawInterface& DrawInterface, bool Selected, float Thickness) const {
-        const FVector Color{1.0f, 1.0f, 0.0f};
-
-        for (const auto& Instance : mEmitterInstances) {
-            for (Int32 Index{}; Index < Instance->mActiveParticles; ++Index) {
-                const FVector Location{Instance->SimulationToWorld(Instance->GetParticle(Instance->mParticleIndices[Index])->mLocation)};
-
-                DrawInterface.DrawLine(Location - FVector{DebugCrossHalfLength, 0.0f, 0.0f}, Location + FVector{DebugCrossHalfLength, 0.0f, 0.0f}, Color, true, Thickness);
-                DrawInterface.DrawLine(Location - FVector{0.0f, DebugCrossHalfLength, 0.0f}, Location + FVector{0.0f, DebugCrossHalfLength, 0.0f}, Color, true, Thickness);
-                DrawInterface.DrawLine(Location - FVector{0.0f, 0.0f, DebugCrossHalfLength}, Location + FVector{0.0f, 0.0f, DebugCrossHalfLength}, Color, true, Thickness);
-            }
-        }
-
-        if (Selected) {
-            DrawInterface.DrawBox(GetWorldBounds(), {1.0f, 0.65f, 0.15f}, true, Thickness);
-        }
-    }
-
     void Engine::UParticleSystemComponent::Tick(float DeltaTime) {
         Engine::UPrimitiveComponent::Tick(DeltaTime);
 
@@ -220,6 +203,7 @@ namespace Engine {
         }
 
         mWasCompleted = AllComplete;
+        UpdateRenderData();
     }
 
     void Engine::UParticleSystemComponent::UnregisterComponent() {
@@ -264,8 +248,19 @@ namespace Engine {
     }
 
     bool Engine::UParticleSystemComponent::ShouldCreateRenderState() const {
-        // 파티클 렌더러가 생기기 전까지는 렌더 상태를 만들지 않습니다.
-        return false;
+        return mTemplate != nullptr;
+    }
+
+    Engine::FPrimitiveSceneProxy Engine::UParticleSystemComponent::CreateSceneProxy() const {
+        Engine::FPrimitiveSceneProxy Proxy{Engine::UPrimitiveComponent::CreateSceneProxy()};
+
+        // 반투명 스프라이트라 그림자·데칼과 섞이지 않습니다.
+        Proxy.mCastShadow = false;
+        Proxy.mReceiveShadow = false;
+        Proxy.mReceivesDecals = false;
+        Proxy.mParticles = mRenderData;
+
+        return Proxy;
     }
 
     void Engine::UParticleSystemComponent::OnRegister() {
@@ -275,6 +270,7 @@ namespace Engine {
 
     void Engine::UParticleSystemComponent::ResolveTemplate() {
         mTemplate.Reset();
+        mMaterials.clear();
 
         Asset::FAssetManager* Assets{GetWorld() != nullptr ? GetWorld()->GetAssets() : nullptr};
 
@@ -373,6 +369,54 @@ namespace Engine {
         const Engine::UWorld* World{GetWorld()};
 
         return mPreviewLODOverride >= 0 && (World == nullptr || World->GetWorldType() == Engine::EWorldType::Editor || World->GetWorldType() == Engine::EWorldType::EditorPreview);
+    }
+
+    void Engine::UParticleSystemComponent::UpdateRenderData() {
+        if (mEmitterInstances.empty()) {
+            mRenderData.reset();
+        } else {
+            auto Data{std::make_shared<Engine::FParticleRenderData>()};
+
+            for (const auto& Instance : mEmitterInstances) {
+                const Engine::UParticleLODLevel* Level{Instance->mCurrentLODLevel};
+
+                if (Level != nullptr) {
+                    Instance->FillRenderData(*Data, ResolveMaterial(Level->GetRequiredModule()->GetMaterialPath()));
+                }
+            }
+
+            mRenderData = std::move(Data);
+        }
+
+        MarkRenderStateDirty();
+    }
+
+    Asset::UMaterial* Engine::UParticleSystemComponent::ResolveMaterial(const Core::FString& Path) {
+        if (Path.empty()) {
+            return nullptr;
+        }
+
+        if (const auto Found{mMaterials.find(Path)}; Found != mMaterials.end()) {
+            return Found->second.Get();
+        }
+
+        Asset::FAssetManager* Assets{GetWorld() != nullptr ? GetWorld()->GetAssets() : nullptr};
+        Asset::UMaterial* Material{};
+
+        if (Assets != nullptr) {
+            Core::FString Error{};
+
+            Material = Assets->LoadMaterial(Core::FilePath::FromUtf8(Path), Error);
+
+            if (Material == nullptr) {
+                MACAW_LOG(LogParticles, Warning, "Cannot load particle material '{}': {}", Path, Error);
+            }
+        }
+
+        // 실패한 경로도 기억해 매 Tick 다시 로드하지 않습니다.
+        mMaterials.emplace(Path, Material);
+
+        return Material;
     }
 
 }
