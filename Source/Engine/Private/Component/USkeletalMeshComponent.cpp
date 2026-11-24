@@ -733,6 +733,9 @@ namespace Engine {
         UpdateClothSimulationContext(DeltaTime);
         mClothingSimulation->Simulate(mClothingSimulationContext);
         WritebackClothingSimulationData();
+
+        // 렌더러가 새 입자 위치로 천 섹션을 그리도록 프록시를 다시 만듭니다.
+        MarkRenderStateDirty();
     }
 
     /**
@@ -768,12 +771,29 @@ namespace Engine {
     }
 
     /**
+     * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율을 반환합니다.
+     */
+    float USkeletalMeshComponent::GetClothBlendWeight() const {
+        return mClothBlendWeight;
+    }
+
+    /**
+     * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율을 설정합니다.
+     */
+    void USkeletalMeshComponent::SetClothBlendWeight(float BlendWeight) {
+        mClothBlendWeight = std::clamp(BlendWeight, 0.0f, 1.0f);
+        MarkRenderStateDirty();
+    }
+
+    /**
      * @brief 천 시뮬레이션 결과를 컴포넌트에 저장합니다.
      */
     void USkeletalMeshComponent::WritebackClothingSimulationData() {
         if (mClothingSimulation != nullptr) {
             mClothingSimulation->GetSimulationData(mCurrentSimulationData, mClothingSimulationContext);
         }
+
+        mClothRevision = Core::FRevision::Next();
     }
 
     /**
@@ -1253,6 +1273,13 @@ namespace Engine {
             Proxy.mSkeletalMesh = mSkeletalMesh;
             Proxy.mSkinMatrices = mPose.GetSkinMatrices();
             Proxy.mPoseRevision = mPose.GetRevision();
+
+            // 천 섹션은 렌더러가 이 결과의 입자 위치로 정점을 옮겨 그립니다.
+            if (mClothingSimulation != nullptr && !mCurrentSimulationData.empty()) {
+                Proxy.mClothSimData = mCurrentSimulationData;
+                Proxy.mClothBlendWeight = mClothBlendWeight;
+                Proxy.mClothRevision = mClothRevision;
+            }
         }
 
         return Proxy;

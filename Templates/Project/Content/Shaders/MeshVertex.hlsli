@@ -37,6 +37,12 @@ struct FMeshVertexInput {
      */
     float4 mBoneWeights : BLENDWEIGHT;
 #endif
+#ifdef MacawCloth
+    /**
+     * @brief 천 정점 정보를 찾을 메시 정점 번호입니다.
+     */
+    uint mVertexId : SV_VertexID;
+#endif
     /**
      * @brief 정점의 로컬 공간 위치입니다.
      */

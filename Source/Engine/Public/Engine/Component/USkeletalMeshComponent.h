@@ -225,6 +225,18 @@ namespace Engine {
         void SetClothMaxDistanceScale(float Scale);
 
         /**
+         * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율을 반환합니다.
+         * @return 0이면 스키닝 위치, 1이면 시뮬레이션 위치입니다.
+         */
+        float GetClothBlendWeight() const;
+
+        /**
+         * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율을 설정합니다.
+         * @param[in] BlendWeight 0에서 1 사이 값이며 범위를 벗어나면 잘라 냅니다.
+         */
+        void SetClothBlendWeight(float BlendWeight);
+
+        /**
          * @brief 본 하나의 부모 기준 변환을 변경합니다.
          * @param Bone 본 인덱스입니다.
          * @param Transform 부모 기준 아핀 행렬입니다.
@@ -687,6 +699,16 @@ namespace Engine {
          * @brief 천 입자의 최대 거리에 곱할 배율이며 매 프레임 천 시뮬레이션 입력에 넣습니다.
          */
         float mClothMaxDistanceScale{1.0f};
+
+        /**
+         * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율입니다.
+         */
+        float mClothBlendWeight{1.0f};
+
+        /**
+         * @brief 천 결과를 마지막으로 저장할 때 받은 개정이며 렌더러가 입자 버퍼를 다시 올릴지 판단합니다.
+         */
+        Core::FRevision mClothRevision{};
 
         /**
          * @brief 메시 천 에셋 번호를 키로 한 마지막 천 시뮬레이션 결과입니다.

@@ -14,6 +14,7 @@
 #include "CoreUObject/UObject.h"
 #include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "PhysicsRuntime/UPhysicsAsset.h"
+#include "RenderCore/TStructuredBuffer.h"
 #include "RenderCore/TVertexBuffer.h"
 
 #include <memory>
@@ -108,6 +109,26 @@ namespace Asset {
          * @param Slot 입력 슬롯입니다.
          */
         static void UnbindSkinWeights(ID3D11DeviceContext* Context, Index_t Slot);
+
+        /**
+         * @brief 메시 정점마다 붙어 있는 천 입자 삼각형 정보를 담은 버퍼를 정점 셰이더 슬롯에 연결합니다.
+         * @param Context 바인딩할 장치 컨텍스트입니다.
+         * @param Slot 셰이더 리소스 슬롯(t 레지스터)입니다.
+         */
+        void BindClothVertices(ID3D11DeviceContext* Context, Index_t Slot) const;
+
+        /**
+         * @brief 정점 셰이더 슬롯의 천 정점 버퍼 연결을 해제합니다.
+         * @param Context 바인딩할 장치 컨텍스트입니다.
+         * @param Slot 셰이더 리소스 슬롯(t 레지스터)입니다.
+         */
+        static void UnbindClothVertices(ID3D11DeviceContext* Context, Index_t Slot);
+
+        /**
+         * @brief 천 정점 버퍼를 준비했는지 검사합니다.
+         * @return 천 섹션이 있고 버퍼를 만들었으면 true입니다.
+         */
+        bool HasClothVertices() const;
 
         /**
          * @brief 바인드 형상의 로컬 경계를 반환합니다.
@@ -224,6 +245,54 @@ namespace Asset {
          */
         using FSkinWeightBuffer = RenderCore::TVertexBuffer<FSkinWeightVertex, RenderCore::EBufferUpdate::Immutable>;
 
+        /**
+         * @brief 정점 하나가 붙어 있는 천 입자 삼각형 정보의 GPU 배치이며 Cloth.hlsl의 FClothVertex와 같아야 합니다.
+         */
+        struct FClothVertexGpu {
+
+            /**
+             * @brief 위치의 무게중심 좌표 세 개와 삼각형 면에서 법선 방향으로 떨어진 거리입니다.
+             */
+            Core::TStaticArray<float, 4> mPositionBaryCoordsAndDist{};
+
+            /**
+             * @brief 위치에서 법선 방향으로 간 점의 무게중심 좌표와 거리입니다.
+             */
+            Core::TStaticArray<float, 4> mNormalBaryCoordsAndDist{};
+
+            /**
+             * @brief 위치에서 접선 방향으로 간 점의 무게중심 좌표와 거리입니다.
+             */
+            Core::TStaticArray<float, 4> mTangentBaryCoordsAndDist{};
+
+            /**
+             * @brief 앞 세 개는 입자 번호이고 마지막이 0xFFFF이면 스키닝만 쓰는 정점입니다.
+             */
+            Core::TStaticArray<Uint32, 4> mSourceMeshVertIndices{0, 0, 0, 0xFFFF};
+
+            /**
+             * @brief 여러 삼각형의 영향을 섞을 때 쓰는 가중치입니다.
+             */
+            float mWeight{};
+
+            /**
+             * @brief 16바이트 정렬을 맞추는 빈 칸입니다.
+             */
+            Core::TStaticArray<float, 3> mPadding{};
+        };
+
+        /**
+         * @brief 메시 정점 순서의 천 정점 정보를 담는 구조화 버퍼입니다.
+         */
+        using FClothVertexBuffer = RenderCore::TStructuredBuffer<FClothVertexGpu>;
+
+        /**
+         * @brief 천 섹션의 연결 데이터로 메시 정점 순서의 천 정점 정보를 만들어 올립니다.
+         * @param Device 사용할 D3D11 장치입니다.
+         * @return 천 섹션이 없거나 버퍼를 준비했으면 true입니다.
+         */
+        bool CreateClothVertexBuffer(ID3D11Device* Device);
+
     private:
 
         /**
@@ -245,6 +314,11 @@ namespace Asset {
          * @brief BLENDINDICES와 BLENDWEIGHT 입력의 공유 불변 버퍼입니다.
          */
         FSkinWeightBuffer mSkinWeightBuffer{};
+
+        /**
+         * @brief 메시 정점마다 붙어 있는 천 입자 삼각형 정보이며 천 섹션 연결이 바뀌면 다시 만듭니다.
+         */
+        FClothVertexBuffer mClothVertexBuffer{};
 
         /**
          * @brief 이 메시가 참조하는 물리 에셋 경로입니다.

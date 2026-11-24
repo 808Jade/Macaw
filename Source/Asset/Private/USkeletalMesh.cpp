@@ -16,6 +16,9 @@
 #include <limits>
 #include <utility>
 
+#include <d3d11.h>
+#include <wrl/client.h>
+
 namespace Asset {
 
     /**
@@ -54,6 +57,7 @@ namespace Asset {
         }
 
         mSkinWeightBuffer.Reset();
+        mClothVertexBuffer.Reset();
         mSkinWeights = std::move(SkinWeights);
         mSkinMatrixCount = SkinMatrixCount;
 
@@ -101,6 +105,11 @@ namespace Asset {
             return false;
         }
 
+        // 천 정점 버퍼는 천 섹션 연결이 바뀔 때마다 비워지므로 가중치와 따로 준비합니다.
+        if (!CreateClothVertexBuffer(Device)) {
+            return false;
+        }
+
         // 가중치는 에셋을 교체하기 전까지 변하지 않으므로, 같은 장치에 이미 만든 버퍼가 있으면 재사용합니다.
         if (mSkinWeightBuffer.IsCreatedOn(Device)) {
             return true;
@@ -136,6 +145,67 @@ namespace Asset {
     void Asset::USkeletalMesh::ReleaseResources() {
         mGeometry.ReleaseResources();
         mSkinWeightBuffer.Reset();
+        mClothVertexBuffer.Reset();
+    }
+
+    /**
+     * @brief 천 섹션의 연결 데이터로 메시 정점 순서의 천 정점 정보를 만들어 올립니다.
+     */
+    bool Asset::USkeletalMesh::CreateClothVertexBuffer(ID3D11Device* Device) {
+        if (mClothVertexBuffer.IsCreatedOn(Device)) {
+            return true;
+        }
+
+        const bool HasClothSection{std::any_of(mSectionClothingData.begin(), mSectionClothingData.end(), [](const Asset::FClothingSectionData& SectionData) {
+            return SectionData.IsValid();
+        })};
+
+        if (!HasClothSection) {
+            return true;
+        }
+
+        // 셰이더는 정점 번호로 바로 읽으므로 메시 정점 수만큼 만들고, 천이 아닌 정점은 스키닝만 쓰도록 표시해 둡니다.
+        static_assert(sizeof(FClothVertexGpu) == 80);
+
+        const Index_t NumVertices{GetMeshData().GetPositions().size()};
+        Core::TArray<FClothVertexGpu> Vertices(NumVertices);
+
+        for (const Asset::FClothingSectionData& SectionData : mSectionClothingData) {
+            if (!SectionData.IsValid() || SectionData.mClothMappingData.size() != SectionData.mSectionVertexIndices.size()) {
+                continue;
+            }
+
+            for (Index_t MappingIndex{}; MappingIndex < SectionData.mClothMappingData.size(); ++MappingIndex) {
+                const Uint32 VertexIndex{SectionData.mSectionVertexIndices[MappingIndex]};
+
+                if (VertexIndex >= NumVertices) {
+                    continue;
+                }
+
+                const PhysicsRuntime::FMeshToMeshVertData& Mapping{SectionData.mClothMappingData[MappingIndex]};
+                FClothVertexGpu& Vertex{Vertices[VertexIndex]};
+
+                Vertex.mPositionBaryCoordsAndDist = {Mapping.mPositionBaryCoordsAndDist.x, Mapping.mPositionBaryCoordsAndDist.y, Mapping.mPositionBaryCoordsAndDist.z, Mapping.mPositionBaryCoordsAndDist.w};
+                Vertex.mNormalBaryCoordsAndDist = {Mapping.mNormalBaryCoordsAndDist.x, Mapping.mNormalBaryCoordsAndDist.y, Mapping.mNormalBaryCoordsAndDist.z, Mapping.mNormalBaryCoordsAndDist.w};
+                Vertex.mTangentBaryCoordsAndDist = {Mapping.mTangentBaryCoordsAndDist.x, Mapping.mTangentBaryCoordsAndDist.y, Mapping.mTangentBaryCoordsAndDist.z, Mapping.mTangentBaryCoordsAndDist.w};
+                Vertex.mSourceMeshVertIndices = Mapping.mSourceMeshVertIndices;
+                Vertex.mWeight = Mapping.mWeight;
+            }
+        }
+
+        Microsoft::WRL::ComPtr<ID3D11DeviceContext> Context{};
+        Device->GetImmediateContext(Context.GetAddressOf());
+
+        FClothVertexBuffer Buffer{};
+        Core::FString Error{};
+
+        if (Context == nullptr || !Buffer.Upload(Context.Get(), Vertices, Error)) {
+            return false;
+        }
+
+        mClothVertexBuffer = std::move(Buffer);
+
+        return true;
     }
 
     /**
@@ -150,6 +220,27 @@ namespace Asset {
      */
     void Asset::USkeletalMesh::UnbindSkinWeights(ID3D11DeviceContext* Context, Index_t Slot) {
         FSkinWeightBuffer::Unbind(Context, Slot);
+    }
+
+    /**
+     * @brief 메시 정점마다 붙어 있는 천 입자 삼각형 정보를 담은 버퍼를 정점 셰이더 슬롯에 연결합니다.
+     */
+    void Asset::USkeletalMesh::BindClothVertices(ID3D11DeviceContext* Context, Index_t Slot) const {
+        mClothVertexBuffer.Bind(Context, RenderCore::EShaderStage::Vertex, Slot);
+    }
+
+    /**
+     * @brief 정점 셰이더 슬롯의 천 정점 버퍼 연결을 해제합니다.
+     */
+    void Asset::USkeletalMesh::UnbindClothVertices(ID3D11DeviceContext* Context, Index_t Slot) {
+        FClothVertexBuffer::Unbind(Context, RenderCore::EShaderStage::Vertex, Slot);
+    }
+
+    /**
+     * @brief 천 정점 버퍼를 준비했는지 검사합니다.
+     */
+    bool Asset::USkeletalMesh::HasClothVertices() const {
+        return mClothVertexBuffer.IsCreated();
     }
 
     /**
@@ -284,6 +375,9 @@ namespace Asset {
         }
 
         mSectionClothingData[SubMeshIndex] = std::move(ClothingData);
+
+        // 정점이 붙는 입자 삼각형이 바뀌었으므로 다음 리소스 준비 때 천 정점 버퍼를 다시 만듭니다.
+        mClothVertexBuffer.Reset();
 
         return true;
     }

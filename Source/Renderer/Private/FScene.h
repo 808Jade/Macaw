@@ -170,6 +170,13 @@ namespace Renderer {
         bool UploadSkinning(Renderer::FScenePrimitive& Primitive);
 
         /**
+         * @brief 천 에셋마다 입자 위치와 법선, 천 상수를 GPU에 반영합니다.
+         * @details 올리지 못한 천은 목록에서 빼서 그 섹션을 스키닝만으로 그립니다.
+         * @param Primitive 갱신할 프리미티브입니다.
+         */
+        void UploadCloth(Renderer::FScenePrimitive& Primitive);
+
+        /**
          * @brief 프록시가 그림자 깊이 패스에 그려지는 캐스터인지 검사합니다.
          * @param[in] Proxy 검사할 프리미티브 프록시입니다.
          * @return 그림자를 드리우는 메시 프리미티브이면 true입니다.

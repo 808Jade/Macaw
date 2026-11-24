@@ -60,6 +60,25 @@ namespace Renderer {
     }
 
     /**
+     * @brief SubMesh가 이번 프레임에 천 결과로 그려야 하는 천 섹션인지 검사합니다.
+     */
+    Index_t Renderer::FMeshPass::GetClothAssetIndex(const Renderer::FScenePrimitive& Primitive, Index_t SubMeshIndex) {
+        const Asset::USkeletalMesh* SkeletalMesh{Primitive.mProxy.mSkeletalMesh.Get()};
+
+        if (SkeletalMesh == nullptr || Primitive.mClothResources.empty() || !SkeletalMesh->HasClothVertices()) {
+            return InvalidIndex;
+        }
+
+        const Asset::FClothingSectionData* SectionData{SkeletalMesh->GetSectionClothingData(SubMeshIndex)};
+
+        if (SectionData == nullptr || !SectionData->IsValid() || !Primitive.mClothResources.contains(SectionData->mCorrespondClothAssetIndex)) {
+            return InvalidIndex;
+        }
+
+        return SectionData->mCorrespondClothAssetIndex;
+    }
+
+    /**
      * @brief 패스 정책으로 프리미티브를 선별하고 파이프라인·머티리얼·메시 순으로 정렬된 드로 목록을 만듭니다.
      */
     bool Renderer::FMeshPass::BuildCommands(const Renderer::FScene& Scene, const Engine::FSceneViewFamily& Family, const FMatrix& ViewProjection, Core::TArray<Renderer::FMeshDrawCommand>& Commands, Uint32& Primitives) {
