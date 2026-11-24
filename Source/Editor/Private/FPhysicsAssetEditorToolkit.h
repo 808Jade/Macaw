@@ -12,6 +12,9 @@
 #include "Viewer/FAssetViewer.h"
 
 #include "Core/Math/FRotator.h"
+#include "Core/Math/FTransform.h"
+#include "Editor/FGizmoCore.h"
+#include "Engine/EViewMode.h"
 
 #include <filesystem>
 #include <memory>
@@ -23,12 +26,17 @@ namespace Asset {
 
 struct ImVec2;
 
+namespace ax::NodeEditor {
+    struct EditorContext;
+}
+
 namespace Engine {
     class FPrimitiveDrawInterface;
 }
 
 namespace PhysicsRuntime {
     class FBodyInstance;
+    struct FConstraintInstance;
     class UBodySetup;
     class UPhysicsAsset;
 }
@@ -47,6 +55,73 @@ namespace Editor {
      * @ingroup Editor
      */
     class FPhysicsAssetEditorToolkit final : public Editor::FAssetEditorToolkit {
+    private:
+
+        /**
+         * @brief 기즈모 드래그를 시작할 때 항목 하나의 시작 상태입니다.
+         */
+        struct FGizmoShapeState {
+            /**
+             * @brief 항목이 속한 바디 설명서의 비소유 주소입니다.
+             */
+            PhysicsRuntime::UBodySetup* mSetup{};
+
+            /**
+             * @brief 항목이 붙은 뼈의 월드 변환입니다.
+             */
+            FTransform mBoneWorld{};
+
+            /**
+             * @brief 시작 시점의 항목 월드 위치입니다.
+             */
+            FVector mStartPosition{};
+
+            /**
+             * @brief 시작 시점의 항목 월드 회전입니다.
+             */
+            FQuat mStartRotation{};
+
+            /**
+             * @brief 시작 시점의 뼈 기준 중심과 회전이며 취소할 때 복원합니다.
+             */
+            FVector mStartCenter{};
+            FRotator mStartLocalRotation{};
+        };
+
+        /**
+         * @brief 기즈모 드래그를 시작할 때 관절 프레임의 시작 상태입니다.
+         */
+        struct FGizmoFrameState {
+            /**
+             * @brief 프레임이 속한 뼈의 월드 변환입니다.
+             */
+            FTransform mBoneWorld{};
+
+            /**
+             * @brief 시작 시점의 프레임 월드 위치와 X(주 축), Y(보조 축) 방향입니다.
+             */
+            FVector mPosition{};
+            FVector mAxisX{};
+            FVector mAxisY{};
+
+            /**
+             * @brief 시작 시점의 뼈 기준 위치와 축이며 취소할 때 복원합니다.
+             */
+            FVector mStartPos{};
+            FVector mStartPri{};
+            FVector mStartSec{};
+        };
+
+        /**
+         * @brief 편집 값을 되돌릴 기준(마지막으로 저장하거나 연 시점의 바디와 관절 설정)을 담는 구조체이며 정의는 cpp에 있습니다.
+         */
+        struct FBaseline;
+
+        /**
+         * @brief 기준에 담긴 바디 하나(뼈 이름으로 찾는 형상 목록과 Physics Type)이며 정의는 cpp에 있습니다.
+         */
+        struct FBaselineBody;
+
     public:
 
         /**
@@ -133,9 +208,80 @@ namespace Editor {
         /**
          * @brief 바디(와 선택적으로 항목)를 선택하고 그 뼈도 함께 선택합니다.
          * @param[in] BodyIndex 선택할 바디 설명서의 번호입니다.
-         * @param[in] Shape 선택할 항목이며 유효하지 않으면 바디만 선택합니다.
+         * @param[in] Shape 선택할 항목이며 유효하지 않으면 바디만 선택합니다. Toggle이 true이면 무시하고 기존 항목 선택을 유지합니다.
+         * @param[in] FocusGraph true이면 Graph 창의 중심도 선택한 바디 전체로 옮깁니다. Graph 안의 클릭은 false로 호출합니다.
+         * @param[in] Toggle true이면 기존 선택을 지우지 않고 이 바디를 선택 목록에 넣거나(이미 있으면) 뺍니다.
          */
-        void SelectBody(Index_t BodyIndex, const PhysicsAssetEditing::FShapeRef& Shape);
+        void SelectBody(Index_t BodyIndex, const PhysicsAssetEditing::FShapeRef& Shape, bool FocusGraph = true, bool Toggle = false);
+
+        /**
+         * @brief 뼈, 바디, 항목, 관절 선택을 모두 지웁니다. Graph의 중심은 그대로 둡니다.
+         */
+        void ClearSelection();
+
+        /**
+         * @brief 선택한 항목이나 관절 프레임에 기즈모를 놓을 위치, 축과 모드를 구합니다.
+         * @param[out] Out 기즈모 배치입니다.
+         * @return 기즈모로 편집할 대상이 있으면 true입니다.
+         */
+        bool GetGizmoPlacement(Editor::FGizmoPlacement& Out) const;
+
+        /**
+         * @brief 기즈모의 호버와 드래그 입력을 처리하고 드래그 결과를 선택한 대상에 적용합니다.
+         * @param[in] View 입력 해석에 쓰는 카메라 뷰입니다.
+         * @param[in] Mouse 뷰포트 이미지 왼쪽 위 기준의 마우스 위치(픽셀)입니다.
+         * @param[in] Hovered 뷰포트 위에 마우스가 있는지 나타냅니다.
+         * @return 기즈모가 마우스를 차지하고 있으면(핸들 위이거나 드래그 중) true이며, 이때 카메라 조작과 선택은 건너뜁니다.
+         */
+        bool UpdateGizmo(const Engine::FSceneView& View, const FVector2& Mouse, bool Hovered);
+
+        /**
+         * @brief 기즈모 드래그를 시작하는 시점의 대상 상태를 저장합니다.
+         * @return 드래그할 대상을 하나 이상 모았으면 true입니다.
+         */
+        bool CaptureGizmoStart();
+
+        /**
+         * @brief 기즈모의 현재 이동량·회전량을 시작 상태에 더해 대상에 적용합니다.
+         */
+        void ApplyGizmoDrag();
+
+        /**
+         * @brief 기즈모 드래그를 취소하고 대상을 시작 상태로 되돌립니다.
+         */
+        void CancelGizmoDrag();
+
+        /**
+         * @brief 뷰포트 위쪽의 기즈모, 뷰 모드, 표시 설정 툴바를 그립니다.
+         */
+        void DrawViewportToolbar();
+
+        /**
+         * @brief 기준이 없으면 현재 물리 에셋의 값으로 만듭니다. 편집하기 전에 호출해야 합니다.
+         */
+        void EnsureBaseline();
+
+        /**
+         * @brief 기준에서 뼈 이름이 같은 바디를 찾습니다.
+         * @param[in] BoneName 바디가 붙은 뼈의 이름입니다.
+         * @return 기준의 바디 주소이며 없으면 nullptr입니다.
+         */
+        const FBaselineBody* FindBaselineBody(const Core::FString& BoneName) const;
+
+        /**
+         * @brief 기준에서 양 끝 뼈가 같은 관절을 찾습니다.
+         * @param[in] Bone1 관절의 자식 쪽 뼈 이름입니다.
+         * @param[in] Bone2 관절의 부모 쪽 뼈 이름입니다.
+         * @return 기준의 관절 설정 주소이며 없으면 nullptr입니다.
+         */
+        const PhysicsRuntime::FConstraintInstance* FindBaselineConstraint(const Core::FString& Bone1, const Core::FString& Bone2) const;
+
+        /**
+         * @brief 바디가 선택 목록에 들어 있는지 반환합니다.
+         * @param[in] BodyIndex 확인할 바디 설명서의 번호입니다.
+         * @return 선택되어 있으면 true입니다.
+         */
+        bool IsBodySelected(Index_t BodyIndex) const;
 
         /**
          * @brief 편집 결과를 미리보기의 물리 상태에 반영하고 수정 표시를 남깁니다.
@@ -148,12 +294,20 @@ namespace Editor {
         void DrawBodyEditor();
 
         /**
-         * @brief 항목 하나의 위치, 회전, 크기 필드를 표시하고 값이 바뀌면 true를 반환합니다.
-         * @param[in,out] Setup 편집할 바디 설명서입니다.
-         * @param[in] Shape 편집할 항목입니다.
+         * @brief 항목의 위치, 회전, 크기 필드를 표시하고 값이 바뀌면 true를 반환합니다.
+         * @details 바디를 여러 개 선택했으면 항목이 있는 바디들의 값을 비교해 같으면 그 값을, 다르면 "Multiple Values"를 보여 주고,
+         *          값을 바꾸면 바꾼 필드를 항목이 있는 모든 바디에 적용합니다.
+         * @param[in,out] Setups 편집할 바디 설명서들입니다. 모두 유효한 주소여야 합니다.
+         * @param[in] Shape 편집할 항목입니다. 항목이 없는 바디는 건너뜁니다.
          * @return 값이 바뀌었으면 true입니다.
          */
-        bool DrawShapeFields(PhysicsRuntime::UBodySetup& Setup, const PhysicsAssetEditing::FShapeRef& Shape);
+        bool DrawShapeFields(const Core::TArray<PhysicsRuntime::UBodySetup*>& Setups, const PhysicsAssetEditing::FShapeRef& Shape);
+
+        /**
+         * @brief 선택한 바디와 그 바디에 연결된 관절, 반대편 바디를 노드 그래프로 표시합니다.
+         * @details 노드를 누르면 바디나 관절이 선택됩니다.
+         */
+        void DrawGraph();
 
         /**
          * @brief 편집 중인 물리 에셋을 파일에 저장합니다.
@@ -274,9 +428,14 @@ namespace Editor {
         Index_t mSelectedBone{InvalidIndex};
 
         /**
-         * @brief 선택한 바디 설명서의 번호(물리 에셋 안의 순서)이며 없으면 InvalidIndex입니다.
+         * @brief 가장 최근에 고른(대표) 바디 설명서의 번호(물리 에셋 안의 순서)이며 없으면 InvalidIndex입니다.
          */
         Index_t mSelectedBody{InvalidIndex};
+
+        /**
+         * @brief 선택한 모든 바디 설명서의 번호입니다. 대표 바디가 있으면 이 목록에 들어 있습니다.
+         */
+        Core::TArray<Index_t> mSelectedBodies{};
 
         /**
          * @brief 선택한 관절 설정의 번호이며 없으면 InvalidIndex입니다.
@@ -287,6 +446,31 @@ namespace Editor {
          * @brief 선택한 바디 안의 항목이며 항목을 고르지 않았으면 유효하지 않은 값입니다.
          */
         PhysicsAssetEditing::FShapeRef mSelectedShape{};
+
+        /**
+         * @brief 바디·관절 그래프의 노드 에디터 컨텍스트이며 처음 그릴 때 만듭니다.
+         */
+        ax::NodeEditor::EditorContext* mGraphEditor{};
+
+        /**
+         * @brief Graph 창이 보여 줄 중심 바디들의 번호이며 선택과 따로 바뀝니다. 비어 있으면 선택한 바디를 씁니다.
+         */
+        Core::TArray<Index_t> mGraphFocus{};
+
+        /**
+         * @brief 그래프가 마지막으로 배치한 중심 바디들의 번호입니다.
+         */
+        Core::TArray<Index_t> mGraphLaidOutFocus{};
+
+        /**
+         * @brief 툴킷의 선택과 마지막으로 맞춘 그래프 노드 ID들이며 정렬되어 있습니다.
+         */
+        Core::TArray<std::uintptr_t> mGraphSyncedKeys{};
+
+        /**
+         * @brief 그래프를 화면에 맞추기 위해 남은 프레임 수입니다. 노드 크기가 정해지는 데 몇 프레임이 걸립니다.
+         */
+        int mGraphFitFrames{};
 
         /**
          * @brief 관절 프레임의 회전 필드가 가리키는 관절 번호이며, 다시 계산해야 하면 InvalidIndex입니다.
@@ -315,9 +499,69 @@ namespace Editor {
         bool mOpenRegeneratePopup{};
 
         /**
+         * @brief 핸들 표시, 교차 판정과 드래그 계산을 맡는 공통 기즈모 코어입니다.
+         */
+        Editor::FGizmoCore mGizmo{};
+
+        /**
+         * @brief 기즈모의 변환 모드(이동 또는 회전)입니다.
+         */
+        Editor::EGizmoMode mGizmoMode{Editor::EGizmoMode::Translate};
+
+        /**
+         * @brief 기즈모 축의 기준 좌표계입니다. Local은 선택한 항목이나 프레임의 축을 씁니다.
+         */
+        Editor::EGizmoSpace mGizmoSpace{Editor::EGizmoSpace::Local};
+
+        /**
+         * @brief 관절을 골랐을 때 기즈모가 편집할 프레임입니다. 0은 Frame 1(자식 뼈), 1은 Frame 2(부모 뼈)입니다.
+         */
+        int mGizmoConstraintFrame{1};
+
+        /**
+         * @brief 이번 마우스 누름이 기즈모에서 시작했는지 나타냅니다. 뗄 때 클릭 선택과 카메라 조작을 막는 데 씁니다.
+         */
+        bool mGizmoUsed{};
+
+        /**
+         * @brief 드래그 중인 항목들의 시작 상태입니다.
+         */
+        Core::TArray<FGizmoShapeState> mGizmoShapes{};
+
+        /**
+         * @brief 드래그 중인 관절 프레임의 시작 상태입니다.
+         */
+        FGizmoFrameState mGizmoFrame{};
+
+        /**
+         * @brief 이번 드래그가 관절 프레임을 편집하는지(true) 항목을 편집하는지(false) 나타냅니다.
+         */
+        bool mGizmoEditsFrame{};
+
+        /**
+         * @brief 시뮬레이션 중 Ctrl + 우클릭으로 잡고 끄는 바디입니다. 물리 상태를 내리기 전에 반드시 놓아야 합니다.
+         */
+        PhysicsAssetEditing::FBodyGrab mGrab{};
+
+        /**
+         * @brief 뷰포트의 화면 채우기 방식입니다.
+         */
+        Engine::EViewMode mViewMode{Engine::EViewMode::Lit};
+
+        /**
+         * @brief 편집 값을 되돌릴 기준입니다. 비어 있으면 다음 Details 표시 때 현재 값으로 다시 만듭니다.
+         */
+        std::unique_ptr<FBaseline> mBaseline{};
+
+        /**
          * @brief 뷰포트에 바디 형상을 그릴지 나타냅니다.
          */
         bool mShowBodies{true};
+
+        /**
+         * @brief Hierarchy에 모든 뼈를 표시할지 나타냅니다. false이면 바디가 있는 뼈만 트리로 표시합니다.
+         */
+        bool mShowAllBones{true};
 
         /**
          * @brief 미리보기에서 물리를 진행 중인지 나타냅니다.

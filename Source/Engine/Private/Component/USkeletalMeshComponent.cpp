@@ -452,10 +452,17 @@ namespace Engine {
      * @brief 모든 뼈별 바디의 시뮬레이션 여부를 바꿉니다.
      */
     void USkeletalMeshComponent::SetAllBodiesSimulatePhysics(bool Simulate) {
+        const PhysicsRuntime::UPhysicsAsset* const PhysicsAsset{GetPhysicsAsset()};
+
         for (const auto& Body : mBodies) {
-            if (Body != nullptr) {
-                Body->SetInstanceSimulatePhysics(Simulate);
+            if (Body == nullptr) {
+                continue;
             }
+
+            // 바디 셋업이 Kinematic으로 지정한 바디는 시뮬레이션을 켜도 Kinematic으로 남습니다.
+            const PhysicsRuntime::UBodySetup* const Setup{PhysicsAsset != nullptr && Body->mInstanceBodyIndex < PhysicsAsset->mSkeletalBodySetups.size() ? PhysicsAsset->mSkeletalBodySetups[Body->mInstanceBodyIndex].get() : nullptr};
+
+            Body->SetInstanceSimulatePhysics(Simulate && (Setup == nullptr || Setup->ShouldSimulatePhysics()));
         }
     }
 

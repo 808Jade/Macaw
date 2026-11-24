@@ -637,17 +637,18 @@ namespace Asset {
          * @param PhysicsAsset 직렬화할 물리 에셋입니다.
          */
         void SerializePhysicsAsset(Serialization::FMemoryArchive& Archive, PhysicsRuntime::UPhysicsAsset& PhysicsAsset) {
-            Uint32 Version{1};
+            // 2: 바디마다 SimulatePhysics(Dynamic 여부)를 저장한다. 1은 모든 바디가 Dynamic이다.
+            Uint32 Version{2};
 
             Archive.Serialize("PhysicsAssetVersion", Version);
 
-            if (Archive.HasError() || Version != 1) {
+            if (Archive.HasError() || Version < 1 || Version > 2) {
                 Archive.SetError("Unsupported physics asset version");
 
                 return;
             }
 
-            SerializePhysicsArray(Archive, "Bodies", PhysicsAsset.mSkeletalBodySetups, 16, [&Archive](std::unique_ptr<PhysicsRuntime::UBodySetup>& BodySetup) {
+            SerializePhysicsArray(Archive, "Bodies", PhysicsAsset.mSkeletalBodySetups, 16, [&Archive, Version](std::unique_ptr<PhysicsRuntime::UBodySetup>& BodySetup) {
                 if (Archive.IsLoading()) {
                     BodySetup = CoreUObject::NewObject<PhysicsRuntime::UBodySetup>();
                 }
@@ -659,6 +660,16 @@ namespace Asset {
 
                 if (Archive.IsLoading()) {
                     BodySetup->SetBoneName(BoneName);
+                }
+
+                if (Version >= 2) {
+                    Uint32 Simulate{BodySetup->ShouldSimulatePhysics() ? 1u : 0u};
+
+                    Archive.Serialize("SimulatePhysics", Simulate);
+
+                    if (Archive.IsLoading()) {
+                        BodySetup->SetSimulatePhysics(Simulate != 0);
+                    }
                 }
 
                 SerializePhysicsArray(Archive, "Spheres", AggGeom.mSphereElems, 16, [&Archive](PhysicsRuntime::FKSphereElem& Elem) {

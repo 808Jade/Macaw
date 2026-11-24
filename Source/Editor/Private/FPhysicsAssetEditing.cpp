@@ -390,3 +390,108 @@ bool Editor::PhysicsAssetEditing::PickBody(PhysicsRuntime::FPhysicsScene& Scene,
 
     return true;
 }
+
+struct Editor::PhysicsAssetEditing::FBodyGrab::FImpl {
+    /**
+     * @brief 잡고 있는 Dynamic Actor입니다. 비소유이며 물리 장면이 소유합니다.
+     */
+    physx::PxRigidDynamic* mActor{};
+
+    /**
+     * @brief 잡은 점을 Actor 로컬 좌표로 나타낸 위치입니다.
+     */
+    physx::PxVec3 mLocalPoint{};
+
+    /**
+     * @brief 잡을 때의 카메라에서 잡은 점까지의 거리이며, 목표점은 이 거리만큼 광선을 따라간 위치입니다.
+     */
+    float mDistance{};
+
+    /**
+     * @brief 마우스 광선이 가리키는 목표점입니다.
+     */
+    physx::PxVec3 mTarget{};
+};
+
+Editor::PhysicsAssetEditing::FBodyGrab::FBodyGrab() = default;
+
+Editor::PhysicsAssetEditing::FBodyGrab::~FBodyGrab() = default;
+
+bool Editor::PhysicsAssetEditing::FBodyGrab::Begin(PhysicsRuntime::FPhysicsScene& Scene, const FRay& Ray, float MaxDistance) {
+    mImpl.reset();
+
+    physx::PxScene* PxSceneHandle{Scene.GetScene()};
+
+    if (PxSceneHandle == nullptr) {
+        return false;
+    }
+
+    physx::PxRaycastBuffer Hit{};
+
+    if (!PxSceneHandle->raycast(PhysicsRuntime::ToPxVec3(Ray.mOrigin), PhysicsRuntime::ToPxVec3(Ray.mDirection), MaxDistance, Hit) || !Hit.hasBlock || Hit.block.actor == nullptr) {
+        return false;
+    }
+
+    // 뼈 바디만 잡는다. 바닥(바디 번호 없음)과 Kinematic 바디는 제외한다.
+    const PhysicsRuntime::FBodyInstance* Body{PhysicsRuntime::FBodyInstance::FromPxActor(*Hit.block.actor)};
+    physx::PxRigidDynamic* Dynamic{Hit.block.actor->is<physx::PxRigidDynamic>()};
+
+    if (Body == nullptr || Body->mInstanceBodyIndex == InvalidIndex || Dynamic == nullptr || (Dynamic->getRigidBodyFlags() & physx::PxRigidBodyFlag::eKINEMATIC)) {
+        return false;
+    }
+
+    mImpl = std::make_unique<FImpl>();
+    mImpl->mActor = Dynamic;
+    mImpl->mLocalPoint = Dynamic->getGlobalPose().transformInv(Hit.block.position);
+    mImpl->mDistance = Hit.block.distance;
+    mImpl->mTarget = Hit.block.position;
+
+    return true;
+}
+
+void Editor::PhysicsAssetEditing::FBodyGrab::Update(const FRay& Ray) {
+    if (mImpl == nullptr) {
+        return;
+    }
+
+    physx::PxRigidDynamic& Actor{*mImpl->mActor};
+
+    mImpl->mTarget = PhysicsRuntime::ToPxVec3(Ray.mOrigin + Ray.mDirection * mImpl->mDistance);
+
+    const physx::PxTransform Pose{Actor.getGlobalPose()};
+    const physx::PxVec3 Point{Pose.transform(mImpl->mLocalPoint)};
+    const physx::PxVec3 PointVelocity{physx::PxRigidBodyExt::getVelocityAtPos(Actor, Point)};
+
+    // 질량에 비례하는 스프링-댐퍼. 고유 진동수 ω에서 가속도 = ω²·오차 - 2ζω·속도(ζ=1, 임계 감쇠)이다.
+    constexpr float Omega{15.0f};
+    constexpr float MaxAcceleration{400.0f};
+    physx::PxVec3 Acceleration{(mImpl->mTarget - Point) * (Omega * Omega) - PointVelocity * (2.0f * Omega)};
+
+    if (Acceleration.magnitude() > MaxAcceleration) {
+        Acceleration = Acceleration.getNormalized() * MaxAcceleration;
+    }
+
+    Actor.wakeUp();
+    physx::PxRigidBodyExt::addForceAtPos(Actor, Acceleration * Actor.getMass(), Point, physx::PxForceMode::eFORCE, true);
+}
+
+void Editor::PhysicsAssetEditing::FBodyGrab::End() {
+    mImpl.reset();
+}
+
+bool Editor::PhysicsAssetEditing::FBodyGrab::IsActive() const {
+    return mImpl != nullptr;
+}
+
+bool Editor::PhysicsAssetEditing::FBodyGrab::GetEndpoints(FVector& OutGrabPoint, FVector& OutTarget) const {
+    if (mImpl == nullptr) {
+        return false;
+    }
+
+    const physx::PxVec3 Point{mImpl->mActor->getGlobalPose().transform(mImpl->mLocalPoint)};
+
+    OutGrabPoint = PhysicsRuntime::ToFVector(Point);
+    OutTarget = PhysicsRuntime::ToFVector(mImpl->mTarget);
+
+    return true;
+}

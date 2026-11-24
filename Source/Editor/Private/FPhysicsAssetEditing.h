@@ -235,4 +235,73 @@ namespace Editor::PhysicsAssetEditing {
      */
     bool PickBody(PhysicsRuntime::FPhysicsScene& Scene, const FRay& Ray, float MaxDistance, Index_t& OutBodyIndex, Index_t& OutShapeOrdinal);
 
+    /**
+     * @brief 시뮬레이션 중인 바디를 마우스로 잡고 끄는 동작입니다.
+     * @details 잡은 점과 마우스 광선 위의 목표점(잡을 때의 카메라 거리) 사이에 스프링-댐퍼 힘을 가합니다.
+     *          PhysX 타입은 cpp에 숨깁니다.
+     * @note 물리 장면이나 바디가 해제되기 전에 End를 호출해야 합니다. 그렇지 않으면 해제된 Actor를 참조합니다.
+     */
+    class FBodyGrab {
+    public:
+
+        /**
+         * @brief 잡고 있는 바디가 없는 상태로 구성합니다.
+         */
+        FBodyGrab();
+
+        /**
+         * @brief 잡고 있던 바디를 놓고 정리합니다.
+         */
+        ~FBodyGrab();
+
+        FBodyGrab(const FBodyGrab&) = delete;
+        FBodyGrab& operator=(const FBodyGrab&) = delete;
+
+        /**
+         * @brief 광선이 처음 맞는 시뮬레이션 중인 뼈 바디를 잡습니다.
+         * @param[in] Scene 광선을 쏠 물리 장면입니다.
+         * @param[in] Ray 월드 공간의 정규화된 광선입니다.
+         * @param[in] MaxDistance 광선이 나아갈 최대 거리(m)입니다.
+         * @return Dynamic 뼈 바디를 잡았으면 true이며, 바닥이나 Kinematic 바디이면 false입니다.
+         */
+        bool Begin(PhysicsRuntime::FPhysicsScene& Scene, const FRay& Ray, float MaxDistance);
+
+        /**
+         * @brief 마우스 광선에 맞춰 목표점을 옮기고 잡은 점을 목표점으로 끄는 힘을 가합니다. 물리 스텝 전에 호출합니다.
+         * @param[in] Ray 현재 마우스의 월드 광선입니다.
+         */
+        void Update(const FRay& Ray);
+
+        /**
+         * @brief 잡고 있던 바디를 놓습니다.
+         */
+        void End();
+
+        /**
+         * @brief 바디를 잡고 있는지 반환합니다.
+         * @return 잡고 있으면 true입니다.
+         */
+        bool IsActive() const;
+
+        /**
+         * @brief 잡은 점과 목표점의 월드 위치를 반환합니다.
+         * @param[out] OutGrabPoint 바디 위에서 잡은 점의 현재 월드 위치입니다.
+         * @param[out] OutTarget 마우스가 가리키는 목표점입니다.
+         * @return 잡고 있으면 true입니다.
+         */
+        bool GetEndpoints(FVector& OutGrabPoint, FVector& OutTarget) const;
+
+    private:
+
+        /**
+         * @brief PhysX Actor와 잡은 위치를 담는 구현이며 정의는 cpp에 있습니다.
+         */
+        struct FImpl;
+
+        /**
+         * @brief 잡고 있는 바디의 상태이며 잡고 있지 않으면 비어 있습니다.
+         */
+        std::unique_ptr<FImpl> mImpl{};
+    };
+
 }
