@@ -3,6 +3,9 @@
 #include "Engine/Particles/FParticleRenderData.h"
 #include "Engine/Particles/ParticleHelper.h"
 #include "Engine/Particles/Module/UParticleModuleSubUV.h"
+#include "Engine/Particles/Module/UParticleModuleEventGenerator.h"
+#include "Engine/AActor.h"
+#include "Engine/Component/UPrimitiveComponent.h"
 #include "Engine/Particles/UParticleEmitter.h"
 #include "Engine/Particles/UParticleLODLevel.h"
 #include "Engine/Particles/UParticleModule.h"
@@ -66,6 +69,7 @@ namespace Engine {
         mLoopCount = 0;
         mSpawningEnabled = true;
         mBurstFired.clear();
+        mEventCounters.clear();
         mBoundingBox = EmptyBox();
         mRandomStream.GenerateNewSeed();
         mSubUVDataOffset = 0;
@@ -156,8 +160,8 @@ namespace Engine {
         }
     }
 
-    void Engine::FParticleEmitterInstance::FillRenderData(Engine::FParticleRenderData& Out, Asset::UMaterial* Material) const {
-        if (mCurrentLODLevel == nullptr) {
+    void Engine::FParticleEmitterInstance::FillRenderData(Engine::FParticleRenderData& Out) const {
+        if (mCurrentLODLevel == nullptr || mComponent == nullptr) {
             return;
         }
 
@@ -169,7 +173,7 @@ namespace Engine {
         const FVector Scale{GetComponentScale()};
         Engine::FParticleSpriteBatch& Batch{Out.mSprites.emplace_back()};
 
-        Batch.mMaterial = Material;
+        Batch.mMaterial = mComponent->ResolveMaterial(Required.GetMaterialPath());
         Batch.mSortMode = Required.GetSortMode();
         Batch.mSubImagesHorizontal = SubUV ? Required.GetSubImagesHorizontal() : 1;
         Batch.mSubImagesVertical = SubUV ? Required.GetSubImagesVertical() : 1;
@@ -214,6 +218,94 @@ namespace Engine {
     void Engine::FParticleEmitterInstance::KillAllParticles() {
         // 인덱스 배열은 그대로 두면 빈 칸 목록으로 다시 쓰입니다.
         mActiveParticles = 0;
+    }
+
+    void Engine::FParticleEmitterInstance::ForceSpawn(Int32 Count, const FVector& WorldLocation, const FVector& WorldVelocity) {
+        if (Count <= 0 || !mSpawningEnabled || mCurrentLODLevel == nullptr || !mCurrentLODLevel->IsEnabled()) {
+            return;
+        }
+
+        // Spawn()과 같은 규칙으로 현재 LOD 상한과 메모리 한도 안에서만 만듭니다.
+        const Int32 LODLimit{GetLODLimit(*mCurrentLODLevel)};
+        const Int32 Needed{std::min(mActiveParticles + Count, LODLimit)};
+
+        if (Needed > mMaxActiveParticles) {
+            Resize(std::min({static_cast<Int32>(static_cast<float>(Needed) * 1.5f), LODLimit, MaxParticleSlots}));
+        }
+
+        Count = std::min(Count, std::max(std::min(mMaxActiveParticles, LODLimit) - mActiveParticles, 0));
+
+        if (Count > 0) {
+            SpawnParticles(Count, 0.0f, 0.0f, WorldToSimulation(WorldLocation), WorldToSimulationVector(WorldVelocity));
+        }
+    }
+
+    bool Engine::FParticleEmitterInstance::WantsEvent(Engine::EParticleEventType Type) const {
+        if (mComponent == nullptr || mCurrentLODLevel == nullptr) {
+            return false;
+        }
+
+        const Engine::UParticleModuleEventGenerator* Generator{mCurrentLODLevel->GetEventGenerator()};
+
+        return Generator != nullptr && Generator->IsEnabled() && Generator->HasEvent(Type);
+    }
+
+    void Engine::FParticleEmitterInstance::ReportCollisionEvent(const Engine::FBaseParticle& Particle, const FVector& WorldLocation, const FVector& WorldNormal, float Time, Engine::UPrimitiveComponent* HitComponent, bool FirstHit, bool LastHit) {
+        if (!WantsEvent(Engine::EParticleEventType::Collision)) {
+            return;
+        }
+
+        Engine::FParticleEventCollisionData Event{};
+
+        FillEventData(Event, Engine::EParticleEventType::Collision, Particle);
+        Event.mLocation = WorldLocation;
+        Event.mNormal = WorldNormal;
+        Event.mTime = Time;
+        Event.mParticleTime = Particle.mOneOverMaxLifetime > 0.0f ? Particle.mRelativeTime / Particle.mOneOverMaxLifetime : 0.0f;
+        Event.mHitComponent = HitComponent;
+        Event.mHitActor = HitComponent != nullptr ? HitComponent->GetOwner() : nullptr;
+        SendEvent(Event, &Engine::UParticleSystemComponent::ReportEventCollision, FirstHit, LastHit);
+    }
+
+    void Engine::FParticleEmitterInstance::FillEventData(Engine::FParticleEventData& Event, Engine::EParticleEventType Type, const Engine::FBaseParticle& Particle) const {
+        Event.mType = Type;
+        Event.mEmitterIndex = mComponent != nullptr ? mComponent->GetEmitterIndex(this) : -1;
+        Event.mEmitterTime = mEmitterTime;
+        Event.mLocation = SimulationToWorld(Particle.mLocation);
+        Event.mVelocity = SimulationToWorldVector(Particle.mVelocity);
+        Event.mDirection = Event.mVelocity.Normalized();
+    }
+
+    template <typename TEvent>
+    void Engine::FParticleEmitterInstance::SendEvent(TEvent& Event, void (Engine::UParticleSystemComponent::*Report)(const TEvent&), bool FirstHit, bool LastHit) {
+        const Engine::UParticleModuleEventGenerator* Generator{mCurrentLODLevel != nullptr ? mCurrentLODLevel->GetEventGenerator() : nullptr};
+
+        if (mComponent == nullptr || Generator == nullptr || !Generator->IsEnabled()) {
+            return;
+        }
+
+        const auto& Infos{Generator->GetEvents()};
+
+        if (mEventCounters.size() != Infos.size()) {
+            mEventCounters.assign(Infos.size(), 0);
+        }
+
+        // 같은 종류의 설정이 여러 개면 설정마다 하나씩, 이름이 다른 이벤트로 보냅니다.
+        for (Index_t Index{}; Index < Infos.size(); ++Index) {
+            const Engine::FParticleEventGeneratorInfo& Info{Infos[Index]};
+
+            if (Info.mType != Event.mType || (Event.mType == Engine::EParticleEventType::Collision && ((Info.mFirstTimeOnly && !FirstHit) || (Info.mLastTimeOnly && !LastHit)))) {
+                continue;
+            }
+
+            if ((mEventCounters[Index]++ % std::max(Info.mFrequency, 1)) != 0) {
+                continue;
+            }
+
+            Event.mEventName = Generator->GetEventName(Index);
+            Event.mCustomData = Info.mCustomData;
+            (mComponent->*Report)(Event);
+        }
     }
 
     FVector Engine::FParticleEmitterInstance::GetEmitterOrigin() const {
@@ -306,8 +398,22 @@ namespace Engine {
 
         for (Index_t Index{}; Index < Bursts.size(); ++Index) {
             if (mBurstFired[Index] == 0 && mEmitterTime >= Bursts[Index].mTime) {
-                Total += SpawnModule.GetBurstCount(Index, mRandomStream);
+                const Int32 Count{SpawnModule.GetBurstCount(Index, mRandomStream)};
+
+                Total += Count;
                 mBurstFired[Index] = 1;
+
+                if (WantsEvent(Engine::EParticleEventType::Burst)) {
+                    // 에미터 단위 이벤트라 위치는 에미터 원점입니다.
+                    Engine::FParticleEventBurstData Event{};
+
+                    Event.mType = Engine::EParticleEventType::Burst;
+                    Event.mEmitterIndex = mComponent->GetEmitterIndex(this);
+                    Event.mEmitterTime = mEmitterTime;
+                    Event.mLocation = mComponent->GetWorldMatrix().TransformPosition({});
+                    Event.mParticleCount = Count;
+                    SendEvent(Event, &Engine::UParticleSystemComponent::ReportEventBurst);
+                }
             }
         }
 
@@ -315,10 +421,21 @@ namespace Engine {
     }
 
     void Engine::FParticleEmitterInstance::KillParticles() {
+        const bool ReportDeath{WantsEvent(Engine::EParticleEventType::Death)};
+
         for (Int32 Index{mActiveParticles - 1}; Index >= 0; --Index) {
             const Engine::FBaseParticle* Particle{GetParticle(mParticleIndices[Index])};
 
             if (Particle->mRelativeTime > 1.0f) {
+                // 지운 칸은 다른 파티클이 다시 쓰므로 지우기 전에 값을 복사해 보냅니다.
+                if (ReportDeath) {
+                    Engine::FParticleEventDeathData Event{};
+
+                    FillEventData(Event, Engine::EParticleEventType::Death, *Particle);
+                    Event.mParticleTime = Particle->mOneOverMaxLifetime > 0.0f ? Particle->mRelativeTime / Particle->mOneOverMaxLifetime : 0.0f;
+                    SendEvent(Event, &Engine::UParticleSystemComponent::ReportEventDeath);
+                }
+
                 std::swap(mParticleIndices[Index], mParticleIndices[mActiveParticles - 1]);
                 --mActiveParticles;
             }
@@ -391,6 +508,8 @@ namespace Engine {
     }
 
     void Engine::FParticleEmitterInstance::SpawnParticles(Int32 Count, float StartTime, float Increment, const FVector& InitialLocation, const FVector& ExtraVelocity) {
+        const bool ReportSpawn{WantsEvent(Engine::EParticleEventType::Spawn)};
+
         for (Int32 Index{}; Index < Count; ++Index) {
             Engine::FBaseParticle& Particle{*GetParticle(mParticleIndices[mActiveParticles])};
             const float SpawnTime{StartTime - Increment * static_cast<float>(Index)};
@@ -408,6 +527,13 @@ namespace Engine {
             Particle.mBaseVelocity += ExtraVelocity;
             PostSpawn(Particle, SpawnTime);
             ++mActiveParticles;
+
+            if (ReportSpawn) {
+                Engine::FParticleEventSpawnData Event{};
+
+                FillEventData(Event, Engine::EParticleEventType::Spawn, Particle);
+                SendEvent(Event, &Engine::UParticleSystemComponent::ReportEventSpawn);
+            }
         }
     }
 

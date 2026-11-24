@@ -92,19 +92,19 @@ namespace Renderer {
 
         Commands.reserve(Scene.GetPrimitives().size());
 
-        for (const Renderer::FScenePrimitive& Primitive : Scene.GetPrimitives()) {
+        const auto AddPrimitive{[&](const Renderer::FScenePrimitive& Primitive) {
             if (Primitive.mProxy.mText.has_value() || Primitive.mProxy.mSprite.has_value() || !Includes(Primitive, Family) || !IsVisible(ViewProjection, Primitive.mProxy.mBounds)) {
-                continue;
+                return;
             }
 
             Asset::UStaticMesh* Mesh{Primitive.mProxy.mMesh != nullptr ? Primitive.mProxy.mMesh.Get() : (*mMeshes)[static_cast<Index_t>(Primitive.mProxy.mPrimitive)].get()};
 
             if (Primitive.mProxy.mSkeletalMesh != nullptr && (!Primitive.mSkinBuffer.IsCreated() || !Primitive.mProxy.mSkeletalMesh->CreateResources(mDevice))) {
-                continue;
+                return;
             }
 
             if (Mesh == nullptr || (!Mesh->HasResources() && !Mesh->CreateResources(mDevice)) || !Primitive.mObjectBuffer.IsCreated()) {
-                continue;
+                return;
             }
 
             const auto PreviousCount{Commands.size()};
@@ -113,6 +113,19 @@ namespace Renderer {
             if (Commands.size() != PreviousCount) {
                 ++Primitives;
             }
+        }};
+
+        for (const Renderer::FScenePrimitive& Primitive : Scene.GetPrimitives()) {
+            // 파티클 컴포넌트는 내장 메시로 그리지 않고 메시 파티클만 일반 메시처럼 그립니다.
+            if (Primitive.mProxy.mParticles != nullptr) {
+                for (const Renderer::FScenePrimitive& Particle : Primitive.mParticleMeshes) {
+                    AddPrimitive(Particle);
+                }
+
+                continue;
+            }
+
+            AddPrimitive(Primitive);
         }
 
         if (GetType() == Renderer::EMeshPass::TranslucencyMeshPass) {

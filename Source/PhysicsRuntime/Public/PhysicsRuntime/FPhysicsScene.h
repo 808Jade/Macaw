@@ -9,6 +9,8 @@
 #include "Core/Literals/QuantityTypes.h"
 
 #include "Core/Types.h"
+#include "Core/Math/FVector.h"
+#include "PhysicsRuntime/FBodyInstance.h"
 #include "PhysicsRuntime/FPhysicsContact.h"
 #include "PhysicsRuntime/FPhysXRelease.h"
 
@@ -106,6 +108,18 @@ namespace PhysicsRuntime {
          * @return 이 객체가 보관하는 값의 참조이며 다음 시뮬레이션 전까지 유효합니다.
          */
         const Core::TArray<PhysicsRuntime::FPhysicsContact>& GetContacts() const;
+
+        /**
+         * @brief 구를 이동 경로로 쓸어 Block 응답 형상 중 처음 막힌 지점을 찾습니다.
+         * @details 시작부터 겹친 형상은 법선을 믿을 수 없으므로 결과에서 뺍니다.
+         * @param[in] Start 구 중심의 시작 위치(m)입니다.
+         * @param[in] Delta 이동 벡터(m)입니다.
+         * @param[in] Radius 구 반지름(m)이며 0이면 광선으로 쏩니다.
+         * @param[out] OutHit 처음 막힌 지점의 정보입니다.
+         * @param[in] ShouldIgnore true를 반환한 바디를 제외하며, 비어 있으면 쓰지 않습니다.
+         * @return 막힌 지점이 있으면 true입니다.
+         */
+        bool SweepSphere(const FVector& Start, const FVector& Delta, float Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore = {}) const;
 
     private:
 

@@ -876,6 +876,14 @@ namespace Renderer {
             Core::ErrorHandler::Report("Renderer", "ParticleSprite.hlsl is missing from the project shaders; particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
         }
 
+        if (std::filesystem::is_regular_file(mShaderDirectory / "ParticleTrail.hlsl", ParticleShaderError)) {
+            if (!Compile("ParticleTrail.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("ParticleTrail.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateTrailShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+                return false;
+            }
+        } else {
+            Core::ErrorHandler::Report("Renderer", "ParticleTrail.hlsl is missing from the project shaders; beam and ribbon particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
+        }
+
         if (!Compile("PostProcess.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("PostProcess.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mPostProcessResources->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
             return false;
         }

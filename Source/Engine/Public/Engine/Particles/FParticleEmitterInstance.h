@@ -10,12 +10,9 @@
 #include "Core/Math/FBox.h"
 #include "Core/Math/FRandomStream.h"
 #include "Core/Math/FVector.h"
+#include "Engine/Particles/FParticleEventTypes.h"
 
 #include <cstdint>
-
-namespace Asset {
-    class UMaterial;
-}
 
 namespace Engine {
 
@@ -24,6 +21,7 @@ namespace Engine {
     class UParticleEmitter;
     class UParticleLODLevel;
     class UParticleSystemComponent;
+    class UPrimitiveComponent;
 
     /**
      * @brief 에미터 템플릿(캐시된 에셋)을 읽기만 하며 파티클을 생성·갱신·제거합니다.
@@ -68,9 +66,9 @@ namespace Engine {
 
         /**
          * @brief 살아 있는 파티클을 월드 공간 그리기 데이터로 바꿔 Out 끝에 붙입니다.
-         * @param Material 현재 LOD의 Required 머티리얼이며 없으면 nullptr입니다.
+         * @details 머티리얼·메시 경로는 소유 컴포넌트가 로드합니다.
          */
-        virtual void FillRenderData(Engine::FParticleRenderData& Out, Asset::UMaterial* Material) const;
+        virtual void FillRenderData(Engine::FParticleRenderData& Out) const;
 
         /**
          * @brief 루프를 모두 끝내 더 생성하지 않는 상태입니다.
@@ -83,9 +81,27 @@ namespace Engine {
         bool IsComplete() const;
 
         /**
-         * @brief 살아 있는 파티클을 모두 지웁니다.
+         * @brief 살아 있는 파티클을 모두 지웁니다. 소멸 이벤트는 보내지 않습니다.
          */
         void KillAllParticles();
+
+        /**
+         * @brief 이벤트 Receiver용입니다. 월드 위치에서 Count개를 바로 만들고 Spawn 모듈 속도 위에 WorldVelocity를 더합니다.
+         * @details 비활성화했거나 현재 LOD가 꺼졌으면 만들지 않으며, 현재 LOD 상한을 넘지 않습니다.
+         */
+        void ForceSpawn(Int32 Count, const FVector& WorldLocation, const FVector& WorldVelocity);
+
+        /**
+         * @brief 현재 LOD의 켜진 Generator가 이 종류를 내보내면 true입니다.
+         */
+        bool WantsEvent(Engine::EParticleEventType Type) const;
+
+        /**
+         * @brief 충돌 모듈이 충돌을 처리할 때 부릅니다. 위치와 법선은 월드 공간입니다.
+         * @param FirstHit 이 파티클의 첫 충돌이면 true입니다.
+         * @param LastHit 최대 충돌 횟수에 닿은 충돌이면 true입니다.
+         */
+        void ReportCollisionEvent(const Engine::FBaseParticle& Particle, const FVector& WorldLocation, const FVector& WorldNormal, float Time, Engine::UPrimitiveComponent* HitComponent, bool FirstHit, bool LastHit);
 
         /**
          * @brief 시뮬레이션 공간의 에미터 원점입니다. Local Space면 0입니다.
@@ -146,7 +162,7 @@ namespace Engine {
          * @param StartTime 첫 파티클의 생성 시점부터 프레임 끝까지 남은 시간(초)입니다.
          * @param Increment 파티클 사이 생성 간격(초)입니다.
          */
-        void SpawnParticles(Int32 Count, float StartTime, float Increment);
+        virtual void SpawnParticles(Int32 Count, float StartTime, float Increment);
 
         /**
          * @brief 기준 위치와 추가 속도(시뮬레이션 공간)로 Count개를 생성합니다.
@@ -168,6 +184,17 @@ namespace Engine {
         virtual float GetParticleRadius(const Engine::FBaseParticle& Particle) const;
 
         void FreeParticleMemory();
+
+        /**
+         * @brief 이벤트 공통 부분(에미터, 시간, 월드 위치·속도·방향)을 파티클로 채웁니다.
+         */
+        void FillEventData(Engine::FParticleEventData& Event, Engine::EParticleEventType Type, const Engine::FBaseParticle& Particle) const;
+
+        /**
+         * @brief Generator 설정마다 빈도와 첫·마지막 조건을 보고 이름을 붙여 컴포넌트에 보고합니다.
+         */
+        template <typename TEvent>
+        void SendEvent(TEvent& Event, void (Engine::UParticleSystemComponent::*Report)(const TEvent&), bool FirstHit = true, bool LastHit = true);
 
     private:
         /**
@@ -263,6 +290,11 @@ namespace Engine {
         Core::TArray<FParticleBlock> mParticleBlocks{};
 
         Core::TArray<std::uint16_t> mIndexStorage{};
+
+        /**
+         * @brief Generator 설정마다 지금까지 일어난 사건 수이며 빈도 판단에 씁니다.
+         */
+        Core::TArray<Int32> mEventCounters{};
     };
 
 }

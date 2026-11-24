@@ -15,6 +15,7 @@
 #include "Asset/USkeletalMesh.h"
 #include "FObjectConstants.h"
 #include "FScenePrimitive.h"
+#include "Engine/Particles/FParticleRenderData.h"
 #include "Core/Base/ErrorHandler.h"
 
 #include <algorithm>
@@ -279,6 +280,16 @@ namespace Renderer {
      * @brief 프리미티브의 객체 상수 버퍼를 현재 프록시 값으로 갱신합니다.
      */
     void Renderer::FScene::Upload(Renderer::FScenePrimitive& Primitive) {
+        // 파티클 컴포넌트 자체는 그리지 않으므로 상수 버퍼 없이 메시 파티클만 올립니다.
+        if (Primitive.mProxy.mParticles != nullptr) {
+            Primitive.mObjectBuffer.Reset();
+            UploadParticleMeshes(Primitive);
+
+            return;
+        }
+
+        Primitive.mParticleMeshes.clear();
+
         if (Primitive.mProxy.mText.has_value() || Primitive.mProxy.mSprite.has_value()) {
             Primitive.mObjectBuffer.Reset();
 
@@ -316,6 +327,46 @@ namespace Renderer {
     /**
      * @brief 객체별 본 행렬과 법선 변환을 구조화 버퍼에 반영합니다.
      */
+    void Renderer::FScene::UploadParticleMeshes(Renderer::FScenePrimitive& Primitive) {
+        const Engine::FParticleRenderData& Data{*Primitive.mProxy.mParticles};
+        Index_t Count{};
+
+        for (const Engine::FParticleMeshBatch& Batch : Data.mMeshes) {
+            Count += Batch.mMesh != nullptr ? Batch.mInstances.size() : 0;
+        }
+
+        // 크기를 맞추기만 해 이전 프레임의 상수 버퍼를 그대로 다시 씁니다.
+        Primitive.mParticleMeshes.resize(Count);
+
+        Index_t Next{};
+
+        for (const Engine::FParticleMeshBatch& Batch : Data.mMeshes) {
+            if (Batch.mMesh == nullptr) {
+                continue;
+            }
+
+            const FBox& MeshBounds{Batch.mMesh->GetBounds()};
+
+            for (const FMatrix& World : Batch.mInstances) {
+                Engine::FPrimitiveSceneProxy& Proxy{Primitive.mParticleMeshes[Next++].mProxy};
+
+                Proxy = Engine::FPrimitiveSceneProxy{};
+                Proxy.mId = Primitive.mProxy.mId;
+                Proxy.mWorld = World;
+                Proxy.mBounds = MeshBounds.Transformed(World);
+                Proxy.mMesh = Batch.mMesh;
+                Proxy.mMaterials = Batch.mMaterials;
+                // 매 프레임 움직이는 그림자는 그림자 타일 캐시를 계속 무효화하므로 드리우지 않습니다.
+                Proxy.mCastShadow = false;
+                Proxy.mReceivesDecals = false;
+            }
+        }
+
+        for (Renderer::FScenePrimitive& Particle : Primitive.mParticleMeshes) {
+            Upload(Particle);
+        }
+    }
+
     bool Renderer::FScene::UploadSkinning(Renderer::FScenePrimitive& Primitive) {
         if (Primitive.mProxy.mSkeletalMesh == nullptr) {
             Primitive.mSkinBuffer.Reset();

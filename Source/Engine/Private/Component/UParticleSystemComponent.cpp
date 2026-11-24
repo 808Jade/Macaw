@@ -8,11 +8,13 @@
 #include "Engine/Particles/UParticleLODLevel.h"
 #include "Engine/Particles/UParticleSystem.h"
 #include "Engine/Particles/Module/UParticleModuleRequired.h"
+#include "Engine/Particles/Module/UParticleModuleEventReceiverBase.h"
 #include "Engine/FPrimitiveSceneProxy.h"
 #include "Engine/UWorld.h"
 #include "Asset/FAssetManager.h"
 #include "Asset/FMeshData.h"
 #include "Asset/UMaterial.h"
+#include "Asset/UStaticMesh.h"
 #include "Core/FilePath.h"
 #include "Core/Log/Log.h"
 
@@ -85,6 +87,9 @@ namespace Engine {
         }
 
         mWasCompleted = false;
+
+        // 이전 템플릿에서 쌓인 이벤트를 새 인스턴스로 배달하지 않습니다.
+        ClearEvents();
 
         // 새 인스턴스는 LOD 0으로 시작하므로 지금 LOD를 다시 적용합니다.
         ApplyLODLevel(IsPreviewLODActive() ? mPreviewLODOverride : mLODLevel);
@@ -203,7 +208,13 @@ namespace Engine {
         }
 
         mWasCompleted = AllComplete;
+
+        // 모든 에미터 Tick이 끝난 뒤 배달해야 Receiver가 순회 중인 파티클 배열을 건드리지 않습니다.
+        DispatchEvents();
         UpdateRenderData();
+
+        // 게임 코드 콜백은 이 컴포넌트를 바꾸거나 파괴할 수 있으므로 맨 마지막입니다.
+        BroadcastGameEvents();
     }
 
     void Engine::UParticleSystemComponent::UnregisterComponent() {
@@ -271,6 +282,7 @@ namespace Engine {
     void Engine::UParticleSystemComponent::ResolveTemplate() {
         mTemplate.Reset();
         mMaterials.clear();
+        mMeshes.clear();
 
         Asset::FAssetManager* Assets{GetWorld() != nullptr ? GetWorld()->GetAssets() : nullptr};
 
@@ -378,11 +390,7 @@ namespace Engine {
             auto Data{std::make_shared<Engine::FParticleRenderData>()};
 
             for (const auto& Instance : mEmitterInstances) {
-                const Engine::UParticleLODLevel* Level{Instance->mCurrentLODLevel};
-
-                if (Level != nullptr) {
-                    Instance->FillRenderData(*Data, ResolveMaterial(Level->GetRequiredModule()->GetMaterialPath()));
-                }
+                Instance->FillRenderData(*Data);
             }
 
             mRenderData = std::move(Data);
@@ -417,6 +425,166 @@ namespace Engine {
         mMaterials.emplace(Path, Material);
 
         return Material;
+    }
+
+    Asset::UStaticMesh* Engine::UParticleSystemComponent::ResolveMesh(const Core::FString& Path) {
+        if (Path.empty()) {
+            return nullptr;
+        }
+
+        if (const auto Found{mMeshes.find(Path)}; Found != mMeshes.end()) {
+            return Found->second.Get();
+        }
+
+        Asset::FAssetManager* Assets{GetWorld() != nullptr ? GetWorld()->GetAssets() : nullptr};
+        Asset::UStaticMesh* Mesh{};
+
+        if (Assets != nullptr) {
+            Core::FString Error{};
+
+            Mesh = Assets->LoadMesh(Core::FilePath::FromUtf8(Path), Error);
+
+            if (Mesh == nullptr) {
+                MACAW_LOG(LogParticles, Warning, "Cannot load particle mesh '{}': {}", Path, Error);
+            }
+        }
+
+        mMeshes.emplace(Path, Mesh);
+
+        return Mesh;
+    }
+
+    void Engine::UParticleSystemComponent::ReportEventSpawn(const Engine::FParticleEventSpawnData& Event) {
+        mSpawnEvents.push_back(Event);
+    }
+
+    void Engine::UParticleSystemComponent::ReportEventDeath(const Engine::FParticleEventDeathData& Event) {
+        mDeathEvents.push_back(Event);
+    }
+
+    void Engine::UParticleSystemComponent::ReportEventCollision(const Engine::FParticleEventCollisionData& Event) {
+        mCollisionEvents.push_back(Event);
+    }
+
+    void Engine::UParticleSystemComponent::ReportEventBurst(const Engine::FParticleEventBurstData& Event) {
+        mBurstEvents.push_back(Event);
+    }
+
+    Engine::UParticleSystemComponent::FParticleSpawnDelegate& Engine::UParticleSystemComponent::GetOnParticleSpawn() {
+        return mOnParticleSpawn;
+    }
+
+    Engine::UParticleSystemComponent::FParticleDeathDelegate& Engine::UParticleSystemComponent::GetOnParticleDeath() {
+        return mOnParticleDeath;
+    }
+
+    Engine::UParticleSystemComponent::FParticleCollideDelegate& Engine::UParticleSystemComponent::GetOnParticleCollide() {
+        return mOnParticleCollide;
+    }
+
+    Engine::UParticleSystemComponent::FParticleBurstDelegate& Engine::UParticleSystemComponent::GetOnParticleBurst() {
+        return mOnParticleBurst;
+    }
+
+    void Engine::UParticleSystemComponent::DispatchEvents() {
+        // 지난 Tick에 배달한 목록이 이번 Tick 델리게이트로 다시 나가지 않게 먼저 비웁니다.
+        mDispatchingSpawnEvents.clear();
+        mDispatchingDeathEvents.clear();
+        mDispatchingCollisionEvents.clear();
+        mDispatchingBurstEvents.clear();
+
+        if (mSpawnEvents.empty() && mDeathEvents.empty() && mCollisionEvents.empty() && mBurstEvents.empty()) {
+            return;
+        }
+
+        // 배달할 목록을 꺼내고 버퍼를 비웁니다. 배달 중 새로 생긴 이벤트는 버퍼에 쌓여 다음 Tick에 배달됩니다.
+        mDispatchingSpawnEvents.swap(mSpawnEvents);
+        mDispatchingDeathEvents.swap(mDeathEvents);
+        mDispatchingCollisionEvents.swap(mCollisionEvents);
+        mDispatchingBurstEvents.swap(mBurstEvents);
+
+        for (const auto& Instance : mEmitterInstances) {
+            // 꺼진 LOD 레벨의 에미터는 이벤트를 받지 않습니다.
+            if (Instance->mCurrentLODLevel == nullptr || !Instance->mCurrentLODLevel->IsEnabled()) {
+                continue;
+            }
+
+            for (const Engine::UParticleModuleEventReceiverBase* Receiver : Instance->mCurrentLODLevel->GetEventReceivers()) {
+                if (!Receiver->IsEnabled()) {
+                    continue;
+                }
+
+                const auto Deliver{[&](const auto& Events) {
+                    for (const auto& Event : Events) {
+                        if (Receiver->WillProcessEvent(Event)) {
+                            Receiver->ProcessEvent(*Instance, Event);
+                        }
+                    }
+                }};
+
+                Deliver(mDispatchingSpawnEvents);
+                Deliver(mDispatchingDeathEvents);
+                Deliver(mDispatchingCollisionEvents);
+                Deliver(mDispatchingBurstEvents);
+            }
+        }
+    }
+
+    void Engine::UParticleSystemComponent::BroadcastGameEvents() {
+        if (!mOnParticleSpawn.IsBound() && !mOnParticleDeath.IsBound() && !mOnParticleCollide.IsBound() && !mOnParticleBurst.IsBound()) {
+            return;
+        }
+
+        // 콜백이 템플릿을 바꾸거나(버퍼를 비움) 액터를 파괴할 수 있으므로 보낼 목록을 지역 복사본으로 옮기고
+        // 콜백마다 이 컴포넌트가 아직 살아 있는지 확인합니다. 닿은 대상은 약한 참조라 파괴되면 비게 됩니다.
+        const auto Collisions{mDispatchingCollisionEvents};
+        const auto Spawns{mDispatchingSpawnEvents};
+        const auto Deaths{mDispatchingDeathEvents};
+        const auto Bursts{mDispatchingBurstEvents};
+        const CoreUObject::TObjectRef<Engine::UParticleSystemComponent> Self{this};
+
+        for (const auto& Event : Collisions) {
+            mOnParticleCollide.Broadcast(this, Event);
+
+            if (Self.Get() == nullptr) {
+                return;
+            }
+        }
+
+        for (const auto& Event : Spawns) {
+            mOnParticleSpawn.Broadcast(this, Event);
+
+            if (Self.Get() == nullptr) {
+                return;
+            }
+        }
+
+        for (const auto& Event : Deaths) {
+            mOnParticleDeath.Broadcast(this, Event);
+
+            if (Self.Get() == nullptr) {
+                return;
+            }
+        }
+
+        for (const auto& Event : Bursts) {
+            mOnParticleBurst.Broadcast(this, Event);
+
+            if (Self.Get() == nullptr) {
+                return;
+            }
+        }
+    }
+
+    void Engine::UParticleSystemComponent::ClearEvents() {
+        mSpawnEvents.clear();
+        mDeathEvents.clear();
+        mCollisionEvents.clear();
+        mBurstEvents.clear();
+        mDispatchingSpawnEvents.clear();
+        mDispatchingDeathEvents.clear();
+        mDispatchingCollisionEvents.clear();
+        mDispatchingBurstEvents.clear();
     }
 
 }

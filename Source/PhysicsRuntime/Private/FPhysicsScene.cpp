@@ -13,6 +13,7 @@
 #include "PhysicsRuntime/PhysicsStats.h"
 #include "Core/Log/Log.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace PhysicsRuntime {
@@ -280,6 +281,86 @@ namespace PhysicsRuntime {
      * @brief 시뮬레이션 도중 자세 전달 이벤트는 아직 사용하지 않습니다.
      */
     void PhysicsRuntime::FPhysicsScene::onAdvance(const physx::PxRigidBody* const*, const physx::PxTransform*, const physx::PxU32) {
+    }
+
+    namespace {
+
+        // 구 쓸기에서 Block 응답 형상만 받고 제외 조건에 맞는 바디는 거릅니다.
+        class FSphereSweepFilter final : public physx::PxQueryFilterCallback {
+        public:
+            explicit FSphereSweepFilter(const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore)
+                : mShouldIgnore{ShouldIgnore} {
+            }
+
+            physx::PxQueryHitType::Enum preFilter(const physx::PxFilterData&, const physx::PxShape* Shape, const physx::PxRigidActor* Actor, physx::PxHitFlags&) override {
+                if (Shape == nullptr || Actor == nullptr) {
+                    return physx::PxQueryHitType::eNONE;
+                }
+
+                const PhysicsRuntime::FBodyInstance* Body{PhysicsRuntime::FBodyInstance::FromPxActor(*Actor)};
+
+                if (Body == nullptr || (mShouldIgnore && mShouldIgnore(*Body))) {
+                    return physx::PxQueryHitType::eNONE;
+                }
+
+                // 시작부터 겹친 형상을 직접 거르려고 막힘도 터치로 받아 가장 가까운 것을 고릅니다.
+                return static_cast<PhysicsRuntime::ECollisionResponse>(Shape->getQueryFilterData().word0) == PhysicsRuntime::ECollisionResponse::Block ? physx::PxQueryHitType::eTOUCH : physx::PxQueryHitType::eNONE;
+            }
+
+            physx::PxQueryHitType::Enum postFilter(const physx::PxFilterData&, const physx::PxQueryHit&) override {
+                return physx::PxQueryHitType::eNONE;
+            }
+
+        private:
+            const PhysicsRuntime::FIgnoreBodyPredicate& mShouldIgnore;
+        };
+
+    }
+
+    bool PhysicsRuntime::FPhysicsScene::SweepSphere(const FVector& Start, const FVector& Delta, float Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore) const {
+        if (mScene == nullptr || !Start.IsFinite() || !Delta.IsFinite() || !std::isfinite(Radius)) {
+            return false;
+        }
+
+        const float Length{Delta.Length()};
+
+        if (Length <= 1.0e-6f) {
+            return false;
+        }
+
+        FSphereSweepFilter Callback{ShouldIgnore};
+        const physx::PxQueryFilterData Filter{physx::PxQueryFlag::eSTATIC | physx::PxQueryFlag::eDYNAMIC | physx::PxQueryFlag::ePREFILTER | physx::PxQueryFlag::eNO_BLOCK};
+        const physx::PxTransform Pose{PhysicsRuntime::ToPxVec3(Start)};
+        const physx::PxVec3 Direction{PhysicsRuntime::ToPxVec3(Delta / Length)};
+        Core::TArray<physx::PxSweepHit> Touches(64);
+        physx::PxSweepBuffer Buffer{Touches.data(), static_cast<physx::PxU32>(Touches.size())};
+
+        // 반지름이 0인 구는 PhysX가 받지 않으므로 아주 작은 값으로 올립니다.
+        const physx::PxSphereGeometry Sphere{std::max(Radius, 0.0001f)};
+
+        if (!mScene->sweep(Sphere, Pose, Direction, Length, Buffer, physx::PxHitFlag::eDEFAULT, Filter, &Callback)) {
+            return false;
+        }
+
+        bool Found{};
+
+        for (physx::PxU32 Index{}; Index < Buffer.getNbTouches(); ++Index) {
+            const physx::PxSweepHit& Touch{Buffer.getTouch(Index)};
+
+            if (Touch.hadInitialOverlap() || (Found && Touch.distance >= OutHit.mDistance)) {
+                continue;
+            }
+
+            Found = true;
+            OutHit.mBody = Touch.actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Touch.actor) : nullptr;
+            OutHit.mDistance = Touch.distance;
+            OutHit.mImpactPoint = PhysicsRuntime::ToFVector(Touch.position);
+            OutHit.mImpactNormal = PhysicsRuntime::ToFVector(Touch.normal);
+            OutHit.mPenetrationDepth = 0.0f;
+            OutHit.mStartPenetrating = false;
+        }
+
+        return Found;
     }
 
 }

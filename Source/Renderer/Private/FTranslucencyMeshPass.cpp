@@ -32,7 +32,8 @@ namespace Renderer {
 
     Uint32 Renderer::FTranslucencyMeshPass::Render(const Engine::FSceneViewFamily& Family, bool EditorIcons, const Renderer::FTranslucencyMeshPass::FRenderParameters& Parameters) {
         using FParticleBatch = const Engine::FParticleSpriteBatch*;
-        using FPrimitive = std::variant<const Engine::FPrimitiveSceneProxy*, Engine::FDrawText, std::size_t, FParticleBatch>;
+        using FParticleTrail = const Engine::FParticleTrailBatch*;
+        using FPrimitive = std::variant<const Engine::FPrimitiveSceneProxy*, Engine::FDrawText, std::size_t, FParticleBatch, FParticleTrail>;
         using FCommand = std::pair<float, FPrimitive>;
         Core::TArray<FCommand> Commands{};
         Core::TArray<Renderer::FMeshDrawCommand> MeshCommands{};
@@ -94,6 +95,12 @@ namespace Renderer {
                             Commands.emplace_back(Value, FPrimitive{&Batch});
                         }
                     }
+
+                    for (const Engine::FParticleTrailBatch& Batch : Proxy.mParticles->mTrails) {
+                        if (!Batch.mStripEnds.empty()) {
+                            Commands.emplace_back(Value, FPrimitive{&Batch});
+                        }
+                    }
                 } else if (Proxy.mSprite.has_value() && Family.mShowFlags.mSprites) {
                     Commands.emplace_back(Depth(Proxy.mWorld.TransformPosition({}), false), FPrimitive{&Proxy});
                 } else if (Proxy.mText.has_value() && Proxy.mText->mDepthTest && Family.mShowFlags.mText) {
@@ -145,6 +152,10 @@ namespace Renderer {
                 mContext->RSSetState(Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : Parameters.mRasterizer);
 
                 Drawn = Parameters.mParticleRenderer != nullptr && Parameters.mParticleRenderer->Draw(mContext, **Batch, Family.mView);
+            } else if (const auto* Trail{std::get_if<FParticleTrail>(&Command.second)}) {
+                mContext->RSSetState(Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : Parameters.mRasterizer);
+
+                Drawn = Parameters.mParticleRenderer != nullptr && Parameters.mParticleRenderer->DrawTrail(mContext, **Trail, Family.mView);
             } else if (const auto* MeshIndex{std::get_if<std::size_t>(&Command.second)}) {
                 const Renderer::FMeshDrawCommand& MeshCommand{MeshCommands[*MeshIndex]};
                 ID3D11RasterizerState* Rasterizer{Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : nullptr};

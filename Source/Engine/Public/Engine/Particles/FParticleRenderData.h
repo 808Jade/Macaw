@@ -7,11 +7,15 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Math/FMatrix.h"
+#include "Core/Math/FVector.h"
+#include "Core/Math/FVector4.h"
 #include "CoreUObject/TObjectRef.h"
 #include "Engine/Particles/Module/UParticleModuleRequired.h"
 
 namespace Asset {
     class UMaterial;
+    class UStaticMesh;
 }
 
 namespace Engine {
@@ -66,11 +70,78 @@ namespace Engine {
     };
 
     /**
-     * @brief 컴포넌트 하나의 그리기 데이터입니다. 배열 순서가 에미터 그리기 순서입니다.
+     * @brief 에미터 하나의 메시 파티클 묶음입니다. 렌더러는 파티클마다 일반 메시처럼 그립니다.
+     */
+    struct FParticleMeshBatch {
+    public:
+        /**
+         * @brief 파티클마다의 메시 로컬→월드 행렬(행 벡터 규약)입니다. 역행렬이 없는 행렬은 넣지 않습니다.
+         */
+        Core::TArray<FMatrix> mInstances{};
+
+        CoreUObject::TObjectRef<Asset::UStaticMesh> mMesh{};
+
+        /**
+         * @brief 메시 머티리얼 슬롯마다 쓸 머티리얼이며 비어 있는 슬롯은 기본 머티리얼로 그립니다.
+         */
+        Core::TArray<CoreUObject::TObjectRef<Asset::UMaterial>> mMaterials{};
+    };
+
+    /**
+     * @brief 빔·리본 띠의 한 점입니다. 위치는 월드 공간(m)입니다.
+     */
+    struct FParticleTrailPoint {
+    public:
+        FVector mPosition{};
+
+        FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
+
+        /**
+         * @brief 띠 폭의 절반(m)입니다.
+         */
+        float mHalfWidth{};
+
+        /**
+         * @brief 띠 길이 방향 텍스처 좌표입니다.
+         */
+        float mU{};
+    };
+
+    /**
+     * @brief 에미터 하나의 띠 묶음입니다. 띠 방향은 뷰마다 렌더러가 카메라를 향하게 만듭니다.
+     */
+    struct FParticleTrailBatch {
+    public:
+        /**
+         * @brief 모든 띠의 점을 이어 붙인 목록입니다.
+         */
+        Core::TArray<Engine::FParticleTrailPoint> mPoints{};
+
+        /**
+         * @brief 띠마다 mPoints에서 끝나는 위치(포함하지 않음)입니다.
+         */
+        Core::TArray<Uint32> mStripEnds{};
+
+        CoreUObject::TObjectRef<Asset::UMaterial> mMaterial{};
+
+        Engine::EParticleSortMode mSortMode{Engine::EParticleSortMode::None};
+
+        /**
+         * @brief 띠 하나를 축 둘레로 나눠 겹쳐 그릴 판 수입니다.
+         */
+        Uint32 mSheets{1};
+    };
+
+    /**
+     * @brief 컴포넌트 하나의 그리기 데이터입니다. 종류마다 배열 순서가 에미터 그리기 순서입니다.
      */
     struct FParticleRenderData {
     public:
         Core::TArray<Engine::FParticleSpriteBatch> mSprites{};
+
+        Core::TArray<Engine::FParticleMeshBatch> mMeshes{};
+
+        Core::TArray<Engine::FParticleTrailBatch> mTrails{};
     };
 
 }

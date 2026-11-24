@@ -3,6 +3,9 @@
 #include "Engine/Particles/Module/UParticleModuleRequired.h"
 #include "Engine/Particles/Module/UParticleModuleSpawn.h"
 #include "Engine/Particles/Module/UParticleModuleTypeDataBase.h"
+#include "Engine/Particles/Module/UParticleModuleEventGenerator.h"
+#include "Engine/Particles/Module/UParticleModuleEventReceiverBase.h"
+#include "CoreUObject/Reflection/Cast.h"
 #include "Core/Log/Log.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Serialization/JsonArchive.h"
@@ -41,6 +44,8 @@ namespace Engine {
     void Engine::UParticleLODLevel::UpdateModuleLists() {
         mSpawnModules.clear();
         mUpdateModules.clear();
+        mEventGenerator = nullptr;
+        mEventReceivers.clear();
 
         // 꺼진 모듈도 목록에 두고 실행할 때 IsEnabled를 봅니다.
         for (const auto& Module : mModules) {
@@ -50,6 +55,14 @@ namespace Engine {
 
             if (Module->IsUpdateModule()) {
                 mUpdateModules.push_back(Module.get());
+            }
+
+            if (mEventGenerator == nullptr) {
+                mEventGenerator = CoreUObject::Cast<Engine::UParticleModuleEventGenerator>(Module.get());
+            }
+
+            if (auto* Receiver{CoreUObject::Cast<Engine::UParticleModuleEventReceiverBase>(Module.get())}) {
+                mEventReceivers.push_back(Receiver);
             }
         }
     }
@@ -203,6 +216,14 @@ namespace Engine {
 
     const Core::TArray<Engine::UParticleModule*>& Engine::UParticleLODLevel::GetUpdateModules() const {
         return mUpdateModules;
+    }
+
+    Engine::UParticleModuleEventGenerator* Engine::UParticleLODLevel::GetEventGenerator() const {
+        return mEventGenerator;
+    }
+
+    const Core::TArray<Engine::UParticleModuleEventReceiverBase*>& Engine::UParticleLODLevel::GetEventReceivers() const {
+        return mEventReceivers;
     }
 
     void Engine::UParticleLODLevel::Serialize(Core::FArchive& Archive) {

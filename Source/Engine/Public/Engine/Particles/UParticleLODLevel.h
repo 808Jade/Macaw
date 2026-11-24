@@ -19,6 +19,8 @@ namespace Engine {
     class UParticleModuleRequired;
     class UParticleModuleSpawn;
     class UParticleModuleTypeDataBase;
+    class UParticleModuleEventGenerator;
+    class UParticleModuleEventReceiverBase;
 
     /**
      * @brief LOD 한 단계에서 실행할 모듈을 소유합니다.
@@ -111,6 +113,16 @@ namespace Engine {
          */
         const Core::TArray<Engine::UParticleModule*>& GetUpdateModules() const;
 
+        /**
+         * @brief 모듈 중 첫 이벤트 Generator입니다(꺼진 것 포함). 없으면 nullptr입니다.
+         */
+        Engine::UParticleModuleEventGenerator* GetEventGenerator() const;
+
+        /**
+         * @brief 모듈 중 이벤트 Receiver입니다(꺼진 것 포함).
+         */
+        const Core::TArray<Engine::UParticleModuleEventReceiverBase*>& GetEventReceivers() const;
+
         void Serialize(Core::FArchive& Archive) override;
 
     private:
@@ -133,6 +145,10 @@ namespace Engine {
         Core::TArray<Engine::UParticleModule*> mSpawnModules{};
 
         Core::TArray<Engine::UParticleModule*> mUpdateModules{};
+
+        Engine::UParticleModuleEventGenerator* mEventGenerator{};
+
+        Core::TArray<Engine::UParticleModuleEventReceiverBase*> mEventReceivers{};
     };
 
 }

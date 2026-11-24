@@ -177,6 +177,11 @@ namespace Renderer {
         void UploadCloth(Renderer::FScenePrimitive& Primitive);
 
         /**
+         * @brief 파티클 그리기 데이터의 메시 파티클을 자식 프리미티브로 올립니다. 이미 만든 상수 버퍼는 다시 씁니다.
+         */
+        void UploadParticleMeshes(Renderer::FScenePrimitive& Primitive);
+
+        /**
          * @brief 프록시가 그림자 깊이 패스에 그려지는 캐스터인지 검사합니다.
          * @param[in] Proxy 검사할 프리미티브 프록시입니다.
          * @return 그림자를 드리우는 메시 프리미티브이면 true입니다.

@@ -7,8 +7,10 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "CoreUObject/TDelegate.h"
 #include "CoreUObject/TObjectRef.h"
 #include "Engine/Component/UPrimitiveComponent.h"
+#include "Engine/Particles/FParticleEventTypes.h"
 
 #include <memory>
 
@@ -16,6 +18,7 @@
 
 namespace Asset {
     class UMaterial;
+    class UStaticMesh;
 }
 
 namespace Engine {
@@ -31,6 +34,15 @@ namespace Engine {
     UCLASS()
     class UParticleSystemComponent final : public Engine::UPrimitiveComponent {
         GENERATED_BODY()
+
+    public:
+        using FParticleSpawnDelegate = CoreUObject::TDelegate<Engine::UParticleSystemComponent*, const Engine::FParticleEventSpawnData&>;
+
+        using FParticleDeathDelegate = CoreUObject::TDelegate<Engine::UParticleSystemComponent*, const Engine::FParticleEventDeathData&>;
+
+        using FParticleCollideDelegate = CoreUObject::TDelegate<Engine::UParticleSystemComponent*, const Engine::FParticleEventCollisionData&>;
+
+        using FParticleBurstDelegate = CoreUObject::TDelegate<Engine::UParticleSystemComponent*, const Engine::FParticleEventBurstData&>;
 
     public:
         UParticleSystemComponent();
@@ -126,6 +138,40 @@ namespace Engine {
          */
         Engine::FPrimitiveSceneProxy CreateSceneProxy() const override;
 
+        /**
+         * @brief 에미터가 쓰는 머티리얼 경로를 로드합니다. 한 번 찾은 결과(실패 포함)는 이 컴포넌트가 기억합니다.
+         * @return 경로가 비었거나 로드에 실패하면 nullptr입니다.
+         */
+        Asset::UMaterial* ResolveMaterial(const Core::FString& Path);
+
+        /**
+         * @brief 메시 에미터가 쓰는 메시 경로를 로드합니다. 한 번 찾은 결과(실패 포함)는 이 컴포넌트가 기억합니다.
+         * @return 경로가 비었거나 로드에 실패하면 nullptr입니다.
+         */
+        Asset::UStaticMesh* ResolveMesh(const Core::FString& Path);
+
+        /**
+         * @brief 에미터 인스턴스가 이벤트를 보고합니다. 모든 에미터 Tick이 끝난 뒤 한꺼번에 배달합니다.
+         */
+        void ReportEventSpawn(const Engine::FParticleEventSpawnData& Event);
+
+        void ReportEventDeath(const Engine::FParticleEventDeathData& Event);
+
+        void ReportEventCollision(const Engine::FParticleEventCollisionData& Event);
+
+        void ReportEventBurst(const Engine::FParticleEventBurstData& Event);
+
+        /**
+         * @brief Generator가 낸 이벤트를 게임 코드가 받는 델리게이트입니다. Tick 맨 끝에 부릅니다.
+         */
+        FParticleSpawnDelegate& GetOnParticleSpawn();
+
+        FParticleDeathDelegate& GetOnParticleDeath();
+
+        FParticleCollideDelegate& GetOnParticleCollide();
+
+        FParticleBurstDelegate& GetOnParticleBurst();
+
     private:
         void OnRegister() override;
 
@@ -162,10 +208,17 @@ namespace Engine {
         void UpdateRenderData();
 
         /**
-         * @brief 에미터 머티리얼 경로를 로드합니다. 한 번 찾은 결과는 이 컴포넌트가 기억합니다.
-         * @return 경로가 비었거나 로드에 실패하면 nullptr입니다.
+         * @brief 모인 이벤트를 각 에미터의 Receiver에 배달하고 버퍼를 비웁니다.
+         * @details 배달 중 새로 생긴 이벤트는 다음 Tick에 배달합니다. 서로 부르는 설정이어도 한 프레임에 한 단계만 진행합니다.
          */
-        Asset::UMaterial* ResolveMaterial(const Core::FString& Path);
+        void DispatchEvents();
+
+        /**
+         * @brief 이번 Tick에 배달한 이벤트를 게임 코드 델리게이트로 보냅니다. 콜백이 이 컴포넌트를 바꾸거나 파괴할 수 있어 맨 마지막에 부릅니다.
+         */
+        void BroadcastGameEvents();
+
+        void ClearEvents();
 
     private:
         UPROPERTY(Edit, Serialize, Category = "Particles", Name = "Template", Meta = (AssetType = "ParticleSystem", EmptyLabel = "None"), Getter = GetTemplatePath, Setter = SetTemplatePath)
@@ -205,6 +258,38 @@ namespace Engine {
          * @brief 경로별로 찾은 에미터 머티리얼이며 실패한 경로는 nullptr로 남깁니다.
          */
         Core::TMap<Core::FString, CoreUObject::TObjectRef<Asset::UMaterial>> mMaterials{};
+
+        /**
+         * @brief 경로별로 찾은 메시이며 실패한 경로는 nullptr로 남깁니다.
+         */
+        Core::TMap<Core::FString, CoreUObject::TObjectRef<Asset::UStaticMesh>> mMeshes{};
+
+        Core::TArray<Engine::FParticleEventSpawnData> mSpawnEvents{};
+
+        Core::TArray<Engine::FParticleEventDeathData> mDeathEvents{};
+
+        Core::TArray<Engine::FParticleEventCollisionData> mCollisionEvents{};
+
+        Core::TArray<Engine::FParticleEventBurstData> mBurstEvents{};
+
+        /**
+         * @brief 이번 Tick에 Receiver로 배달했고 델리게이트로 보낼 이벤트입니다.
+         */
+        Core::TArray<Engine::FParticleEventSpawnData> mDispatchingSpawnEvents{};
+
+        Core::TArray<Engine::FParticleEventDeathData> mDispatchingDeathEvents{};
+
+        Core::TArray<Engine::FParticleEventCollisionData> mDispatchingCollisionEvents{};
+
+        Core::TArray<Engine::FParticleEventBurstData> mDispatchingBurstEvents{};
+
+        FParticleSpawnDelegate mOnParticleSpawn{};
+
+        FParticleDeathDelegate mOnParticleDeath{};
+
+        FParticleCollideDelegate mOnParticleCollide{};
+
+        FParticleBurstDelegate mOnParticleBurst{};
     };
 
 }
