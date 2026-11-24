@@ -52,7 +52,7 @@ namespace Renderer {
         FVector4 mFogDistances{};
 
         /**
-         * @brief X는 후처리 패스 번호이며 Y는 조리개 변의 수입니다. 원형은 Y가 0입니다.
+         * @brief X는 후처리 패스 번호, Y는 조리개 변의 수(원형은 0), ZW는 Near·Far 블러 비활성화 여부입니다.
          */
         FVector4 mSettings{};
 

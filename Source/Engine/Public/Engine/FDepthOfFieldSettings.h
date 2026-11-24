@@ -48,6 +48,12 @@ namespace Engine {
 
         UPROPERTY(Edit, Serialize)
         Engine::EDepthOfFieldApertureShape mApertureShape{Engine::EDepthOfFieldApertureShape::Circle};
+
+        UPROPERTY(Edit, Serialize)
+        bool mNearBlur{true};
+
+        UPROPERTY(Edit, Serialize)
+        bool mFarBlur{true};
     };
 
 }

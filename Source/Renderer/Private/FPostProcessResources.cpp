@@ -134,7 +134,11 @@ namespace Renderer {
             }
         }
 
-        if (mCompositeDepthOfField != nullptr && Family.mShowFlags.mDepthOfField && DepthOfField.mEnabled && BlurRadius > 0.0f &&
+        Constants.mSettings.z = DepthOfField.mNearBlur ? 0.0f : 1.0f;
+        Constants.mSettings.w = DepthOfField.mFarBlur ? 0.0f : 1.0f;
+
+        if (mCompositeDepthOfField != nullptr && Family.mShowFlags.mDepthOfField && DepthOfField.mEnabled &&
+            (DepthOfField.mNearBlur || DepthOfField.mFarBlur) && BlurRadius > 0.0f &&
             !Family.mView.mOrthographic && !Visualization && Family.mViewMode != Engine::EViewMode::Wireframe) {
             switch (DepthOfField.mApertureShape) {
             case Engine::EDepthOfFieldApertureShape::Pentagon:

@@ -39,10 +39,12 @@ float ApertureSampleCoverage(float X, float HalfWidth) {
 
 float2 GetLayerWeights(float Depth) {
     if (Depth >= 1.0f) {
-        return float2(0.0f, 1.0f);
+        return float2(0.0f, 1.0f - Settings.w);
     }
 
-    return ComputeDepthOfFieldWeights(ReconstructViewDepth(Depth), DepthOfFieldParameters.x, DepthOfFieldParameters.y, DepthOfFieldParameters.z);
+    const float2 Weights = {ComputeDepthOfFieldWeights(ReconstructViewDepth(Depth), DepthOfFieldParameters.x, DepthOfFieldParameters.y, DepthOfFieldParameters.z)};
+
+    return Weights * (1.0f - Settings.zw);
 }
 
 FDepthOfFieldLayers SeparateDepthOfField(FVertexOutput Input) {

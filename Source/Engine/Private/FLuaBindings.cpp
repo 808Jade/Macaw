@@ -117,6 +117,8 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     DepthOfField["MaxBlurRadius"] = &Engine::FDepthOfFieldSettings::mMaxBlurRadius;
     DepthOfField["FStop"] = &Engine::FDepthOfFieldSettings::mFStop;
     DepthOfField["ApertureShape"] = &Engine::FDepthOfFieldSettings::mApertureShape;
+    DepthOfField["NearBlur"] = &Engine::FDepthOfFieldSettings::mNearBlur;
+    DepthOfField["FarBlur"] = &Engine::FDepthOfFieldSettings::mFarBlur;
 
     auto Hit{Lua.new_usertype<Engine::FHitResult>("HitResult", sol::no_constructor)};
     Hit["BlockingHit"] = sol::readonly(&Engine::FHitResult::mBlockingHit);

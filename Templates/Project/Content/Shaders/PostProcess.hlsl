@@ -43,7 +43,7 @@ cbuffer PostProcessConstants : register(b0) {
     float4 FogDistances;
 
     /**
-     * @brief X는 후처리 패스 번호이며 Y는 조리개 변의 수입니다. 원형은 Y가 0입니다.
+     * @brief X는 후처리 패스 번호, Y는 조리개 변의 수(원형은 0), ZW는 Near·Far 블러 비활성화 여부입니다.
      */
     float4 Settings;
 
@@ -244,8 +244,9 @@ float4 PixelMain(FVertexOutput Input) : SV_TARGET {
 
         float ViewDepth = {ReconstructViewDepth(Depth)};
         float2 Weights = {ComputeDepthOfFieldWeights(ViewDepth, DepthOfFieldParameters.x, DepthOfFieldParameters.y, DepthOfFieldParameters.z)};
+        const float2 EnabledWeights = {Weights * (1.0f - Settings.zw)};
 
-        return float4(Weights.x, 1.0f - max(Weights.x, Weights.y), Weights.y, 1.0f);
+        return float4(EnabledWeights.x, 1.0f - max(Weights.x, Weights.y), EnabledWeights.y, 1.0f);
     }
 
     return Color;
