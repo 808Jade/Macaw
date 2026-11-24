@@ -12,6 +12,7 @@
 #include "Asset/Import/FMeshImportBone.h"
 #include "Asset/USkeletalMesh.h"
 #include "Asset/USkeleton.h"
+#include "Core/Literals.h"
 #include "Core/Math/FRay.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "PhysicsRuntime/FBodyInstance.h"
@@ -24,16 +25,17 @@
 #include <algorithm>
 #include <utility>
 
+using namespace Core::Literals;
 using namespace Editor::PhysicsAssetEditing;
 
 namespace {
     /**
      * @brief 새로 추가하는 항목의 기본 크기이며 단위는 m입니다.
      */
-    constexpr float DefaultSphereRadius{0.05f};
+    constexpr Core::FLength DefaultSphereRadius{5_cm};
     constexpr float DefaultBoxHalfExtent{0.05f};
-    constexpr float DefaultCapsuleRadius{0.04f};
-    constexpr float DefaultCapsuleLength{0.15f};
+    constexpr Core::FLength DefaultCapsuleRadius{4_cm};
+    constexpr Core::FLength DefaultCapsuleLength{15_cm};
 }
 
 Index_t Editor::PhysicsAssetEditing::GetShapeCount(const PhysicsRuntime::UBodySetup& Setup, EShapeType Type) {
