@@ -207,6 +207,14 @@ namespace PhysicsRuntime {
         bool SetAngularVelocity(const FVector& Velocity);
 
         /**
+         * @brief 바디의 현재 자세에서 각 형상과 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+         * @param[out] OutOverlaps 겹친 바디 인스턴스의 비소유 주소 목록이며, 중복 없이 채웁니다.
+         * @return 바디가 있어 쿼리를 수행했으면 true입니다.
+         * @note 시뮬레이션과 무관한 장면 쿼리이므로 정적 바디끼리도 찾습니다. 자기 강체는 제외하고, FBodyInstance가 만들지 않은 강체는 무시합니다.
+         */
+        bool OverlapMulti(Core::TArray<FBodyInstance*>& OutOverlaps) const;
+
+        /**
          * @brief PhysX 강체에서 그 강체를 만든 바디 인스턴스를 찾습니다.
          * @param[in] Actor 조회할 PhysX 강체입니다.
          * @return 바디 인스턴스의 비소유 주소이며, userData가 비어 있으면 nullptr입니다.

@@ -332,6 +332,14 @@ namespace Engine {
         const PhysicsRuntime::UBodySetup* GetBodySetup() const override;
 
         /**
+         * @brief 뼈별 바디가 현재 자세에서 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+         * @param[out] OutOverlaps 겹친 바디 인스턴스의 비소유 주소 목록이며, 중복 없이 채웁니다.
+         * @return 쿼리할 바디가 하나라도 있어 쿼리를 수행했으면 true입니다.
+         * @note 뼈별 바디가 없으면 메시 전체 바디로 쿼리합니다. 결과에는 이 컴포넌트의 다른 뼈 바디가 들어 있을 수 있습니다.
+         */
+        bool ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const override;
+
+        /**
          * @brief 물리 에셋이나 메시 경계 바디 셋업이 있으면 물리 상태가 필요하다고 판단합니다.
          * @return 뼈별 바디나 메시 전체 바디를 만들 수 있으면 true입니다.
          */

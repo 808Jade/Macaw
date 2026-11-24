@@ -19,6 +19,13 @@
 namespace Engine {
 
     /**
+     * @brief 겹침 이벤트를 켠 기본 상태로 구성합니다.
+     */
+    Engine::UShapeComponent::UShapeComponent() {
+        SetGenerateOverlapEvents(true);
+    }
+
+    /**
      * @brief 현재 표시·에셋 상태에서 렌더 프록시를 생성할지 판정합니다.
      */
     bool Engine::UShapeComponent::ShouldCreateRenderState() const {

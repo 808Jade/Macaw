@@ -31,6 +31,11 @@ namespace Engine {
 
     public:
         /**
+         * @brief 겹침 이벤트를 켠 기본 상태로 구성합니다.
+         */
+        UShapeComponent();
+
+        /**
          * @brief 충돌 형상의 로컬 축 정렬 경계를 계산합니다.
          * @return 계산하거나 조회한 값입니다.
          */

@@ -14,6 +14,9 @@
 #include "Engine/EWorldPlayState.h"
 #include "Engine/FWorldHandle.h"
 #include "Engine/Tick/FTickTaskManager.h"
+
+#include <utility>
+
 #include "UWorld.generated.h"
 
 namespace Asset {
@@ -451,6 +454,12 @@ namespace Engine {
         void DispatchPhysicsResults();
 
         /**
+         * @brief 겹침 이벤트를 켠 컴포넌트의 바디 겹침을 장면 쿼리로 갱신하고 시작과 끝 이벤트를 전달합니다.
+         * @note 두 컴포넌트가 모두 겹침 이벤트를 켜고 서로 다른 액터에 속할 때만 이벤트를 보냅니다.
+         */
+        void UpdateOverlaps();
+
+        /**
          * @brief 가장 바깥 전달 범위 이후 종료 요청과 액터 삭제 및 월드 종료를 처리합니다.
          */
         void FlushPendingActors();
@@ -578,6 +587,11 @@ namespace Engine {
          * @brief 프레임 말 갱신을 기다리는 컴포넌트 핸들입니다.
          */
         Core::TArray<CoreUObject::TObjectRef<Engine::UPrimitiveComponent>> mDirtyComponents{};
+
+        /**
+         * @brief 지난 갱신에서 겹쳐 있던 컴포넌트 쌍이며, 주소가 작은 컴포넌트가 앞에 옵니다.
+         */
+        Core::TArray<std::pair<CoreUObject::TObjectRef<Engine::UPrimitiveComponent>, CoreUObject::TObjectRef<Engine::UPrimitiveComponent>>> mOverlaps{};
 
         /**
          * @brief 가장 바깥 콜백 전달 종료 후 제거할 액터 핸들입니다.

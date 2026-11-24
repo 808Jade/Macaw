@@ -46,6 +46,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <utility>
 
@@ -212,6 +213,7 @@ namespace Engine {
 
         mPhysicsScene.reset();
         mPhysicsTimeAccumulator = 0.0f;
+        mOverlaps.clear();
     }
 
     /**
@@ -931,7 +933,11 @@ namespace Engine {
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::EndPhysics);
         mTickTaskManager.RunTickGroup(Engine::ETickingGroup::PostPhysics);
 
-        // 카메라는 이번 프레임의 이동과 물리 처리가 모두 끝난 뒤에 갱신합니다.
+        if (!EditorTick && !mEndPlayRequested && !mShutdownRequested) {
+            UpdateOverlaps();
+        }
+
+        // 카메라는 이번 프레임의 이동과 겹침 처리가 모두 끝난 뒤에 갱신합니다.
         if (Engine::APlayerCameraManager* CameraManager{GetPlayerCameraManager()}; !EditorTick && !mEndPlayRequested && !mShutdownRequested && CameraManager != nullptr) {
             CameraManager->UpdateCamera(DeltaTime);
         }
@@ -945,6 +951,88 @@ namespace Engine {
         }
 
         return true;
+    }
+
+    /**
+     * @brief 겹침 이벤트를 켠 컴포넌트의 바디 겹침을 장면 쿼리로 갱신하고 시작과 끝 이벤트를 전달합니다.
+     */
+    void Engine::UWorld::UpdateOverlaps() {
+        using FOverlapPair = std::pair<CoreUObject::TObjectRef<Engine::UPrimitiveComponent>, CoreUObject::TObjectRef<Engine::UPrimitiveComponent>>;
+
+        Core::TArray<FOverlapPair> Current{};
+
+        if (mPhysicsScene != nullptr && mPersistentLevel != nullptr) {
+            Core::TArray<PhysicsRuntime::FBodyInstance*> Bodies{};
+
+            for (const auto& Actor : mPersistentLevel->GetActors()) {
+                if (Actor->IsPendingDestroy()) {
+                    continue;
+                }
+
+                for (const auto& Component : Actor->GetComponents()) {
+                    auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(Component.get())};
+
+                    if (Primitive == nullptr || !Primitive->GetGenerateOverlapEvents() || !Primitive->ComponentOverlapMulti(Bodies)) {
+                        continue;
+                    }
+
+                    for (const PhysicsRuntime::FBodyInstance* Body : Bodies) {
+                        Engine::UPrimitiveComponent* Other{Body->GetOwnerComponent()};
+
+                        if (Other == nullptr || Other == Primitive || !Other->GetGenerateOverlapEvents() || Other->GetOwner() == Primitive->GetOwner()) {
+                            continue;
+                        }
+
+                        // 두 컴포넌트의 쿼리에서 같은 쌍이 나오므로 순서를 고정해 한 번만 남깁니다.
+                        FOverlapPair Pair{std::less<>{}(Primitive, Other) ? FOverlapPair{Primitive, Other} : FOverlapPair{Other, Primitive}};
+
+                        if (std::find(Current.begin(), Current.end(), Pair) == Current.end()) {
+                            Current.push_back(std::move(Pair));
+                        }
+                    }
+                }
+            }
+        }
+
+        const auto Contains{[](const auto& Pairs, const auto& Pair) {
+            return std::find(Pairs.begin(), Pairs.end(), Pair) != Pairs.end();
+        }};
+        const auto Resolve{[](CoreUObject::TObjectRef<Engine::UPrimitiveComponent> Handle) {
+            return CoreUObject::Cast<Engine::UPrimitiveComponent>(Handle.Get());
+        }};
+
+        // 이벤트 안에서 액터가 파괴될 수 있으므로 호출할 때마다 핸들을 다시 해석합니다.
+        const auto Previous{std::exchange(mOverlaps, Current)};
+
+        for (const auto& Pair : Previous) {
+            if (!Contains(Current, Pair)) {
+                if (Engine::UPrimitiveComponent* Primitive{Resolve(Pair.first)}) {
+                    Primitive->OnEndOverlap(Resolve(Pair.second));
+                }
+
+                if (Engine::UPrimitiveComponent* Primitive{Resolve(Pair.second)}) {
+                    Primitive->OnEndOverlap(Resolve(Pair.first));
+                }
+            }
+        }
+
+        for (const auto& Pair : Current) {
+            if (!Contains(Previous, Pair)) {
+                Engine::UPrimitiveComponent* First{Resolve(Pair.first)};
+                Engine::UPrimitiveComponent* Second{Resolve(Pair.second)};
+
+                if (First != nullptr && Second != nullptr) {
+                    First->OnBeginOverlap(Second);
+                }
+
+                First = Resolve(Pair.first);
+                Second = Resolve(Pair.second);
+
+                if (First != nullptr && Second != nullptr) {
+                    Second->OnBeginOverlap(First);
+                }
+            }
+        }
     }
 
     /**

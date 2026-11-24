@@ -1002,6 +1002,36 @@ namespace Engine {
     }
 
     /**
+     * @brief 뼈별 바디가 현재 자세에서 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+     */
+    bool USkeletalMeshComponent::ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const {
+        if (mBodies.empty()) {
+            return Engine::UMeshComponent::ComponentOverlapMulti(OutOverlaps);
+        }
+
+        OutOverlaps.clear();
+
+        Core::TArray<PhysicsRuntime::FBodyInstance*> BodyOverlaps{};
+        bool Queried{};
+
+        for (const auto& Body : mBodies) {
+            if (Body == nullptr || !Body->OverlapMulti(BodyOverlaps)) {
+                continue;
+            }
+
+            Queried = true;
+
+            for (PhysicsRuntime::FBodyInstance* Other : BodyOverlaps) {
+                if (std::find(OutOverlaps.begin(), OutOverlaps.end(), Other) == OutOverlaps.end()) {
+                    OutOverlaps.push_back(Other);
+                }
+            }
+        }
+
+        return Queried;
+    }
+
+    /**
      * @brief 재등록 때 재해석하도록 에셋 참조를 해제합니다.
      */
     void USkeletalMeshComponent::UnregisterComponent() {

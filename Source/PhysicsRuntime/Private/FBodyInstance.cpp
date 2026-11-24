@@ -15,6 +15,7 @@
 
 #include <PxPhysicsAPI.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace PhysicsRuntime {
@@ -332,6 +333,52 @@ namespace PhysicsRuntime {
      */
     PhysicsRuntime::FBodyInstance* PhysicsRuntime::FBodyInstance::FromPxActor(const physx::PxActor& Actor) {
         return static_cast<FBodyInstance*>(Actor.userData);
+    }
+
+    /**
+     * @brief 바디의 현재 자세에서 각 형상과 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+     */
+    bool PhysicsRuntime::FBodyInstance::OverlapMulti(Core::TArray<FBodyInstance*>& OutOverlaps) const {
+        OutOverlaps.clear();
+
+        if (mActor == nullptr || mScene == nullptr || mScene->GetScene() == nullptr) {
+            return false;
+        }
+
+        Core::TArray<physx::PxShape*> Shapes(mActor->getNbShapes());
+        mActor->getShapes(Shapes.data(), static_cast<physx::PxU32>(Shapes.size()));
+
+        const physx::PxTransform ActorPose{mActor->getGlobalPose()};
+        // 막는 결과 없이 겹친 강체를 모두 터치로 받습니다.
+        const physx::PxQueryFilterData Filter{physx::PxQueryFlag::eSTATIC | physx::PxQueryFlag::eDYNAMIC | physx::PxQueryFlag::eNO_BLOCK};
+        Core::TArray<physx::PxOverlapHit> Touches(256);
+
+        for (const physx::PxShape* Shape : Shapes) {
+            if (!Shape->getFlags().isSet(physx::PxShapeFlag::eSCENE_QUERY_SHAPE)) {
+                continue;
+            }
+
+            const physx::PxGeometryHolder Geometry{Shape->getGeometry()};
+            physx::PxOverlapBuffer Buffer{Touches.data(), static_cast<physx::PxU32>(Touches.size())};
+
+            if (!mScene->GetScene()->overlap(Geometry.any(), ActorPose * Shape->getLocalPose(), Buffer, Filter)) {
+                continue;
+            }
+
+            for (physx::PxU32 Index{}; Index < Buffer.getNbTouches(); ++Index) {
+                const physx::PxRigidActor* OtherActor{Buffer.getTouch(Index).actor};
+
+                if (OtherActor == nullptr || OtherActor == mActor.get()) {
+                    continue;
+                }
+
+                if (FBodyInstance* Other{FromPxActor(*OtherActor)}; Other != nullptr && std::find(OutOverlaps.begin(), OutOverlaps.end(), Other) == OutOverlaps.end()) {
+                    OutOverlaps.push_back(Other);
+                }
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -244,6 +244,19 @@ namespace Engine {
         FHitDelegate& GetOnComponentHit();
 
         /**
+         * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만드는지 반환합니다.
+         * @return 겹침 이벤트를 만들면 true입니다.
+         */
+        bool GetGenerateOverlapEvents() const;
+
+        /**
+         * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만들지 설정합니다.
+         * @param[in] Generate 겹침 이벤트를 만들려면 true입니다.
+         * @note 두 컴포넌트가 모두 켜져 있어야 이벤트가 오갑니다. 끄면 다음 겹침 갱신에서 겹침 종료 이벤트가 나갑니다.
+         */
+        void SetGenerateOverlapEvents(bool Generate);
+
+        /**
          * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
          * @param[in] Other 겹치기 시작한 상대 컴포넌트입니다.
          */
@@ -275,6 +288,15 @@ namespace Engine {
          * @note 반환한 바디 셋업은 물리 상태가 유지되는 동안 살아 있어야 합니다.
          */
         virtual const PhysicsRuntime::UBodySetup* GetBodySetup() const;
+
+        /**
+         * @brief 이 컴포넌트의 바디가 현재 자세에서 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+         * @param[out] OutOverlaps 겹친 바디 인스턴스의 비소유 주소 목록이며, 중복 없이 채웁니다.
+         * @return 쿼리할 바디가 있어 쿼리를 수행했으면 true입니다.
+         * @note 기본 구현은 컴포넌트 대표 바디 하나로 쿼리합니다. 바디를 여러 개 가진 컴포넌트는 재정의합니다.
+         *       결과에는 이 컴포넌트가 가진 다른 바디가 들어 있을 수 있습니다.
+         */
+        virtual bool ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const;
 
         /**
          * @brief 물리 시뮬레이션 설정과 실제 바디를 가진 바디 인스턴스를 반환합니다.
@@ -443,6 +465,12 @@ namespace Engine {
          * @brief 현재 UV 변환을 제어하는 컴포넌트 핸들입니다.
          */
         CoreUObject::TObjectRef<CoreUObject::UObject> mUVSource{};
+
+        /**
+         * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만드는지 여부입니다.
+         */
+        UPROPERTY(Edit, Serialize, Category = "Collision", Getter = GetGenerateOverlapEvents, Setter = SetGenerateOverlapEvents)
+        bool mGenerateOverlapEvents{};
 
         /**
          * @brief 물리 시뮬레이션 설정과 실제 바디입니다.

@@ -344,6 +344,20 @@ namespace Engine {
     }
 
     /**
+     * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만드는지 반환합니다.
+     */
+    bool Engine::UPrimitiveComponent::GetGenerateOverlapEvents() const {
+        return mGenerateOverlapEvents;
+    }
+
+    /**
+     * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만들지 설정합니다.
+     */
+    void Engine::UPrimitiveComponent::SetGenerateOverlapEvents(bool Generate) {
+        mGenerateOverlapEvents = Generate;
+    }
+
+    /**
      * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
      */
     void Engine::UPrimitiveComponent::OnBeginOverlap(Engine::UPrimitiveComponent* Other) {
@@ -387,6 +401,13 @@ namespace Engine {
      */
     const PhysicsRuntime::UBodySetup* Engine::UPrimitiveComponent::GetBodySetup() const {
         return nullptr;
+    }
+
+    /**
+     * @brief 이 컴포넌트의 바디가 현재 자세에서 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+     */
+    bool Engine::UPrimitiveComponent::ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const {
+        return mBodyInstance.OverlapMulti(OutOverlaps);
     }
 
     /**
