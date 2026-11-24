@@ -7,10 +7,12 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Asset/FClothingSectionData.h"
 #include "Asset/FMeshData.h"
 #include "Asset/UStaticMesh.h"
 #include "Asset/Import/FMeshImportSkinWeight.h"
 #include "CoreUObject/UObject.h"
+#include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "PhysicsRuntime/UPhysicsAsset.h"
 #include "RenderCore/TVertexBuffer.h"
 
@@ -158,6 +160,41 @@ namespace Asset {
          */
         PhysicsRuntime::UPhysicsAsset* GetGeneratedPhysicsAsset(const Asset::USkeleton& Skeleton);
 
+        /**
+         * @brief 천 에셋을 메시에 추가합니다.
+         * @param[in] ClothingAsset 메시가 소유할 천 에셋입니다.
+         * @return 천 에셋 목록에서의 번호이며 에셋이 비어 있으면 InvalidIndex입니다.
+         */
+        Index_t AddClothingAsset(std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> ClothingAsset);
+
+        /**
+         * @brief 메시가 소유한 천 에셋 목록을 반환합니다.
+         * @return 천 에셋 목록의 읽기 전용 참조입니다.
+         */
+        const Core::TArray<std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>>& GetMeshClothingAssets() const;
+
+        /**
+         * @brief 식별자로 천 에셋을 찾습니다.
+         * @param[in] AssetGuid 찾을 천 에셋의 식별자입니다.
+         * @return 천 에셋의 비소유 주소이며 없으면 nullptr입니다.
+         */
+        PhysicsRuntime::UClothingAssetCommon* GetClothingAsset(const Core::FGuid& AssetGuid) const;
+
+        /**
+         * @brief 섹션의 천 연결 데이터를 반환합니다.
+         * @param[in] SubMeshIndex 섹션 번호입니다.
+         * @return 연결 데이터의 주소이며 섹션이 없으면 nullptr입니다.
+         */
+        const Asset::FClothingSectionData* GetSectionClothingData(Index_t SubMeshIndex) const;
+
+        /**
+         * @brief 섹션의 천 연결 데이터를 저장합니다.
+         * @param[in] SubMeshIndex 섹션 번호입니다.
+         * @param[in] ClothingData 저장할 연결 데이터입니다.
+         * @return 섹션이 있어 저장했으면 true입니다.
+         */
+        bool SetSectionClothingData(Index_t SubMeshIndex, Asset::FClothingSectionData ClothingData);
+
     private:
 
         /**
@@ -217,6 +254,16 @@ namespace Asset {
          * @brief 만들어 둔 물리 에셋의 기준이 된 스켈레톤입니다.
          */
         const Asset::USkeleton* mGeneratedPhysicsAssetSkeleton{};
+
+        /**
+         * @brief 섹션을 천으로 시뮬레이션할 때 쓰는 천 에셋입니다.
+         */
+        Core::TArray<std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>> mMeshClothingAssets{};
+
+        /**
+         * @brief 섹션 순서대로의 천 연결 데이터이며 천이 없는 섹션은 비어 있습니다.
+         */
+        Core::TArray<Asset::FClothingSectionData> mSectionClothingData{};
     };
 
 }

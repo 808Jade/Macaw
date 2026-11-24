@@ -17,7 +17,10 @@
 #include "Engine/Component/UBillboardComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/FPrimitiveDrawInterface.h"
+#include "Asset/FClothingAssetFactory.h"
+#include "Asset/USkeletalMesh.h"
 #include "PhysicsRuntime/FClothingSimulationNv.h"
+#include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "RenderCore/IRendererModule.h"
 #include "Engine/UWorld.h"
 #include "Engine/ULevel.h"
@@ -36,6 +39,7 @@
 #include "Engine/FWorldSerializer.h"
 #include "Serialization/MemoryArchive.h"
 #include <algorithm>
+#include <limits>
 #include "CoreUObject/FObjectRegistry.h"
 #include "CoreUObject/FPropertyChangedEvent.h"
 #include "CoreUObject/Reflection/Cast.h"
@@ -122,6 +126,7 @@ namespace Editor {
     void Editor::FEditorContext::Reset() {
         // 엔진이 천 팩토리를 해제하기 전에 테스트 천을 먼저 정리합니다.
         SetClothGridTest(false);
+        ClearClothAssetTest();
 
         if (mPlayLocked || IsChangingState()) {
             return;
@@ -1432,6 +1437,177 @@ namespace Editor {
                 if (Row + 1 < Height) {
                     DrawInterface.DrawLine(Positions[Index], Positions[Index + Width], Color, true, Thickness);
                 }
+            }
+        }
+    }
+
+    /**
+     * @brief 선택한 스켈레탈 메시의 섹션 하나로 천 에셋을 만들어 연결하고 그리기 대상으로 정합니다.
+     */
+    bool Editor::FEditorContext::SetClothAssetTest(Index_t SubMeshIndex) {
+        // 컴포넌트를 직접 골랐으면 그것을, 액터를 골랐으면 그 액터의 첫 스켈레탈 메시 컴포넌트를 씁니다.
+        Engine::USkeletalMeshComponent* Component{CoreUObject::Cast<Engine::USkeletalMeshComponent>(GetSelectedObject())};
+
+        if (Component == nullptr) {
+            for (const CoreUObject::TObjectRef<Engine::AActor>& Actor : GetSelectedActors()) {
+                if (Actor.Get() == nullptr) {
+                    continue;
+                }
+
+                for (const auto& ActorComponent : Actor->GetComponents()) {
+                    Component = CoreUObject::Cast<Engine::USkeletalMeshComponent>(ActorComponent.get());
+
+                    if (Component != nullptr) {
+                        break;
+                    }
+                }
+
+                if (Component != nullptr) {
+                    break;
+                }
+            }
+        }
+
+        if (Component == nullptr) {
+            AddLog("Select a skeletal mesh actor or component first.");
+
+            return false;
+        }
+
+        Asset::USkeletalMesh* Mesh{Component->GetSkeletalMesh()};
+        const Asset::USkeleton* Skeleton{Component->GetSkeleton()};
+
+        if (Mesh == nullptr || Skeleton == nullptr) {
+            AddLog("The selected component has no skeletal mesh or skeleton.");
+
+            return false;
+        }
+
+        const Index_t NumSubMeshes{Mesh->GetMeshData().GetSubMeshes().size()};
+
+        if (SubMeshIndex >= NumSubMeshes) {
+            AddLog("Section " + std::to_string(SubMeshIndex) + " does not exist. The mesh has " + std::to_string(NumSubMeshes) + " sections.");
+
+            return false;
+        }
+
+        const Asset::FClothingSectionData* SectionData{Mesh->GetSectionClothingData(SubMeshIndex)};
+
+        if (SectionData == nullptr || !SectionData->IsValid()) {
+            std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> NewAsset{Asset::FClothingAssetFactory::CreateFromSkeletalMesh(*Mesh, *Skeleton, SubMeshIndex)};
+
+            if (NewAsset == nullptr) {
+                AddLog("Cannot create a clothing asset from section " + std::to_string(SubMeshIndex) + ". See the Console for details.");
+
+                return false;
+            }
+
+            // 칠하기 도구가 없으므로 위쪽 일부 입자만 고정하고 나머지는 움직일 수 있게 합니다.
+            constexpr float FixedBandRatio{0.2f};
+            constexpr float MovableMaxDistance{0.5f};
+            PhysicsRuntime::FClothLODDataCommon& LodData{NewAsset->mLodData[0]};
+            PhysicsRuntime::FClothPhysicalMeshData& PhysMesh{LodData.mPhysicalMeshData};
+            float MinZ{std::numeric_limits<float>::max()};
+            float MaxZ{std::numeric_limits<float>::lowest()};
+
+            for (const FVector& Vertex : PhysMesh.mVertices) {
+                MinZ = std::min(MinZ, Vertex.z);
+                MaxZ = std::max(MaxZ, Vertex.z);
+            }
+
+            const float FixedAboveZ{MaxZ - (MaxZ - MinZ) * FixedBandRatio};
+            PhysicsRuntime::FPointWeightMap& MaxDistances{PhysMesh.AddWeightMap(PhysicsRuntime::EWeightMapTargetCommon::MaxDistance)};
+
+            for (Index_t VertIndex{}; VertIndex < PhysMesh.mVertices.size(); ++VertIndex) {
+                MaxDistances[VertIndex] = PhysMesh.mVertices[VertIndex].z >= FixedAboveZ ? 0.0f : MovableMaxDistance;
+            }
+
+            for (PhysicsRuntime::FPointWeightMap& PointWeightMap : LodData.mPointWeightMaps) {
+                if (PointWeightMap.mCurrentTarget == PhysicsRuntime::EWeightMapTargetCommon::MaxDistance) {
+                    PointWeightMap.mValues = MaxDistances.mValues;
+                }
+            }
+
+            NewAsset->InvalidateCachedData();
+
+            PhysicsRuntime::UClothingAssetCommon& ClothingAsset{*NewAsset};
+            Mesh->AddClothingAsset(std::move(NewAsset));
+
+            if (!Asset::FClothingAssetFactory::BindToSkeletalMesh(*Mesh, ClothingAsset, SubMeshIndex, 0)) {
+                AddLog("Cannot bind the clothing asset to section " + std::to_string(SubMeshIndex) + ". See the Console for details.");
+
+                return false;
+            }
+
+            SectionData = Mesh->GetSectionClothingData(SubMeshIndex);
+        }
+
+        const PhysicsRuntime::UClothingAssetCommon* ClothingAsset{Mesh->GetClothingAsset(SectionData->mAssetGuid)};
+
+        if (ClothingAsset == nullptr || !ClothingAsset->IsValidLod(SectionData->mAssetLodIndex)) {
+            AddLog("The clothing data of section " + std::to_string(SubMeshIndex) + " is broken.");
+
+            return false;
+        }
+
+        const PhysicsRuntime::FClothPhysicalMeshData& PhysMesh{ClothingAsset->mLodData[SectionData->mAssetLodIndex].mPhysicalMeshData};
+        const auto NumSkinnedOnly{std::count_if(SectionData->mClothMappingData.begin(), SectionData->mClothMappingData.end(), [](const PhysicsRuntime::FMeshToMeshVertData& VertData) {
+            return VertData.mSourceMeshVertIndices[3] == PhysicsRuntime::FMeshToMeshVertData::NoSimulationFlag;
+        })};
+
+        AddLog("Cloth section " + std::to_string(SubMeshIndex) + ": " + std::to_string(SectionData->mClothMappingData.size()) + " render verts (" + std::to_string(NumSkinnedOnly) + " skinned only) -> "
+            + std::to_string(PhysMesh.mVertices.size()) + " particles, " + std::to_string(PhysMesh.mIndices.size() / 3) + " triangles, " + std::to_string(PhysMesh.mNumFixedVerts) + " fixed, "
+            + std::to_string(ClothingAsset->mUsedBoneNames.size()) + " bones.");
+
+        mClothAssetTestComponent = CoreUObject::MakeObjectRef(Component);
+        mClothAssetTestSubMesh = SubMeshIndex;
+
+        return true;
+    }
+
+    /**
+     * @brief 천 에셋 테스트의 그리기 대상을 비웁니다.
+     */
+    void Editor::FEditorContext::ClearClothAssetTest() {
+        mClothAssetTestComponent.Reset();
+        mClothAssetTestSubMesh = InvalidIndex;
+    }
+
+    /**
+     * @brief 천 에셋 테스트 대상의 천 메시를 바인드 포즈로 그립니다.
+     */
+    void Editor::FEditorContext::DrawClothAssetTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const {
+        const Engine::USkeletalMeshComponent* Component{mClothAssetTestComponent.Get()};
+
+        if (Component == nullptr || Component->GetSkeletalMesh() == nullptr) {
+            return;
+        }
+
+        const Asset::USkeletalMesh& Mesh{*Component->GetSkeletalMesh()};
+        const Asset::FClothingSectionData* SectionData{Mesh.GetSectionClothingData(mClothAssetTestSubMesh)};
+
+        if (SectionData == nullptr || !SectionData->IsValid()) {
+            return;
+        }
+
+        const PhysicsRuntime::UClothingAssetCommon* ClothingAsset{Mesh.GetClothingAsset(SectionData->mAssetGuid)};
+
+        if (ClothingAsset == nullptr || !ClothingAsset->IsValidLod(SectionData->mAssetLodIndex)) {
+            return;
+        }
+
+        const PhysicsRuntime::FClothPhysicalMeshData& PhysMesh{ClothingAsset->mLodData[SectionData->mAssetLodIndex].mPhysicalMeshData};
+        const FMatrix WorldMatrix{Component->GetWorldMatrix()};
+        const FVector FixedColor{0.95f, 0.2f, 0.2f};
+        const FVector MovableColor{0.3f, 0.9f, 0.3f};
+
+        for (Index_t TriangleBaseIndex{}; TriangleBaseIndex + 2 < PhysMesh.mIndices.size(); TriangleBaseIndex += 3) {
+            for (Index_t Corner{}; Corner < 3; ++Corner) {
+                const Uint32 Start{PhysMesh.mIndices[TriangleBaseIndex + Corner]};
+                const Uint32 End{PhysMesh.mIndices[TriangleBaseIndex + (Corner + 1) % 3]};
+                const bool Fixed{PhysMesh.mInverseMasses[Start] == 0.0f && PhysMesh.mInverseMasses[End] == 0.0f};
+
+                DrawInterface.DrawLine(WorldMatrix.TransformPosition(PhysMesh.mVertices[Start]), WorldMatrix.TransformPosition(PhysMesh.mVertices[End]), Fixed ? FixedColor : MovableColor, true, Thickness);
             }
         }
     }

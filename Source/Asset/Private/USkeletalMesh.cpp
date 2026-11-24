@@ -61,6 +61,10 @@ namespace Asset {
         mGeneratedPhysicsAsset.reset();
         mGeneratedPhysicsAssetSkeleton = nullptr;
 
+        // 섹션과 정점이 바뀌었으므로 그 섹션으로 만든 천 에셋과 연결도 버립니다.
+        mMeshClothingAssets.clear();
+        mSectionClothingData.clear();
+
         return true;
     }
 
@@ -216,6 +220,72 @@ namespace Asset {
         mGeneratedPhysicsAssetSkeleton = &Skeleton;
 
         return mGeneratedPhysicsAsset.get();
+    }
+
+    /**
+     * @brief 천 에셋을 메시에 추가합니다.
+     */
+    Index_t Asset::USkeletalMesh::AddClothingAsset(std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> ClothingAsset) {
+        if (ClothingAsset == nullptr) {
+            return InvalidIndex;
+        }
+
+        mMeshClothingAssets.push_back(std::move(ClothingAsset));
+
+        return mMeshClothingAssets.size() - 1;
+    }
+
+    /**
+     * @brief 메시가 소유한 천 에셋 목록을 반환합니다.
+     */
+    const Core::TArray<std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>>& Asset::USkeletalMesh::GetMeshClothingAssets() const {
+        return mMeshClothingAssets;
+    }
+
+    /**
+     * @brief 식별자로 천 에셋을 찾습니다.
+     */
+    PhysicsRuntime::UClothingAssetCommon* Asset::USkeletalMesh::GetClothingAsset(const Core::FGuid& AssetGuid) const {
+        for (const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset : mMeshClothingAssets) {
+            if (ClothingAsset->GetGuid() == AssetGuid) {
+                return ClothingAsset.get();
+            }
+        }
+
+        return nullptr;
+    }
+
+    /**
+     * @brief 섹션의 천 연결 데이터를 반환합니다.
+     */
+    const Asset::FClothingSectionData* Asset::USkeletalMesh::GetSectionClothingData(Index_t SubMeshIndex) const {
+        if (SubMeshIndex >= GetMeshData().GetSubMeshes().size()) {
+            return nullptr;
+        }
+
+        // 아직 연결한 적 없는 섹션은 빈 연결 데이터로 답합니다.
+        static const Asset::FClothingSectionData EmptyClothingData{};
+
+        return SubMeshIndex < mSectionClothingData.size() ? &mSectionClothingData[SubMeshIndex] : &EmptyClothingData;
+    }
+
+    /**
+     * @brief 섹션의 천 연결 데이터를 저장합니다.
+     */
+    bool Asset::USkeletalMesh::SetSectionClothingData(Index_t SubMeshIndex, Asset::FClothingSectionData ClothingData) {
+        const Index_t NumSubMeshes{GetMeshData().GetSubMeshes().size()};
+
+        if (SubMeshIndex >= NumSubMeshes) {
+            return false;
+        }
+
+        if (mSectionClothingData.size() < NumSubMeshes) {
+            mSectionClothingData.resize(NumSubMeshes);
+        }
+
+        mSectionClothingData[SubMeshIndex] = std::move(ClothingData);
+
+        return true;
     }
 
 }

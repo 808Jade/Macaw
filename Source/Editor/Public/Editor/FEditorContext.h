@@ -35,6 +35,7 @@ namespace Engine {
     class ACameraActor;
     class UCameraComponent;
     class UActorComponent;
+    class USkeletalMeshComponent;
     class USceneComponent;
     class FWorldContext;
 
@@ -717,6 +718,28 @@ namespace Editor {
         void DrawClothGridTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const;
 
         /**
+         * @brief 선택한 스켈레탈 메시의 섹션 하나로 천 에셋을 만들어 연결하고 그리기 대상으로 정합니다.
+         * @details 섹션에 이미 천이 연결되어 있으면 새로 만들지 않고 그리기 대상만 바꿉니다.
+         *          칠하기 도구가 생기기 전까지 위쪽 일부 입자만 고정하는 최대 거리를 임시로 채웁니다.
+         * @param[in] SubMeshIndex 천으로 바꿀 섹션 번호입니다.
+         * @return 천 에셋이 연결되어 있으면 true입니다.
+         */
+        bool SetClothAssetTest(Index_t SubMeshIndex);
+
+        /**
+         * @brief 천 에셋 테스트의 그리기 대상을 비웁니다.
+         */
+        void ClearClothAssetTest();
+
+        /**
+         * @brief 천 에셋 테스트 대상의 천 메시를 바인드 포즈로 그립니다.
+         * @details 두 끝 입자가 모두 고정된 변은 빨강, 나머지는 초록으로 그립니다.
+         * @param[in,out] DrawInterface 선분을 수집할 그리기 인터페이스입니다.
+         * @param[in] Thickness 선분 두께입니다.
+         */
+        void DrawClothAssetTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const;
+
+        /**
          * @brief 공통 편집 작업이 사용할 뷰포트 제공자를 설정합니다.
          * @param[in] Provider 호출 시점의 활성 뷰포트를 반환합니다.
          */
@@ -861,6 +884,16 @@ namespace Editor {
          * @brief 격자 천 테스트의 시뮬레이션이며 꺼져 있으면 비어 있습니다.
          */
         std::unique_ptr<PhysicsRuntime::FClothingSimulationNv> mClothGridTest{};
+
+        /**
+         * @brief 천 에셋 테스트로 천 메시를 그릴 스켈레탈 메시 컴포넌트입니다.
+         */
+        CoreUObject::TObjectRef<Engine::USkeletalMeshComponent> mClothAssetTestComponent{};
+
+        /**
+         * @brief 천 에셋 테스트로 그릴 섹션 번호입니다.
+         */
+        Index_t mClothAssetTestSubMesh{InvalidIndex};
 
         /**
          * @brief PIE 실행 중 원본 편집 상태의 수정을 제한하는 플래그입니다.

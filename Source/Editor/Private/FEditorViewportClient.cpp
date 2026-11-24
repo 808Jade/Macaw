@@ -485,6 +485,7 @@ namespace Editor {
         }
 
         mContext->DrawClothGridTest(mDrawInterface, mLineThickness);
+        mContext->DrawClothAssetTest(mDrawInterface, mLineThickness);
 
         if (World->GetPersistentLevel() != nullptr) {
             const Core::TArray<CoreUObject::TObjectRef<Engine::AActor>> SelectedActors{mContext->GetSelectedActors()};
