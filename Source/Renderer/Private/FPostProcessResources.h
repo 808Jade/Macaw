@@ -83,7 +83,7 @@ namespace Renderer {
          * @param Source 복사하거나 읽을 원본 데이터입니다.
          * @param Destination 렌더 결과를 기록할 출력 텍스처입니다.
          */
-        void RenderTexture(ID3D11DeviceContext* Context, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination);
+        void RenderTexture(ID3D11DeviceContext* Context, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination, ID3D11BlendState* Blend);
 
     private:
         /** @brief 절반 해상도에서 전경과 배경을 분리 및 블러하고 전체 해상도에 합성합니다. */
@@ -98,7 +98,7 @@ namespace Renderer {
          */
         void Draw(ID3D11DeviceContext* Context, const Asset::UTexture2D* Source, Asset::UTexture2D* Destination, const Asset::UTexture2D* Depth);
 
-        void Draw(ID3D11DeviceContext* Context, ID3D11PixelShader* PixelShader, std::span<ID3D11RenderTargetView* const> Outputs, std::span<ID3D11ShaderResourceView* const> Inputs);
+        void Draw(ID3D11DeviceContext* Context, ID3D11PixelShader* PixelShader, std::span<ID3D11RenderTargetView* const> Outputs, std::span<ID3D11ShaderResourceView* const> Inputs, ID3D11BlendState* Blend = nullptr);
 
     private:
 

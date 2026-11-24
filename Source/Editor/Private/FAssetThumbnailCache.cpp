@@ -151,7 +151,7 @@ void FAssetThumbnailCache::ProcessRequests() {
         std::unique_ptr<Viewer::FViewerCapture> Capture{};
 
         if (Prepared == Viewer::EViewerPrepareResult::Ready && mCaptureViewer.Resize(256, 256) && mCaptureViewer.Fit()) {
-            Capture = mCaptureViewer.Capture(Error);
+            Capture = mCaptureViewer.Capture(Error, true);
         }
 
         if (Capture != nullptr) {

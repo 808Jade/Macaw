@@ -30,6 +30,7 @@
 #include <shellapi.h>
 #include <imgui_internal.h>
 #include <algorithm>
+#include <cmath>
 #include <format>
 #include <fstream>
 #include <span>
@@ -77,6 +78,12 @@ namespace {
      * @brief 알 수 없는 파일 종류에 사용할 기본 아이콘입니다.
      */
     constexpr FContentIcon FileIcon{"File", "파일", MacawContentFileIconResource, Editor::EditorStyle::EIcon::Component};
+
+    constexpr float ThumbnailPadding{6.0f};
+    constexpr float ThumbnailNameGap{10.0f};
+    constexpr float ThumbnailTypeGap{3.0f};
+    constexpr float ThumbnailFooterHeight{84.0f};
+    constexpr float CompactImageSize{48.0f};
 
     /**
      * @brief 콘텐츠 종류별 아이콘 메타데이터 목록입니다.
@@ -150,6 +157,89 @@ namespace {
         return FileIcon;
     }
 
+    ImU32 GetThumbnailAccent(Asset::EAssetType Type) {
+        switch (Type) {
+        case Asset::EAssetType::Mesh:
+            return IM_COL32(100, 194, 232, 255);
+        case Asset::EAssetType::SkeletalMesh:
+            return IM_COL32(137, 164, 251, 255);
+        case Asset::EAssetType::Skeleton:
+            return IM_COL32(231, 190, 105, 255);
+        case Asset::EAssetType::Material:
+            return IM_COL32(117, 207, 158, 255);
+        case Asset::EAssetType::Texture:
+            return IM_COL32(213, 150, 236, 255);
+        case Asset::EAssetType::AnimSequence:
+            return IM_COL32(239, 158, 113, 255);
+        default:
+            return IM_COL32_WHITE;
+        }
+    }
+
+    void DrawThumbnailCard(float Scale, bool Compact, bool Selected, bool Hovered, void* Thumbnail, Asset::EAssetType Type, const Core::FString& Name) {
+        const ImRect Bounds{ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
+        const ImGuiStyle& Style{ImGui::GetStyle()};
+        const ImVec4 Surface{Style.Colors[ImGuiCol_Button]};
+        const ImVec4 Fill{Selected ? ImLerp(Surface, Style.Colors[ImGuiCol_HeaderActive], 0.24f) : ImLerp(Surface, Style.Colors[ImGuiCol_ButtonHovered], Hovered ? 0.45f : 0.0f)};
+        const ImGuiCol Border{Selected ? ImGuiCol_HeaderActive : Hovered ? ImGuiCol_ButtonHovered : ImGuiCol_Separator};
+        const float Padding{ThumbnailPadding * Scale};
+        const float Rounding{std::min(Style.FrameRounding, Padding)};
+        const float LineHeight{ImGui::GetTextLineHeight()};
+        const float ImageSize{Compact ? CompactImageSize * Scale : Bounds.GetWidth() - Padding * 2.0f};
+        const ImVec2 ImageMinimum{Bounds.Min.x + Padding, Bounds.Min.y + Padding};
+        const ImVec2 ImageMaximum{ImageMinimum.x + ImageSize, ImageMinimum.y + ImageSize};
+        const float TextInset{Compact ? 0.0f : 3.0f * Scale};
+        const ImVec2 NamePosition{Compact ? ImageMaximum.x + 9.0f * Scale : ImageMinimum.x + TextInset, Compact ? ImageMinimum.y : ImageMaximum.y + ThumbnailNameGap * Scale};
+        const float TextRight{Bounds.Max.x - Padding - TextInset};
+        const float TextWidth{TextRight - NamePosition.x};
+        const float TypeY{Bounds.Max.y - Padding - LineHeight};
+        const float AccentHeight{std::max(1.0f, 2.0f * Scale)};
+        const ImVec2 AccentMinimum{Compact ? ImageMinimum.x + Rounding : ImageMinimum.x, ImageMaximum.y - AccentHeight};
+        const ImVec2 AccentMaximum{Compact ? ImageMinimum.x + ImageSize * 0.4f : ImageMaximum.x, ImageMaximum.y};
+        const ImDrawFlags ImageCorners{Compact ? ImDrawFlags_RoundCornersAll : ImDrawFlags_RoundCornersTop};
+        const ImTextureRef Texture{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Thumbnail))};
+        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
+
+        DrawList->AddRectFilled(Bounds.Min, Bounds.Max, ImGui::GetColorU32(Fill), Rounding);
+        DrawList->AddImageRounded(Texture, ImageMinimum, ImageMaximum, {0.0f, 0.0f}, {1.0f, 1.0f}, ImGui::GetColorU32(IM_COL32_WHITE), Rounding, ImageCorners);
+        DrawList->AddRectFilled(AccentMinimum, AccentMaximum, ImGui::GetColorU32(GetThumbnailAccent(Type)), Compact ? AccentHeight * 0.5f : 0.0f);
+        DrawList->AddRect(Bounds.Min, Bounds.Max, ImGui::GetColorU32(Border), Rounding);
+
+        ImFont* Font{ImGui::GetFont()};
+        const char* NameEnd{Name.data() + Name.size()};
+        const char* FirstLineEnd{Font->CalcWordWrapPosition(LineHeight, Name.data(), NameEnd, TextWidth)};
+        const ImVec4 FirstLineClip{NamePosition.x, NamePosition.y, TextRight, NamePosition.y + LineHeight};
+
+        if (FirstLineEnd != NameEnd && *FirstLineEnd != ' ' && *FirstLineEnd != '\t') {
+            const std::string_view FirstLine{Name.data(), static_cast<std::size_t>(FirstLineEnd - Name.data())};
+            const std::size_t Separator{FirstLine.find_last_of("_-")};
+
+            if (Separator != std::string_view::npos && Separator + 1 > FirstLine.size() / 2) {
+                FirstLineEnd = Name.data() + Separator + 1;
+            }
+        }
+
+        const char* SecondLine{FirstLineEnd};
+
+        DrawList->AddText(Font, LineHeight, NamePosition, ImGui::GetColorU32(ImGuiCol_Text), Name.data(), FirstLineEnd, 0.0f, &FirstLineClip);
+
+        while (SecondLine != NameEnd && (*SecondLine == ' ' || *SecondLine == '\t')) {
+            ++SecondLine;
+        }
+
+        if (SecondLine != NameEnd) {
+            ImGui::RenderTextEllipsis(DrawList, {NamePosition.x, NamePosition.y + LineHeight}, {TextRight, NamePosition.y + LineHeight * 2.0f}, TextRight, SecondLine, NameEnd, nullptr);
+        }
+
+        const char* Kind{GetAssetKind(Type)};
+        const float TypeFontSize{LineHeight * std::min(0.85f, TextWidth / ImGui::CalcTextSize(Kind).x)};
+        const ImVec4 TypeClip{NamePosition.x, TypeY, TextRight, Bounds.Max.y};
+        const ImU32 TypeColor{ImGui::GetColorU32(ImLerp(Style.Colors[ImGuiCol_TextDisabled], Style.Colors[ImGuiCol_Text], 0.3f))};
+
+        DrawList->AddText(Font, TypeFontSize, {NamePosition.x, TypeY + (LineHeight - TypeFontSize) * 0.5f}, TypeColor, Kind, nullptr, 0.0f, &TypeClip);
+        ImGui::RenderNavCursor(Bounds, ImGui::GetItemID(), ImGuiNavRenderCursorFlags_Compact);
+    }
+
     /**
      * @brief 썸네일·리소스 아이콘·대체 글리프 중 사용 가능한 이미지를 표시합니다.
      * @param Size 출력 또는 표시 영역 크기(픽셀)입니다.
@@ -157,18 +247,18 @@ namespace {
      * @param Resource 썸네일이 없을 때 사용할 GPU 아이콘 리소스입니다.
      * @param Icon 리소스가 없을 때 사용할 대체 아이콘 정보입니다.
      */
-    void DrawContentImage(float Size, void* Thumbnail, ID3D11ShaderResourceView* Resource, const FContentIcon& Icon) {
+    void DrawContentImage(const ImVec2& Position, float Size, void* Thumbnail, ID3D11ShaderResourceView* Resource, const FContentIcon& Icon) {
+        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
+
         if (Thumbnail != nullptr) {
-            ImGui::Image(ImTextureRef{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Thumbnail))}, {Size, Size});
+            DrawList->AddImage(ImTextureRef{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Thumbnail))}, Position, {Position.x + Size, Position.y + Size});
 
             return;
         }
 
         const float IconSize{Size * 0.8f};
         const float Inset{(Size - IconSize) * 0.5f};
-        const ImVec2 Cursor{ImGui::GetCursorScreenPos()};
-        const ImVec2 Origin{Cursor.x + Inset, Cursor.y + Inset};
-        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
+        const ImVec2 Origin{Position.x + Inset, Position.y + Inset};
 
         if (Resource != nullptr) {
             DrawList->AddImage(ImTextureRef{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Resource))}, Origin, {Origin.x + IconSize, Origin.y + IconSize}, {0.0f, 0.0f}, {1.0f, 1.0f}, Icon.mTint);
@@ -178,8 +268,6 @@ namespace {
         } else {
             Editor::EditorStyle::DrawIcon(Icon.mFallback, Origin, IconSize, Icon.mTint);
         }
-
-        ImGui::Dummy({Size, Size});
     }
 }
 
@@ -222,7 +310,9 @@ void FContentBrowserWidget::DrawDragPreview() {
     const Core::FString Name{Core::FilePath::ToUtf8(Path.stem())};
 
     if (ImGui::BeginTooltip()) {
-        DrawContentImage(64.0f * mUIScale.GetScale(), Thumbnail, Resource, Icon);
+        const float Size{64.0f * mUIScale.GetScale()};
+        DrawContentImage(ImGui::GetCursorScreenPos(), Size, Thumbnail, Resource, Icon);
+        ImGui::Dummy({Size, Size});
         ImGui::TextUnformatted(Name.c_str());
         ImGui::EndTooltip();
     }
@@ -909,15 +999,26 @@ void FContentBrowserWidget::DrawContentEntries() {
 
     const float Scale{mUIScale.GetScale()};
     const float Padding{4.0f * Scale};
-    const bool Compact{ImGui::GetContentRegionAvail().y < 164.0f * Scale};
-    const float TileWidth{(Compact ? 180.0f : 120.0f) * Scale};
-    const float ImageSize{(Compact ? 48.0f : 96.0f) * Scale};
+    const ImGuiStyle& Style{ImGui::GetStyle()};
+    const float LineHeight{ImGui::GetTextLineHeight()};
+    const float CardPadding{ThumbnailPadding * Scale};
+    const float TextHeight{LineHeight * 3.0f + ThumbnailTypeGap * Scale};
+    const float FooterHeight{std::max(ThumbnailFooterHeight * Scale, TextHeight + ThumbnailNameGap * Scale + CardPadding)};
+    const float StandardTileWidth{128.0f * Scale};
+    const float StandardImageSize{StandardTileWidth - Padding - CardPadding * 2.0f};
+    const float StandardCardHeight{CardPadding + StandardImageSize + FooterHeight};
+    const float RowPadding{Style.CellPadding.y * 2.0f + Padding};
+    const bool Compact{ImGui::GetContentRegionAvail().y < std::ceil(StandardCardHeight + RowPadding)};
+    const float TileWidth{Compact ? 180.0f * Scale : StandardTileWidth};
+    const float ImageSize{(Compact ? CompactImageSize : 96.0f) * Scale};
     const float ImageOffset{(Compact ? 4.0f : 10.0f) * Scale};
     const float TextX{Compact ? ImageOffset + ImageSize + 8.0f * Scale : Padding};
     const float TypeY{Compact ? Padding : ImageSize + Padding * 2.0f};
     const float NameY{TypeY + ImGui::GetTextLineHeightWithSpacing()};
-    const float NameHeight{ImGui::GetTextLineHeight() * 2.0f + ImGui::GetStyle().ItemSpacing.y};
-    const float TileHeight{std::max(Padding + ImageSize, NameY + NameHeight) + Padding * 2.0f};
+    const float NameHeight{LineHeight * 2.0f + Style.ItemSpacing.y};
+    const float CardHeight{Compact ? CardPadding * 2.0f + std::max(ImageSize, TextHeight) : StandardCardHeight};
+    const ImVec2 TileSize{TileWidth - Padding, std::ceil(std::max(CardHeight, NameY + NameHeight))};
+    const float RowHeight{std::ceil(TileSize.y + RowPadding)};
     const int Columns{std::clamp(static_cast<int>(ImGui::GetContentRegionAvail().x / (TileWidth + 8.0f * Scale)), 1, 12)};
     bool Navigate{};
     std::filesystem::path Requested{};
@@ -928,11 +1029,11 @@ void FContentBrowserWidget::DrawContentEntries() {
         }
 
         ImGuiListClipper Clipper{};
-        Clipper.Begin((Count + Columns - 1) / Columns, TileHeight);
+        Clipper.Begin((Count + Columns - 1) / Columns, RowHeight);
 
         while (Clipper.Step()) {
             for (Index_t Row{static_cast<Index_t>(Clipper.DisplayStart)}; Row < Clipper.DisplayEnd; ++Row) {
-                ImGui::TableNextRow(ImGuiTableRowFlags_None, TileHeight);
+                ImGui::TableNextRow(ImGuiTableRowFlags_None, RowHeight);
 
                 for (Index_t Column{}; Column < Columns; ++Column) {
                     const Index_t Index{static_cast<Index_t>(Row * Columns + Column)};
@@ -941,15 +1042,17 @@ void FContentBrowserWidget::DrawContentEntries() {
                         break;
                     }
 
-                    ImGui::TableSetColumnIndex(static_cast<int>(Column));
+                    if (!ImGui::TableSetColumnIndex(static_cast<int>(Column))) {
+                        continue;
+                    }
 
                     const bool Directory{Index < Folders.size()};
                     const auto& Path{Directory ? Folders[Index] : Assets[Index - Folders.size()]};
                     const auto Type{mAssetTypes.find(Path)};
                     const bool LuaScript{!Directory && Type == mAssetTypes.end() && Core::FilePath::ToLowerExtension(Path) == L".lua"};
                     const bool ShaderSource{!Directory && Type == mAssetTypes.end() && IsShaderSource(Path)};
-                    const bool HasThumbnail{!Directory && Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
-                    void* Thumbnail{HasThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
+                    const bool SupportsThumbnail{!Directory && Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
+                    void* Thumbnail{SupportsThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
                     const char* Kind{Directory ? "Folder" : Type != mAssetTypes.end() ? GetAssetKind(Type->second) : LuaScript ? "Lua Script" : ShaderSource ? "Shader Source" : "File"};
                     const Core::FString Actual{Core::FilePath::ToGenericUtf8(Path)};
                     const Core::FString Name{Core::FilePath::ToUtf8(Directory || ShaderSource ? Path.filename() : Path.stem())};
@@ -960,8 +1063,9 @@ void FContentBrowserWidget::DrawContentEntries() {
                     ImGui::PushID(Actual.c_str());
 
                     const ImVec2 Origin{ImGui::GetCursorScreenPos()};
+                    const ImGuiSelectableFlags Flags{ImGuiSelectableFlags_AllowDoubleClick | (Thumbnail != nullptr ? ImGuiSelectableFlags_NoPadWithHalfSpacing : 0)};
 
-                    if (EditorStyle::Selectable("##AssetTile", mSelectedContentPath == Path, ImGuiSelectableFlags_AllowDoubleClick, {TileWidth - Padding, TileHeight - Padding * 2.0f})) {
+                    if (EditorStyle::Selectable("##AssetTile", mSelectedContentPath == Path, Flags, TileSize)) {
                         mSelectedContentPath = Path;
 
                         if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
@@ -985,6 +1089,21 @@ void FContentBrowserWidget::DrawContentEntries() {
 
                     const bool Hovered{ImGui::IsItemHovered()};
 
+                    if (ImGui::IsItemVisible()) {
+                        if (Thumbnail != nullptr) {
+                            DrawThumbnailCard(Scale, Compact, mSelectedContentPath == Path, Hovered, Thumbnail, Type->second, Name);
+                        } else {
+                            const float TextLeft{Origin.x + TextX};
+                            const float TextRight{Origin.x + TileSize.x};
+                            const ImVec4 NameClip{TextLeft, Origin.y + NameY, TextRight, Origin.y + NameY + NameHeight};
+                            ImDrawList* DrawList{ImGui::GetWindowDrawList()};
+
+                            DrawContentImage({Origin.x + ImageOffset, Origin.y + Padding}, ImageSize, nullptr, Resource, Icon);
+                            DrawList->AddText({TextLeft, Origin.y + TypeY}, ImGui::GetColorU32(ImGuiCol_TextDisabled), Kind);
+                            DrawList->AddText(ImGui::GetFont(), LineHeight, {TextLeft, Origin.y + NameY}, ImGui::GetColorU32(ImGuiCol_Text), Name.c_str(), nullptr, TextRight - TextLeft - Padding, &NameClip);
+                        }
+                    }
+
                     if (Directory) {
                         const ImVec2 Minimum{ImGui::GetItemRectMin()};
                         const ImVec2 Maximum{ImGui::GetItemRectMax()};
@@ -999,7 +1118,7 @@ void FContentBrowserWidget::DrawContentEntries() {
 
                     const bool Shader{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::Shader};
 
-                    if ((LuaScript || HasThumbnail || AnimSequence || BlendSpace || AnimGraph || Shader) && mContext->CanEditWorld() && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+                    if ((LuaScript || SupportsThumbnail || AnimSequence || BlendSpace || AnimGraph || Shader) && mContext->CanEditWorld() && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
                         const char* Payload{LuaScript ? Editor::EditorAssetDragDrop::LuaScriptPayload : Shader ? Editor::EditorAssetDragDrop::ShaderPayload : AnimSequence ? Editor::EditorAssetDragDrop::AnimSequencePayload : BlendSpace ? Editor::EditorAssetDragDrop::BlendSpacePayload : AnimGraph ? Editor::EditorAssetDragDrop::AnimGraphPayload : Type->second == Asset::EAssetType::Mesh || Type->second == Asset::EAssetType::SkeletalMesh ? Editor::EditorAssetDragDrop::MeshPayload : Type->second == Asset::EAssetType::Skeleton ? Editor::EditorAssetDragDrop::SkeletonPayload : Type->second == Asset::EAssetType::Material ? Editor::EditorAssetDragDrop::MaterialPayload : Editor::EditorAssetDragDrop::TexturePayload};
 
                         ImGui::SetDragDropPayload(Payload, Actual.c_str(), Actual.size() + 1);
@@ -1009,25 +1128,11 @@ void FContentBrowserWidget::DrawContentEntries() {
 
                     if (Hovered) {
                         ImGui::BeginTooltip();
-                        ImGui::TextUnformatted(Core::FilePath::ToGenericUtf8(Path).c_str());
+                        ImGui::TextUnformatted(Actual.c_str());
                         ImGui::TextDisabled("%s", Icon.mTooltip);
                         ImGui::EndTooltip();
                     }
 
-                    const ImVec2 Next{ImGui::GetCursorScreenPos()};
-
-                    ImGui::SetCursorScreenPos({Origin.x + ImageOffset, Origin.y + Padding});
-                    DrawContentImage(ImageSize, Thumbnail, Resource, Icon);
-                    ImGui::SetCursorScreenPos({Origin.x + TextX, Origin.y + TypeY});
-                    ImGui::TextDisabled("%s", Kind);
-                    ImGui::SetCursorScreenPos({Origin.x + TextX, Origin.y + NameY});
-                    ImGui::PushClipRect({Origin.x + TextX, Origin.y + NameY}, {Origin.x + TileWidth - Padding, Origin.y + NameY + NameHeight}, true);
-                    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + TileWidth - TextX - 10.0f * Scale);
-                    ImGui::TextWrapped("%s", Name.c_str());
-                    ImGui::PopTextWrapPos();
-                    ImGui::PopClipRect();
-                    ImGui::SetCursorScreenPos(Next);
-                    ImGui::Dummy({0.0f, 0.0f});
                     ImGui::PopID();
                 }
             }

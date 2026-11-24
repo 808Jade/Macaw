@@ -256,6 +256,7 @@ namespace Renderer {
         mShadowResources.reset();
         mDefaultMaterial.reset();
         mDefaultMaterialTexture.reset();
+        mCheckerboardBackground.Reset();
         mMaterialSampler.Reset();
 
         mLineVertexShader.Reset();
@@ -357,7 +358,7 @@ namespace Renderer {
         return Texture;
     }
 
-    std::unique_ptr<Asset::UTexture2D> FRenderer::CaptureTexture(const Asset::UTexture2D& Source, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error) {
+    std::unique_ptr<Asset::UTexture2D> FRenderer::CaptureTexture(const Asset::UTexture2D& Source, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error, bool CheckerboardBackground) {
         if (mContext == nullptr || mPostProcessResources == nullptr || !Source.HasResources() || !std::isfinite(Region.x) || !std::isfinite(Region.y) || !std::isfinite(Region.z) || !std::isfinite(Region.w) || Region.x < 0.0f || Region.y < 0.0f || Region.z <= 0.0f || Region.w <= 0.0f || Region.x + Region.z > static_cast<float>(Width) + 0.01f || Region.y + Region.w > static_cast<float>(Height) + 0.01f) {
             Error = "Invalid texture capture";
 
@@ -378,9 +379,15 @@ namespace Renderer {
         mContext->GSSetShader(nullptr, nullptr, 0);
         mContext->HSSetShader(nullptr, nullptr, 0);
         mContext->DSSetShader(nullptr, nullptr, 0);
-        mContext->ClearRenderTargetView(Texture->GetRenderTargetView(), ClearColor);
+
+        const bool CheckerboardDrawn{CheckerboardBackground && CopyCheckerboardBackground(*Texture)};
+
+        if (!CheckerboardDrawn) {
+            mContext->ClearRenderTargetView(Texture->GetRenderTargetView(), ClearColor);
+        }
+
         mContext->RSSetViewports(1, &Viewport);
-        mPostProcessResources->RenderTexture(mContext.Get(), Source, *Texture);
+        mPostProcessResources->RenderTexture(mContext.Get(), Source, *Texture, CheckerboardDrawn ? mOverlayBlend.Get() : nullptr);
 
         return Texture;
     }
@@ -475,7 +482,8 @@ namespace Renderer {
             OpaqueParameters.mColorAttachments = Attachments;
         }
 
-        ClearTarget(SceneTarget, ClearColor);
+        const bool CheckerboardDrawn{Family.mCheckerboardBackground && CopyCheckerboardBackground(*Target->GetSceneColor())};
+        ClearTarget(SceneTarget, CheckerboardDrawn ? nullptr : ClearColor);
         const bool Visualization{Engine::IsBufferVisualization(Family.mViewMode)};
         const bool DepthVisualization{Family.mViewMode == Engine::EViewMode::SceneDepth || Family.mViewMode == Engine::EViewMode::DepthOfFieldWeights};
         const bool ShowDecals{!Visualization || Family.mViewMode == Engine::EViewMode::WorldNormal || Family.mViewMode == Engine::EViewMode::BaseColor || Family.mViewMode == Engine::EViewMode::BaseColorAlpha};
@@ -1521,6 +1529,63 @@ namespace Renderer {
         if (Target.mDepth != nullptr) {
             mContext->ClearDepthStencilView(Target.mDepth, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
         }
+    }
+
+    bool FRenderer::CopyCheckerboardBackground(Asset::UTexture2D& Target) {
+        const Uint32 Width{Target.GetSizeX()};
+        const Uint32 Height{Target.GetSizeY()};
+
+        if (Width == 0 || Height == 0 || Target.GetTexture() == nullptr || Target.GetFormat() != Asset::ETextureFormat::RGBA8) {
+            return false;
+        }
+
+        D3D11_TEXTURE2D_DESC Cached{};
+
+        if (mCheckerboardBackground != nullptr) {
+            mCheckerboardBackground->GetDesc(&Cached);
+        }
+
+        if (Cached.Width != Width || Cached.Height != Height) {
+            using FPixel = Core::TStaticArray<Uint8, 4>;
+
+            constexpr Uint32 Squares{8};
+            constexpr FPixel Dark{21, 27, 36, 255};
+            constexpr FPixel Light{31, 39, 50, 255};
+            Core::TArray<FPixel> Pixels{static_cast<std::size_t>(Width) * Height};
+
+            for (Uint32 Y{}; Y < Height; ++Y) {
+                const Uint32 Row{Y * Squares / Height};
+
+                for (Uint32 X{}; X < Width; ++X) {
+                    const Uint32 Column{X * Squares / Width};
+                    Pixels[static_cast<std::size_t>(Y) * Width + X] = (Row + Column) % 2 == 0 ? Dark : Light;
+                }
+            }
+
+            D3D11_TEXTURE2D_DESC Description{};
+            Description.Width = Width;
+            Description.Height = Height;
+            Description.MipLevels = 1;
+            Description.ArraySize = 1;
+            Description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            Description.SampleDesc.Count = 1;
+            Description.Usage = D3D11_USAGE_IMMUTABLE;
+            Description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+            const D3D11_SUBRESOURCE_DATA Data{Pixels.data(), static_cast<UINT>(Width * sizeof(FPixel)), 0};
+            Microsoft::WRL::ComPtr<ID3D11Texture2D> Background{};
+
+            if (FAILED(mDevice->CreateTexture2D(&Description, &Data, Background.GetAddressOf()))) {
+                return false;
+            }
+
+            mCheckerboardBackground = std::move(Background);
+        }
+
+        mContext->OMSetRenderTargets(0, nullptr, nullptr);
+        mContext->CopyResource(Target.GetTexture(), mCheckerboardBackground.Get());
+
+        return true;
     }
 
     /**

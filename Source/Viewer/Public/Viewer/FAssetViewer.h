@@ -140,14 +140,14 @@ namespace Viewer {
          * @param BackgroundOverlay 배경 깊이와 함께 표시할 외부 소유 오버레이이며 없으면 nullptr입니다.
          * @return 현재 콘텐츠의 표시 결과를 준비했으면 true입니다.
          */
-        bool Render(const Engine::FPrimitiveDrawInterface* EditorElements = nullptr, const Engine::FPrimitiveDrawInterface* BackgroundOverlay = nullptr);
+        bool Render(const Engine::FPrimitiveDrawInterface* EditorElements = nullptr, const Engine::FPrimitiveDrawInterface* BackgroundOverlay = nullptr, bool CheckerboardBackground = false);
 
         /**
          * @brief 현재 콘텐츠를 렌더링한 뒤 독립된 최종 컬러 이미지를 만듭니다.
          * @param Error 실패 원인을 기록할 출력 문자열입니다.
          * @return 호출자가 소유하는 캡처이며 실패하면 nullptr이고 Error에 원인을 기록합니다.
          */
-        std::unique_ptr<Viewer::FViewerCapture> Capture(Core::FString& Error);
+        std::unique_ptr<Viewer::FViewerCapture> Capture(Core::FString& Error, bool CheckerboardBackground = false);
 
         /**
          * @brief 궤도 카메라의 상태와 조작 인터페이스를 제공합니다.

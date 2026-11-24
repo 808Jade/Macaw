@@ -172,7 +172,7 @@ EViewerPrepareResult FAssetViewer::PrepareCapture(Core::FString& Error) {
     return PrepareCapture(mContent != nullptr ? mContent->GetCaptureState() : FViewerCaptureState{}, Error);
 }
 
-bool FAssetViewer::Render(const Engine::FPrimitiveDrawInterface* EditorElements, const Engine::FPrimitiveDrawInterface* BackgroundOverlay) {
+bool FAssetViewer::Render(const Engine::FPrimitiveDrawInterface* EditorElements, const Engine::FPrimitiveDrawInterface* BackgroundOverlay, bool CheckerboardBackground) {
     if (mRenderer == nullptr || mContent == nullptr || !mContent->IsReady()) {
         return false;
     }
@@ -192,6 +192,7 @@ bool FAssetViewer::Render(const Engine::FPrimitiveDrawInterface* EditorElements,
 
     Engine::FSceneViewFamily Family{mContent->GetScene(), mTarget.get(), mCamera.CalcSceneView(mSize), EditorElements, mViewMode, mShowFlags, mGridSpacing};
     Family.mBackgroundOverlay = BackgroundOverlay != nullptr ? BackgroundOverlay : &ContentOverlay;
+    Family.mCheckerboardBackground = CheckerboardBackground;
 
     if (mShowEnvironment) {
         mContent->PrepareEnvironment(Family);
@@ -202,17 +203,17 @@ bool FAssetViewer::Render(const Engine::FPrimitiveDrawInterface* EditorElements,
     return true;
 }
 
-std::unique_ptr<FViewerCapture> FAssetViewer::Capture(Core::FString& Error) {
+std::unique_ptr<FViewerCapture> FAssetViewer::Capture(Core::FString& Error, bool CheckerboardBackground) {
     Error.clear();
 
-    if (!Render()) {
+    if (!Render(nullptr, nullptr, CheckerboardBackground)) {
         Error = "Cannot render the viewer capture";
 
         return nullptr;
     }
 
     Asset::UTexture2D* Source{mContent->GetTexture()};
-    auto Texture{Source != nullptr ? mRenderer->CaptureTexture(*Source, static_cast<Uint32>(mSize.x), static_cast<Uint32>(mSize.y), GetImageRect(), Error) : mRenderer->CaptureRenderTarget(*mTarget, Error)};
+    auto Texture{Source != nullptr ? mRenderer->CaptureTexture(*Source, static_cast<Uint32>(mSize.x), static_cast<Uint32>(mSize.y), GetImageRect(), Error, CheckerboardBackground) : mRenderer->CaptureRenderTarget(*mTarget, Error)};
 
     return Texture != nullptr ? std::make_unique<FViewerCapture>(std::move(Texture)) : nullptr;
 }

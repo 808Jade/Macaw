@@ -148,7 +148,7 @@ namespace Renderer {
          * @param Error 실패 원인을 기록할 출력 문자열입니다.
          * @return 호출자가 소유하는 출력 텍스처이며 실패하면 nullptr이고 Error에 원인을 기록합니다.
          */
-        std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error) override;
+        std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error, bool CheckerboardBackground = false) override;
 
         /**
          * @brief 기존 오프스크린 렌더 타깃을 새 픽셀 크기로 변경합니다.
@@ -388,6 +388,7 @@ namespace Renderer {
          * @param[in] Color 색상 뷰를 지울 RGBA 값이며, nullptr이면 색상은 유지합니다.
          */
         void ClearTarget(const Renderer::FPassTarget& Target, const float* Color);
+        bool CopyCheckerboardBackground(Asset::UTexture2D& Target);
 
         /**
          * @brief 그림자 맵마다 캐시된 아틀라스 타일이 현재 상태와 다를 때만 타일을 지우고 깊이를 다시 그립니다.
@@ -485,6 +486,7 @@ namespace Renderer {
          * @brief 텍스처 없는 머티리얼의 흰색 기본 텍스처입니다.
          */
         std::unique_ptr<Asset::UTexture2D> mDefaultMaterialTexture{};
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> mCheckerboardBackground{};
 
         /**
          * @brief 머티리얼 텍스처용 반복 샘플러입니다.
