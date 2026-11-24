@@ -806,6 +806,14 @@ namespace Engine {
             return false;
         }
 
+        if (Engine::APlayerCameraManager* CameraManager{GetPlayerCameraManager()}) {
+            Engine::AActor* Target{Camera != nullptr ? Camera->GetOwner() : nullptr};
+
+            if ((CameraManager->GetViewTarget() != Target || CameraManager->IsBlending()) && !CameraManager->SetViewTarget(Target)) {
+                return false;
+            }
+        }
+
         mActiveCamera = Camera;
 
         return true;

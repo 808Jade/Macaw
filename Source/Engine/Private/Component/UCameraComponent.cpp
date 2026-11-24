@@ -31,11 +31,43 @@ namespace Engine {
         return true;
     }
 
+    const Engine::FDepthOfFieldSettings& Engine::UCameraComponent::GetDepthOfFieldSettings() const {
+        return mDepthOfFieldSettings;
+    }
+
+    bool Engine::UCameraComponent::SetDepthOfFieldSettings(const Engine::FDepthOfFieldSettings& Settings) {
+        if (!std::isfinite(Settings.mFocalDistance) || Settings.mFocalDistance < 0.0f ||
+            !std::isfinite(Settings.mFocusWidth) || Settings.mFocusWidth < 0.0f ||
+            !std::isfinite(Settings.mTransitionDistance) || Settings.mTransitionDistance < 0.0f ||
+            !std::isfinite(Settings.mMaxBlurRadius) || Settings.mMaxBlurRadius < 0.0f ||
+            !std::isfinite(Settings.mFStop) || Settings.mFStop <= 0.0f) {
+            return false;
+        }
+
+        if (Settings.mApertureShape != Engine::EDepthOfFieldApertureShape::Circle &&
+            Settings.mApertureShape != Engine::EDepthOfFieldApertureShape::Pentagon &&
+            Settings.mApertureShape != Engine::EDepthOfFieldApertureShape::Hexagon) {
+            return false;
+        }
+
+        mDepthOfFieldSettings = Settings;
+
+        return true;
+    }
+
+    bool Engine::UCameraComponent::SetDepthOfFieldFocalDistance(float Distance) {
+        Engine::FDepthOfFieldSettings Settings{mDepthOfFieldSettings};
+        Settings.mFocalDistance = Distance;
+
+        return SetDepthOfFieldSettings(Settings);
+    }
+
     Engine::FMinimalViewInfo Engine::UCameraComponent::GetCameraViewInfo() const {
         Engine::FMinimalViewInfo ViewInfo{};
         ViewInfo.mLocation = GetTransform().mLocation;
         ViewInfo.mRotation = GetTransform().mRotation;
         ViewInfo.mFieldOfView = mFieldOfView;
+        ViewInfo.mDepthOfFieldSettings = mDepthOfFieldSettings;
 
         return ViewInfo;
     }

@@ -23,6 +23,11 @@ namespace Renderer {
      */
     class FDXRenderTarget final : public Engine::FRenderTarget {
     public:
+        /** @brief 절반 해상도의 전경·배경 분리 및 블러 결과 텍스처입니다. */
+        struct FDepthOfFieldTargets {
+            Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, 2> mSeparated{};
+            Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, 2> mBlurred{};
+        };
 
         /**
          * @brief FDXRenderTarget의 초기 상태와 전달받은 의존성을 구성합니다.
@@ -125,6 +130,9 @@ namespace Renderer {
          */
         Asset::UTexture2D* GetSceneDepth() const;
 
+        /** @brief 현재 뷰포트 크기의 DOF 텍스처를 필요할 때 생성합니다. */
+        const FDepthOfFieldTargets* PrepareDepthOfFieldTargets();
+
         /**
          * @brief 현재 보유한 GPU 리소스의 추정 바이트 수를 반환합니다.
          * @return 현재 보유한 GPU 리소스의 추정 바이트 수를 나타내는 정수 값입니다.
@@ -156,6 +164,8 @@ namespace Renderer {
          * @brief 다중 안개를 읽기·쓰기 충돌 없이 합성하기 위한 교대 컬러 텍스처입니다.
          */
         std::unique_ptr<Asset::UTexture2D> mPostProcessColor{};
+
+        std::unique_ptr<FDepthOfFieldTargets> mDepthOfFieldTargets{};
 
         /**
          * @brief 깊이 텍스처입니다.

@@ -249,6 +249,7 @@ namespace Editor {
             }});
         }};
         RegisterShowFlag("ShowFlag.Fog", &Engine::FEngineShowFlags::mFog);
+        RegisterShowFlag("ShowFlag.DepthOfField", &Engine::FEngineShowFlags::mDepthOfField);
         RegisterShowFlag("ShowFlag.FXAA", &Engine::FEngineShowFlags::mFXAA);
         RegisterShowFlag("ShowFlag.Shadows", &Engine::FEngineShowFlags::mShadows);
         RegisterShowFlag("ShowFlag.Sky", &Engine::FEngineShowFlags::mSky);

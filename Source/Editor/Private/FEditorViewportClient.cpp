@@ -211,14 +211,15 @@ namespace Editor {
      * @brief 현재 프레임의 뷰포트 입력을 처리합니다.
      */
     void Editor::FEditorViewportClient::Input(Engine::FSceneViewport* Viewport, const Engine::FViewportInput& Input, float DeltaTime) {
-        if (Viewport == nullptr) {
+        if (Viewport == nullptr || mContext == nullptr) {
             return;
         }
 
         const FVector2 Size{Viewport->GetSize()};
         const bool CameraInput{(Input.mHovered || Input.mFocused) && (Input.mRightDown || Input.mMiddleDown || (Input.mAlt && Input.mLeftDown) || (Input.mHovered && Input.mWheel != 0.0f) || (Input.mFocused && (Input.mForward || Input.mBackward || Input.mLeft || Input.mRight || Input.mUp || Input.mDown)))};
+        const bool PreviewingCamera{GetPreviewCamera() != nullptr};
 
-        if (CameraInput || mGizmo.IsDragging() || mContext->GetPreviewCamera() != nullptr) {
+        if (CameraInput || mGizmo.IsDragging() || PreviewingCamera) {
             mFocusActive = false;
         }
 
@@ -251,7 +252,7 @@ namespace Editor {
             return;
         }
 
-        if (NavigateCamera(Input, Size, DeltaTime)) {
+        if (!PreviewingCamera && NavigateCamera(Input, Size, DeltaTime)) {
             return;
         }
 
@@ -390,7 +391,7 @@ namespace Editor {
      * @brief 선택한 액터가 화면에 들어오도록 카메라 위치와 중심을 조정합니다.
      */
     void Editor::FEditorViewportClient::FocusActor(const Engine::AActor* Actor, const FVector2& Size) {
-        if (Actor == nullptr || Actor->IsPendingDestroy() || mGizmo.IsDragging() || mContext->GetPreviewCamera() != nullptr) {
+        if (Actor == nullptr || Actor->IsPendingDestroy() || mGizmo.IsDragging() || GetPreviewCamera() != nullptr) {
             return;
         }
 
@@ -649,8 +650,7 @@ namespace Editor {
      * @brief 현재 카메라와 뷰포트 크기로 뷰·투영 행렬을 계산합니다.
      */
     Engine::FSceneView Editor::FEditorViewportClient::CalcSceneView(const FVector2& Size) const {
-        // 시퀀서 프리뷰 중에는 원근 뷰가 카메라 컷의 시점을 그대로 보여 줍니다.
-        if (const Engine::UCameraComponent* PreviewCamera{mViewType == Editor::EEditorViewportType::Perspective && mContext != nullptr ? mContext->GetPreviewCamera() : nullptr}; PreviewCamera != nullptr) {
+        if (const Engine::UCameraComponent* PreviewCamera{GetPreviewCamera()}) {
             Engine::FSceneView PreviewView{};
 
             if (PreviewCamera->GetCameraView(Size, PreviewView)) {
@@ -675,7 +675,18 @@ namespace Editor {
         View.mProjection = View.mOrthographic ? FMatrix::Orthographic(mOrthographicWidth, mOrthographicWidth / Aspect, 0.05f, 10000.0f) : FMatrix::Perspective(mFieldOfView, Aspect, mNearClip, mFarClip);
         View.mViewProjection = View.mView * View.mProjection;
 
+        const Engine::UWorld* World{mContext != nullptr ? mContext->GetWorld() : nullptr};
+
+        // 편집 카메라의 시점을 유지하면서 활성 카메라의 피사계 심도 설정을 적용합니다.
+        if (const Engine::UCameraComponent* Camera{World != nullptr ? World->GetActiveCamera() : nullptr}) {
+            View.mDepthOfFieldSettings = Camera->GetDepthOfFieldSettings();
+        }
+
         return View;
+    }
+
+    const Engine::UCameraComponent* Editor::FEditorViewportClient::GetPreviewCamera() const {
+        return mViewType == Editor::EEditorViewportType::Perspective && mContext != nullptr ? mContext->GetPreviewCamera() : nullptr;
     }
 
     /**
@@ -800,7 +811,7 @@ namespace Editor {
         case Editor::EEditorViewportType::Right:
             return "Right";
         default:
-            return "Perspective";
+            return GetPreviewCamera() != nullptr ? "Camera Cut" : "Perspective";
         }
     }
 
@@ -808,6 +819,12 @@ namespace Editor {
      * @brief 활성 뷰포트의 기본 배치 위치를 반환합니다.
      */
     FVector Editor::FEditorViewportClient::GetPlacementLocation() const {
+        if (const Engine::UCameraComponent* Camera{GetPreviewCamera()}) {
+            const FTransform& Transform{Camera->GetTransform()};
+
+            return Transform.mLocation + Transform.mRotation.ForwardVector() * 6.0f;
+        }
+
         return mViewType == Editor::EEditorViewportType::Perspective ? mCameraLocation + mCameraRotation.Vector() * 6.0f : mOrbitPivot;
     }
 

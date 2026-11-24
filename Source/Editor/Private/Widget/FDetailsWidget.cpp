@@ -18,6 +18,7 @@
 #include "Engine/Component/USkeletalMeshComponent.h"
 #include "Engine/Animation/UAnimInstance.h"
 #include "Engine/Animation/UAnimGraphInstance.h"
+#include "Engine/FDepthOfFieldSettings.h"
 #include "RenderCore/IRendererModule.h"
 #include "Engine/FProject.h"
 #include "Asset/FAssetManager.h"
@@ -187,10 +188,25 @@ namespace Editor {
         /**
          * @brief 리플렉션 메타데이터와 이름 규칙으로 프로퍼티 표시 이름을 만듭니다.
          * @param Property 표시·직렬화·조회할 프로퍼티 메타데이터입니다.
+         * @param Struct 구조체 필드를 표시할 때 해당 필드를 선언한 구조체입니다.
          * @return 상세 패널에 표시할 이름입니다.
          */
-        Core::FString PropertyLabel(const CoreUObject::FProperty* Property) {
+        Core::FString PropertyLabel(const CoreUObject::FProperty* Property, const CoreUObject::UScriptStruct* Struct = nullptr) {
             const Core::FString& Name{Property->GetName()};
+
+            if (Struct != nullptr && Struct == Engine::FDepthOfFieldSettings::StaticStruct()) {
+                if (Name == "FocalDistance" || Name == "FocusWidth" || Name == "TransitionDistance") {
+                    return DisplayName(Name) + " (m)";
+                }
+
+                if (Name == "MaxBlurRadius") {
+                    return "Max Blur Radius (px)";
+                }
+
+                if (Name == "FStop") {
+                    return "F-stop";
+                }
+            }
 
             if (Name == "ShadowBiasPreset") {
                 return "Depth Bias Preset";
@@ -1216,7 +1232,7 @@ namespace Editor {
                 }
 
                 ImGui::PushID(Child);
-                BeginPropertyRow(PropertyLabel(Child).c_str());
+                BeginPropertyRow(PropertyLabel(Child, Struct).c_str());
                 ImGui::TableSetColumnIndex(1);
 
                 if (Child->GetType() == CoreUObject::EPropertyType::Struct || Child->GetArrayOps() != nullptr) {

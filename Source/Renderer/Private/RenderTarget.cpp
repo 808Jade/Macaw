@@ -91,6 +91,7 @@ namespace Renderer {
         mDecalNormalHistory.reset();
         mSceneColor = std::move(SceneColor);
         mPostProcessColor = std::move(PostProcessColor);
+        mDepthOfFieldTargets.reset();
 
         mWidth = Width;
         mHeight = Height;
@@ -174,6 +175,12 @@ namespace Renderer {
         Bytes += mDecalNormalSource != nullptr ? mDecalNormalSource->GetResourceBytes() : 0;
         Bytes += mDecalNormalHistory != nullptr ? mDecalNormalHistory->GetResourceBytes() : 0;
 
+        if (mDepthOfFieldTargets != nullptr) {
+            for (Index_t Index{}; Index < mDepthOfFieldTargets->mSeparated.size(); ++Index) {
+                Bytes += mDepthOfFieldTargets->mSeparated[Index]->GetResourceBytes() + mDepthOfFieldTargets->mBlurred[Index]->GetResourceBytes();
+            }
+        }
+
         return Bytes;
     }
 
@@ -203,6 +210,34 @@ namespace Renderer {
      */
     Asset::UTexture2D* Renderer::FDXRenderTarget::GetSceneDepth() const {
         return mDepth.get();
+    }
+
+    const Renderer::FDXRenderTarget::FDepthOfFieldTargets* Renderer::FDXRenderTarget::PrepareDepthOfFieldTargets() {
+        if (mDepthOfFieldTargets != nullptr || mColor == nullptr) {
+            return mDepthOfFieldTargets.get();
+        }
+
+        Microsoft::WRL::ComPtr<ID3D11Device> Device{};
+        mColor->GetTexture()->GetDevice(Device.GetAddressOf());
+
+        const Uint32 Width{(mWidth + 1) / 2};
+        const Uint32 Height{(mHeight + 1) / 2};
+        const Asset::ETextureUsage Usage{Asset::ETextureUsage::ShaderResource | Asset::ETextureUsage::RenderTarget};
+        auto Targets{std::make_unique<FDepthOfFieldTargets>()};
+
+        for (auto* Layers : {&Targets->mSeparated, &Targets->mBlurred}) {
+            for (auto& Layer : *Layers) {
+                Layer = CoreUObject::NewObject<Asset::UTexture2D>();
+
+                if (!Layer->Configure(Width, Height, Asset::ETextureFormat::RGBA16Float, Usage) || !Layer->CreateResources(Device.Get())) {
+                    return nullptr;
+                }
+            }
+        }
+
+        mDepthOfFieldTargets = std::move(Targets);
+
+        return mDepthOfFieldTargets.get();
     }
 
 }

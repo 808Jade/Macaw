@@ -77,6 +77,26 @@ Transform = {}
 ---@return MacawTransform
 function Transform.new() end
 
+---@enum MacawDepthOfFieldApertureShape
+DepthOfFieldApertureShape = {
+    Circle = 0,
+    Pentagon = 1,
+    Hexagon = 2,
+}
+
+---@class MacawDepthOfFieldSettings
+---@field Enabled boolean
+---@field FocalDistance number 미터
+---@field FocusWidth number 미터
+---@field TransitionDistance number 미터
+---@field MaxBlurRadius number 전체 해상도 픽셀
+---@field FStop number
+---@field ApertureShape MacawDepthOfFieldApertureShape
+DepthOfFieldSettings = {}
+
+---@return MacawDepthOfFieldSettings
+function DepthOfFieldSettings.new() end
+
 ---@class MacawHitResult
 ---@field BlockingHit boolean
 ---@field ImpactPoint MacawVector
@@ -98,6 +118,9 @@ Component = {}
 ---@alias MacawSkeletalMeshComponent MacawComponent
 SkeletalMeshComponent = Component
 
+---@alias MacawCameraComponent MacawComponent
+CameraComponent = Component
+
 ---@return boolean
 function Component:IsValid() end
 
@@ -118,6 +141,18 @@ function Component:RestartAnimGraphPlayer(Name) end
 ---@param Name string
 ---@return boolean
 function Component:IsAnimGraphPlayerFinished(Name) end
+
+--- 설정의 사본을 반환합니다. 카메라 컴포넌트가 아니면 nil을 반환합니다.
+---@return MacawDepthOfFieldSettings?
+function Component:GetDepthOfFieldSettings() end
+
+---@param Value MacawDepthOfFieldSettings
+---@return boolean
+function Component:SetDepthOfFieldSettings(Value) end
+
+---@param Distance number 미터
+---@return boolean
+function Component:SetDepthOfFieldFocalDistance(Distance) end
 
 ---@class MacawActor
 ---@field UUID string
@@ -146,6 +181,9 @@ function Actor:GetComponentByClass(ClassName) end
 
 ---@return MacawComponent?
 function Actor:GetSkeletalMeshComponent() end
+
+---@return MacawCameraComponent?
+function Actor:GetCameraComponent() end
 
 function Actor:PrintLocation() end
 

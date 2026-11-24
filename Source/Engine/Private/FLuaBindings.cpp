@@ -103,6 +103,23 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Transform["GetRotator"] = &FTransform::GetRotator;
     Transform["SetRotator"] = &FTransform::SetRotator;
 
+    Lua.new_enum<Engine::EDepthOfFieldApertureShape>("DepthOfFieldApertureShape", {
+        {"Circle", Engine::EDepthOfFieldApertureShape::Circle},
+        {"Pentagon", Engine::EDepthOfFieldApertureShape::Pentagon},
+        {"Hexagon", Engine::EDepthOfFieldApertureShape::Hexagon}
+    });
+
+    auto DepthOfField{Lua.new_usertype<Engine::FDepthOfFieldSettings>("DepthOfFieldSettings", sol::constructors<Engine::FDepthOfFieldSettings()>())};
+    DepthOfField["Enabled"] = &Engine::FDepthOfFieldSettings::mEnabled;
+    DepthOfField["FocalDistance"] = &Engine::FDepthOfFieldSettings::mFocalDistance;
+    DepthOfField["FocusWidth"] = &Engine::FDepthOfFieldSettings::mFocusWidth;
+    DepthOfField["TransitionDistance"] = &Engine::FDepthOfFieldSettings::mTransitionDistance;
+    DepthOfField["MaxBlurRadius"] = &Engine::FDepthOfFieldSettings::mMaxBlurRadius;
+    DepthOfField["FStop"] = &Engine::FDepthOfFieldSettings::mFStop;
+    DepthOfField["ApertureShape"] = &Engine::FDepthOfFieldSettings::mApertureShape;
+    DepthOfField["NearBlur"] = &Engine::FDepthOfFieldSettings::mNearBlur;
+    DepthOfField["FarBlur"] = &Engine::FDepthOfFieldSettings::mFarBlur;
+
     auto Hit{Lua.new_usertype<Engine::FHitResult>("HitResult", sol::no_constructor)};
     Hit["BlockingHit"] = sol::readonly(&Engine::FHitResult::mBlockingHit);
     Hit["ImpactPoint"] = sol::readonly(&Engine::FHitResult::mImpactPoint);
@@ -142,7 +159,23 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         const auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
         return Mesh != nullptr && Mesh->IsAnimGraphPlayerFinished(Name);
     };
+    Component["GetDepthOfFieldSettings"] = [](const FLuaComponentRef& Ref) -> sol::optional<Engine::FDepthOfFieldSettings> {
+        if (const auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())}) {
+            return Camera->GetDepthOfFieldSettings();
+        }
+
+        return sol::nullopt;
+    };
+    Component["SetDepthOfFieldSettings"] = [](const FLuaComponentRef& Ref, const Engine::FDepthOfFieldSettings& Settings) {
+        auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
+        return Camera != nullptr && Camera->SetDepthOfFieldSettings(Settings);
+    };
+    Component["SetDepthOfFieldFocalDistance"] = [](const FLuaComponentRef& Ref, float Distance) {
+        auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
+        return Camera != nullptr && Camera->SetDepthOfFieldFocalDistance(Distance);
+    };
     Lua["SkeletalMeshComponent"] = Lua.get<sol::table>("Component");
+    Lua["CameraComponent"] = Lua.get<sol::table>("Component");
 
     auto Actor{Lua.new_usertype<FActorRef>("Actor", sol::no_constructor)};
     Actor["IsValid"] = [](const FActorRef& Ref) {
@@ -173,6 +206,12 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     };
     Actor["GetSkeletalMeshComponent"] = [](const FActorRef& Ref) -> sol::optional<FLuaComponentRef> {
         if (auto* Found{FindComponent(Ref.Resolve(), Engine::USkeletalMeshComponent::StaticClass())}) {
+            return FLuaComponentRef{Found};
+        }
+        return sol::nullopt;
+    };
+    Actor["GetCameraComponent"] = [](const FActorRef& Ref) -> sol::optional<FLuaComponentRef> {
+        if (auto* Found{FindComponent(Ref.Resolve(), Engine::UCameraComponent::StaticClass())}) {
             return FLuaComponentRef{Found};
         }
         return sol::nullopt;

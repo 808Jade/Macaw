@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Engine/Component/USceneComponent.h"
+#include "Engine/FDepthOfFieldSettings.h"
 #include "UCameraComponent.generated.h"
 
 struct FVector2;
@@ -38,7 +39,24 @@ namespace Engine {
         bool SetFieldOfView(float FieldOfView);
 
         /**
-         * @brief 카메라의 현재 월드 변환과 시야각으로 시점 값을 만듭니다.
+         * @brief 카메라의 피사계 심도 설정을 반환합니다.
+         */
+        const Engine::FDepthOfFieldSettings& GetDepthOfFieldSettings() const;
+
+        /**
+         * @brief 모든 피사계 심도 설정을 검증한 뒤 한 번에 적용합니다.
+         * @return 유효한 설정을 적용했으면 true입니다.
+         */
+        bool SetDepthOfFieldSettings(const Engine::FDepthOfFieldSettings& Settings);
+
+        /**
+         * @brief 피사계 심도의 초점 거리(m)를 변경합니다.
+         * @return 0 이상의 유한한 거리를 적용했으면 true입니다.
+         */
+        bool SetDepthOfFieldFocalDistance(float Distance);
+
+        /**
+         * @brief 카메라의 현재 월드 변환, 시야각, 피사계 심도 설정으로 시점 값을 만듭니다.
          * @return 카메라 관리자가 블렌드에 사용할 시점 값입니다.
          */
         Engine::FMinimalViewInfo GetCameraViewInfo() const;
@@ -57,6 +75,9 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Getter = GetFieldOfView, Setter = SetFieldOfView)
         float mFieldOfView{60.0f};
+
+        UPROPERTY(Edit, Serialize, Name = "DepthOfField", Getter = GetDepthOfFieldSettings, Setter = SetDepthOfFieldSettings)
+        Engine::FDepthOfFieldSettings mDepthOfFieldSettings{};
     };
 
 }

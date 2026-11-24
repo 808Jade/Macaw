@@ -475,6 +475,7 @@ namespace Renderer {
 
         ClearTarget(SceneTarget, ClearColor);
         const bool Visualization{Engine::IsBufferVisualization(Family.mViewMode)};
+        const bool DepthVisualization{Family.mViewMode == Engine::EViewMode::SceneDepth || Family.mViewMode == Engine::EViewMode::DepthOfFieldWeights};
         const bool ShowDecals{!Visualization || Family.mViewMode == Engine::EViewMode::WorldNormal || Family.mViewMode == Engine::EViewMode::BaseColor || Family.mViewMode == Engine::EViewMode::BaseColorAlpha};
         const bool DrawDecals{!mForwardShading && Family.mShowFlags.mPrimitives && !Scene->GetDecals().empty() && ShowDecals && Family.mViewMode != Engine::EViewMode::Wireframe};
         const bool MarkDecalReceivers{DrawDecals || Family.mViewMode == Engine::EViewMode::SceneStencil};
@@ -485,7 +486,7 @@ namespace Renderer {
                 mStats.mDrawCalls += mDecalPass->Render(mDevice.Get(), mContext.Get(), *Target, Family, Scene->GetDecals());
             }
 
-            if (mDeferredLightingPass != nullptr && Family.mViewMode != Engine::EViewMode::SceneDepth) {
+            if (mDeferredLightingPass != nullptr && !DepthVisualization) {
                 mStats.mDrawCalls += mDeferredLightingPass->Render(mContext.Get(), *Target, SceneTarget, Family, mRasterizer.Get());
             }
         }
@@ -496,10 +497,10 @@ namespace Renderer {
             mStats.mDrawCalls += mSkyResources->Render(mContext.Get(), SceneTarget, Family.mView, Family.mPreviewSky);
         }
 
-        // 빌보드와 아이콘이 그리드 위에 혼합되도록 반투명 패스보다 먼저 그립니다. SceneDepth는 후처리가 색상을 덮어쓰므로 후처리 뒤에 그립니다.
+        // 그리드는 반투명 패스보다 먼저 그립니다. 깊이 기반 시각화에서는 후처리가 색상을 덮어쓰므로 그 뒤에 그립니다.
         const bool DrawGrid{Family.mGridSpacing > 0.0f};
 
-        if (DrawGrid && Family.mViewMode != Engine::EViewMode::SceneDepth) {
+        if (DrawGrid && !DepthVisualization) {
             mStats.mDrawCalls += mGridResources->Render(mContext.Get(), SceneTarget, Family.mView, Family.mGridSpacing);
         }
 
@@ -521,7 +522,7 @@ namespace Renderer {
         mStats.mDrawCalls += mPostProcessResources->Render(mContext.Get(), *Target, Family, Scene->GetHeightFogs());
         RenderTarget = Target->GetRenderTargetView();
 
-        if (DrawGrid && Family.mViewMode == Engine::EViewMode::SceneDepth) {
+        if (DrawGrid && DepthVisualization) {
             Renderer::FPassTarget OutputTarget{SceneTarget};
             OutputTarget.mColor = RenderTarget;
             mStats.mDrawCalls += mGridResources->Render(mContext.Get(), OutputTarget, Family.mView, Family.mGridSpacing);
@@ -863,6 +864,21 @@ namespace Renderer {
 
         if (!Compile("PostProcess.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("PostProcess.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mPostProcessResources->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
             return false;
+        }
+
+        // DOF 셰이더를 갖고 있지 않은 기존 프로젝트도 기존 후처리로 열 수 있습니다.
+        std::error_code ShaderFileError{};
+        if (std::filesystem::is_regular_file(mShaderDirectory / "DepthOfField.hlsl", ShaderFileError)) {
+            CoreUObject::TObjectRef<RenderCore::UShader> SeparateCode{};
+            CoreUObject::TObjectRef<RenderCore::UShader> BlurCode{};
+            CoreUObject::TObjectRef<RenderCore::UShader> CompositeCode{};
+
+            if (!Compile("DepthOfField.hlsl", "SeparateDepthOfField", "ps_5_0", SeparateCode) ||
+                !Compile("DepthOfField.hlsl", "BlurDepthOfField", "ps_5_0", BlurCode) ||
+                !Compile("DepthOfField.hlsl", "CompositeDepthOfField", "ps_5_0", CompositeCode) ||
+                !mPostProcessResources->CreateDepthOfFieldShaders(mDevice.Get(), SeparateCode->GetByteCode(), BlurCode->GetByteCode(), CompositeCode->GetByteCode())) {
+                return false;
+            }
         }
 
         if (mDecalPass != nullptr && (!Compile("Decal.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("Decal.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mDecalPass->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode()))) {
