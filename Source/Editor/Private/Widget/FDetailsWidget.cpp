@@ -500,11 +500,17 @@ namespace Editor {
 
         DrawToolbar(Targets);
 
+        // 섹션 버튼이 이번 프레임의 대상과 검색·옵션을 기준으로 나오도록, 툴바 입력을 반영한 뒤 그리기 전에 행을 모읍니다.
+        const FDetailLayout Layout{Targets.empty() ? FDetailLayout{} : BuildDetailLayout(Targets)};
+
+        DrawSectionBar(Layout.mAvailableCategories);
+        ImGui::Separator();
+
         if (ImGui::BeginChild("##DetailProperties")) {
             if (Targets.empty()) {
                 ImGui::TextDisabled("Select an actor or component to view its details.");
             } else {
-                DrawReflectedObjects(Targets);
+                DrawDetailLayout(Layout, Targets);
             }
         }
 
@@ -549,19 +555,13 @@ namespace Editor {
 
             ImGui::EndPopup();
         }
-
-        if (!Targets.empty()) {
-            DrawSectionBar();
-        }
-
-        ImGui::Separator();
     }
 
-    void Editor::FDetailsWidget::DrawSectionBar() {
+    void Editor::FDetailsWidget::DrawSectionBar(const Core::TArray<Core::FString>& AvailableCategories) {
         Core::TArray<std::string_view> Visible{};
 
         for (const FDetailSection& Section : GetDetailSections()) {
-            if (std::any_of(mAvailableCategories.begin(), mAvailableCategories.end(), [&Section](const Core::FString& Category) {
+            if (std::any_of(AvailableCategories.begin(), AvailableCategories.end(), [&Section](const Core::FString& Category) {
                 return IsCategoryInSection(Section.mName, Category);
             })) {
                 Visible.push_back(Section.mName);
@@ -574,7 +574,7 @@ namespace Editor {
 
         Visible.push_back("All");
 
-        const std::string_view Effective{GetEffectiveSection(mAvailableCategories)};
+        const std::string_view Effective{GetEffectiveSection(AvailableCategories)};
         const ImGuiStyle& Style{ImGui::GetStyle()};
         const float Right{ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x};
 
@@ -819,14 +819,15 @@ namespace Editor {
     }
 
     /**
-     * @brief 객체 타입의 편집 가능한 리플렉션 프로퍼티를 순회하여 표시합니다.
+     * @brief 대상들이 공유하는 프로퍼티 행과 표시할 내용이 있는 카테고리를 모읍니다.
      */
-    void Editor::FDetailsWidget::DrawReflectedObjects(const Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>>& Targets) {
+    Editor::FDetailsWidget::FDetailLayout Editor::FDetailsWidget::BuildDetailLayout(const Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>>& Targets) {
+        FDetailLayout Layout{};
         Editor::FEditorContext* Context{GetEditorContext()};
         CoreUObject::UObject* Object{Context->ResolveObject(Targets.front())};
 
         if (Object == nullptr) {
-            return;
+            return Layout;
         }
 
         const auto* CommonClass{Object->GetClass()};
@@ -835,7 +836,7 @@ namespace Editor {
             const CoreUObject::UObject* Other{Context->ResolveObject(Handle)};
 
             if (Other == nullptr) {
-                return;
+                return Layout;
             }
 
             while (!Other->IsA(CommonClass)) {
@@ -844,7 +845,7 @@ namespace Editor {
         }
 
         Core::TArray<const CoreUObject::UClass*> Classes{};
-        Core::TArray<FDetailRow> Rows{};
+        Core::TArray<FDetailRow>& Rows{Layout.mRows};
         Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>> Roots{};
 
         const bool TransformMatches{MatchesSearch("Transform", "Location") || MatchesSearch("Transform", "Rotation") || MatchesSearch("Transform", "Scale")};
@@ -922,61 +923,58 @@ namespace Editor {
             }
         }
 
-        const bool Searching{mPropertySearch.front() != '\0'};
         const auto* ShadowLight{Targets.size() == 1 ? CoreUObject::Cast<Engine::ULightComponent>(Context->ResolveObject(Targets.front())) : nullptr};
-        const bool ShadowMaps{ShadowLight != nullptr && !mOnlyModified && MatchesSearch("Rendering", "Shadow Depth Maps")};
-        const auto CategoryContent{[&](std::string_view CategoryName) {
-            struct FContent {
-                bool mGraphRow{};
-                Engine::UMeshComponent* mMesh{};
-                bool mMaterialRows{};
-                bool mHasRows{};
-            } Content{};
 
-            Content.mGraphRow = CategoryName == "Animation" && AllGraphMode && (MatchesSearch(CategoryName, "Anim Graph", "AnimGraph") || MatchesSearch(CategoryName, "Debug Anim Graph"));
-            Content.mMesh = CategoryName == "Materials" && Targets.size() == 1 ? CoreUObject::Cast<Engine::UMeshComponent>(Context->ResolveObject(Targets.front())) : nullptr;
-            const auto* Geometry{Content.mMesh != nullptr ? Content.mMesh->GetStaticMesh() : nullptr};
-            Content.mMaterialRows = Geometry != nullptr && std::any_of(Geometry->GetMeshData().GetMaterialSlots().begin(), Geometry->GetMeshData().GetMaterialSlots().end(), [this, Mesh = Content.mMesh, Geometry](const Asset::FMeshMaterialSlot& Slot) {
+        for (const Core::FString& CategoryName : Categories) {
+            FDetailCategory Category{CategoryName};
+            Category.mGraphRow = CategoryName == "Animation" && AllGraphMode && (MatchesSearch(CategoryName, "Anim Graph", "AnimGraph") || MatchesSearch(CategoryName, "Debug Anim Graph"));
+            auto* Mesh{CategoryName == "Materials" && Targets.size() == 1 ? CoreUObject::Cast<Engine::UMeshComponent>(Context->ResolveObject(Targets.front())) : nullptr};
+            const auto* Geometry{Mesh != nullptr ? Mesh->GetStaticMesh() : nullptr};
+
+            if (Geometry != nullptr && std::any_of(Geometry->GetMeshData().GetMaterialSlots().begin(), Geometry->GetMeshData().GetMaterialSlots().end(), [this, Mesh, Geometry](const Asset::FMeshMaterialSlot& Slot) {
                 const Index_t Index{static_cast<Index_t>(&Slot - Geometry->GetMeshData().GetMaterialSlots().data())};
 
                 return MatchesSearch("Materials", Slot.GetName(), "Material Slots") && (!mOnlyModified || !Mesh->GetSlotMaterialPath(Index).empty());
-            });
-            Content.mHasRows = std::any_of(Rows.begin(), Rows.end(), [CategoryName](const FDetailRow& Row) {
+            })) {
+                Category.mMaterialMesh = Mesh;
+            }
+
+            Category.mHasRows = std::any_of(Rows.begin(), Rows.end(), [&CategoryName](const FDetailRow& Row) {
                 return Row.mCategory == CategoryName;
             });
 
-            return Content;
-        }};
-
-        // 섹션 버튼과 섹션 필터가 쓰도록 표시할 내용이 있는 카테고리를 먼저 모읍니다.
-        mAvailableCategories.clear();
-
-        for (const Core::FString& CategoryText : Categories) {
-            const auto Content{CategoryContent(CategoryText)};
-
-            if (Content.mHasRows || Content.mGraphRow || Content.mMaterialRows) {
-                mAvailableCategories.push_back(CategoryText);
+            if (Category.mHasRows || Category.mGraphRow || Category.mMaterialMesh != nullptr) {
+                Layout.mAvailableCategories.push_back(CategoryName);
+                Layout.mCategories.push_back(std::move(Category));
             }
         }
 
-        if (ShadowMaps && std::find(mAvailableCategories.begin(), mAvailableCategories.end(), "Rendering") == mAvailableCategories.end()) {
-            mAvailableCategories.push_back("Rendering");
+        if (ShadowLight != nullptr && !mOnlyModified && MatchesSearch("Rendering", "Shadow Depth Maps")) {
+            Layout.mShadowLight = ShadowLight;
+
+            if (std::find(Layout.mAvailableCategories.begin(), Layout.mAvailableCategories.end(), "Rendering") == Layout.mAvailableCategories.end()) {
+                Layout.mAvailableCategories.push_back("Rendering");
+            }
         }
 
-        const Core::FString Section{GetEffectiveSection(mAvailableCategories)};
+        return Layout;
+    }
+
+    /**
+     * @brief 모아 둔 행을 선택한 섹션에 속한 카테고리별로 표시합니다.
+     */
+    void Editor::FDetailsWidget::DrawDetailLayout(const FDetailLayout& Layout, const Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>>& Targets) {
+        const Core::TArray<FDetailRow>& Rows{Layout.mRows};
+        const bool Searching{mPropertySearch.front() != '\0'};
+        const Core::FString Section{GetEffectiveSection(Layout.mAvailableCategories)};
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, {5.0f, 2.0f});
 
-        for (const Core::FString& CategoryText : Categories) {
-            const char* Category{CategoryText.c_str()};
+        for (const FDetailCategory& Entry : Layout.mCategories) {
+            const char* Category{Entry.mName.c_str()};
             const std::string_view CategoryName{Category};
-            const auto Content{CategoryContent(CategoryName)};
-            const bool GraphRow{Content.mGraphRow};
-            auto* Mesh{Content.mMesh};
-            const bool MaterialRows{Content.mMaterialRows};
-            const bool HasRows{Content.mHasRows};
 
-            if ((!HasRows && !GraphRow && !MaterialRows) || !IsCategoryInSection(Section, CategoryName) || !BeginCategory(Category, CategoryName != "Component Tick" && CategoryName != "Actor Tick")) {
+            if (!IsCategoryInSection(Section, CategoryName) || !BeginCategory(Category, CategoryName != "Component Tick" && CategoryName != "Actor Tick")) {
                 continue;
             }
 
@@ -1005,12 +1003,12 @@ namespace Editor {
                     }
                 }
 
-                if (GraphRow) {
+                if (Entry.mGraphRow) {
                     DrawAnimInstance(Targets);
                 }
 
-                if (MaterialRows) {
-                    DrawMaterialSlots(Mesh);
+                if (Entry.mMaterialMesh != nullptr) {
+                    DrawMaterialSlots(Entry.mMaterialMesh);
                 }
 
                 ImGui::EndTable();
@@ -1026,8 +1024,8 @@ namespace Editor {
 
         ImGui::PopStyleVar(2);
 
-        if (ShadowMaps && IsCategoryInSection(Section, "Rendering") && BeginCategory("Shadow Depth Maps", false)) {
-            DrawShadowMaps(ShadowLight);
+        if (Layout.mShadowLight != nullptr && IsCategoryInSection(Section, "Rendering") && BeginCategory("Shadow Depth Maps", false)) {
+            DrawShadowMaps(Layout.mShadowLight);
         }
     }
 

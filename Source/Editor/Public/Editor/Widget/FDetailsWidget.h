@@ -74,6 +74,61 @@ namespace Editor {
             bool mAdvanced{};
         };
 
+        /**
+         * @brief 표시할 내용이 있는 카테고리 하나와 그 안에 그릴 특수 행입니다.
+         * @ingroup Editor
+         */
+        struct FDetailCategory {
+
+            /**
+             * @brief 카테고리 이름입니다.
+             */
+            Core::FString mName{};
+
+            /**
+             * @brief 이 카테고리에 속한 프로퍼티 행이 있는지 여부입니다.
+             */
+            bool mHasRows{};
+
+            /**
+             * @brief Animation 카테고리에 애님 그래프 행을 그릴지 여부입니다.
+             */
+            bool mGraphRow{};
+
+            /**
+             * @brief Materials 카테고리에 머티리얼 슬롯을 그릴 메시 컴포넌트이며, 그리지 않으면 nullptr입니다.
+             */
+            Engine::UMeshComponent* mMaterialMesh{};
+        };
+
+        /**
+         * @brief 한 프레임에 표시할 행과 카테고리를 그리기 전에 모은 결과입니다.
+         * @details 섹션 버튼이 같은 프레임의 대상을 기준으로 나오도록 툴바보다 먼저 만듭니다.
+         * @ingroup Editor
+         */
+        struct FDetailLayout {
+
+            /**
+             * @brief 검색·변경 필터를 통과한 프로퍼티 행입니다.
+             */
+            Core::TArray<FDetailRow> mRows{};
+
+            /**
+             * @brief 표시할 내용이 있는 카테고리를 표시 순서대로 담습니다.
+             */
+            Core::TArray<FDetailCategory> mCategories{};
+
+            /**
+             * @brief Shadow Depth Maps를 그릴 라이트이며, 그리지 않으면 nullptr입니다.
+             */
+            const Engine::ULightComponent* mShadowLight{};
+
+            /**
+             * @brief 섹션 버튼과 섹션 필터가 쓰는, 표시할 내용이 있는 카테고리 이름입니다.
+             */
+            Core::TArray<Core::FString> mAvailableCategories{};
+        };
+
     public:
 
         /**
@@ -129,9 +184,9 @@ namespace Editor {
 
         /**
          * @brief 표시할 카테고리가 있는 섹션만 필터 버튼으로 표시하고 선택을 바꿉니다.
-         * @note 버튼 목록은 직전 프레임에 표시할 내용이 있던 카테고리로 정합니다.
+         * @param AvailableCategories 이번 프레임에 표시할 내용이 있는 카테고리 목록이며, 비어 있으면 아무것도 그리지 않습니다.
          */
-        void DrawSectionBar();
+        void DrawSectionBar(const Core::TArray<Core::FString>& AvailableCategories);
 
         /**
          * @brief 선택한 섹션이 현재 대상에서 표시할 카테고리를 가지면 그 섹션을, 아니면 All을 반환합니다.
@@ -251,10 +306,18 @@ namespace Editor {
         void DrawComponentTree(Engine::AActor* Actor, CoreUObject::TObjectRef<CoreUObject::UObject> Selected);
 
         /**
-         * @brief 객체 타입의 편집 가능한 리플렉션 프로퍼티를 순회하여 표시합니다.
+         * @brief 대상들이 공유하는 프로퍼티 행과 표시할 내용이 있는 카테고리를 모읍니다.
          * @param Targets 공통 프로퍼티를 표시하고 편집할 객체 핸들입니다.
+         * @return 검색·변경 필터를 반영한 행과 카테고리이며, 대상을 해석하지 못하면 빈 결과입니다.
          */
-        void DrawReflectedObjects(const Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>>& Targets);
+        FDetailLayout BuildDetailLayout(const Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>>& Targets);
+
+        /**
+         * @brief 모아 둔 행을 선택한 섹션에 속한 카테고리별로 표시합니다.
+         * @param Layout 이번 프레임에 BuildDetailLayout으로 모은 결과입니다.
+         * @param Targets 표시·편집할 객체 핸들 목록입니다.
+         */
+        void DrawDetailLayout(const FDetailLayout& Layout, const Core::TArray<CoreUObject::TObjectRef<CoreUObject::UObject>>& Targets);
 
         /**
          * @brief 프로퍼티 타입에 맞는 편집 위젯을 표시하고 변경한 값을 돌려줍니다.
@@ -317,11 +380,6 @@ namespace Editor {
          * @brief 사용자가 고른 섹션 이름이며, 대상이 바뀌어도 유지합니다.
          */
         Core::FString mSelectedSection{"All"};
-
-        /**
-         * @brief 마지막으로 그린 대상에서 표시할 내용이 있던 카테고리 목록입니다.
-         */
-        Core::TArray<Core::FString> mAvailableCategories{};
 
         /**
          * @brief 브라우저의 현재 선택 경로를 얻는 콜백입니다.
