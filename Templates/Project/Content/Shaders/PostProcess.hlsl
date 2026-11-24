@@ -213,7 +213,6 @@ float4 ApplyFXAA(float2 UV) {
 }
 
 /**
-
  * @brief 선형 색을 sRGB 전달 함수로 인코딩합니다. 조명을 선형 공간에서 계산한 값을 화면에 보여 줄 때 씁니다.
  * @param[in] Color 선형 RGB입니다.
  * @return 0~1로 제한한 sRGB 인코딩 RGB입니다.
@@ -227,11 +226,8 @@ float3 LinearToSRGB(float3 Color) {
 }
 
 /**
- * @brief Settings.x에 따라 컬러 복사·안개 합성·선형 깊이 시각화·FXAA 중 한 패스를 실행합니다.
- * Settings.y가 1이면 최종 출력(복사, FXAA)에 sRGB 인코딩을 적용합니다. 안개 패스는 중간 결과이므로 선형으로 둡니다.
-
  * @brief Settings.x에 따라 컬러 복사·안개 합성·깊이 또는 DOF 가중치 시각화·FXAA를 실행합니다.
-
+ * Settings.y가 1이면 최종 출력(복사, FXAA)에 sRGB 인코딩을 적용합니다. 안개 패스는 중간 결과이므로 선형으로 둡니다.
  * @param[in] Input 화면 픽셀 위치와 보간된 장면 UV입니다.
  * @return 최종 출력 타깃에 기록할 RGBA 색상입니다.
  * @note 깊이 시각화는 뷰 공간 Z에 1-exp(-Z*0.01)을 적용하며 깊이 1의 빈 배경은 흰색입니다.
@@ -256,7 +252,7 @@ float4 PixelMain(FVertexOutput Input) : SV_TARGET {
 
         return Settings.y == 1.0f ? float4(LinearToSRGB(Antialiased.rgb), Antialiased.a) : Antialiased;
     }
-    
+
     if (Settings.x == 4.0f) {
         if (Depth >= 1.0f) {
             return float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -270,5 +266,4 @@ float4 PixelMain(FVertexOutput Input) : SV_TARGET {
     }
 
     return Settings.y == 1.0f ? float4(LinearToSRGB(Color.rgb), Color.a) : Color;
-
 }
