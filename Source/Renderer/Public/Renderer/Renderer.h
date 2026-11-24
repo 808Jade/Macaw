@@ -45,7 +45,7 @@ namespace Renderer {
     struct FPassTarget;
     struct FMeshPassParameters;
     struct FMeshDrawCommand;
-    struct FObjectConstants;
+    struct FMeshInstanceData;
     struct FEditorMeshConstants;
     class FMeshPass;
     class FShadowDepthPass;
@@ -277,7 +277,7 @@ namespace Renderer {
          * @param[in] ReceiveShadows 그림자 수신 셰이더 변형의 사용 여부입니다.
          * @param[in] Cloth 스키닝한 정점을 천 입자 위치로 옮기는 변형을 선택하려면 true이며 Skinned가 true일 때만 씁니다.
          */
-        Renderer::FMaterialPipeline* GetMaterialPipeline(const Asset::UMaterial& Material, Engine::EViewMode Mode = Engine::EViewMode::Lit_Phong, bool Skinned = false, bool ReceiveShadows = true, bool Cloth = false);
+        Renderer::FMaterialPipeline* GetMaterialPipeline(const Asset::UMaterial& Material, Engine::EViewMode Mode = Engine::EViewMode::Lit_Phong, bool Skinned = false, bool ReceiveShadows = true, bool Cloth = false, bool ParticleMesh = false);
 
         /**
          * @brief 그림자 아틀라스 깊이 패스에 사용할 깊이 전용 파이프라인을 반환합니다.
@@ -418,6 +418,7 @@ namespace Renderer {
          * @return 제출한 드로 호출 수입니다.
          */
         Uint32 SubmitMeshCommands(ID3D11RasterizerState* Rasterizer, Renderer::EMeshPass Pass, std::span<const Renderer::FMeshDrawCommand> Commands, bool MarkDecalReceivers);
+        ID3D11BlendState* GetTranslucencyBlendState(const Asset::UMaterial* Material) const;
 
     private:
 
@@ -596,7 +597,7 @@ namespace Renderer {
         /**
          * @brief 메시 인스턴스의 객체 상수를 업로드하는 인스턴스 버퍼입니다.
          */
-        RenderCore::TInstanceBuffer<Renderer::FObjectConstants> mMeshInstanceBuffer{};
+        RenderCore::TInstanceBuffer<Renderer::FMeshInstanceData> mMeshInstanceBuffer{};
 
         /**
          * @brief 래스터라이저 상태입니다.
@@ -692,6 +693,7 @@ namespace Renderer {
          * @brief 평면 핸들의 투명도를 표시하는 소스 알파 혼합 상태입니다.
          */
         Microsoft::WRL::ComPtr<ID3D11BlendState> mOverlayBlend{};
+        Microsoft::WRL::ComPtr<ID3D11BlendState> mAdditiveBlend{};
 
         /**
          * @brief 렌더러가 초기화 때 생성하고 종료 때 해제하는 enum별 불변 GPU 정점·인덱스 버퍼입니다.

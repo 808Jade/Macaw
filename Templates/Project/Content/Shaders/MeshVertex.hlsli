@@ -113,6 +113,10 @@ struct FMeshVertexInput {
      * @brief 인스턴스의 UV 배율 XY와 오프셋 ZW입니다.
      */
     float4 mUVTransform : INSTANCE_UV;
+
+#ifdef MACAW_PARTICLE_COLOR
+    float4 mParticleColor : INSTANCE_PARTICLE_COLOR;
+#endif
 #endif
 };
 
@@ -140,6 +144,10 @@ FPixelInput BuildPixelInput(FMeshVertexInput Input) {
     Output.mTangent = float4(SafeNormal(mul(Input.mTangent.xyz, (float3x3)ObjectWorld)), Input.mTangent.w * (determinant((float3x3)ObjectWorld) < 0.0f ? -1.0f : 1.0f));
     Output.mUV = Input.mUV * ObjectUV.xy + ObjectUV.zw;
     Output.mColor = Input.mColor;
+
+#if defined(MacawInstanced) && defined(MACAW_PARTICLE_COLOR)
+    Output.mColor *= Input.mParticleColor;
+#endif
 
 #if defined(LIGHTING_MODEL_GOURAUD) && !defined(MACAW_UNLIT) && !defined(WORLD_NORMAL)
     float3 Normal = {Output.mNormal};

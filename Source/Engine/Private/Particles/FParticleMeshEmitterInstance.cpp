@@ -88,7 +88,7 @@ namespace Engine {
             FMatrix Inverse{};
 
             if (World.TryInverse(Inverse)) {
-                Batch.mInstances.push_back({World, Inverse, MeshBounds.Transformed(World)});
+                Batch.mInstances.push_back({World, Inverse, MeshBounds.Transformed(World), Particle.mColor});
             }
         }
     }

@@ -88,7 +88,7 @@ namespace Renderer {
             const Asset::FSubMesh& SubMesh{SubMeshes[SubMeshIndex]};
             Asset::UMaterial* Material{ResolveMaterial(Primitive, SubMesh.GetMaterialIndex(), nullptr, nullptr)};
 
-            if (Material != nullptr && Material->GetBlendMode() == Asset::EBlendMode::Translucent) {
+            if (Material != nullptr && Material->GetBlendMode() != Asset::EBlendMode::Opaque) {
                 continue;
             }
 

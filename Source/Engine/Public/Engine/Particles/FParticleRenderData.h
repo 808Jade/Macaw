@@ -75,6 +75,7 @@ namespace Engine {
         FMatrix mWorld{};
         FMatrix mWorldInverse{};
         FBox mBounds{};
+        FVector4 mColor{1.0f, 1.0f, 1.0f, 1.0f};
     };
 
     /**

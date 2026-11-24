@@ -137,7 +137,6 @@ namespace Renderer {
             return First.first > Second.first;
         });
 
-        mContext->OMSetBlendState(Parameters.mBlend, nullptr, 0xFFFFFFFFu);
         mContext->OMSetDepthStencilState(Parameters.mDepthReadOnly, 0);
         mRenderer->mViewBuffer.Update(mContext, Family.mView.mViewProjection);
         mRenderer->mViewBuffer.Bind(mContext, RenderCore::EShaderStage::Vertex | RenderCore::EShaderStage::Pixel, 1);
@@ -166,18 +165,22 @@ namespace Renderer {
             bool Drawn{};
 
             if (const auto* Sprite{std::get_if<const Engine::FPrimitiveSceneProxy*>(&Command.second)}) {
+                mContext->OMSetBlendState(Parameters.mBlend, nullptr, 0xFFFFFFFFu);
                 mContext->RSSetState(Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : Parameters.mRasterizer);
 
                 Drawn = Parameters.mSpriteRenderer != nullptr && Parameters.mSpriteRenderer->Draw(mContext, **Sprite, Family.mView);
             } else if (const auto* Batch{std::get_if<FParticleBatch>(&Command.second)}) {
+                mContext->OMSetBlendState(mRenderer->GetTranslucencyBlendState((*Batch)->mMaterial.Get()), nullptr, 0xFFFFFFFFu);
                 mContext->RSSetState(Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : Parameters.mRasterizer);
 
                 Drawn = Parameters.mParticleRenderer != nullptr && Parameters.mParticleRenderer->Draw(mContext, **Batch, Family.mView);
             } else if (const auto* Trail{std::get_if<FParticleTrail>(&Command.second)}) {
+                mContext->OMSetBlendState(mRenderer->GetTranslucencyBlendState((*Trail)->mMaterial.Get()), nullptr, 0xFFFFFFFFu);
                 mContext->RSSetState(Family.mViewMode == Engine::EViewMode::Wireframe ? Parameters.mWireframeRasterizer : Parameters.mRasterizer);
 
                 Drawn = Parameters.mParticleRenderer != nullptr && Parameters.mParticleRenderer->DrawTrail(mContext, **Trail, Family.mView);
             } else {
+                mContext->OMSetBlendState(Parameters.mBlend, nullptr, 0xFFFFFFFFu);
                 mContext->RSSetState(Parameters.mRasterizer);
 
                 Drawn = Parameters.mTextRenderer != nullptr && Parameters.mTextRenderer->Draw(mContext, std::get<Engine::FDrawText>(Command.second), Family.mView);
@@ -274,13 +277,13 @@ namespace Renderer {
             const Asset::FSubMesh& SubMesh{SubMeshes[SubMeshIndex]};
             Asset::UMaterial* Material{ResolveMaterial(Primitive, SubMesh.GetMaterialIndex(), mRenderer->GetDefaultMaterial(), ParticleBatch)};
 
-            if (Material == nullptr || Material->GetBlendMode() != Asset::EBlendMode::Translucent || !Material->CreateResources(mDevice, mContext)) {
+            if (Material == nullptr || Material->GetBlendMode() == Asset::EBlendMode::Opaque || !Material->CreateResources(mDevice, mContext)) {
                 continue;
             }
 
             // 천 섹션은 정점을 입자 위치로 옮기는 천 변형 셰이더로 그립니다.
             const Index_t ClothAssetIndex{GetClothAssetIndex(Primitive, SubMeshIndex)};
-            Renderer::FMaterialPipeline* Pipeline{mRenderer->GetMaterialPipeline(*Material, Family.mViewMode, Skinned, ReceiveShadows, ClothAssetIndex != InvalidIndex)};
+            Renderer::FMaterialPipeline* Pipeline{mRenderer->GetMaterialPipeline(*Material, Family.mViewMode, Skinned, ReceiveShadows, ClothAssetIndex != InvalidIndex, ParticleBatch != nullptr)};
 
             if (Pipeline != nullptr) {
                 Commands.emplace_back(Pipeline, Material, &Mesh, &Primitive, SubMesh.GetFirstIndex(), SubMesh.GetIndexCount(), ClothAssetIndex);

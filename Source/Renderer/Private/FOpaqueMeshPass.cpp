@@ -64,12 +64,12 @@ namespace Renderer {
             // 천 섹션은 정점을 입자 위치로 옮기는 천 변형 셰이더로 그립니다.
             const Index_t ClothAssetIndex{GetClothAssetIndex(Primitive, SubMeshIndex)};
             const bool Cloth{ClothAssetIndex != InvalidIndex};
-            Renderer::FMaterialPipeline* Pipeline{mRenderer->GetMaterialPipeline(*Material, Family.mViewMode, Skinned, ReceiveShadows, Cloth)};
+            Renderer::FMaterialPipeline* Pipeline{mRenderer->GetMaterialPipeline(*Material, Family.mViewMode, Skinned, ReceiveShadows, Cloth, ParticleBatch != nullptr)};
 
             if (Pipeline == nullptr) {
                 // 실패한 스킨 셰이더를 정적 파이프라인으로 대신 그리면 바인드 포즈가 노출됩니다.
                 Material = mDefaultMaterial;
-                Pipeline = mRenderer->GetMaterialPipeline(*Material, Family.mViewMode, Skinned, ReceiveShadows, Cloth);
+                Pipeline = mRenderer->GetMaterialPipeline(*Material, Family.mViewMode, Skinned, ReceiveShadows, Cloth, ParticleBatch != nullptr);
             }
 
             if (Pipeline != nullptr) {

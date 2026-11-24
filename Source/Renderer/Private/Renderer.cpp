@@ -241,6 +241,7 @@ namespace Renderer {
         mOverlayLayout.Reset();
         mEditorMeshBuffer.Reset();
         mOverlayBlend.Reset();
+        mAdditiveBlend.Reset();
         mViewBuffer.Reset();
         mLineViewBuffer.Reset();
         mLineBuffer.Reset();
@@ -1011,6 +1012,13 @@ namespace Renderer {
             return false;
         }
 
+        D3D11_BLEND_DESC AdditiveBlend{Blend};
+        AdditiveBlend.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+
+        if (FAILED(mDevice->CreateBlendState(&AdditiveBlend, mAdditiveBlend.GetAddressOf()))) {
+            return false;
+        }
+
         if (!mPostProcessResources->Initialize(mDevice.Get())) {
             return false;
         }
@@ -1297,8 +1305,9 @@ namespace Renderer {
     /**
      * @brief 머티리얼별 GPU 파이프라인을 반환합니다.
      */
-    Renderer::FMaterialPipeline* Renderer::FRenderer::GetMaterialPipeline(const Asset::UMaterial& Material, Engine::EViewMode Mode, bool Skinned, bool ReceiveShadows, bool Cloth) {
+    Renderer::FMaterialPipeline* Renderer::FRenderer::GetMaterialPipeline(const Asset::UMaterial& Material, Engine::EViewMode Mode, bool Skinned, bool ReceiveShadows, bool Cloth, bool ParticleMesh) {
         Cloth = Cloth && Skinned;
+        ParticleMesh = ParticleMesh && !Skinned;
 
         if (Engine::IsBufferVisualization(Mode) && Mode != Engine::EViewMode::WorldNormal && Mode != Engine::EViewMode::SceneDepth) {
             Mode = Engine::EViewMode::Lit_Phong;
@@ -1320,11 +1329,11 @@ namespace Renderer {
         const Engine::EViewMode PixelMode{Unlit ? Engine::EViewMode::Unlit : Mode == Engine::EViewMode::Lit_Gouraud || Mode == Engine::EViewMode::Lit_Lambert || Mode == Engine::EViewMode::WorldNormal ? Mode : Engine::EViewMode::Lit_Phong};
         const bool Shadowed{ReceiveShadows && !Unlit && (Mode == Engine::EViewMode::Lit_Lambert || Mode == Engine::EViewMode::Lit_Phong)};
         const bool NormalMap{Material.GetNormalMapTexture() != nullptr};
-        const bool Translucent{Material.GetBlendMode() == Asset::EBlendMode::Translucent};
+        const bool Translucent{Material.GetBlendMode() != Asset::EBlendMode::Opaque};
         const Renderer::EMeshPass Pass{Translucent ? Renderer::EMeshPass::TranslucencyMeshPass : Renderer::EMeshPass::OpaqueMeshPass};
         const bool Instanced{!Skinned};
         const auto ShaderHandle{Shader->GetHandle()};
-        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : "|Static") + (Cloth ? "|Cloth" : "") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
+        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : ParticleMesh ? "|ParticleMesh" : "|Static") + (Cloth ? "|Cloth" : "") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
         const auto Existing{mMaterialPipelines.find(Key)};
 
         if (Existing != mMaterialPipelines.end()) {
@@ -1335,7 +1344,7 @@ namespace Renderer {
             return nullptr;
         }
 
-        const std::filesystem::path VertexSource{mShaderDirectory / (Skinned ? "SkinnedMesh.vs.hlsl" : "StaticMesh.vs.hlsl")};
+        const std::filesystem::path VertexSource{ParticleMesh ? FindTextContent(mShaderDirectory.parent_path(), "Shaders/ParticleMesh.vs.hlsl", true) : mShaderDirectory / (Skinned ? "SkinnedMesh.vs.hlsl" : "StaticMesh.vs.hlsl")};
         const bool OverridePixel{Mode == Engine::EViewMode::Unlit || Mode == Engine::EViewMode::WorldNormal};
         const bool WritesGBuffer{!mForwardShading && !Translucent && (Shader->WritesGBuffer() || OverridePixel)};
         const std::filesystem::path PixelSource{OverridePixel ? mShaderDirectory / "Lit.hlsl" : mShaderDirectory.parent_path() / RelativePath};
@@ -1350,6 +1359,10 @@ namespace Renderer {
             VertexDescription.mMacros.push_back({"MacawCloth", "1"});
         }
 
+        if (ParticleMesh) {
+            VertexDescription.mMacros.push_back({"MACAW_PARTICLE_COLOR", "1"});
+        }
+
         if (PixelMode == Engine::EViewMode::Lit_Gouraud) {
             VertexDescription.mMacros.push_back({"LIGHTING_MODEL_GOURAUD", "1"});
 
@@ -1360,7 +1373,7 @@ namespace Renderer {
 
         RenderCore::FShaderDescription PixelDescription{};
         PixelDescription.mSourcePath = PixelSource;
-        PixelDescription.mIncludeDirectories = {PixelSource.parent_path(), VertexSource.parent_path(), mShaderDirectory};
+        PixelDescription.mIncludeDirectories = {PixelSource.parent_path(), mShaderDirectory};
         PixelDescription.mEntryPoint = OverridePixel ? "PixelMain" : Shader->GetEntryPoint();
         PixelDescription.mTargetProfile = "ps_5_0";
 
@@ -1677,6 +1690,10 @@ namespace Renderer {
         return Built;
     }
 
+    ID3D11BlendState* Renderer::FRenderer::GetTranslucencyBlendState(const Asset::UMaterial* Material) const {
+        return Material != nullptr && Material->GetBlendMode() == Asset::EBlendMode::Additive ? mAdditiveBlend.Get() : mOverlayBlend.Get();
+    }
+
     /**
      * @brief 정렬된 드로 목록을 상태 변경을 줄여 제출하고 인스턴스를 묶어 그립니다.
      */
@@ -1691,12 +1708,16 @@ namespace Renderer {
         if (std::any_of(Commands.begin(), Commands.end(), [](const Renderer::FMeshDrawCommand& Command) {
             return Command.mPipeline->IsInstanced();
         })) {
-            Core::TArray<Renderer::FObjectConstants> Instances{};
+            Core::TArray<Renderer::FMeshInstanceData> Instances{};
             Instances.reserve(Commands.size());
 
             for (const Renderer::FMeshDrawCommand& Command : Commands) {
                 const Engine::FParticleMeshInstance* Particle{Command.mParticleInstance};
-                Instances.push_back(Particle != nullptr ? Renderer::FObjectConstants{Particle->mWorld, Particle->mWorldInverse} : Command.mPrimitive->mObjectConstants);
+                if (Particle != nullptr) {
+                    Instances.push_back({{Particle->mWorld, Particle->mWorldInverse}, Particle->mColor});
+                } else {
+                    Instances.push_back({Command.mPrimitive->mObjectConstants});
+                }
             }
 
             Core::FString Error{};
@@ -1772,6 +1793,10 @@ namespace Renderer {
 
             if (Command.mMaterial != nullptr && LastMaterial != Command.mMaterial) {
                 Renderer::RendererStats::MaterialBinds.Add();
+
+                if (TranslucencyPass) {
+                    mContext->OMSetBlendState(GetTranslucencyBlendState(Command.mMaterial), nullptr, 0xFFFFFFFFu);
+                }
 
                 Asset::UTexture2D* Texture{Command.mMaterial->GetBaseColorTexture()};
                 ID3D11ShaderResourceView* Resource{Texture != nullptr ? Texture->GetShaderResourceView() : mDefaultMaterialTexture->GetShaderResourceView()};
