@@ -8,6 +8,9 @@
 #include "FAssetEditorToolkit.h"
 #include "FMaterialEditorToolkit.h"
 #include "FTextureEditorToolkit.h"
+#include "FPhysicsAssetEditorToolkit.h"
+#include "FPhysicsAssetEditing.h"
+#include "Asset/FAssetFile.h"
 #include "FEditorWorkspace.h"
 #include "FEditorCommands.h"
 #include "Core/FilePath.h"
@@ -635,6 +638,28 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         if (Content->Open(Path, Error)) {
             const Core::FString Name{Content->GetWindowId()};
             Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);
+        }
+    } else if (Type == Asset::EAssetType::PhysicsAsset) {
+        // 경로가 실제 물리 에셋 파일이면 그 파일을 편집하고, 스켈레탈 메시면 메시가 쓰는 물리 에셋을 편집합니다.
+        Asset::EAssetType FileType{};
+        const bool IsPhysicsAssetFile{Asset::FAssetFile::GetType(Assets->ResolvePath(Path, Error), FileType, Error) && FileType == Asset::EAssetType::PhysicsAsset};
+
+        if (IsPhysicsAssetFile) {
+            // 물리 에셋은 메시를 참조하지 않으므로 "<메시 이름>_PhysicsAsset" 이름 규칙으로 미리보기 메시를 찾습니다.
+            const std::filesystem::path MeshPath{PhysicsAssetEditing::GetMeshPathForPhysicsAsset(Path)};
+            Error.clear();
+
+            if (MeshPath.empty()) {
+                mContext->AddLog("Cannot find the preview mesh: the asset name must be '<MeshName>_PhysicsAsset'.");
+            } else if (auto* Mesh{Assets->LoadSkeletalMesh(MeshPath, Error)}) {
+                Toolkit = std::make_unique<FPhysicsAssetEditorToolkit>(mContext, Path, MeshPath, Mesh, nullptr, Core::FilePath::ToGenericUtf8(Path));
+            }
+        } else {
+            Error.clear();
+
+            if (auto* Mesh{Assets->LoadSkeletalMesh(Path, Error)}) {
+                Toolkit = std::make_unique<FPhysicsAssetEditorToolkit>(mContext, Path, Path, Mesh, nullptr, Core::FString{});
+            }
         }
     } else if (Type == Asset::EAssetType::AnimGraph) {
         auto Content{std::make_unique<FAnimGraphEditor>(Assets, &mCatalog, &mThumbnails)};

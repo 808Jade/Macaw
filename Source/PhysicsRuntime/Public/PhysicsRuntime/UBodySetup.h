@@ -76,6 +76,23 @@ namespace PhysicsRuntime {
         bool SetPhysicalMaterial(std::unique_ptr<PhysicsRuntime::UPhysicalMaterial> Material);
 
         /**
+         * @brief 물리 시뮬레이션이 켜졌을 때 이 바디가 시뮬레이션(Dynamic)되는지 반환합니다.
+         * @return true이면 Dynamic, false이면 시뮬레이션 중에도 Kinematic으로 남습니다.
+         * @note 피직스 에셋의 바디에만 쓰며, 스태틱 메시의 바디 셋업은 이 값을 사용하지 않습니다.
+         */
+        bool ShouldSimulatePhysics() const {
+            return mSimulatePhysics;
+        }
+
+        /**
+         * @brief 물리 시뮬레이션이 켜졌을 때 이 바디가 시뮬레이션(Dynamic)될지 설정합니다.
+         * @param[in] Simulate true이면 Dynamic, false이면 Kinematic입니다.
+         */
+        void SetSimulatePhysics(bool Simulate) {
+            mSimulatePhysics = Simulate;
+        }
+
+        /**
          * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
          * @param[in,out] Actor 형상을 붙일 PhysX 강체입니다.
          * @param[in] Scale 형상 크기와 중심에 반영할 컴포넌트 스케일입니다.
@@ -98,6 +115,12 @@ namespace PhysicsRuntime {
          * @brief 바디의 모든 충돌 형상에 적용할 물리 재질입니다.
          */
         std::unique_ptr<PhysicsRuntime::UPhysicalMaterial> mPhysicalMaterial{};
+
+        /**
+         * @brief 피직스 에셋에서 시뮬레이션이 켜졌을 때 이 바디를 Dynamic으로 시뮬레이션할지 나타냅니다.
+         * @details 리플렉션 직렬화 대상이 아니므로 스태틱 메시 에셋의 저장 형식에 영향을 주지 않습니다. 피직스 에셋 파일이 따로 저장합니다.
+         */
+        bool mSimulatePhysics{true};
     };
 
 }

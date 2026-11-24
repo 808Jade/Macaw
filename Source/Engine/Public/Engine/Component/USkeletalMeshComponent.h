@@ -265,6 +265,13 @@ namespace Engine {
         void TickAnimation(float DeltaTime);
 
         /**
+         * @brief 시뮬레이션한 바디 위치를 읽어 뼈 포즈에 씁니다.
+         * @note 바디가 없는 뼈는 부모 뼈 기준 위치를 그대로 유지합니다.
+         * @note Tick이 돌지 않는 에디터 미리보기가 물리 스텝 뒤에 직접 호출할 수 있도록 공개합니다.
+         */
+        void BlendInPhysics();
+
+        /**
          * @brief 현재 애니메이션 인스턴스를 반환합니다.
          * @details AnimClass를 지정했으면 에디터에서도 항상 그 클래스의 인스턴스가 있으며, 설정 값을 담고 시각화 도구가 그래프를 표시합니다.
          * AnimClass가 비어 있으면 플레이 중 단일 노드 인스턴스만 있습니다.
@@ -437,12 +444,6 @@ namespace Engine {
          * @brief 키네마틱 바디를 현재 애니메이션 포즈의 뼈 위치로 옮깁니다.
          */
         void UpdateKinematicBonesToAnim();
-
-        /**
-         * @brief 시뮬레이션한 바디 위치를 읽어 뼈 포즈에 씁니다.
-         * @note 바디가 없는 뼈는 부모 뼈 기준 위치를 그대로 유지합니다.
-         */
-        void BlendInPhysics();
 
         /**
          * @brief 메시 경로를 에셋 관리자에서 해석합니다.

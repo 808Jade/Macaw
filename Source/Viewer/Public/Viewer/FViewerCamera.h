@@ -62,6 +62,24 @@ namespace Viewer {
         void Zoom(float Delta);
 
         /**
+         * @brief 궤도 중심과 거리로부터 카메라 눈의 월드 위치를 계산합니다.
+         * @return 월드 공간 눈 위치입니다.
+         */
+        FVector GetLocation() const;
+
+        /**
+         * @brief 시선 방향과 거리를 유지한 채 눈과 궤도 중심을 같은 양만큼 이동합니다.
+         * @param Delta 월드 공간 이동량이며 유한한 값만 적용합니다.
+         */
+        void MoveEye(const FVector& Delta);
+
+        /**
+         * @brief 눈의 위치를 고정하고 화면 이동량만큼 시선을 회전하며 상하 각도를 제한합니다.
+         * @param Delta 이전 마우스 위치 대비 화면 이동량(픽셀)입니다.
+         */
+        void LookAround(const FVector2& Delta);
+
+        /**
          * @brief 모든 성분이 유한한 경우 카메라 회전각을 설정합니다.
          * @param Rotation 설정할 카메라 회전각(도)입니다.
          */

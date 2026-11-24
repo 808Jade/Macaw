@@ -92,6 +92,29 @@ void FViewerCamera::Zoom(float Delta) {
     }
 }
 
+FVector FViewerCamera::GetLocation() const {
+    return mCenter - mRotation.Quaternion().ForwardVector() * mDistance;
+}
+
+void FViewerCamera::MoveEye(const FVector& Delta) {
+    if (Delta.IsFinite()) {
+        mCenter += Delta;
+    }
+}
+
+void FViewerCamera::LookAround(const FVector2& Delta) {
+    if (!std::isfinite(Delta.x) || !std::isfinite(Delta.y)) {
+        return;
+    }
+
+    // 눈 위치를 먼저 구해 두고 회전한 뒤, 같은 거리만큼 새 시선 방향 앞에 중심을 다시 놓는다.
+    const FVector Eye{GetLocation()};
+
+    mRotation.yaw += Delta.x * 0.3f;
+    mRotation.pitch = std::clamp(mRotation.pitch - Delta.y * 0.3f, -89.0f, 89.0f);
+    mCenter = Eye + mRotation.Quaternion().ForwardVector() * mDistance;
+}
+
 void FViewerCamera::SetRotation(const FRotator& Rotation) {
     if (std::isfinite(Rotation.pitch) && std::isfinite(Rotation.yaw) && std::isfinite(Rotation.roll)) {
         mRotation = Rotation;
