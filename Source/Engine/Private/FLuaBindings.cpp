@@ -14,6 +14,7 @@
 #include "Engine/Component/UProjectileMovementComponent.h"
 #include "Engine/Component/USimpleVehicleMovementComponent.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
+#include "Engine/Component/UStaticMeshComponent.h"
 #include "Engine/Component/UVehicleMovementComponent.h"
 #include "Engine/FWorldHit.h"
 #include "Engine/UWorld.h"
@@ -203,6 +204,13 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
         return Movement != nullptr && Movement->ResetDrive();
     };
+    Component["SetWheelMesh"] = [](const FLuaComponentRef& Ref, Uint32 WheelIndex, sol::optional<FLuaComponentRef> MeshRef) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        auto* Mesh{MeshRef ? CoreUObject::Cast<Engine::UStaticMeshComponent>(&MeshRef->Resolve()) : nullptr};
+
+        // nil은 연결 해제이고, 스태틱 메시가 아닌 컴포넌트는 거부합니다.
+        return Movement != nullptr && (!MeshRef || Mesh != nullptr) && Movement->SetWheelMesh(WheelIndex, Mesh);
+    };
     Component["GetDriveState"] = [](const FLuaComponentRef& Ref) {
         const auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
         return Movement != nullptr ? std::tuple{Movement->GetCurrentGear(), Movement->GetForwardSpeed().GetBase()} : std::tuple{Int32{}, 0.0f};
@@ -260,7 +268,15 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         }
         return sol::nullopt;
     };
-    Actor["GetSkeletalMeshComponent"] = [](const FActorRef& Ref) -> sol::optional<FLuaComponentRef> {
+    Actor["GetComponentByName"] = [](const FActorRef& Ref, const Core::FString& Name) -> sol::optional<FLuaComponentRef> {
+        for (const auto& Component : Ref.Resolve().GetComponents()) {
+            if (Component->GetName() == Name) {
+                return FLuaComponentRef{Component.get()};
+            }
+        }
+        return sol::nullopt;
+    };
+    Actor["GetSkeletalMeshComponent"] =[](const FActorRef& Ref) -> sol::optional<FLuaComponentRef> {
         if (auto* Found{FindComponent(Ref.Resolve(), Engine::USkeletalMeshComponent::StaticClass())}) {
             return FLuaComponentRef{Found};
         }

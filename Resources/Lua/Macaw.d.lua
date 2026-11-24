@@ -179,6 +179,13 @@ function Component:SetDriveInput(Throttle, Brake, Steering) end
 ---@return boolean
 function Component:ResetDrive() end
 
+--- 같은 액터의 충돌이 꺼진 스태틱 메시 컴포넌트를 바퀴에 연결합니다. 물리 스텝 뒤 바퀴 자세를 따라 움직입니다.
+--- 메시 원점은 바퀴 중심, 바퀴 축은 로컬 Y여야 합니다. nil을 넘기면 연결을 해제합니다.
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@param Mesh MacawComponent? 스태틱 메시 컴포넌트
+---@return boolean
+function Component:SetWheelMesh(WheelIndex, Mesh) end
+
 ---@return integer Gear 후진 -1, 중립 0, 전진 1부터
 ---@return number ForwardSpeed m/s
 function Component:GetDriveState() end
@@ -221,6 +228,11 @@ function Actor:SetActorTransform(Value) end
 ---@param ClassName string
 ---@return MacawComponent?
 function Actor:GetComponentByClass(ClassName) end
+
+--- 이름이 정확히 일치하는 첫 번째 컴포넌트를 반환합니다. 없으면 nil입니다.
+---@param Name string
+---@return MacawComponent?
+function Actor:GetComponentByName(Name) end
 
 ---@return MacawComponent?
 function Actor:GetSkeletalMeshComponent() end
