@@ -10,7 +10,6 @@
 
 namespace Engine {
 
-    class FParticleSystemAssetManager;
 
     /**
      * @brief 프로젝트 설정 파일, 시작 장면과 에셋 관리를 담당합니다.
@@ -121,12 +120,6 @@ namespace Engine {
          */
         Asset::FAssetManager* GetAssets() const;
 
-        /**
-         * @brief 프로젝트의 파티클 시스템 에셋 관리자를 조회합니다.
-         * @return 관리자의 비소유 주소입니다.
-         */
-        Engine::FParticleSystemAssetManager* GetParticleSystems() const;
-
     private:
         /**
          * @brief 마지막으로 연 프로젝트 파일의 저장 형식 버전이며 초기값은 0입니다.
@@ -153,11 +146,6 @@ namespace Engine {
          * @brief 프로젝트 콘텐츠를 읽고 캐시하는 소유 에셋 관리자입니다.
          */
         std::unique_ptr<Asset::FAssetManager> mAssets{};
-
-        /**
-         * @brief 프로젝트가 소유하는 파티클 시스템 에셋 관리자입니다.
-         */
-        std::unique_ptr<Engine::FParticleSystemAssetManager> mParticleSystems{};
     };
 
 }

@@ -5,7 +5,6 @@
  */
 
 #include "Engine/FProject.h"
-#include "Engine/Cascade/FParticleSystemAssetManager.h"
 #include "Core/FilePath.h"
 #include "Serialization/JsonArchive.h"
 
@@ -237,16 +236,12 @@ namespace Engine {
             return false;
         }
 
-        auto ParticleSystems{std::make_unique<Engine::FParticleSystemAssetManager>(*Assets)};
-
         mVersion = Version;
         mFilePath = File;
         mName = std::move(Name);
         mStartupScene = RelativePath;
         mForwardShading = ForwardShading;
-        mParticleSystems.reset();
         mAssets = std::move(Assets);
-        mParticleSystems = std::move(ParticleSystems);
 
         return true;
     }
@@ -375,10 +370,6 @@ namespace Engine {
      */
     Asset::FAssetManager* Engine::FProject::GetAssets() const {
         return mAssets.get();
-    }
-
-    Engine::FParticleSystemAssetManager* Engine::FProject::GetParticleSystems() const {
-        return mParticleSystems.get();
     }
 
 }

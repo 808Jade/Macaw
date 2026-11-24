@@ -17,7 +17,6 @@
 #include "EditorStyle.h"
 #include "Core/FilePath.h"
 #include "Engine/FProject.h"
-#include "Engine/Cascade/FParticleSystemAssetManager.h"
 #include "Asset/UTexture2D.h"
 #include "Asset/UMaterial.h"
 #include "CoreUObject/Reflection/NewObject.h"
@@ -564,7 +563,6 @@ bool FContentBrowserWidget::RenameContent() {
     }
 
     // 옛 경로의 캐시 객체는 바뀌지 않으므로 은퇴시켜, 나중에 같은 경로를 다시 쓸 때 새로 로드하게 합니다.
-    mContext->GetProject()->GetParticleSystems()->RetireAssets(Absolute);
     mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
 
     mAssetEditors.CloseRetired(Absolute);
@@ -606,7 +604,6 @@ bool FContentBrowserWidget::DeleteContent() {
     mSelectedContentPath.clear();
 
     // 지운 에셋을 참조하던 객체는 살려 두고, 같은 경로에 다시 임포트하면 새 객체를 로드하게 합니다.
-    mContext->GetProject()->GetParticleSystems()->RetireAssets(Absolute);
     mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
 
     mAssetEditors.CloseRetired(Absolute);
@@ -634,10 +631,6 @@ void FContentBrowserWidget::DrawContentContextMenu() {
 
     if (ImGui::MenuItem("New Anim Graph", nullptr, false, CanEdit)) {
         CreateAnimGraph();
-    }
-
-    if (ImGui::MenuItem("New Particle System", nullptr, false, CanEdit)) {
-        CreateParticleSystem();
     }
 
     if (ImGui::MenuItem("New Lua Script", nullptr, false, CanEdit)) {
@@ -1103,20 +1096,6 @@ void FContentBrowserWidget::CreateBlendSpace() {
     mSelectedContentPath = Path;
 
     mAssetEditors.OpenContentAsset(Path, Asset::EAssetType::BlendSpace);
-}
-
-void FContentBrowserWidget::CreateParticleSystem() {
-    Core::FString Error{};
-    std::filesystem::path Path{};
-
-    if (mContext->GetProject()->GetParticleSystems()->CreateParticleSystem(mContentDirectory, "ParticleSystem", Path, Error) == nullptr) {
-        mContext->AddLog(Error.empty() ? "Cannot create the particle system" : Error);
-
-        return;
-    }
-
-    mRefreshContent = true;
-    mSelectedContentPath = Path;
 }
 
 void FContentBrowserWidget::CreateLuaScript() {
