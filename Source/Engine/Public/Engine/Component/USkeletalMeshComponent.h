@@ -81,6 +81,7 @@ namespace Engine {
          * @return 피킹용 형상입니다.
          */
         const Asset::FMeshData& GetMeshData() const override;
+        FBox GetWorldBounds() const override;
 
         /**
          * @brief 프로젝트 상대 에셋 경로를 반환합니다.
@@ -565,6 +566,8 @@ namespace Engine {
          * @brief 키네마틱 바디를 현재 애니메이션 포즈의 뼈 위치로 옮깁니다.
          */
         void UpdateKinematicBonesToAnim();
+
+        const Core::FString& GetAssignedPhysicsAssetPath() const;
 
         /**
          * @brief 만든 천을 모두 해제합니다.

@@ -80,7 +80,7 @@ namespace Engine {
         UPROPERTY(Edit, Serialize, Category = "Camera", Getter = GetFieldOfView, Setter = SetFieldOfView, Meta = (SerializeUnit = "deg"))
         Core::FAngle mFieldOfView{};
 
-        UPROPERTY(Edit, Serialize, Name = "DepthOfField", Getter = GetDepthOfFieldSettings, Setter = SetDepthOfFieldSettings)
+        UPROPERTY(Edit, Serialize, Category = "Camera", Name = "DepthOfField", Getter = GetDepthOfFieldSettings, Setter = SetDepthOfFieldSettings)
         Engine::FDepthOfFieldSettings mDepthOfFieldSettings{};
     };
 

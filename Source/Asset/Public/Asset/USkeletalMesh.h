@@ -18,6 +18,8 @@
 #include "RenderCore/TVertexBuffer.h"
 
 #include <memory>
+#include <optional>
+#include <span>
 
 #include "USkeletalMesh.generated.h"
 
@@ -139,6 +141,8 @@ namespace Asset {
          * @return 공유 경계 상자입니다.
          */
         const FBox& GetBounds() const;
+
+        FBox CalcSkinnedWorldBounds(std::span<const FMatrix> SkinMatrices, const FMatrix& ComponentToWorld) const;
 
         /**
          * @brief 메시 전체를 하나의 바디로 다룰 때 사용할 충돌 형상을 반환합니다.
@@ -329,6 +333,9 @@ namespace Asset {
          * @brief GPU 스키닝에서 참조할 본 행렬 수입니다.
          */
         Uint32 mSkinMatrixCount{};
+
+        Core::TArray<std::optional<FBox>> mSkinInfluenceBounds{};
+        std::optional<FBox> mUnweightedBounds{};
 
         /**
          * @brief BLENDINDICES와 BLENDWEIGHT 입력의 공유 불변 버퍼입니다.

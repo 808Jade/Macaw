@@ -8,6 +8,7 @@
 #include "Asset/USkeletalMesh.h"
 #include "Asset/USkeleton.h"
 #include "Asset/FPhysicsAssetUtils.h"
+#include "Core/Math/FMatrix.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Core/Archive.h"
 
@@ -22,6 +23,19 @@
 
 namespace Asset {
 
+    namespace {
+
+        void IncludeBounds(std::optional<FBox>& Bounds, const FBox& IncludedBounds) {
+            if (Bounds.has_value()) {
+                Bounds->mMinimum = Bounds->mMinimum.Min(IncludedBounds.mMinimum);
+                Bounds->mMaximum = Bounds->mMaximum.Max(IncludedBounds.mMaximum);
+            } else {
+                Bounds = IncludedBounds;
+            }
+        }
+
+    }
+
     /**
      * @brief 형상과 가중치를 검증하고 저장합니다.
      */
@@ -30,9 +44,14 @@ namespace Asset {
             return false;
         }
 
-        Uint32 SkinMatrixCount{};
+        const Core::TArray<FVector>& Positions{MeshData.GetPositions()};
+        Core::TArray<std::optional<FBox>> InfluenceBounds{};
+        std::optional<FBox> UnweightedBounds{};
 
-        for (const Asset::FMeshImportSkinWeight& SkinWeight : SkinWeights) {
+        for (Index_t VertexIndex{}; VertexIndex < Positions.size(); ++VertexIndex) {
+            const Asset::FMeshImportSkinWeight& SkinWeight{SkinWeights[VertexIndex]};
+            const FVector& Position{Positions[VertexIndex]};
+            const FBox VertexBounds{Position, Position};
             float Total{};
 
             for (Index_t Index{}; Index < Asset::FMeshImportSkinWeight::MaxInfluences; ++Index) {
@@ -43,13 +62,24 @@ namespace Asset {
                     return false;
                 }
 
-                SkinMatrixCount = std::max(SkinMatrixCount, static_cast<Uint32>(BoneIndex + 1));
+                if (BoneIndex >= InfluenceBounds.size()) {
+                    InfluenceBounds.resize(BoneIndex + 1);
+                }
+
+                if (Weight > 0.0f) {
+                    IncludeBounds(InfluenceBounds[BoneIndex], VertexBounds);
+                }
+
                 Total += Weight;
             }
 
             // 가중치 합은 1이어야 합니다. 합이 0인 정점은 본 영향이 없다는 뜻이며 바인드 위치에 그대로 남습니다.
             if (Total != 0.0f && std::abs(Total - 1.0f) > 0.0001f) {
                 return false;
+            }
+
+            if (Total == 0.0f) {
+                IncludeBounds(UnweightedBounds, VertexBounds);
             }
         }
 
@@ -60,7 +90,9 @@ namespace Asset {
         mSkinWeightBuffer.Reset();
         mClothVertexBuffer.Reset();
         mSkinWeights = std::move(SkinWeights);
-        mSkinMatrixCount = SkinMatrixCount;
+        mSkinMatrixCount = static_cast<Uint32>(InfluenceBounds.size());
+        mSkinInfluenceBounds = std::move(InfluenceBounds);
+        mUnweightedBounds = UnweightedBounds;
 
         // 형상이 바뀌었으므로 정점으로 만든 물리 에셋을 버립니다.
         mGeneratedPhysicsAsset.reset();
@@ -249,6 +281,35 @@ namespace Asset {
      */
     const FBox& Asset::USkeletalMesh::GetBounds() const {
         return mGeometry.GetBounds();
+    }
+
+    FBox USkeletalMesh::CalcSkinnedWorldBounds(std::span<const FMatrix> SkinMatrices, const FMatrix& ComponentToWorld) const {
+        if (SkinMatrices.size() < mSkinInfluenceBounds.size()) {
+            return GetBounds().Transformed(ComponentToWorld);
+        }
+
+        std::optional<FBox> Bounds{};
+
+        if (mUnweightedBounds.has_value()) {
+            Bounds = mUnweightedBounds->Transformed(ComponentToWorld);
+        }
+
+        for (Index_t BoneIndex{}; BoneIndex < mSkinInfluenceBounds.size(); ++BoneIndex) {
+            const std::optional<FBox>& InfluenceBounds{mSkinInfluenceBounds[BoneIndex]};
+
+            if (InfluenceBounds.has_value()) {
+                IncludeBounds(Bounds, InfluenceBounds->Transformed(SkinMatrices[BoneIndex] * ComponentToWorld));
+            }
+        }
+
+        if (!Bounds.has_value()) {
+            return GetBounds().Transformed(ComponentToWorld);
+        }
+
+        const FVector Magnitude{Bounds->mMinimum.Abs().Max(Bounds->mMaximum.Abs()).Max(FVector{1.0f, 1.0f, 1.0f})};
+        const FVector Padding{Magnitude * (32.0f * std::numeric_limits<float>::epsilon())};
+
+        return FBox{Bounds->mMinimum - Padding, Bounds->mMaximum + Padding};
     }
 
     /**

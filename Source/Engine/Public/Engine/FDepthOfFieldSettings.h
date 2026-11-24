@@ -28,15 +28,15 @@ namespace Engine {
         bool mEnabled{false};
 
         /** @brief 카메라에서 초점 구간 중심까지의 거리(m)입니다. */
-        UPROPERTY(Edit, Serialize)
+        UPROPERTY(Edit, Serialize, Meta = (DisplayUnit = "m"))
         float mFocalDistance{5.0f};
 
         /** @brief 선명한 초점 구간의 전체 폭(m)입니다. */
-        UPROPERTY(Edit, Serialize)
+        UPROPERTY(Edit, Serialize, Meta = (DisplayUnit = "m"))
         float mFocusWidth{2.0f};
 
         /** @brief 초점 구간의 각 경계에서 최대 흐림까지의 거리(m)입니다. */
-        UPROPERTY(Edit, Serialize)
+        UPROPERTY(Edit, Serialize, Meta = (DisplayUnit = "m"))
         float mTransitionDistance{2.0f};
 
         /** @brief 전체 해상도에서의 블러 반경 상한(px)입니다. */

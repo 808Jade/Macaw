@@ -213,10 +213,6 @@ namespace Editor {
             const Core::FString& Name{Property->GetName()};
 
             if (Struct != nullptr && Struct == Engine::FDepthOfFieldSettings::StaticStruct()) {
-                if (Name == "FocalDistance" || Name == "FocusWidth" || Name == "TransitionDistance") {
-                    return DisplayName(Name) + " (m)";
-                }
-
                 if (Name == "MaxBlurRadius") {
                     return "Max Blur Radius (px)";
                 }
@@ -243,6 +239,20 @@ namespace Editor {
             }
 
             return DisplayName(Name);
+        }
+
+        bool DrawQuantityInput(const char* Label, float& BaseValue, const Core::FQuantityUnit& Unit) {
+            Editor::FEditorQuantityInputWidget Input{Label, BaseValue, Unit};
+            Input.Draw(0.0f);
+
+            const auto Edited{Input.GetEditedValue()};
+            if (!Edited.has_value() || *Edited == BaseValue) {
+                return false;
+            }
+
+            BaseValue = *Edited;
+
+            return true;
         }
 
         /**
@@ -1859,17 +1869,12 @@ namespace Editor {
                 return false;
             }
 
-            Editor::FEditorQuantityInputWidget Input{Label, Quantity->mBaseValue, *Unit};
-            Input.Draw(0.0f);
-
-            if (const auto Edited{Input.GetEditedValue()}; Edited.has_value() && *Edited != Quantity->mBaseValue) {
-                Quantity->mBaseValue = *Edited;
-
-                return true;
+            return DrawQuantityInput(Label, Quantity->mBaseValue, *Unit);
+        } else if (auto* FloatValue{std::get_if<float>(&Value)}) {
+            if (Property->GetMetaData("DisplayUnit") == Core::QuantityUnits::Meter.mSymbol) {
+                return DrawQuantityInput(Label, *FloatValue, Core::QuantityUnits::Meter);
             }
 
-            return false;
-        } else if (auto* FloatValue{std::get_if<float>(&Value)}) {
             return ImGui::DragFloat(Label, FloatValue, 0.025f);
         } else if (auto* IntegerValue{std::get_if<Int32>(&Value)}) {
             return ImGui::InputInt(Label, IntegerValue);

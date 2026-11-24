@@ -37,6 +37,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <optional>
 #include <utility>
 
 namespace Engine {
@@ -108,6 +109,52 @@ namespace Engine {
     const Asset::FMeshData& USkeletalMeshComponent::GetMeshData() const {
         // 피킹이 실제 보이는 표면과 일치하도록 에셋의 바인드 형상이 아니라 현재 포즈로 변형한 형상을 반환합니다.
         return mSkeletalMesh != nullptr && !mPose.GetRevision().IsValid() ? mSkeletalMesh->GetMeshData() : mPose.GetMeshData();
+    }
+
+    FBox USkeletalMeshComponent::GetWorldBounds() const {
+        if (mSkeletalMesh == nullptr) {
+            return Engine::UMeshComponent::GetWorldBounds();
+        }
+
+        const FMatrix ComponentToWorld{GetWorldMatrix()};
+        const Core::TArray<FMatrix>& GlobalTransforms{mPose.GetGlobalTransforms()};
+
+        if (!GlobalTransforms.empty()) {
+            if (const PhysicsRuntime::UPhysicsAsset* PhysicsAsset{LoadPhysicsAsset(GetAssignedPhysicsAssetPath())}; PhysicsAsset != nullptr) {
+                FBox Bounds{mSkeletalMesh->CalcSkinnedWorldBounds(mPose.GetSkinMatrices(), ComponentToWorld)};
+
+                for (const auto& Body : PhysicsAsset->mSkeletalBodySetups) {
+                    if (Body == nullptr) {
+                        continue;
+                    }
+
+                    const Index_t BoneIndex{GetBoneIndex(Body->GetBoneName())};
+
+                    if (BoneIndex == InvalidIndex || BoneIndex >= GlobalTransforms.size()) {
+                        continue;
+                    }
+
+                    const std::optional<FBox> BodyBounds{Body->GetAggGeom().CalcAABB(GlobalTransforms[BoneIndex] * ComponentToWorld)};
+
+                    if (BodyBounds.has_value()) {
+                        Bounds.mMinimum = Bounds.mMinimum.Min(BodyBounds->mMinimum);
+                        Bounds.mMaximum = Bounds.mMaximum.Max(BodyBounds->mMaximum);
+                    }
+                }
+
+                return Bounds;
+            }
+        }
+
+        FBox MeshBounds{mSkeletalMesh->GetBounds()};
+
+        if (mSkeleton != nullptr && !GlobalTransforms.empty() && !mSkeleton->GetGlobalBindPoses().empty()) {
+            const FVector RootOffset{GlobalTransforms.front().Origin() - mSkeleton->GetGlobalBindPoses().front().Origin()};
+            MeshBounds.mMinimum += RootOffset;
+            MeshBounds.mMaximum += RootOffset;
+        }
+
+        return MeshBounds.Transformed(ComponentToWorld);
     }
 
     /**
@@ -266,16 +313,14 @@ namespace Engine {
      * @brief 뼈별 바디와 관절을 만들 물리 에셋을 반환합니다.
      */
     PhysicsRuntime::UPhysicsAsset* USkeletalMeshComponent::GetPhysicsAsset() const {
-        if (!mPhysicsAssetOverride.empty()) {
-            return LoadPhysicsAsset(mPhysicsAssetOverride);
+        const Core::FString& Path{GetAssignedPhysicsAssetPath()};
+
+        if (!Path.empty()) {
+            return LoadPhysicsAsset(Path);
         }
 
         if (mSkeletalMesh == nullptr) {
             return nullptr;
-        }
-
-        if (!mSkeletalMesh->GetPhysicsAssetPath().empty()) {
-            return LoadPhysicsAsset(mSkeletalMesh->GetPhysicsAssetPath());
         }
 
         // 지정된 물리 에셋이 없으면 메시가 뼈와 정점으로 만든 것을 임시로 씁니다.
@@ -307,6 +352,7 @@ namespace Engine {
 
         mPhysicsAssetOverride = Path;
         RecreatePhysicsState();
+        MarkRenderTransformDirty();
 
         return true;
     }
@@ -1420,6 +1466,10 @@ namespace Engine {
         }
 
         return PhysicsAsset;
+    }
+
+    const Core::FString& USkeletalMeshComponent::GetAssignedPhysicsAssetPath() const {
+        return !mPhysicsAssetOverride.empty() || mSkeletalMesh == nullptr ? mPhysicsAssetOverride : mSkeletalMesh->GetPhysicsAssetPath();
     }
 
     Asset::UAnimSequence* USkeletalMeshComponent::LoadAnimation(const Core::FString& Path) const {
