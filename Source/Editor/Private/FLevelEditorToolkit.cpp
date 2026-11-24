@@ -202,6 +202,7 @@ void FLevelEditorToolkit::Tick(float DeltaTime) {
     mImports->BeginFrame();
     mBrowser->Tick();
     mSettings->Tick(DeltaTime);
+    mContext->TickClothGridTest(DeltaTime);
 }
 
 void FLevelEditorToolkit::Draw(float DeltaTime) {

@@ -17,6 +17,8 @@ namespace PhysicsRuntime {
         Core::FStat Contacts{"physics", "New contacts"};
         Core::FStat DynamicBodies{"physics", "Dynamic bodies (last scene)", Core::EStatUnit::Count, Core::EStatMode::Gauge};
         Core::FStat StaticBodies{"physics", "Static bodies (last scene)", Core::EStatUnit::Count, Core::EStatMode::Gauge};
+        Core::FStat ClothSimulate{"cloth", "Cloth simulate CPU", Core::EStatUnit::Milliseconds};
+        Core::FStat ClothParticles{"cloth", "Cloth particles", Core::EStatUnit::Count, Core::EStatMode::Gauge};
     }
 
 }

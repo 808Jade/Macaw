@@ -138,6 +138,19 @@ namespace Editor {
         mConsoleCommands.Register({"Allow Tearing", "[on/off/status]", {"on", "off", "status"}, [this](const Editor::FConsoleInvocation& Invocation) {
             ExecuteAllowTearing(Invocation);
         }});
+        mConsoleCommands.Register({"cloth.grid", "[on/off]", {"on", "off"}, [this](const Editor::FConsoleInvocation& Invocation) {
+            const Core::FString Value{Invocation.mArguments};
+            const bool Enable{Value.empty() ? !mClothGridTest : Value == "on"};
+
+            if (!Value.empty() && Value != "on" && Value != "off") {
+                AddLog(MakeUsage(Invocation));
+
+                return;
+            }
+
+            SetClothGridTest(Enable);
+            AddLog(mClothGridTest != nullptr ? "Cloth grid on. Use stat cloth for timing." : "Cloth grid off.");
+        }});
         mConsoleCommands.Register({"Shadow Atlas", {}, {}, [this](const Editor::FConsoleInvocation& Invocation) {
             if (Invocation.mArguments.empty()) {
                 SetShadowAtlasOpen(true);

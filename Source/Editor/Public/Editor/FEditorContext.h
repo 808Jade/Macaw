@@ -17,8 +17,14 @@
 
 #include <filesystem>
 #include <functional>
+#include <memory>
+
+namespace PhysicsRuntime {
+    class FClothingSimulationNv;
+}
 
 namespace Engine {
+    class FPrimitiveDrawInterface;
     class ALevelSequenceActor;
     class UEngine;
     class FProject;
@@ -690,6 +696,27 @@ namespace Editor {
         void SetShadowAtlasOpen(bool Open);
 
         /**
+         * @brief 격자 천 테스트를 켜거나 끕니다.
+         * @details 켜면 원점 위에 한 변을 고정한 격자 천을 만들고, 끄면 천과 솔버를 해제합니다.
+         *          컴포넌트 연결 전까지 솔버 동작을 확인하기 위한 임시 기능입니다.
+         * @param[in] Enable 켤지 지정합니다.
+         */
+        void SetClothGridTest(bool Enable);
+
+        /**
+         * @brief 격자 천 테스트가 켜져 있으면 천을 한 프레임 진행합니다.
+         * @param[in] DeltaTime 초 단위 프레임 시간입니다.
+         */
+        void TickClothGridTest(float DeltaTime);
+
+        /**
+         * @brief 격자 천 테스트의 입자 사이를 선분으로 그립니다.
+         * @param[in,out] DrawInterface 선분을 수집할 그리기 인터페이스입니다.
+         * @param[in] Thickness 선분 두께입니다.
+         */
+        void DrawClothGridTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const;
+
+        /**
          * @brief 공통 편집 작업이 사용할 뷰포트 제공자를 설정합니다.
          * @param[in] Provider 호출 시점의 활성 뷰포트를 반환합니다.
          */
@@ -829,6 +856,11 @@ namespace Editor {
          * @brief 월드의 소유권과 렌더러를 제공하는 엔진의 비소유 주소입니다.
          */
         Engine::UEngine* mEngine{};
+
+        /**
+         * @brief 격자 천 테스트의 시뮬레이션이며 꺼져 있으면 비어 있습니다.
+         */
+        std::unique_ptr<PhysicsRuntime::FClothingSimulationNv> mClothGridTest{};
 
         /**
          * @brief PIE 실행 중 원본 편집 상태의 수정을 제한하는 플래그입니다.

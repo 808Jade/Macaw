@@ -16,6 +16,8 @@
 #include "Engine/Component/UBillboardTextComponent.h"
 #include "Engine/Component/UBillboardComponent.h"
 #include "Engine/Engine.h"
+#include "Engine/FPrimitiveDrawInterface.h"
+#include "PhysicsRuntime/FClothingSimulationNv.h"
 #include "RenderCore/IRendererModule.h"
 #include "Engine/UWorld.h"
 #include "Engine/ULevel.h"
@@ -118,6 +120,9 @@ namespace Editor {
      * @brief UI와 월드 사이의 비소유 편집 연결을 해제합니다.
      */
     void Editor::FEditorContext::Reset() {
+        // 엔진이 천 팩토리를 해제하기 전에 테스트 천을 먼저 정리합니다.
+        SetClothGridTest(false);
+
         if (mPlayLocked || IsChangingState()) {
             return;
         }
@@ -1359,6 +1364,76 @@ namespace Editor {
      */
     void Editor::FEditorContext::SetShadowAtlasOpen(bool Open) {
         mShadowAtlasOpen = Open;
+    }
+
+    /**
+     * @brief 격자 천 테스트를 켜거나 끕니다.
+     */
+    void Editor::FEditorContext::SetClothGridTest(bool Enable) {
+        if (!Enable) {
+            mClothGridTest.reset();
+
+            return;
+        }
+
+        if (mClothGridTest != nullptr || mEngine == nullptr) {
+            return;
+        }
+
+        // 1m 정사각형 천을 2m 높이에 눕히고 Y=0 쪽 변을 고정합니다.
+        constexpr Uint32 GridSize{20};
+        constexpr float Spacing{1.0f / static_cast<float>(GridSize - 1)};
+        auto Simulation{std::make_unique<PhysicsRuntime::FClothingSimulationNv>()};
+
+        if (!Simulation->Initialize(mEngine->GetClothingSystem().GetSoftwareFactory()) || !Simulation->CreateGridActor({-0.5f, 0.0f, 2.0f}, GridSize, GridSize, Spacing)) {
+            AddLog("Cannot create the cloth grid. See the Console for details.");
+
+            return;
+        }
+
+        mClothGridTest = std::move(Simulation);
+    }
+
+    /**
+     * @brief 격자 천 테스트가 켜져 있으면 천을 한 프레임 진행합니다.
+     */
+    void Editor::FEditorContext::TickClothGridTest(float DeltaTime) {
+        if (mClothGridTest != nullptr) {
+            mClothGridTest->Simulate(DeltaTime);
+        }
+    }
+
+    /**
+     * @brief 격자 천 테스트의 입자 사이를 선분으로 그립니다.
+     */
+    void Editor::FEditorContext::DrawClothGridTest(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const {
+        if (mClothGridTest == nullptr) {
+            return;
+        }
+
+        Core::TArray<FVector> Positions{};
+        const Uint32 Width{mClothGridTest->GetGridWidth()};
+        const Uint32 Height{mClothGridTest->GetGridHeight()};
+
+        if (!mClothGridTest->GetParticles(0, Positions) || Positions.size() != static_cast<Index_t>(Width) * Height) {
+            return;
+        }
+
+        const FVector Color{0.95f, 0.45f, 0.75f};
+
+        for (Uint32 Row{}; Row < Height; ++Row) {
+            for (Uint32 Column{}; Column < Width; ++Column) {
+                const Index_t Index{static_cast<Index_t>(Row) * Width + Column};
+
+                if (Column + 1 < Width) {
+                    DrawInterface.DrawLine(Positions[Index], Positions[Index + 1], Color, true, Thickness);
+                }
+
+                if (Row + 1 < Height) {
+                    DrawInterface.DrawLine(Positions[Index], Positions[Index + Width], Color, true, Thickness);
+                }
+            }
+        }
     }
 
     /**

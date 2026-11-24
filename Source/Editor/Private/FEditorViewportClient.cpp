@@ -484,6 +484,8 @@ namespace Editor {
             mDrawInterface.DrawLine({0.0f, 0.0f, -AxisLength}, {0.0f, 0.0f, AxisLength}, {0.3f, 0.55f, 1.0f}, true, mLineThickness);
         }
 
+        mContext->DrawClothGridTest(mDrawInterface, mLineThickness);
+
         if (World->GetPersistentLevel() != nullptr) {
             const Core::TArray<CoreUObject::TObjectRef<Engine::AActor>> SelectedActors{mContext->GetSelectedActors()};
             const auto* SelectedComponent{CoreUObject::Cast<Engine::UActorComponent>(mContext->GetSelectedObject())};
