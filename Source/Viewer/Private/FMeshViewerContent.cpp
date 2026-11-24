@@ -181,22 +181,22 @@ void FMeshViewerContent::Synchronize() {
 
     mDirty = false;
 
-    if (mMesh == nullptr) {
-        if (mSkeleton != nullptr && !mSkeleton->GetGlobalBindPoses().empty()) {
-            const auto& Transforms{mSkeleton->GetGlobalBindPoses()};
-            const FVector First{Transforms.front().TransformPosition({})};
-            mBounds = {First, First};
+    if (mSkeleton != nullptr && (mMesh == nullptr || mShowBones) && !mSkeleton->GetGlobalBindPoses().empty()) {
+        const auto& Transforms{mSkeleton->GetGlobalBindPoses()};
+        const FVector First{Transforms.front().TransformPosition({})};
+        mBounds = {First, First};
 
-            for (const FMatrix& Transform : Transforms) {
-                const FVector Joint{Transform.TransformPosition({})};
+        for (const FMatrix& Transform : Transforms) {
+            const FVector Joint{Transform.TransformPosition({})};
 
-                mBounds.mMinimum = mBounds.mMinimum.Min(Joint);
-                mBounds.mMaximum = mBounds.mMaximum.Max(Joint);
-            }
+            mBounds.mMinimum = mBounds.mMinimum.Min(Joint);
+            mBounds.mMaximum = mBounds.mMaximum.Max(Joint);
+        }
 
-            const float Radius{std::max(mBounds.mMinimum.Distance(mBounds.mMaximum) * 0.5f, (0.01_m).GetBase())};
-            mSkeletonShapes = BuildBoneShapes(mSkeleton->GetBones(), Transforms, Radius);
+        const float Radius{std::max(mBounds.mMinimum.Distance(mBounds.mMaximum) * 0.5f, (0.01_m).GetBase())};
+        mSkeletonShapes = BuildBoneShapes(mSkeleton->GetBones(), Transforms, Radius);
 
+        if (mMesh == nullptr) {
             for (const FBoneShape& Shape : mSkeletonShapes) {
                 const FBox Bounds{Engine::GetEditorMesh(Shape.GetMesh()).GetBounds().Transformed(Shape.GetWorld())};
 
@@ -205,6 +205,9 @@ void FMeshViewerContent::Synchronize() {
             }
         }
 
+    }
+
+    if (mMesh == nullptr) {
         return;
     }
 
@@ -239,7 +242,7 @@ void FMeshViewerContent::Synchronize() {
 }
 
 void FMeshViewerContent::BuildOverlay(Engine::FPrimitiveDrawInterface& Overlay, float) const {
-    if (mMesh == nullptr && mSkeleton != nullptr) {
+    if (mSkeleton != nullptr && (mMesh == nullptr || mShowBones)) {
         for (const FBoneShape& Shape : mSkeletonShapes) {
             const FVector4 Color{Shape.GetMesh() == Engine::EEditorMesh::Sphere ? FVector4{0.88f, 0.92f, 1.0f, 1.0f} : FVector4{0.49f, 0.7f, 0.9f, 1.0f}};
 
@@ -268,7 +271,7 @@ Core::TArray<CoreUObject::TObjectRef<Asset::UMaterial>>& FMeshViewerContent::Get
     return mMaterials;
 }
 
-bool FMeshViewerContent::SetSkeleton(Asset::USkeleton* Skeleton) {
+bool FMeshViewerContent::SetSkeleton(Asset::USkeleton* Skeleton, bool ShowBones) {
     Engine::FSkeletalMeshPose Pose{};
 
     if (Skeleton != nullptr && (mSkeletalMesh == nullptr || !Pose.Reset(*mSkeletalMesh, *Skeleton) || mRenderer == nullptr || !mSkeletalMesh->CreateResources(static_cast<ID3D11Device*>(mRenderer->GetNativeDevice())))) {
@@ -276,6 +279,7 @@ bool FMeshViewerContent::SetSkeleton(Asset::USkeleton* Skeleton) {
     }
 
     mSkeleton = Skeleton;
+    mShowBones = ShowBones;
     mPose = std::move(Pose);
     Refresh();
 

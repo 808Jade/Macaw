@@ -90,7 +90,7 @@ namespace Viewer {
         /**
          * @brief 현재 콘텐츠와 렌더 타깃을 해제합니다.
          */
-        void Close();
+        void Close(bool ReleaseTarget = true);
 
         /**
          * @brief 현재 에셋의 형식별 콘텐츠를 조회합니다.

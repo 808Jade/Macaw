@@ -18,22 +18,17 @@
 #include "Core/FilePath.h"
 #include "Engine/FProject.h"
 #include "Engine/Particles/ParticleAssets.h"
-#include "Asset/UTexture2D.h"
 #include "Asset/UMaterial.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Viewer/FAssetViewer.h"
-#include "RenderCore/IRendererModule.h"
 #include "Platform/Window.h"
-#include "Platform/WindowResources.h"
 #include "Core/Types.h"
-#include <d3d11.h>
 #include <shellapi.h>
 #include <imgui_internal.h>
 #include <algorithm>
 #include <cmath>
 #include <format>
 #include <fstream>
-#include <span>
 
 using namespace Editor;
 
@@ -42,232 +37,46 @@ using namespace Editor;
  */
 namespace {
 
-    /**
-     * @brief 콘텐츠 종류별 리소스 아이콘, 대체 글리프와 표시 색상입니다.
-     * @ingroup Editor
-     */
-    struct FContentIcon {
-
-        /**
-         * @brief 콘텐츠 종류를 식별하는 문자열입니다.
-         */
-        std::string_view mKind{};
-
-        /**
-         * @brief 아이콘의 마우스 오버 설명입니다.
-         */
-        const char* mTooltip{};
-
-        /**
-         * @brief 실행 파일에 포함된 아이콘 이미지 리소스 ID입니다.
-         */
-        WORD mResourceId{};
-
-        /**
-         * @brief 리소스 이미지가 없을 때 사용할 아이콘 글리프입니다.
-         */
-        Editor::EditorStyle::EIcon mFallback{};
-
-        /**
-         * @brief 아이콘에 곱할 표시 색상입니다.
-         */
-        ImU32 mTint{IM_COL32_WHITE};
-    };
-
-    /**
-     * @brief 알 수 없는 파일 종류에 사용할 기본 아이콘입니다.
-     */
-    constexpr FContentIcon FileIcon{"File", "파일", MacawContentFileIconResource, Editor::EditorStyle::EIcon::Component};
-
-    constexpr float ThumbnailPadding{6.0f};
-    constexpr float ThumbnailNameGap{10.0f};
-    constexpr float ThumbnailTypeGap{3.0f};
-    constexpr float ThumbnailFooterHeight{84.0f};
-    constexpr float CompactImageSize{48.0f};
-
-    /**
-     * @brief 콘텐츠 종류별 아이콘 메타데이터 목록입니다.
-     */
-    constexpr FContentIcon ContentIcons[]{
-        FileIcon,
-        {"Lua Script", "Lua 스크립트", MacawContentLuaIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(164, 197, 255, 255)},
-        {"Shader Source", "셰이더 소스", MacawContentFileIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(120, 214, 236, 255)},
-        {"Folder", "폴더", MacawContentFolderIconResource, Editor::EditorStyle::EIcon::Component, IM_COL32(255, 208, 111, 255)},
-        {"Mesh", "메시", MacawContentMeshIconResource, Editor::EditorStyle::EIcon::Local},
-        {"Skeletal Mesh", "스켈레탈 메시", MacawContentSkeletalMeshIconResource, Editor::EditorStyle::EIcon::Skeleton},
-        {"Skeleton", "스켈레톤", MacawContentSkeletonIconResource, Editor::EditorStyle::EIcon::Skeleton},
-        {"Material", "머티리얼", MacawContentMaterialIconResource, Editor::EditorStyle::EIcon::Grid},
-        {"Texture", "텍스처", MacawContentTextureIconResource, Editor::EditorStyle::EIcon::Sprite},
-        {"Sequence", "시퀀스", MacawContentSequenceIconResource, Editor::EditorStyle::EIcon::Sequence},
-        {"Animation Sequence", "애니메이션 시퀀스", MacawContentAnimationSequenceIconResource, Editor::EditorStyle::EIcon::Sequence},
-        {"Blend Space", "블렌드 스페이스", MacawContentAnimationSequenceIconResource, Editor::EditorStyle::EIcon::Sequence, IM_COL32(120, 214, 236, 255)},
-        {"Anim Graph", "애니메이션 그래프", MacawContentAnimationSequenceIconResource, Editor::EditorStyle::EIcon::Sequence, IM_COL32(150, 165, 255, 255)},
-        {"Particle System", "파티클 시스템", MacawContentFileIconResource, Editor::EditorStyle::EIcon::Sprite, IM_COL32(255, 190, 110, 255)},
-        {"Scene", "씬", MacawContentSceneIconResource, Editor::EditorStyle::EIcon::World}};
-
     bool IsShaderSource(const std::filesystem::path& Path) {
         const auto Extension{Core::FilePath::ToLowerExtension(Path)};
 
         return Extension == L".hlsl" || Extension == L".hlsli";
     }
 
-    const char* GetAssetKind(Asset::EAssetType Type) {
-        switch (Type) {
-        case Asset::EAssetType::Mesh:
-            return "Mesh";
-        case Asset::EAssetType::SkeletalMesh:
-            return "Skeletal Mesh";
-        case Asset::EAssetType::Skeleton:
-            return "Skeleton";
-        case Asset::EAssetType::PhysicsAsset:
-            return "Physics Asset";
-        case Asset::EAssetType::Shader:
-            return "Shader";
-        case Asset::EAssetType::Material:
-            return "Material";
-        case Asset::EAssetType::Texture:
-            return "Texture";
-        case Asset::EAssetType::Sequence:
-            return "Sequence";
-        case Asset::EAssetType::AnimSequence:
-            return "Animation Sequence";
-        case Asset::EAssetType::BlendSpace:
-            return "Blend Space";
-        case Asset::EAssetType::AnimGraph:
-            return "Anim Graph";
-        case Asset::EAssetType::ParticleSystem:
-            return "Particle System";
-        default:
-            return "Scene";
+    FAssetTileWidget::EContentKind GetContentKind(const std::filesystem::path& Path, bool Directory) {
+        if (Directory) {
+            return FAssetTileWidget::EContentKind::Folder;
         }
+
+        if (Core::FilePath::ToLowerExtension(Path) == L".lua") {
+            return FAssetTileWidget::EContentKind::LuaScript;
+        }
+
+        return IsShaderSource(Path) ? FAssetTileWidget::EContentKind::ShaderSource : FAssetTileWidget::EContentKind::File;
     }
 
-    /**
-     * @brief 콘텐츠 종류에 대응하는 아이콘 메타데이터를 조회합니다.
-     * @param Kind 콘텐츠 종류 문자열입니다.
-     * @return 정적 아이콘 항목의 참조이며 모르는 종류는 기본 파일 아이콘입니다.
-     */
-    const FContentIcon& GetContentIcon(std::string_view Kind) {
-        for (const FContentIcon& Icon : ContentIcons) {
-            if (Icon.mKind == Kind) {
-                return Icon;
-            }
+    bool DrawFolderEntry(const FAssetTileWidget& AssetTile, const FAssetTileWidget::FStyle& Style, const Core::FString& Name, const ImVec2& Size, float Scale, bool Selected) {
+        const ImVec2 Origin{ImGui::GetCursorScreenPos()};
+        const bool Pressed{EditorStyle::Selectable("##Folder", Selected, ImGuiSelectableFlags_AllowDoubleClick, Size)};
+
+        if (ImGui::IsItemVisible()) {
+            const float Padding{4.0f * Scale};
+            const float ImageSize{std::min(96.0f * Scale, Size.x - Padding * 2.0f)};
+            const float IconSize{ImageSize * 0.8f};
+            const float TypeY{Origin.y + ImageSize + Padding * 2.0f};
+            const float NameY{TypeY + ImGui::GetTextLineHeightWithSpacing()};
+            const float LineHeight{ImGui::GetTextLineHeight()};
+            const float TextLeft{Origin.x + Padding};
+            const float TextWidth{Size.x - Padding * 2.0f};
+            const ImVec4 NameClip{TextLeft, NameY, TextLeft + TextWidth, std::min(NameY + LineHeight * 2.0f, Origin.y + Size.y)};
+            ImDrawList& DrawList{*ImGui::GetWindowDrawList()};
+
+            AssetTile.DrawIcon(DrawList, Style, {Origin.x + (Size.x - IconSize) * 0.5f, Origin.y + Padding + (ImageSize - IconSize) * 0.5f}, IconSize);
+            DrawList.AddText({TextLeft, TypeY}, ImGui::GetColorU32(ImGuiCol_TextDisabled), Style.mLabel);
+            DrawList.AddText(ImGui::GetFont(), LineHeight, {TextLeft, NameY}, ImGui::GetColorU32(ImGuiCol_Text), Name.c_str(), nullptr, TextWidth, &NameClip);
         }
 
-        return FileIcon;
-    }
-
-    ImU32 GetThumbnailAccent(Asset::EAssetType Type) {
-        switch (Type) {
-        case Asset::EAssetType::Mesh:
-            return IM_COL32(100, 194, 232, 255);
-        case Asset::EAssetType::SkeletalMesh:
-            return IM_COL32(137, 164, 251, 255);
-        case Asset::EAssetType::Skeleton:
-            return IM_COL32(231, 190, 105, 255);
-        case Asset::EAssetType::Material:
-            return IM_COL32(117, 207, 158, 255);
-        case Asset::EAssetType::Texture:
-            return IM_COL32(213, 150, 236, 255);
-        case Asset::EAssetType::AnimSequence:
-            return IM_COL32(239, 158, 113, 255);
-        default:
-            return IM_COL32_WHITE;
-        }
-    }
-
-    void DrawThumbnailCard(float Scale, bool Compact, bool Selected, bool Hovered, void* Thumbnail, Asset::EAssetType Type, const Core::FString& Name) {
-        const ImRect Bounds{ImGui::GetItemRectMin(), ImGui::GetItemRectMax()};
-        const ImGuiStyle& Style{ImGui::GetStyle()};
-        const ImVec4 Surface{Style.Colors[ImGuiCol_Button]};
-        const ImVec4 Fill{Selected ? ImLerp(Surface, Style.Colors[ImGuiCol_HeaderActive], 0.24f) : ImLerp(Surface, Style.Colors[ImGuiCol_ButtonHovered], Hovered ? 0.45f : 0.0f)};
-        const ImGuiCol Border{Selected ? ImGuiCol_HeaderActive : Hovered ? ImGuiCol_ButtonHovered : ImGuiCol_Separator};
-        const float Padding{ThumbnailPadding * Scale};
-        const float Rounding{std::min(Style.FrameRounding, Padding)};
-        const float LineHeight{ImGui::GetTextLineHeight()};
-        const float ImageSize{Compact ? CompactImageSize * Scale : Bounds.GetWidth() - Padding * 2.0f};
-        const ImVec2 ImageMinimum{Bounds.Min.x + Padding, Bounds.Min.y + Padding};
-        const ImVec2 ImageMaximum{ImageMinimum.x + ImageSize, ImageMinimum.y + ImageSize};
-        const float TextInset{Compact ? 0.0f : 3.0f * Scale};
-        const ImVec2 NamePosition{Compact ? ImageMaximum.x + 9.0f * Scale : ImageMinimum.x + TextInset, Compact ? ImageMinimum.y : ImageMaximum.y + ThumbnailNameGap * Scale};
-        const float TextRight{Bounds.Max.x - Padding - TextInset};
-        const float TextWidth{TextRight - NamePosition.x};
-        const float TypeY{Bounds.Max.y - Padding - LineHeight};
-        const float AccentHeight{std::max(1.0f, 2.0f * Scale)};
-        const ImVec2 AccentMinimum{Compact ? ImageMinimum.x + Rounding : ImageMinimum.x, ImageMaximum.y - AccentHeight};
-        const ImVec2 AccentMaximum{Compact ? ImageMinimum.x + ImageSize * 0.4f : ImageMaximum.x, ImageMaximum.y};
-        const ImDrawFlags ImageCorners{Compact ? ImDrawFlags_RoundCornersAll : ImDrawFlags_RoundCornersTop};
-        const ImTextureRef Texture{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Thumbnail))};
-        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
-
-        DrawList->AddRectFilled(Bounds.Min, Bounds.Max, ImGui::GetColorU32(Fill), Rounding);
-        DrawList->AddImageRounded(Texture, ImageMinimum, ImageMaximum, {0.0f, 0.0f}, {1.0f, 1.0f}, ImGui::GetColorU32(IM_COL32_WHITE), Rounding, ImageCorners);
-        DrawList->AddRectFilled(AccentMinimum, AccentMaximum, ImGui::GetColorU32(GetThumbnailAccent(Type)), Compact ? AccentHeight * 0.5f : 0.0f);
-        DrawList->AddRect(Bounds.Min, Bounds.Max, ImGui::GetColorU32(Border), Rounding);
-
-        ImFont* Font{ImGui::GetFont()};
-        const char* NameEnd{Name.data() + Name.size()};
-        const char* FirstLineEnd{Font->CalcWordWrapPosition(LineHeight, Name.data(), NameEnd, TextWidth)};
-        const ImVec4 FirstLineClip{NamePosition.x, NamePosition.y, TextRight, NamePosition.y + LineHeight};
-
-        if (FirstLineEnd != NameEnd && *FirstLineEnd != ' ' && *FirstLineEnd != '\t') {
-            const std::string_view FirstLine{Name.data(), static_cast<std::size_t>(FirstLineEnd - Name.data())};
-            const std::size_t Separator{FirstLine.find_last_of("_-")};
-
-            if (Separator != std::string_view::npos && Separator + 1 > FirstLine.size() / 2) {
-                FirstLineEnd = Name.data() + Separator + 1;
-            }
-        }
-
-        const char* SecondLine{FirstLineEnd};
-
-        DrawList->AddText(Font, LineHeight, NamePosition, ImGui::GetColorU32(ImGuiCol_Text), Name.data(), FirstLineEnd, 0.0f, &FirstLineClip);
-
-        while (SecondLine != NameEnd && (*SecondLine == ' ' || *SecondLine == '\t')) {
-            ++SecondLine;
-        }
-
-        if (SecondLine != NameEnd) {
-            ImGui::RenderTextEllipsis(DrawList, {NamePosition.x, NamePosition.y + LineHeight}, {TextRight, NamePosition.y + LineHeight * 2.0f}, TextRight, SecondLine, NameEnd, nullptr);
-        }
-
-        const char* Kind{GetAssetKind(Type)};
-        const float TypeFontSize{LineHeight * std::min(0.85f, TextWidth / ImGui::CalcTextSize(Kind).x)};
-        const ImVec4 TypeClip{NamePosition.x, TypeY, TextRight, Bounds.Max.y};
-        const ImU32 TypeColor{ImGui::GetColorU32(ImLerp(Style.Colors[ImGuiCol_TextDisabled], Style.Colors[ImGuiCol_Text], 0.3f))};
-
-        DrawList->AddText(Font, TypeFontSize, {NamePosition.x, TypeY + (LineHeight - TypeFontSize) * 0.5f}, TypeColor, Kind, nullptr, 0.0f, &TypeClip);
-        ImGui::RenderNavCursor(Bounds, ImGui::GetItemID(), ImGuiNavRenderCursorFlags_Compact);
-    }
-
-    /**
-     * @brief 썸네일·리소스 아이콘·대체 글리프 중 사용 가능한 이미지를 표시합니다.
-     * @param Size 출력 또는 표시 영역 크기(픽셀)입니다.
-     * @param Thumbnail 캐시에서 제공한 썸네일 네이티브 텍스처 핸들입니다.
-     * @param Resource 썸네일이 없을 때 사용할 GPU 아이콘 리소스입니다.
-     * @param Icon 리소스가 없을 때 사용할 대체 아이콘 정보입니다.
-     */
-    void DrawContentImage(const ImVec2& Position, float Size, void* Thumbnail, ID3D11ShaderResourceView* Resource, const FContentIcon& Icon) {
-        ImDrawList* DrawList{ImGui::GetWindowDrawList()};
-
-        if (Thumbnail != nullptr) {
-            DrawList->AddImage(ImTextureRef{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Thumbnail))}, Position, {Position.x + Size, Position.y + Size});
-
-            return;
-        }
-
-        const float IconSize{Size * 0.8f};
-        const float Inset{(Size - IconSize) * 0.5f};
-        const ImVec2 Origin{Position.x + Inset, Position.y + Inset};
-
-        if (Resource != nullptr) {
-            DrawList->AddImage(ImTextureRef{static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(Resource))}, Origin, {Origin.x + IconSize, Origin.y + IconSize}, {0.0f, 0.0f}, {1.0f, 1.0f}, Icon.mTint);
-        } else if (Icon.mKind == "Folder") {
-            DrawList->AddRectFilled({Origin.x, Origin.y + IconSize * 0.22f}, {Origin.x + IconSize * 0.45f, Origin.y + IconSize * 0.45f}, Icon.mTint, IconSize * 0.04f);
-            DrawList->AddRectFilled({Origin.x, Origin.y + IconSize * 0.33f}, {Origin.x + IconSize, Origin.y + IconSize * 0.83f}, Icon.mTint, IconSize * 0.05f);
-        } else {
-            Editor::EditorStyle::DrawIcon(Icon.mFallback, Origin, IconSize, Icon.mTint);
-        }
+        return Pressed;
     }
 }
 
@@ -301,19 +110,14 @@ void FContentBrowserWidget::DrawDragPreview() {
 
     const auto Path{Core::FilePath::FromUtf8(static_cast<const char*>(Payload->Data))};
     const auto Type{mAssetTypes.find(Path)};
-    const bool HasThumbnail{Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
+    const bool HasThumbnail{Type != mAssetTypes.end() && FAssetThumbnailCache::Supports(Type->second)};
     void* Thumbnail{HasThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
-    const char* Kind{Type != mAssetTypes.end() ? GetAssetKind(Type->second) : Core::FilePath::ToLowerExtension(Path) == L".lua" ? "Lua Script" : "File"};
-    const FContentIcon& Icon{GetContentIcon(Kind)};
-    const auto CachedIcon{mContentIcons.find(Icon.mKind)};
-    ID3D11ShaderResourceView* Resource{CachedIcon != mContentIcons.end() ? CachedIcon->second.Get() : nullptr};
+    const auto& Style{Type != mAssetTypes.end() ? FAssetTileWidget::GetStyle(Type->second) : FAssetTileWidget::GetStyle(GetContentKind(Path, false))};
     const Core::FString Name{Core::FilePath::ToUtf8(Path.stem())};
 
     if (ImGui::BeginTooltip()) {
-        const float Size{64.0f * mUIScale.GetScale()};
-        DrawContentImage(ImGui::GetCursorScreenPos(), Size, Thumbnail, Resource, Icon);
-        ImGui::Dummy({Size, Size});
-        ImGui::TextUnformatted(Name.c_str());
+        const float Scale{mUIScale.GetScale()};
+        mAssetTile.DrawPreview(Name, Style, Thumbnail, FAssetTileWidget::Measure(104.0f * Scale, Scale), Scale);
         ImGui::EndTooltip();
     }
 }
@@ -360,31 +164,7 @@ void FContentBrowserWidget::DrawContent(float) {
 }
 
 void FContentBrowserWidget::LoadContentIcons(RenderCore::IRendererModule* Renderer) {
-    auto* Device{static_cast<ID3D11Device*>(Renderer->GetNativeDevice())};
-
-    if (Device == nullptr) {
-        return;
-    }
-
-    const HMODULE Module{GetModuleHandleW(nullptr)};
-    const std::filesystem::path ImageName{L"ContentIcon.png"};
-
-    for (const FContentIcon& Icon : ContentIcons) {
-        const HRSRC Resource{FindResourceW(Module, MAKEINTRESOURCEW(Icon.mResourceId), RT_RCDATA)};
-        const HGLOBAL Data{Resource != nullptr ? LoadResource(Module, Resource) : nullptr};
-        const auto* Bytes{Data != nullptr ? static_cast<const Uint8*>(LockResource(Data)) : nullptr};
-
-        if (Bytes == nullptr) {
-            continue;
-        }
-
-        const std::span<const Uint8> Image{Bytes, SizeofResource(Module, Resource)};
-        Asset::UTexture2D Texture{};
-
-        if (Texture.LoadFromMemory(Image, ImageName, false) && Texture.CreateResources(Device)) {
-            mContentIcons.try_emplace(Icon.mKind, Texture.GetShaderResourceView());
-        }
-    }
+    mAssetTile.LoadIcons(Renderer);
 }
 
 void FContentBrowserWidget::DrawContent() {
@@ -1002,34 +782,22 @@ void FContentBrowserWidget::DrawContentEntries() {
     }
 
     const float Scale{mUIScale.GetScale()};
-    const float Padding{4.0f * Scale};
     const ImGuiStyle& Style{ImGui::GetStyle()};
-    const float LineHeight{ImGui::GetTextLineHeight()};
-    const float CardPadding{ThumbnailPadding * Scale};
-    const float TextHeight{LineHeight * 3.0f + ThumbnailTypeGap * Scale};
-    const float FooterHeight{std::max(ThumbnailFooterHeight * Scale, TextHeight + ThumbnailNameGap * Scale + CardPadding)};
-    const float StandardTileWidth{128.0f * Scale};
-    const float StandardImageSize{StandardTileWidth - Padding - CardPadding * 2.0f};
-    const float StandardCardHeight{CardPadding + StandardImageSize + FooterHeight};
-    const float RowPadding{Style.CellPadding.y * 2.0f + Padding};
-    const bool Compact{ImGui::GetContentRegionAvail().y < std::ceil(StandardCardHeight + RowPadding)};
-    const float TileWidth{Compact ? 180.0f * Scale : StandardTileWidth};
-    const float ImageSize{(Compact ? CompactImageSize : 96.0f) * Scale};
-    const float ImageOffset{(Compact ? 4.0f : 10.0f) * Scale};
-    const float TextX{Compact ? ImageOffset + ImageSize + 8.0f * Scale : Padding};
-    const float TypeY{Compact ? Padding : ImageSize + Padding * 2.0f};
-    const float NameY{TypeY + ImGui::GetTextLineHeightWithSpacing()};
-    const float NameHeight{LineHeight * 2.0f + Style.ItemSpacing.y};
-    const float CardHeight{Compact ? CardPadding * 2.0f + std::max(ImageSize, TextHeight) : StandardCardHeight};
-    const ImVec2 TileSize{TileWidth - Padding, std::ceil(std::max(CardHeight, NameY + NameHeight))};
+    const ImVec2 Available{ImGui::GetContentRegionAvail()};
+    const ImVec2 StandardTile{FAssetTileWidget::Measure(124.0f * Scale, Scale)};
+    const float RowPadding{Style.CellPadding.y * 2.0f + 4.0f * Scale};
+    const float ColumnPadding{Style.CellPadding.x * 2.0f};
+    const float PreferredWidth{Available.y < StandardTile.y + RowPadding ? 104.0f * Scale : StandardTile.x};
+    const float TileWidth{std::min(PreferredWidth, std::max(32.0f * Scale, Available.x - ColumnPadding))};
+    const ImVec2 TileSize{FAssetTileWidget::Measure(TileWidth, Scale)};
     const float RowHeight{std::ceil(TileSize.y + RowPadding)};
-    const int Columns{std::clamp(static_cast<int>(ImGui::GetContentRegionAvail().x / (TileWidth + 8.0f * Scale)), 1, 12)};
+    const int Columns{std::clamp(static_cast<int>(Available.x / (TileSize.x + ColumnPadding)), 1, 12)};
     bool Navigate{};
     std::filesystem::path Requested{};
 
     if (ImGui::BeginTable("ContentGrid", Columns, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX)) {
         for (Index_t Column{}; Column < Columns; ++Column) {
-            ImGui::TableSetupColumn("##AssetColumn", ImGuiTableColumnFlags_WidthFixed, TileWidth);
+            ImGui::TableSetupColumn("##AssetColumn", ImGuiTableColumnFlags_WidthFixed, TileSize.x);
         }
 
         ImGuiListClipper Clipper{};
@@ -1053,23 +821,22 @@ void FContentBrowserWidget::DrawContentEntries() {
                     const bool Directory{Index < Folders.size()};
                     const auto& Path{Directory ? Folders[Index] : Assets[Index - Folders.size()]};
                     const auto Type{mAssetTypes.find(Path)};
-                    const bool LuaScript{!Directory && Type == mAssetTypes.end() && Core::FilePath::ToLowerExtension(Path) == L".lua"};
-                    const bool ShaderSource{!Directory && Type == mAssetTypes.end() && IsShaderSource(Path)};
-                    const bool SupportsThumbnail{!Directory && Type != mAssetTypes.end() && Viewer::FAssetViewer::Supports(Type->second)};
+                    const bool HasAssetType{!Directory && Type != mAssetTypes.end()};
+                    const auto Kind{HasAssetType ? FAssetTileWidget::EContentKind::File : GetContentKind(Path, Directory)};
+                    const bool LuaScript{Kind == FAssetTileWidget::EContentKind::LuaScript};
+                    const bool ShaderSource{Kind == FAssetTileWidget::EContentKind::ShaderSource};
+                    const bool SupportsThumbnail{HasAssetType && FAssetThumbnailCache::Supports(Type->second)};
                     void* Thumbnail{SupportsThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
-                    const char* Kind{Directory ? "Folder" : Type != mAssetTypes.end() ? GetAssetKind(Type->second) : LuaScript ? "Lua Script" : ShaderSource ? "Shader Source" : "File"};
                     const Core::FString Actual{Core::FilePath::ToGenericUtf8(Path)};
                     const Core::FString Name{Core::FilePath::ToUtf8(Directory || ShaderSource ? Path.filename() : Path.stem())};
-                    const FContentIcon& Icon{GetContentIcon(Kind)};
-                    const auto CachedIcon{mContentIcons.find(Icon.mKind)};
-                    ID3D11ShaderResourceView* Resource{CachedIcon != mContentIcons.end() ? CachedIcon->second.Get() : nullptr};
+                    const auto& TileStyle{HasAssetType ? FAssetTileWidget::GetStyle(Type->second) : FAssetTileWidget::GetStyle(Kind)};
 
                     ImGui::PushID(Actual.c_str());
 
-                    const ImVec2 Origin{ImGui::GetCursorScreenPos()};
-                    const ImGuiSelectableFlags Flags{ImGuiSelectableFlags_AllowDoubleClick | (Thumbnail != nullptr ? ImGuiSelectableFlags_NoPadWithHalfSpacing : 0)};
+                    const bool Selected{mSelectedContentPath == Path};
+                    const bool Pressed{Directory ? DrawFolderEntry(mAssetTile, TileStyle, Name, TileSize, Scale, Selected) : mAssetTile.Draw("##AssetTile", Name, TileStyle, Thumbnail, TileSize, Scale, Selected)};
 
-                    if (EditorStyle::Selectable("##AssetTile", mSelectedContentPath == Path, Flags, TileSize)) {
+                    if (Pressed) {
                         mSelectedContentPath = Path;
 
                         if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
@@ -1093,21 +860,6 @@ void FContentBrowserWidget::DrawContentEntries() {
 
                     const bool Hovered{ImGui::IsItemHovered()};
 
-                    if (ImGui::IsItemVisible()) {
-                        if (Thumbnail != nullptr) {
-                            DrawThumbnailCard(Scale, Compact, mSelectedContentPath == Path, Hovered, Thumbnail, Type->second, Name);
-                        } else {
-                            const float TextLeft{Origin.x + TextX};
-                            const float TextRight{Origin.x + TileSize.x};
-                            const ImVec4 NameClip{TextLeft, Origin.y + NameY, TextRight, Origin.y + NameY + NameHeight};
-                            ImDrawList* DrawList{ImGui::GetWindowDrawList()};
-
-                            DrawContentImage({Origin.x + ImageOffset, Origin.y + Padding}, ImageSize, nullptr, Resource, Icon);
-                            DrawList->AddText({TextLeft, Origin.y + TypeY}, ImGui::GetColorU32(ImGuiCol_TextDisabled), Kind);
-                            DrawList->AddText(ImGui::GetFont(), LineHeight, {TextLeft, Origin.y + NameY}, ImGui::GetColorU32(ImGuiCol_Text), Name.c_str(), nullptr, TextRight - TextLeft - Padding, &NameClip);
-                        }
-                    }
-
                     if (Directory) {
                         const ImVec2 Minimum{ImGui::GetItemRectMin()};
                         const ImVec2 Maximum{ImGui::GetItemRectMax()};
@@ -1115,14 +867,16 @@ void FContentBrowserWidget::DrawContentEntries() {
                         mImports.RegisterContentDropTarget(Path, {Minimum.x, Minimum.y, Maximum.x, Maximum.y});
                     }
 
-                    // 애니메이션 시퀀스는 썸네일이 없지만 Details의 Animation 필드에 놓을 수 있도록 끌기를 허용합니다.
+                    // 애니메이션 에셋은 Details의 해당 필드에 놓을 수 있도록 끌기를 허용합니다.
                     const bool AnimSequence{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::AnimSequence};
                     const bool BlendSpace{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::BlendSpace};
                     const bool AnimGraph{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::AnimGraph};
 
                     const bool Shader{!Directory && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::Shader};
 
-                    if ((LuaScript || SupportsThumbnail || AnimSequence || BlendSpace || AnimGraph || Shader) && mContext->CanEditWorld() && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+                    const bool HasViewer{HasAssetType && Viewer::FAssetViewer::Supports(Type->second)};
+
+                    if ((LuaScript || HasViewer || AnimSequence || BlendSpace || AnimGraph || Shader) && mContext->CanEditWorld() && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
                         const char* Payload{LuaScript ? Editor::EditorAssetDragDrop::LuaScriptPayload : Shader ? Editor::EditorAssetDragDrop::ShaderPayload : AnimSequence ? Editor::EditorAssetDragDrop::AnimSequencePayload : BlendSpace ? Editor::EditorAssetDragDrop::BlendSpacePayload : AnimGraph ? Editor::EditorAssetDragDrop::AnimGraphPayload : Type->second == Asset::EAssetType::Mesh || Type->second == Asset::EAssetType::SkeletalMesh ? Editor::EditorAssetDragDrop::MeshPayload : Type->second == Asset::EAssetType::Skeleton ? Editor::EditorAssetDragDrop::SkeletonPayload : Type->second == Asset::EAssetType::Material ? Editor::EditorAssetDragDrop::MaterialPayload : Editor::EditorAssetDragDrop::TexturePayload};
 
                         ImGui::SetDragDropPayload(Payload, Actual.c_str(), Actual.size() + 1);
@@ -1130,10 +884,9 @@ void FContentBrowserWidget::DrawContentEntries() {
                         ImGui::EndDragDropSource();
                     }
 
-                    if (Hovered) {
-                        ImGui::BeginTooltip();
+                    if (Hovered && ImGui::BeginTooltip()) {
                         ImGui::TextUnformatted(Actual.c_str());
-                        ImGui::TextDisabled("%s", Icon.mTooltip);
+                        ImGui::TextDisabled("%s", TileStyle.mDescription);
                         ImGui::EndTooltip();
                     }
 

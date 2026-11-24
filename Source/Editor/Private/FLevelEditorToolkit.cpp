@@ -61,7 +61,7 @@ bool FLevelEditorToolkit::Initialize(RenderCore::IRendererModule* Renderer, Plat
     }
 
     mAssetCatalog = std::make_unique<FEditorAssetCatalog>(mContext->GetProject()->GetAssets());
-    mThumbnails = std::make_unique<FAssetThumbnailCache>(mContext->GetProject()->GetAssets(), Renderer);
+    mThumbnails = std::make_unique<FAssetThumbnailCache>(*mAssetCatalog, Renderer);
     mWorkspace = std::make_unique<FEditorWorkspace>(mContext, mTopLevelTab, mUIScale);
     mCommands = std::make_unique<FEditorCommands>(mContext, mPlaySession, mViewportLayout, Platform, mMessages);
     mAssetEditors = std::make_unique<FAssetEditorManager>(mContext, Platform, *mAssetCatalog, *mThumbnails, *mWorkspace, *mCommands, mMessages);

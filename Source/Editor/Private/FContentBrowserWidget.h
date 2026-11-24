@@ -6,16 +6,14 @@
 
 #pragma once
 
+#include "Widget/FAssetTileWidget.h"
 #include "Editor/Widget/FEditorContextWidget.h"
 #include "Asset/FAssetFile.h"
 #include "Core/Types.h"
 #include <filesystem>
 #include <functional>
 #include <optional>
-#include <string_view>
-#include <wrl/client.h>
 
-struct ID3D11ShaderResourceView;
 namespace Platform {
     class FWindowsApplication;
 }
@@ -350,9 +348,9 @@ namespace Editor {
         Core::TArray<std::filesystem::path> mContentActionReferences{};
 
         /**
-         * @brief 콘텐츠 종류별 아이콘 텍스처 뷰 캐시입니다.
+         * @brief 콘텐츠 목록과 드래그 미리보기가 공유하는 에셋 타일입니다.
          */
-        Core::TMap<std::string_view, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> mContentIcons{};
+        Editor::FAssetTileWidget mAssetTile{};
         Uint32 mAssetDragSourceId{};
 
         /**

@@ -6,17 +6,22 @@
 
 #include "Core/Types.h"
 #include "Editor/FAssetThumbnailCache.h"
+#include "Editor/FEditorAssetCatalog.h"
+#include "FAssetThumbnailRendering.h"
 #include "Viewer/FMeshViewerContent.h"
-#include "Viewer/FAnimationViewerContent.h"
 #include "Asset/UStaticMesh.h"
 #include "Asset/USkeletalMesh.h"
 #include "Asset/USkeleton.h"
 #include "Asset/UMaterial.h"
 #include "Asset/UTexture2D.h"
 #include "Asset/Animation/UAnimSequence.h"
+#include "Asset/Animation/UAnimGraph.h"
+#include "Asset/Animation/UBlendSpace.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Engine/PrimitiveMesh.h"
+#include "PhysicsRuntime/UPhysicsAsset.h"
+#include "RenderCore/IRendererModule.h"
 
 #include "Asset/FAssetManager.h"
 #include "Core/FilePath.h"
@@ -29,36 +34,55 @@
 
 using namespace Editor;
 
+namespace {
+    std::size_t FileSignature(Asset::FAssetManager& Assets, const std::filesystem::path& Path) {
+        if (Path.empty()) {
+            return 0;
+        }
+
+        Core::FString Error{};
+        const auto Resolved{Assets.ResolvePath(Path, Error)};
+        std::error_code Code{};
+        const auto Modified{Resolved.empty() ? std::filesystem::file_time_type::min() : std::filesystem::last_write_time(Resolved, Code)};
+
+        return Code ? 0 : static_cast<std::size_t>(Modified.time_since_epoch().count());
+    }
+}
+
 FAssetThumbnailCache::FThumbnail::FThumbnail() = default;
 FAssetThumbnailCache::FThumbnail::~FThumbnail() = default;
 
-FAssetThumbnailCache::FPendingThumbnail::FPendingThumbnail(const Core::FString& Key, const std::filesystem::path& Path, CoreUObject::UObject* Object, Asset::EAssetType Type, std::size_t Signature)
+FAssetThumbnailCache::FPendingThumbnail::FPendingThumbnail(const Core::FString& Key, const std::filesystem::path& Path, Asset::EAssetType Type)
 	: mKey{Key},
 	  mPath{Path},
-	  mObject{Object},
-	  mType{Type},
-	  mSignature{Signature} {
+	  mType{Type} {
 }
 
-FAssetThumbnailCache::FAssetThumbnailCache(Asset::FAssetManager* Assets, RenderCore::IRendererModule* Renderer)
-	: mAssets{Assets},
+FAssetThumbnailCache::FAssetThumbnailCache(FEditorAssetCatalog& Catalog, RenderCore::IRendererModule* Renderer)
+	: mCatalog{Catalog},
+	  mAssets{Catalog.GetAssets()},
 	  mRenderer{Renderer},
 	  mDefaultMesh{CoreUObject::NewObject<Asset::UStaticMesh>()},
 	  mDefaultMaterial{CoreUObject::NewObject<Asset::UMaterial>()},
-	  mCaptureViewer{Renderer, Assets} {
+	  mCaptureViewer{Renderer, mAssets} {
     mCaptureViewer.GetShowFlags().mShadows = false;
+    mCaptureViewer.GetShowFlags().mGrid = false;
     mDefaultMesh->SetMeshData(Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube));
     LoadPreviewSettings();
 }
 
 FAssetThumbnailCache::~FAssetThumbnailCache() = default;
 
+bool FAssetThumbnailCache::Supports(Asset::EAssetType Type) {
+    return Viewer::FAssetViewer::Supports(Type) || Type == Asset::EAssetType::BlendSpace || Type == Asset::EAssetType::AnimGraph || Type == Asset::EAssetType::PhysicsAsset;
+}
+
 void FAssetThumbnailCache::BeginFrame() {
     ++mFrame;
 
     mRetiredCaptures.clear();
 
-    while (mThumbnails.size() >= 128) {
+    while (mThumbnails.size() > 128) {
         const auto Oldest{std::min_element(mThumbnails.begin(), mThumbnails.end(), [](const auto& First, const auto& Second) {
             return First.second.mLastUsed < Second.second.mLastUsed;
         })};
@@ -76,12 +100,12 @@ void FAssetThumbnailCache::BeginFrame() {
 void FAssetThumbnailCache::Invalidate() {
     ++mGeneration;
     mRequests.clear();
-    mWorkerActive = false;
-    mCaptureViewer.Close();
+    mCaptureViewer.Close(false);
     mCaptureMaterial.reset();
 
     for (auto& [Key, Thumbnail] : mThumbnails) {
         Thumbnail.mQueued = false;
+        Thumbnail.mLastChecked = 0;
     }
 }
 
@@ -91,90 +115,94 @@ Core::FString FAssetThumbnailCache::MakeKey(const std::filesystem::path& Path, A
         return "@Default" + std::to_string(static_cast<Uint32>(Type));
     }
 
-    Core::FString Error{};
+    if (Path.is_relative()) {
+        return Core::FilePath::ToGenericUtf8(Core::FilePath::ToLower(Path.lexically_normal()));
+    }
 
+    Core::FString Error{};
     return Core::FilePath::ToGenericUtf8(Core::FilePath::ToLower(Core::FilePath::FromUtf8(mAssets->GetRelativePath(Path, Error))));
 }
 
 void* FAssetThumbnailCache::GetThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type) {
-    if (mAssets == nullptr || mRenderer == nullptr || !Viewer::FAssetViewer::Supports(Type)) {
+    if (mAssets == nullptr || mRenderer == nullptr || !Supports(Type) || (Path.empty() && Type != Asset::EAssetType::Mesh && Type != Asset::EAssetType::Material)) {
         return nullptr;
     }
 
     const Core::FString Key{MakeKey(Path, Type)};
-    FThumbnail& Thumbnail{mThumbnails[Key]};
-    Thumbnail.mLastUsed = mFrame;
-    Core::FString Error{};
-    CoreUObject::UObject* Object{LoadAsset(Path, Type, Error)};
 
-    if (Object == nullptr) {
-        return Thumbnail.mCapture != nullptr ? Thumbnail.mCapture->GetNativeTexture() : nullptr;
+    if (Key.empty()) {
+        return nullptr;
     }
-    Core::FString MeshPath{};
-    Core::FString SkeletonPath{};
 
-    GetAnimationPreview(Path, MeshPath, SkeletonPath);
-    const std::size_t Signature{mGeneration ^ AssetSignature(Object, Type) ^ std::hash<Core::FString>{}(MeshPath) ^ std::hash<Core::FString>{}(SkeletonPath)};
+    const Core::FString CacheKey{Key + "#" + std::to_string(static_cast<Uint32>(Type))};
+    FThumbnail& Thumbnail{mThumbnails[CacheKey]};
+    Thumbnail.mLastUsed = mFrame;
 
-    if ((!Thumbnail.mHasSignature || Thumbnail.mSignature != Signature) && (!Thumbnail.mFailed || Thumbnail.mFailedSignature != Signature) && (!Thumbnail.mQueued || Thumbnail.mPendingSignature != Signature)) {
-        Thumbnail.mPendingSignature = Signature;
+    if (!Thumbnail.mQueued && (Thumbnail.mLastChecked == 0 || Thumbnail.mLastChecked + 60 <= mFrame)) {
         Thumbnail.mQueued = true;
-        mRequests.emplace_back(Key, Path, Object, Type, Signature);
+        mRequests.emplace_back(CacheKey, Path, Type);
     }
 
     return Thumbnail.mCapture != nullptr ? Thumbnail.mCapture->GetNativeTexture() : nullptr;
 }
 
 void FAssetThumbnailCache::ProcessRequests() {
-    while (!mRequests.empty()) {
+    for (Uint32 Check{}; Check < 8 && !mRequests.empty(); ++Check) {
         const FPendingThumbnail& Pending{mRequests.front()};
         const auto Found{mThumbnails.find(Pending.mKey)};
 
-        if (Found == mThumbnails.end() || !Found->second.mQueued || Found->second.mPendingSignature != Pending.mSignature) {
-            mWorkerActive = false;
+        if (Found == mThumbnails.end() || Found->second.mLastUsed + 1 < mFrame) {
+            if (Found != mThumbnails.end()) {
+                Found->second.mQueued = false;
+            }
+
             mRequests.pop_front();
 
             continue;
         }
 
         FThumbnail& Thumbnail{Found->second};
+        Thumbnail.mQueued = false;
+        Thumbnail.mLastChecked = mFrame;
         Core::FString Error{};
-        const bool Opened{mWorkerActive || BindCaptureAsset(Pending, Error)};
-        Viewer::EViewerPrepareResult Prepared{Viewer::EViewerPrepareResult::Failed};
+        auto* Object{LoadAsset(Pending.mPath, Pending.mType, Error)};
+        const std::size_t Signature{mGeneration ^ AssetSignature(Pending.mPath, Object, Pending.mType)};
 
-        if (Opened) {
-            mWorkerActive = true;
-            Prepared = mCaptureViewer.PrepareCapture(Error);
-        }
-
-        if (Prepared == Viewer::EViewerPrepareResult::Pending) {
-            break;
+        if ((Thumbnail.mHasSignature && Thumbnail.mSignature == Signature) || (Thumbnail.mFailed && Thumbnail.mFailedSignature == Signature)) {
+            mRequests.pop_front();
+            continue;
         }
 
         std::unique_ptr<Viewer::FViewerCapture> Capture{};
 
-        if (Prepared == Viewer::EViewerPrepareResult::Ready && mCaptureViewer.Resize(256, 256) && mCaptureViewer.Fit()) {
-            mCaptureViewer.SetViewMode(Pending.mType == Asset::EAssetType::Material ? Engine::EViewMode::Lit : Engine::EViewMode::Unlit);
-            Capture = mCaptureViewer.Capture(Error, true);
+        if (Object != nullptr && BindCaptureAsset(Pending, Object, Error)) {
+            const auto* Sequence{CoreUObject::Cast<Asset::UAnimSequence>(Object)};
+            const auto Prepared{Sequence != nullptr ? mCaptureViewer.PrepareCapture(Viewer::FViewerCaptureState{Sequence->GetPlayLength() * 0.25}, Error) : mCaptureViewer.PrepareCapture(Error)};
+            if (Prepared == Viewer::EViewerPrepareResult::Ready && mCaptureViewer.Resize(256, 256) && mCaptureViewer.Fit()) {
+                mCaptureViewer.SetViewMode(Pending.mType == Asset::EAssetType::Material ? Engine::EViewMode::Lit : Engine::EViewMode::Unlit);
+                Capture = mCaptureViewer.Capture(Error, true);
+            }
+        }
+
+        if (Thumbnail.mCapture != nullptr) {
+            mRetiredCaptures.push_back(std::move(Thumbnail.mCapture));
         }
 
         if (Capture != nullptr) {
-            if (Thumbnail.mCapture != nullptr) {
-                mRetiredCaptures.push_back(std::move(Thumbnail.mCapture));
-            }
-
             Thumbnail.mCapture = std::move(Capture);
-            Thumbnail.mSignature = Pending.mSignature;
+            Thumbnail.mSignature = Signature;
             Thumbnail.mHasSignature = true;
             Thumbnail.mFailed = false;
         } else {
-            Thumbnail.mFailedSignature = Pending.mSignature;
+            Thumbnail.mHasSignature = false;
+            Thumbnail.mFailedSignature = Signature;
             Thumbnail.mFailed = true;
         }
 
-        Thumbnail.mQueued = false;
-        mWorkerActive = false;
+        mCaptureViewer.Close(false);
+        mCaptureMaterial.reset();
         mRequests.pop_front();
+        return;
     }
 }
 
@@ -320,13 +348,19 @@ CoreUObject::UObject* FAssetThumbnailCache::LoadAsset(const std::filesystem::pat
         return mAssets->LoadTexture(Path, Error);
     case Asset::EAssetType::AnimSequence:
         return mAssets->LoadAnimSequence(Path, Error);
+    case Asset::EAssetType::BlendSpace:
+        return mAssets->LoadBlendSpace(Path, Error);
+    case Asset::EAssetType::AnimGraph:
+        return mAssets->LoadAnimGraph(Path, Error);
+    case Asset::EAssetType::PhysicsAsset:
+        return mAssets->LoadPhysicsAsset(Path, Error);
     default:
         return nullptr;
     }
 }
 
-std::size_t FAssetThumbnailCache::AssetSignature(CoreUObject::UObject* Object, Asset::EAssetType Type) {
-    std::size_t Signature{std::hash<const void*>{}(Object) ^ static_cast<std::size_t>(Type)};
+std::size_t FAssetThumbnailCache::AssetSignature(const std::filesystem::path& Path, CoreUObject::UObject* Object, Asset::EAssetType Type) {
+    std::size_t Signature{std::hash<const void*>{}(Object) ^ static_cast<std::size_t>(Type) ^ FileSignature(*mAssets, Path)};
 
     if (auto* Material{CoreUObject::Cast<Asset::UMaterial>(Object)}) {
         Signature ^= MaterialSignature(Material);
@@ -347,8 +381,17 @@ std::size_t FAssetThumbnailCache::AssetSignature(CoreUObject::UObject* Object, A
     return Signature;
 }
 
-bool FAssetThumbnailCache::BindCaptureAsset(const FPendingThumbnail& Pending, Core::FString& Error) {
-    CoreUObject::UObject* Object{Pending.mObject};
+bool FAssetThumbnailCache::BindCaptureAsset(const FPendingThumbnail& Pending, CoreUObject::UObject* Object, Core::FString& Error) {
+    if (Pending.mType == Asset::EAssetType::Skeleton || Pending.mType == Asset::EAssetType::PhysicsAsset) {
+        return AssetThumbnailRendering::SetSkeletalAssetPreview(mCaptureViewer, mCatalog, Pending.mPath, Pending.mType, Object, Error);
+    }
+
+    if (Pending.mType == Asset::EAssetType::BlendSpace || Pending.mType == Asset::EAssetType::AnimGraph) {
+        const auto AssetPath{Core::FilePath::FromUtf8(mAssets->GetRelativePath(Pending.mPath, Error))};
+
+        return !AssetPath.empty() && AssetThumbnailRendering::SetAnimatedAssetPreview(mCaptureViewer, mCatalog, mRenderer, AssetPath, Object, Error);
+    }
+
     const auto* Material{Pending.mType == Asset::EAssetType::Material ? CoreUObject::Cast<Asset::UMaterial>(Object) : nullptr};
     std::unique_ptr<Asset::UMaterial> CaptureMaterial{};
 
@@ -380,15 +423,9 @@ bool FAssetThumbnailCache::BindCaptureAsset(const FPendingThumbnail& Pending, Co
         Core::FString MeshPath{};
         Core::FString SkeletonPath{};
 
-        if (!GetAnimationPreview(Pending.mPath, MeshPath, SkeletonPath)) {
-            return false;
-        }
+        GetAnimationPreview(Pending.mPath, MeshPath, SkeletonPath);
 
-        Asset::USkeletalMesh* Mesh{mAssets->LoadSkeletalMesh(Core::FilePath::FromUtf8(MeshPath), Error)};
-        Asset::USkeleton* Skeleton{SkeletonPath.empty() ? mAssets->FindLegacySkeleton(Core::FilePath::FromUtf8(MeshPath)) : mAssets->LoadSkeleton(Core::FilePath::FromUtf8(SkeletonPath), Error)};
-        auto* Content{static_cast<Viewer::FAnimationViewerContent*>(mCaptureViewer.GetContent())};
-
-        return Mesh != nullptr && Content->SetMesh(Mesh, Skeleton, Error);
+        return AssetThumbnailRendering::SetAnimationPreview(mCaptureViewer, mCatalog, Pending.mPath, *static_cast<Asset::UAnimSequence*>(Object), MeshPath, SkeletonPath, Error);
     }
 
     return true;

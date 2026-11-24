@@ -97,11 +97,14 @@ bool FAssetViewer::SetContent(std::unique_ptr<IViewerContent> Content) {
     return true;
 }
 
-void FAssetViewer::Close() {
+void FAssetViewer::Close(bool ReleaseTarget) {
     mDisplayTexture.reset();
     mDisplaySource = nullptr;
     mContent.reset();
-    mTarget.reset();
+
+    if (ReleaseTarget) {
+        mTarget.reset();
+    }
 }
 
 IViewerContent* FAssetViewer::GetContent() const {
