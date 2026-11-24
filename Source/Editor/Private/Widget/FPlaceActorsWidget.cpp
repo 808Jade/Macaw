@@ -116,8 +116,15 @@ namespace Editor {
             const bool Light{Name.find("Light") != Core::FString::npos};
             const bool Fog{Name.find("Fog") != Core::FString::npos};
             const bool Decal{Name == "ADecalActor"};
+            const bool Particle{Name == "AParticleSystemActor"};
 
-            if ((mCategory == 1 && !Light) || (mCategory == 2 && (Light || Fog || Decal)) || (mCategory == 3 && !(Fog || Decal))) {
+            if ((mCategory == 1 && !Light) || (mCategory == 2 && (Light || Fog || Decal || Particle)) || (mCategory == 3 && !(Fog || Decal || Particle))) {
+                continue;
+            }
+
+            if (Particle) {
+                DrawEntry(Name, "Particle System", "ParticleSystemComponent", Editor::EPlaceActorIcon::None);
+
                 continue;
             }
 

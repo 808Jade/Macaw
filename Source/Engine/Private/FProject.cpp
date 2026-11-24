@@ -5,6 +5,7 @@
  */
 
 #include "Engine/FProject.h"
+#include "Engine/Particles/ParticleAssets.h"
 #include "Core/FilePath.h"
 #include "Serialization/JsonArchive.h"
 
@@ -222,6 +223,9 @@ namespace Engine {
         }
 
         auto Assets{std::make_unique<Asset::FAssetManager>(File.parent_path() / "Content")};
+
+        Engine::RegisterParticleAssetTypes(*Assets);
+
         const std::filesystem::path RelativeScene{Core::FilePath::FromUtf8(StartupScene)};
 
         if (RelativeScene.is_absolute() || RelativeScene.has_root_name()) {

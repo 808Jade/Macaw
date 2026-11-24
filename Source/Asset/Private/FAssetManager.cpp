@@ -23,6 +23,7 @@
 #include "Core/Base/ErrorHandler.h"
 #include "FMaterialFile.h"
 #include "CoreUObject/Reflection/NewObject.h"
+#include "CoreUObject/Reflection/UClass.h"
 #include "Serialization/JsonArchive.h"
 #include "Serialization/MemoryArchive.h"
 #include "FAssetSerialization.h"
@@ -1972,6 +1973,7 @@ namespace Asset {
         Retire(mSequences);
         Retire(mBlendSpaces);
         Retire(mAnimGraphs);
+        Retire(mRegisteredAssets);
     }
 
     /**
@@ -2386,6 +2388,192 @@ namespace Asset {
         }
 
         return true;
+    }
+
+
+    bool Asset::FAssetManager::RegisterAssetType(Asset::EAssetType Type, Asset::FAssetTypeHandler Handler) {
+        if (Handler.mClass == nullptr || !Handler.mClass->CanCreate() || mTypeHandlers.contains(Type)) {
+            return false;
+        }
+
+        mTypeHandlers.emplace(Type, std::move(Handler));
+
+        return true;
+    }
+
+    const Asset::FAssetTypeHandler* Asset::FAssetManager::FindAssetTypeHandler(Asset::EAssetType Type) const {
+        const auto Found{mTypeHandlers.find(Type)};
+
+        return Found != mTypeHandlers.end() ? &Found->second : nullptr;
+    }
+
+    CoreUObject::UObject* Asset::FAssetManager::LoadRegisteredAsset(const std::filesystem::path& Path, Asset::EAssetType Type, Core::FString& Error) {
+        const Asset::FAssetTypeHandler* Handler{FindAssetTypeHandler(Type)};
+
+        if (Handler == nullptr) {
+            Error = "This asset type is not registered";
+
+            return nullptr;
+        }
+
+        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+
+        if (Key.empty()) {
+            return nullptr;
+        }
+
+        if (const auto Existing{mRegisteredAssets.find(Key)}; Existing != mRegisteredAssets.end()) {
+            if (!Existing->second->IsA(Handler->mClass)) {
+                Error = "The asset type does not match the object reference";
+
+                return nullptr;
+            }
+
+            Asset::AssetStats::AssetCacheHits.Add();
+
+            return Existing->second.get();
+        }
+
+        Core::TArray<Uint8> Payload{};
+
+        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Type, Payload, Error)) {
+            return nullptr;
+        }
+
+        Serialization::FJsonArchive Archive{Core::EArchiveMode::Loading};
+
+        if (!Archive.Parse(Core::FString{reinterpret_cast<const char*>(Payload.data()), Payload.size()})) {
+            Error = Archive.GetError();
+
+            return nullptr;
+        }
+
+        auto Object{Handler->mClass->CreateInstance()};
+
+        if (Object == nullptr) {
+            Error = "Cannot create the asset object";
+
+            return nullptr;
+        }
+
+        Object->Serialize(Archive);
+
+        if (Archive.HasError()) {
+            Error = Archive.GetError();
+
+            return nullptr;
+        }
+
+        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Object, Error)) {
+            return nullptr;
+        }
+
+        Object->SetName(Core::FilePath::ToUtf8(Path.stem()));
+
+        if (Handler->mPostLoad && !Handler->mPostLoad(*Object, Error)) {
+            return nullptr;
+        }
+
+        CoreUObject::UObject* Result{Object.get()};
+
+        mRegisteredAssets.emplace(Key, std::move(Object));
+
+        return Result;
+    }
+
+    CoreUObject::UObject* Asset::FAssetManager::CreateRegisteredAsset(const std::filesystem::path& Directory, const Core::FString& Name, Asset::EAssetType Type, std::filesystem::path& Path, Core::FString& Error) {
+        const Asset::FAssetTypeHandler* Handler{FindAssetTypeHandler(Type)};
+
+        if (Handler == nullptr) {
+            Error = "This asset type is not registered";
+
+            return nullptr;
+        }
+
+        // 콘텐츠 루트 자체는 ResolvePath가 에셋 경로로 받지 않으므로 직접 씁니다.
+        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolvePath(Directory, Error)};
+
+        if (Folder.empty()) {
+            return nullptr;
+        }
+
+        const auto Target{UniqueAssetPath(Folder, AssetFileName(Name, Handler->mDefaultName), Error)};
+
+        if (Target.empty()) {
+            return nullptr;
+        }
+
+        auto Object{Handler->mClass->CreateInstance()};
+
+        if (Object == nullptr) {
+            Error = "Cannot create the asset object";
+
+            return nullptr;
+        }
+
+        Object->SetName(Core::FilePath::ToUtf8(Target.stem()));
+
+        if (Handler->mInitialize) {
+            Handler->mInitialize(*Object);
+        }
+
+        if (!SaveRegisteredAsset(Target, Type, *Object, Error)) {
+            return nullptr;
+        }
+
+        if (Handler->mPostLoad && !Handler->mPostLoad(*Object, Error)) {
+            return nullptr;
+        }
+
+        const Core::FString Relative{GetRelativePath(Target, Error)};
+
+        if (Relative.empty()) {
+            return nullptr;
+        }
+
+        Path = Core::FilePath::FromUtf8(Relative);
+
+        CoreUObject::UObject* Result{Object.get()};
+
+        mRegisteredAssets.emplace(CacheKey(Relative), std::move(Object));
+
+        return Result;
+    }
+
+    bool Asset::FAssetManager::SaveRegisteredAsset(const std::filesystem::path& Path, Asset::EAssetType Type, CoreUObject::UObject& Object, Core::FString& Error) {
+        const Asset::FAssetTypeHandler* Handler{FindAssetTypeHandler(Type)};
+
+        if (Handler == nullptr || !Object.IsA(Handler->mClass)) {
+            Error = Handler == nullptr ? "This asset type is not registered" : "The object does not match the asset type";
+
+            return false;
+        }
+
+        const auto Target{ResolvePath(Path, Error)};
+
+        if (Target.empty() || !ValidateAssetIdentity(Target, Object.GetGuid(), Error)) {
+            return false;
+        }
+
+        const Core::FString Key{CacheKey(GetRelativePath(Target, Error))};
+
+        if (Key.empty() || !CheckCacheSlot(mRegisteredAssets, Key, &Object, Error)) {
+            return false;
+        }
+
+        Serialization::FJsonArchive Archive{Core::EArchiveMode::Saving};
+
+        Object.Serialize(Archive);
+
+        if (Archive.HasError()) {
+            Error = Archive.GetError();
+
+            return false;
+        }
+
+        const Core::FString Payload{Archive.ToString()};
+
+        return Asset::FAssetFile::Save(Target, Type, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Object.GetGuid()));
     }
 
     /**

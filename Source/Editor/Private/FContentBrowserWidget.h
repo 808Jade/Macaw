@@ -231,6 +231,11 @@ namespace Editor {
          */
         void CreateBlendSpace();
 
+        /**
+         * @brief 현재 폴더에 기본 에미터 하나를 가진 파티클 시스템 에셋을 만듭니다.
+         */
+        void CreateParticleSystem();
+
         void CreateLuaScript();
 
     private:

@@ -17,6 +17,7 @@
 #include "EditorStyle.h"
 #include "Core/FilePath.h"
 #include "Engine/FProject.h"
+#include "Engine/Particles/ParticleAssets.h"
 #include "Asset/UTexture2D.h"
 #include "Asset/UMaterial.h"
 #include "CoreUObject/Reflection/NewObject.h"
@@ -633,6 +634,10 @@ void FContentBrowserWidget::DrawContentContextMenu() {
         CreateAnimGraph();
     }
 
+    if (ImGui::MenuItem("New Particle System", nullptr, false, CanEdit)) {
+        CreateParticleSystem();
+    }
+
     if (ImGui::MenuItem("New Lua Script", nullptr, false, CanEdit)) {
         CreateLuaScript();
     }
@@ -1096,6 +1101,20 @@ void FContentBrowserWidget::CreateBlendSpace() {
     mSelectedContentPath = Path;
 
     mAssetEditors.OpenContentAsset(Path, Asset::EAssetType::BlendSpace);
+}
+
+void FContentBrowserWidget::CreateParticleSystem() {
+    Core::FString Error{};
+    std::filesystem::path Path{};
+
+    if (Engine::CreateParticleSystem(*mContext->GetProject()->GetAssets(), mContentDirectory, "ParticleSystem", Path, Error) == nullptr) {
+        mContext->AddLog(Error.empty() ? "Cannot create the particle system" : Error);
+
+        return;
+    }
+
+    mRefreshContent = true;
+    mSelectedContentPath = Path;
 }
 
 void FContentBrowserWidget::CreateLuaScript() {

@@ -143,6 +143,12 @@ CoreUObject::UObject* FAssetManager::LoadAsset(const Core::FGuid& Guid, Core::FS
     CoreUObject::UObject* Object{};
     const CoreUObject::UClass* ActualClass{Type == EAssetType::Shader ? UShader::StaticClass() : Type == EAssetType::Material ? UMaterial::StaticClass() : Type == EAssetType::Mesh ? UStaticMesh::StaticClass() : Type == EAssetType::SkeletalMesh ? USkeletalMesh::StaticClass() : Type == EAssetType::Skeleton ? USkeleton::StaticClass() : Type == EAssetType::Texture ? UTexture2D::StaticClass() : Type == EAssetType::AnimSequence ? UAnimSequence::StaticClass() : Type == EAssetType::Sequence ? ULevelSequence::StaticClass() : Type == EAssetType::BlendSpace ? UBlendSpace1D::StaticClass() : Type == EAssetType::AnimGraph ? UAnimGraph::StaticClass() : Type == EAssetType::PhysicsAsset ? PhysicsRuntime::UPhysicsAsset::StaticClass() : nullptr};
 
+    if (ActualClass == nullptr) {
+        if (const FAssetTypeHandler* Handler{FindAssetTypeHandler(Type)}) {
+            ActualClass = Handler->mClass;
+        }
+    }
+
     if (ExpectedClass != nullptr && (ActualClass == nullptr || !ActualClass->IsChildOf(ExpectedClass))) {
         Error = "The asset type does not match the object reference";
 
@@ -184,7 +190,11 @@ CoreUObject::UObject* FAssetManager::LoadAsset(const Core::FGuid& Guid, Core::FS
         Object = LoadPhysicsAsset(Path, Error);
         break;
     default:
-        Error = "This asset type requires its owning module's loader";
+        if (FindAssetTypeHandler(Type) != nullptr) {
+            Object = LoadRegisteredAsset(Path, Type, Error);
+        } else {
+            Error = "This asset type requires its owning module's loader";
+        }
         break;
     }
 

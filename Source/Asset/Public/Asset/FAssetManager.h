@@ -15,6 +15,7 @@
 #include "Core/ReflectionMacros.h"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 
 namespace CoreUObject {
@@ -43,6 +44,33 @@ namespace Asset {
     class UAnimSequence;
     class UBlendSpace;
     class UAnimGraph;
+
+    /**
+     * @brief 이 모듈이 모르는 에셋 종류를 소유 모듈이 등록할 때 쓰는 생성·로드 방법입니다.
+     * @details 에셋은 JSON 본문으로 저장하며 객체의 Serialize로 읽고 씁니다.
+     */
+    struct FAssetTypeHandler {
+    public:
+        /**
+         * @brief 에셋 객체의 클래스이며 CreateInstance로 생성할 수 있어야 합니다.
+         */
+        const CoreUObject::UClass* mClass{};
+
+        /**
+         * @brief 새 에셋 파일 이름이 비었을 때 쓸 이름입니다.
+         */
+        Core::FString mDefaultName{"Asset"};
+
+        /**
+         * @brief 새로 만든 에셋에 기본 내용을 채웁니다. 비어 있으면 생략합니다.
+         */
+        std::function<void(CoreUObject::UObject&)> mInitialize{};
+
+        /**
+         * @brief 생성이나 로드 직후 캐시에 넣기 전에 부릅니다. false를 돌려주면 로드가 실패합니다.
+         */
+        std::function<bool(CoreUObject::UObject&, Core::FString&)> mPostLoad{};
+    };
 
     /**
      * @brief 프로젝트 콘텐츠 경로와 메시·텍스처 에셋의 로드 및 캐시를 담당합니다.
@@ -312,6 +340,50 @@ namespace Asset {
         bool SaveAnimGraph(const std::filesystem::path& Path, Asset::UAnimGraph& Graph, Core::FString& Error);
 
         /**
+         * @brief 다른 모듈이 소유한 에셋 종류의 생성·로드 방법을 등록합니다.
+         * @param[in] Type 등록할 에셋 종류입니다.
+         * @param[in] Handler 생성·로드 방법입니다.
+         * @return 이미 등록됐거나 클래스가 생성 불가능하면 false입니다.
+         */
+        bool RegisterAssetType(Asset::EAssetType Type, Asset::FAssetTypeHandler Handler);
+
+        /**
+         * @brief 등록된 에셋 종류의 생성·로드 방법을 찾습니다.
+         * @return 등록되지 않았으면 nullptr입니다.
+         */
+        const Asset::FAssetTypeHandler* FindAssetTypeHandler(Asset::EAssetType Type) const;
+
+        /**
+         * @brief 등록된 종류의 에셋을 로드해 캐시에 보관합니다. 캐시된 객체는 바꾸지 않습니다.
+         * @param[in] Path 프로젝트 에셋 경로입니다.
+         * @param[in] Type 파일에 기록됐어야 하는 에셋 종류입니다.
+         * @param[out] Error 실패 원인입니다.
+         * @return 캐시 소유 객체의 비소유 주소이며 실패하면 nullptr입니다.
+         */
+        CoreUObject::UObject* LoadRegisteredAsset(const std::filesystem::path& Path, Asset::EAssetType Type, Core::FString& Error);
+
+        /**
+         * @brief 등록된 종류의 새 에셋을 기본 내용으로 만들어 저장하고 캐시에 보관합니다.
+         * @param[in] Directory Content 기준 폴더입니다.
+         * @param[in] Name 파일 이름으로 사용할 이름이며 중복되면 번호를 붙입니다.
+         * @param[in] Type 만들 에셋 종류입니다.
+         * @param[out] Path 생성한 에셋의 Content 상대 경로입니다.
+         * @param[out] Error 실패 원인입니다.
+         * @return 캐시 소유 객체의 비소유 주소이며 실패하면 nullptr입니다.
+         */
+        CoreUObject::UObject* CreateRegisteredAsset(const std::filesystem::path& Directory, const Core::FString& Name, Asset::EAssetType Type, std::filesystem::path& Path, Core::FString& Error);
+
+        /**
+         * @brief 등록된 종류의 에셋을 저장합니다. 같은 경로에 다른 객체가 캐시돼 있으면 거부합니다.
+         * @param[in] Path 프로젝트 에셋 경로입니다.
+         * @param[in] Type 기록할 에셋 종류입니다.
+         * @param[in] Object 저장할 객체이며 등록한 클래스여야 합니다.
+         * @param[out] Error 실패 원인입니다.
+         * @return 저장에 성공하면 true입니다.
+         */
+        bool SaveRegisteredAsset(const std::filesystem::path& Path, Asset::EAssetType Type, CoreUObject::UObject& Object, Core::FString& Error);
+
+        /**
          * @brief 캐시 객체의 주소를 유지하면서 파일의 최신 설정을 다시 적용합니다.
          * @param[in] Path 다시 읽을 프로젝트 머티리얼 경로입니다.
          * @param[out] Error 실패 원인입니다.
@@ -519,6 +591,16 @@ namespace Asset {
          * @brief 경로별로 캐시한 애니메이션 그래프의 소유 저장소입니다.
          */
         Core::TMap<Core::FString, std::unique_ptr<Asset::UAnimGraph>> mAnimGraphs{};
+
+        /**
+         * @brief 다른 모듈이 등록한 에셋 종류별 생성·로드 방법입니다.
+         */
+        Core::TMap<Asset::EAssetType, Asset::FAssetTypeHandler> mTypeHandlers{};
+
+        /**
+         * @brief 등록된 종류의 에셋 캐시이며 키는 Content 상대 경로입니다.
+         */
+        Core::TMap<Core::FString, std::unique_ptr<CoreUObject::UObject>> mRegisteredAssets{};
 
         /**
          * @brief 경로 캐시에서 빠졌지만 기존 참조를 위해 매니저 수명 동안 유지하는 에셋 객체입니다.

@@ -8,6 +8,7 @@
 #include "Editor/FEditorViewportClient.h"
 #include "Engine/Component/UCameraComponent.h"
 #include "Engine/Component/UHeightFogComponent.h"
+#include "Engine/Component/UParticleSystemComponent.h"
 #include "Engine/Component/UDecalComponent.h"
 #include "Engine/Component/ULightComponentBase.h"
 #include "RenderCore/IRendererModule.h"
@@ -579,6 +580,11 @@ namespace Editor {
 
                     if (auto* Light{CoreUObject::Cast<Engine::ULightComponentBase>(Component.get())}; Light != nullptr && mShowFlags.mLightVisualizers) {
                         Light->DrawVisualization(mDrawInterface, Highlight);
+                    }
+
+                    if (const auto* Particles{CoreUObject::Cast<Engine::UParticleSystemComponent>(Component.get())}; Particles != nullptr) {
+                        // 파티클 렌더러가 생기기 전까지 파티클 위치를 십자로 보여 줍니다.
+                        Particles->DrawDebug(mDrawInterface, Highlight, mLineThickness);
                     }
 
                     if (auto* Fog{CoreUObject::Cast<Engine::UHeightFogComponent>(Component.get())}; Fog != nullptr && Highlight) {
