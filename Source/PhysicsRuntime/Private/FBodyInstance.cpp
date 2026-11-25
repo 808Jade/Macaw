@@ -318,10 +318,13 @@ namespace PhysicsRuntime {
 
         Actor->getShapes(Shapes.data(), Count);
 
-        // word0: 충돌 그룹, word1: 그룹 안의 바디 번호, word2: 1이면 충돌 끔
-        const physx::PxFilterData Data{GroupId, BodyIndex, CollisionEnabled ? 0u : 1u, 0u};
-
+        // word0은 충돌 응답이므로 건드리지 않는다. word1: 충돌 그룹, word2: 그룹 안의 바디 번호, word3: 1이면 충돌 끔
         for (physx::PxShape* Shape : Shapes) {
+            physx::PxFilterData Data{Shape->getSimulationFilterData()};
+
+            Data.word1 = GroupId;
+            Data.word2 = BodyIndex;
+            Data.word3 = CollisionEnabled ? 0u : 1u;
             Shape->setSimulationFilterData(Data);
         }
     }
