@@ -71,6 +71,9 @@ namespace Engine {
          */
         bool SetCascadeTransitionFraction(float Fraction);
 
+        Core::FAngle GetSourceAngle() const;
+        bool SetSourceAngle(Core::FAngle Angle);
+
         /**
          * @brief PCSS 반그림자 계산에 쓰는 광원 각반지름을 반환합니다.
          * @return 방향광 광원의 각반지름(도)입니다.
@@ -84,11 +87,15 @@ namespace Engine {
          */
         bool SetShadowSourceAngle(Core::FAngle Angle);
 
+        bool IsAtmosphereSunLight() const;
+        bool SetAtmosphereSunLight(bool Enabled);
+
         /**
          * @brief 현재 컴포넌트의 조명·그림자 설정으로 렌더 프록시를 생성합니다.
          * @return 렌더 장면에 복사할 광원 상태와 아이콘의 비소유 주소입니다.
          */
         Engine::FLightSceneProxy CreateLightProxy() const override;
+        void Serialize(Core::FArchive& Archive) override;
 
     private:
         /**
@@ -110,10 +117,13 @@ namespace Engine {
         float mCascadeTransitionFraction{0.25f};
 
         /**
-         * @brief PCSS 반그림자 계산에 쓰는 방향광 광원의 각반지름(도)입니다.
+         * @brief 방향광 광원의 각지름(도)입니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetShadowSourceAngle, Setter = SetShadowSourceAngle, Meta = (SerializeUnit = "deg"))
-        Core::FAngle mShadowSourceAngle{};
+        UPROPERTY(Edit, Serialize, Category = "Light", Getter = GetSourceAngle, Setter = SetSourceAngle, Meta = (SerializeUnit = "deg"))
+        Core::FAngle mSourceAngle{};
+
+        UPROPERTY(Edit, Serialize, Category = "Atmosphere", Getter = IsAtmosphereSunLight, Setter = SetAtmosphereSunLight)
+        bool mAtmosphereSunLight{};
     };
 
 }

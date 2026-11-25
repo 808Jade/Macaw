@@ -115,10 +115,26 @@ namespace Editor {
             const Core::FString& Name{Class->GetName()};
             const bool Light{Name.find("Light") != Core::FString::npos};
             const bool Fog{Name.find("Fog") != Core::FString::npos};
+            const bool Atmosphere{Name == "ASkyAtmosphereActor"};
+            const bool SkyDome{Name == "ASkyDomeActor"};
             const bool Decal{Name == "ADecalActor"};
             const bool Particle{Name == "AParticleSystemActor"};
 
-            if ((mCategory == 1 && !Light) || (mCategory == 2 && (Light || Fog || Decal || Particle)) || (mCategory == 3 && !(Fog || Decal || Particle))) {
+            const bool VisualEffect{Fog || Decal || Particle || Atmosphere || SkyDome};
+
+            if ((mCategory == 1 && !Light) || (mCategory == 2 && (Light || VisualEffect)) || (mCategory == 3 && !VisualEffect)) {
+                continue;
+            }
+
+            if (SkyDome) {
+                DrawEntry(Name, "Sky Dome", "SkyDomeComponent", Editor::EPlaceActorIcon::None);
+
+                continue;
+            }
+
+            if (Atmosphere) {
+                DrawEntry(Name, "Sky Atmosphere", "SkyAtmosphereComponent", Editor::EPlaceActorIcon::None);
+
                 continue;
             }
 

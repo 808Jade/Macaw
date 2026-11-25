@@ -166,11 +166,11 @@ namespace Editor {
          */
         const Core::TArray<FDetailSection>& GetDetailSections() {
             static const Core::TArray<FDetailSection> Sections{
-                {"General", {"Transform", "Mesh", "Materials", "Shape", "Light", "Camera", "Fog", "Script", "General", "Settings"}},
+                {"General", {"Transform", "Mesh", "Materials", "Shape", "Light", "Atmosphere", "Camera", "Fog", "Script", "General", "Settings"}},
                 {"Actor", {"Actor Tick"}},
                 {"Animation", {"Animation"}},
                 {"Physics", {"Physics", "Collision"}},
-                {"Rendering", {"Rendering", "Materials", "Light", "Fog"}},
+                {"Rendering", {"Rendering", "Materials", "Light", "Atmosphere", "Fog"}},
                 {"Misc", {"Movement", "Component Tick"}},
             };
 

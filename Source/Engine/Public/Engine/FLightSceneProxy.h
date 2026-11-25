@@ -152,6 +152,8 @@ namespace Engine {
          */
         float mCascadeTransitionFraction{0.25f};
 
+        bool mAtmosphereSunLight{};
+
     private:
         static const Core::FLength mDefaultAttenuationRadius;
         static const Core::FAngle mDefaultInnerConeAngle;

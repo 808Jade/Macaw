@@ -11,6 +11,7 @@ cbuffer SkyConstants : register(b0) {
      * @brief 이동을 제거한 뷰 행렬과 투영 행렬을 곱한 행 우선 역행렬입니다.
      */
     row_major float4x4 InverseViewRotationProjection;
+    float PanoramaIsSRGB;
 };
 
 /**
@@ -51,6 +52,12 @@ FVertexOutput VertexMain(uint VertexId : SV_VertexID) {
     return Output;
 }
 
+float3 GetSkyDirection(float2 DeviceCoordinate) {
+    float4 FarPoint = {mul(float4(DeviceCoordinate, 1.0f, 1.0f), InverseViewRotationProjection)};
+
+    return normalize(FarPoint.xyz / FarPoint.w);
+}
+
 /**
  * @brief 시선 방향을 파노라마 좌표로 변환해 표본을 출력합니다.
  * @param[in] Input 보간된 NDC 좌표입니다.
@@ -60,11 +67,15 @@ FVertexOutput VertexMain(uint VertexId : SV_VertexID) {
 float4 PixelMain(FVertexOutput Input) : SV_TARGET {
     static const float Pi = 3.14159265f;
 
-    float4 FarPoint = {mul(float4(Input.mDeviceCoordinate, 1.0f, 1.0f), InverseViewRotationProjection)};
-    float3 Direction = {normalize(FarPoint.xyz / FarPoint.w)};
+    float3 Direction = {GetSkyDirection(Input.mDeviceCoordinate)};
     float U = {atan2(-Direction.y, Direction.x) / (2.0f * Pi)};
     float V = {acos(clamp(Direction.z, -1.0f, 1.0f)) / Pi};
     float3 Color = {Panorama.SampleGrad(PanoramaSampler, float2(U, V), float2(0.0f, ddx(V)), float2(0.0f, ddy(V))).rgb};
+
+    if (PanoramaIsSRGB > 0.0f) {
+        float3 LinearColor = {max(Color, 0.0f)};
+        Color = lerp(12.92f * LinearColor, 1.055f * pow(LinearColor, 1.0f / 2.4f) - 0.055f, step(0.0031308f, LinearColor));
+    }
 
     return float4(Color, 1.0f);
 }

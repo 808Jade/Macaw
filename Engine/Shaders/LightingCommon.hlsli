@@ -115,7 +115,9 @@ FLighting EvaluateLight(FLight Light, float3 Position, float3 Normal, float3 Amb
 #if defined(LIGHTING_MODEL_PHONG) || defined(LIGHTING_MODEL_GOURAUD)
     float3 V = {SafeNormal(CameraAndLightCount.xyz - Position)};
     float3 H = {SafeNormal(L + V)};
-    float Specular = {Diffuse > 0.0f && SpecularParameters.x > 0.0f ? pow(saturate(dot(Normal, H)), SpecularParameters.y) * SpecularParameters.x : 0.0f};
+    float HalfVectorDeviation = {Light.mFalloffAndCones.w * 0.25f};
+    float SpecularWidthScale = {1.0f + SpecularParameters.y * HalfVectorDeviation * HalfVectorDeviation};
+    float Specular = {Diffuse > 0.0f && SpecularParameters.x > 0.0f ? pow(saturate(dot(Normal, H)), SpecularParameters.y / SpecularWidthScale) * SpecularParameters.x / SpecularWidthScale : 0.0f};
     Result.mSpecular = Radiance * (Attenuation * Specular);
 #endif
 

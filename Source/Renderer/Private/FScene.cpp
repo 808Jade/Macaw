@@ -12,6 +12,7 @@
 #include "Engine/EPrimitiveType.h"
 #include "Asset/UStaticMesh.h"
 #include "Asset/UMaterial.h"
+#include "Asset/UTexture2D.h"
 #include "Asset/USkeletalMesh.h"
 #include "FObjectConstants.h"
 #include "FScenePrimitive.h"
@@ -67,6 +68,74 @@ namespace Renderer {
      */
     const Core::TArray<Engine::FHeightFogSceneProxy>& Renderer::FScene::GetHeightFogs() const {
         return mHeightFogs;
+    }
+
+    void Renderer::FScene::AddSkyAtmosphere(const Engine::FSkyAtmosphereSceneProxy& Proxy) {
+        const auto Existing{std::find_if(mSkyAtmospheres.begin(), mSkyAtmospheres.end(), [&Proxy](const Engine::FSkyAtmosphereSceneProxy& Atmosphere) {
+            return Atmosphere.mId == Proxy.mId;
+        })};
+
+        if (Existing != mSkyAtmospheres.end()) {
+            *Existing = Proxy;
+        } else {
+            mSkyAtmospheres.push_back(Proxy);
+        }
+
+        ++mRevision;
+    }
+
+    void Renderer::FScene::RemoveSkyAtmosphere(const Core::FGuid& Id) {
+        if (std::erase_if(mSkyAtmospheres, [&Id](const Engine::FSkyAtmosphereSceneProxy& Atmosphere) {
+            return Atmosphere.mId == Id;
+        }) > 0) {
+            ++mRevision;
+        }
+    }
+
+    const Engine::FSkyAtmosphereSceneProxy* Renderer::FScene::GetSkyAtmosphere() const {
+        const auto Active{std::find_if(mSkyAtmospheres.begin(), mSkyAtmospheres.end(), [](const Engine::FSkyAtmosphereSceneProxy& Atmosphere) {
+            return Atmosphere.mVisible;
+        })};
+
+        return Active != mSkyAtmospheres.end() ? &*Active : nullptr;
+    }
+
+    const Engine::FLightSceneProxy* Renderer::FScene::GetAtmosphereSunLight() const {
+        const auto Sun{std::find_if(mLights.begin(), mLights.end(), [](const Engine::FLightSceneProxy& Light) {
+            return Light.mType == Engine::ELightType::Directional && Light.mAtmosphereSunLight && Light.mVisible;
+        })};
+
+        return Sun != mLights.end() ? &*Sun : nullptr;
+    }
+
+    void Renderer::FScene::AddSkyDome(const Engine::FSkyDomeSceneProxy& Proxy) {
+        const auto Existing{std::find_if(mSkyDomes.begin(), mSkyDomes.end(), [&Proxy](const Engine::FSkyDomeSceneProxy& SkyDome) {
+            return SkyDome.mId == Proxy.mId;
+        })};
+
+        if (Existing != mSkyDomes.end()) {
+            *Existing = Proxy;
+        } else {
+            mSkyDomes.push_back(Proxy);
+        }
+
+        ++mRevision;
+    }
+
+    void Renderer::FScene::RemoveSkyDome(const Core::FGuid& Id) {
+        if (std::erase_if(mSkyDomes, [&Id](const Engine::FSkyDomeSceneProxy& SkyDome) {
+            return SkyDome.mId == Id;
+        }) > 0) {
+            ++mRevision;
+        }
+    }
+
+    const Engine::FSkyDomeSceneProxy* Renderer::FScene::GetSkyDome() const {
+        const auto Active{std::find_if(mSkyDomes.begin(), mSkyDomes.end(), [](const Engine::FSkyDomeSceneProxy& SkyDome) {
+            return SkyDome.mVisible && SkyDome.mPanorama != nullptr;
+        })};
+
+        return Active != mSkyDomes.end() ? &*Active : nullptr;
     }
 
     void Renderer::FScene::AddDecal(const Engine::FDecalSceneProxy& Proxy) {

@@ -10,6 +10,8 @@
 #include "Asset/FAssetManager.h"
 #include "Core/FilePath.h"
 #include "Engine/Component/UHeightFogComponent.h"
+#include "Engine/Component/USkyAtmosphereComponent.h"
+#include "Engine/Component/USkyDomeComponent.h"
 #include "Engine/Component/UDecalComponent.h"
 #include "Engine/EngineStats.h"
 #include "Engine/Component/ULightComponentBase.h"
@@ -113,6 +115,10 @@ namespace Engine {
 
                     if (auto* Decal{CoreUObject::Cast<Engine::UDecalComponent>(Component.get())}) {
                         Decal->ResolveTexture();
+                    }
+
+                    if (auto* SkyDome{CoreUObject::Cast<Engine::USkyDomeComponent>(Component.get())}) {
+                        SkyDome->ResolvePanorama();
                     }
 
                     if (auto* Light{CoreUObject::Cast<Engine::ULightComponentBase>(Component.get())}) {
@@ -408,6 +414,14 @@ namespace Engine {
 
                     if (auto* Fog{CoreUObject::Cast<Engine::UHeightFogComponent>(Component.get())}) {
                         Fog->SynchronizeFog();
+                    }
+
+                    if (auto* Atmosphere{CoreUObject::Cast<Engine::USkyAtmosphereComponent>(Component.get())}) {
+                        Atmosphere->SynchronizeSkyAtmosphere();
+                    }
+
+                    if (auto* SkyDome{CoreUObject::Cast<Engine::USkyDomeComponent>(Component.get())}) {
+                        SkyDome->SynchronizeSkyDome();
                     }
 
                     if (auto* Decal{CoreUObject::Cast<Engine::UDecalComponent>(Component.get())}) {

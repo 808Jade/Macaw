@@ -14,6 +14,8 @@
 #include "FScenePrimitive.h"
 #include "Engine/FLightSceneProxy.h"
 #include "Engine/FHeightFogSceneProxy.h"
+#include "Engine/FSkyAtmosphereSceneProxy.h"
+#include "Engine/FSkyDomeSceneProxy.h"
 #include "Engine/FDecalSceneProxy.h"
 
 #include <d3d11.h>
@@ -77,6 +79,15 @@ namespace Renderer {
          * @return 장면이 소유하는 안개 프록시 목록의 읽기 전용 참조입니다.
          */
         const Core::TArray<Engine::FHeightFogSceneProxy>& GetHeightFogs() const;
+
+        void AddSkyAtmosphere(const Engine::FSkyAtmosphereSceneProxy& Proxy) override;
+        void RemoveSkyAtmosphere(const Core::FGuid& Id) override;
+        const Engine::FSkyAtmosphereSceneProxy* GetSkyAtmosphere() const;
+        const Engine::FLightSceneProxy* GetAtmosphereSunLight() const;
+
+        void AddSkyDome(const Engine::FSkyDomeSceneProxy& Proxy) override;
+        void RemoveSkyDome(const Core::FGuid& Id) override;
+        const Engine::FSkyDomeSceneProxy* GetSkyDome() const;
 
         /**
          * @brief GUID가 같은 데칼 프록시를 갱신하거나 새로 등록합니다.
@@ -194,6 +205,9 @@ namespace Renderer {
          * @brief 컴포넌트 GUID별로 추가·갱신되는 높이 안개 프록시 목록입니다.
          */
         Core::TArray<Engine::FHeightFogSceneProxy> mHeightFogs{};
+
+        Core::TArray<Engine::FSkyAtmosphereSceneProxy> mSkyAtmospheres{};
+        Core::TArray<Engine::FSkyDomeSceneProxy> mSkyDomes{};
 
         /**
          * @brief 장면에 등록된 데칼 프록시 목록입니다.

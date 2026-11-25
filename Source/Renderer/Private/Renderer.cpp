@@ -486,7 +486,7 @@ namespace Renderer {
         mContext->OMSetRenderTargets(1, &SceneTarget.mColor, SceneTarget.mDepth);
 
         if (Family.mShowFlags.mSky && !Family.mView.mOrthographic && Family.mViewMode != Engine::EViewMode::Wireframe && !Visualization) {
-            mStats.mDrawCalls += mSkyResources->Render(mContext.Get(), SceneTarget, Family.mView, Family.mPreviewSky);
+            mStats.mDrawCalls += mSkyResources->Render(mDevice.Get(), mContext.Get(), SceneTarget, Family.mView, *Scene, Family.mPreviewSky);
         }
 
         // 그리드는 반투명 패스보다 먼저 그립니다. 깊이 기반 시각화에서는 후처리가 색상을 덮어쓰므로 그 뒤에 그립니다.
@@ -903,6 +903,10 @@ namespace Renderer {
         }
 
         if (!Compile("Sky.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("Sky.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mSkyResources->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+            return false;
+        }
+
+        if (!Compile("SkyAtmosphere.hlsl", "PixelMainAtmosphere", "ps_5_0", PixelCode) || !mSkyResources->CreateAtmosphereShader(mDevice.Get(), PixelCode->GetByteCode())) {
             return false;
         }
 
