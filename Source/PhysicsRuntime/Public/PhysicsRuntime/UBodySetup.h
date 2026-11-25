@@ -93,6 +93,23 @@ namespace PhysicsRuntime {
         }
 
         /**
+         * @brief 이 바디의 모양이 다른 모양과 접촉(충돌)을 만드는지 반환합니다.
+         * @return false이면 이 바디는 같은 에셋의 바디와도 월드의 다른 것과도 충돌하지 않습니다. 중력과 관절의 영향은 그대로 받습니다.
+         * @note 피직스 에셋의 바디에만 쓰며, 뷰포트 선택(레이캐스트)에는 영향을 주지 않습니다.
+         */
+        bool IsCollisionEnabled() const {
+            return mCollisionEnabled;
+        }
+
+        /**
+         * @brief 이 바디의 모양이 다른 모양과 접촉(충돌)을 만들지 정합니다.
+         * @param[in] Enabled false이면 어떤 모양과도 충돌하지 않습니다.
+         */
+        void SetCollisionEnabled(bool Enabled) {
+            mCollisionEnabled = Enabled;
+        }
+
+        /**
          * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
          * @param[in,out] Actor 형상을 붙일 PhysX 강체입니다.
          * @param[in] Scale 형상 크기와 중심에 반영할 컴포넌트 스케일입니다.
@@ -121,6 +138,11 @@ namespace PhysicsRuntime {
          * @details 리플렉션 직렬화 대상이 아니므로 스태틱 메시 에셋의 저장 형식에 영향을 주지 않습니다. 피직스 에셋 파일이 따로 저장합니다.
          */
         bool mSimulatePhysics{true};
+
+        /**
+         * @brief 피직스 에셋에서 이 바디의 모양이 충돌하는지 나타냅니다. mSimulatePhysics처럼 리플렉션 직렬화 대상이 아니며 물리 에셋 파일이 따로 저장합니다.
+         */
+        bool mCollisionEnabled{true};
     };
 
 }

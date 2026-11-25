@@ -654,11 +654,13 @@ namespace Asset {
          */
         void SerializePhysicsAsset(Serialization::FMemoryArchive& Archive, PhysicsRuntime::UPhysicsAsset& PhysicsAsset) {
             // 2: 바디마다 SimulatePhysics(Dynamic 여부)를 저장한다. 1은 모든 바디가 Dynamic이다.
-            Uint32 Version{2};
+            // 3: 바디마다 CollisionEnabled와 충돌 비활성 쌍 목록을 저장한다. 2 이하는 모든 바디가 충돌하고 비활성 쌍이 없다.
+            // 4: 에디터 미리보기 스켈레탈 메시 경로를 저장한다. 3 이하는 에셋 이름 규칙으로 메시를 찾는다.
+            Uint32 Version{4};
 
             Archive.Serialize("PhysicsAssetVersion", Version);
 
-            if (Archive.HasError() || Version < 1 || Version > 2) {
+            if (Archive.HasError() || Version < 1 || Version > 4) {
                 Archive.SetError("Unsupported physics asset version");
 
                 return;
@@ -685,6 +687,16 @@ namespace Asset {
 
                     if (Archive.IsLoading()) {
                         BodySetup->SetSimulatePhysics(Simulate != 0);
+                    }
+                }
+
+                if (Version >= 3) {
+                    Uint32 Collision{BodySetup->IsCollisionEnabled() ? 1u : 0u};
+
+                    Archive.Serialize("CollisionEnabled", Collision);
+
+                    if (Archive.IsLoading()) {
+                        BodySetup->SetCollisionEnabled(Collision != 0);
                     }
                 }
 
@@ -733,6 +745,17 @@ namespace Asset {
                 Archive.Serialize("Swing2LimitDegrees", Instance.mSwing2Limit, Core::QuantityUnits::Degree);
                 Archive.Serialize("TwistLimitDegrees", Instance.mTwistLimit, Core::QuantityUnits::Degree);
             });
+
+            if (Version >= 3) {
+                SerializePhysicsArray(Archive, "CollisionDisabledPairs", PhysicsAsset.mCollisionDisabledPairs, 8, [&Archive](std::pair<Core::FString, Core::FString>& Pair) {
+                    Archive.Serialize("BoneA", Pair.first);
+                    Archive.Serialize("BoneB", Pair.second);
+                });
+            }
+
+            if (Version >= 4) {
+                Archive.Serialize("PreviewMesh", PhysicsAsset.mPreviewMeshPath);
+            }
 
             if (Archive.IsLoading() && !Archive.HasError()) {
                 PhysicsAsset.UpdateBodySetupIndexMap();

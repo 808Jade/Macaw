@@ -467,6 +467,7 @@ namespace Engine {
         const float Scale{ActualScale == 0.0f ? 0.0001f : ActualScale};
 
         Core::TMap<Core::FString, PhysicsRuntime::FBodyInstance*> NameToBodyMap{};
+        const Uint32 CollisionGroup{PhysScene.AllocateCollisionGroup()};
 
         mBodies.resize(NumBodies);
 
@@ -493,10 +494,14 @@ namespace Engine {
             Body->mInstanceBoneIndex = BoneIndex;
 
             if (Body->InitBody(*BodySetup, BoneTransform, this, PhysScene, SpawnParams)) {
+                // 충돌 설정: 이 에셋의 바디끼리는 비활성 쌍 목록을 따르고, 충돌을 끈 바디는 아무것도 부딪히지 않는다.
+                Body->SetCollisionFilter(CollisionGroup, static_cast<Uint32>(BodyIndex), BodySetup->IsCollisionEnabled());
                 NameToBodyMap[BodySetup->GetBoneName()] = Body.get();
                 mBodies[BodyIndex] = std::move(Body);
             }
         }
+
+        PhysScene.SetCollisionDisabledPairs(CollisionGroup, PhysicsAsset->BuildCollisionDisabledBodyPairs());
 
         const Index_t NumConstraints{PhysicsAsset->mConstraintSetup.size()};
 

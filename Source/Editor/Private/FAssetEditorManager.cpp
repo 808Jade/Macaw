@@ -11,6 +11,7 @@
 #include "FPhysicsAssetEditorToolkit.h"
 #include "FParticleEditorToolkit.h"
 #include "FPhysicsAssetEditing.h"
+#include "PhysicsRuntime/UPhysicsAsset.h"
 #include "Asset/FAssetFile.h"
 #include "FEditorWorkspace.h"
 #include "FEditorCommands.h"
@@ -674,12 +675,21 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         const bool IsPhysicsAssetFile{Asset::FAssetFile::GetType(Assets->ResolvePath(Path, Error), FileType, Error) && FileType == Asset::EAssetType::PhysicsAsset};
 
         if (IsPhysicsAssetFile) {
-            // 물리 에셋은 메시를 참조하지 않으므로 "<메시 이름>_PhysicsAsset" 이름 규칙으로 미리보기 메시를 찾습니다.
-            const std::filesystem::path MeshPath{PhysicsAssetEditing::GetMeshPathForPhysicsAsset(Path)};
+            // 에셋에 저장된 미리보기 메시를 우선 쓰고, 저장되지 않은 옛 에셋은 "<메시 이름>_PhysicsAsset" 이름 규칙으로 찾습니다.
+            std::filesystem::path MeshPath{};
+
+            if (const auto* PhysicsAsset{Assets->LoadPhysicsAsset(Path, Error)}; PhysicsAsset != nullptr && !PhysicsAsset->mPreviewMeshPath.empty()) {
+                MeshPath = Core::FilePath::FromUtf8(PhysicsAsset->mPreviewMeshPath);
+            }
+
+            if (MeshPath.empty()) {
+                MeshPath = PhysicsAssetEditing::GetMeshPathForPhysicsAsset(Path);
+            }
+
             Error.clear();
 
             if (MeshPath.empty()) {
-                mContext->AddLog("Cannot find the preview mesh: the asset name must be '<MeshName>_PhysicsAsset'.");
+                mContext->AddLog("Cannot find the preview mesh of this physics asset. Open the Physics Asset Editor from the Skeletal Mesh and save it once.");
             } else if (auto* Mesh{Assets->LoadSkeletalMesh(MeshPath, Error)}) {
                 Toolkit = std::make_unique<FPhysicsAssetEditorToolkit>(mContext, Path, MeshPath, Mesh, nullptr, Core::FilePath::ToGenericUtf8(Path));
             }

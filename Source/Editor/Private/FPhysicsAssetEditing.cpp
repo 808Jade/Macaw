@@ -239,7 +239,18 @@ std::filesystem::path Editor::PhysicsAssetEditing::GetDefaultPhysicsAssetPath(co
 
 std::filesystem::path Editor::PhysicsAssetEditing::GetMeshPathForPhysicsAsset(const std::filesystem::path& PhysicsAssetPath) {
     constexpr std::wstring_view Suffix{L"_PhysicsAsset"};
-    const std::wstring Stem{PhysicsAssetPath.stem().native()};
+    std::wstring Stem{PhysicsAssetPath.stem().native()};
+
+    // 같은 메시의 추가 물리 에셋은 "_PhysicsAsset_<숫자>"로 저장되므로 끝의 "_<숫자>"를 먼저 뗀다.
+    size_t DigitStart{Stem.size()};
+
+    while (DigitStart > 0 && Stem[DigitStart - 1] >= L'0' && Stem[DigitStart - 1] <= L'9') {
+        --DigitStart;
+    }
+
+    if (DigitStart < Stem.size() && DigitStart > 0 && Stem[DigitStart - 1] == L'_' && Stem.substr(0, DigitStart - 1).ends_with(Suffix)) {
+        Stem.resize(DigitStart - 1);
+    }
 
     if (Stem.size() <= Suffix.size() || !Stem.ends_with(Suffix)) {
         return {};
@@ -268,14 +279,27 @@ bool Editor::PhysicsAssetEditing::CreatePhysicsAssetFile(Asset::FAssetManager& A
 
     std::error_code Code{};
 
-    if (std::filesystem::exists(Assets.GetContentRoot() / OutPath, Code) || Code) {
-        Error = "A physics asset already exists: " + Core::FilePath::ToGenericUtf8(OutPath);
+    // 이미 있으면 "_PhysicsAsset_1", "_2" ... 로 비어 있는 이름을 찾아 추가로 만든다.
+    for (Index_t Number{1}; std::filesystem::exists(Assets.GetContentRoot() / OutPath, Code); ++Number) {
+        if (Code || Number > 999) {
+            Error = "Cannot find a free physics asset name: " + Core::FilePath::ToGenericUtf8(OutPath);
+
+            return false;
+        }
+
+        OutPath = GetDefaultPhysicsAssetPath(MeshPath);
+        OutPath.replace_filename(OutPath.stem().native() + L"_" + std::to_wstring(Number) + OutPath.extension().native());
+    }
+
+    if (Code) {
+        Error = "Cannot check the physics asset path: " + Core::FilePath::ToGenericUtf8(OutPath);
 
         return false;
     }
 
     auto PhysicsAsset{CoreUObject::NewObject<PhysicsRuntime::UPhysicsAsset>()};
     PhysicsAsset->SetName(Core::FilePath::ToUtf8(OutPath.stem()));
+    PhysicsAsset->mPreviewMeshPath = Core::FilePath::ToGenericUtf8(MeshPath);
 
     if (!Asset::FPhysicsAssetUtils::CreateFromSkeletalMesh(*PhysicsAsset, *Mesh, *Skeleton, Asset::FPhysAssetCreateParams{})) {
         Error = "Cannot generate bodies from the mesh.";
@@ -311,7 +335,70 @@ void Editor::PhysicsAssetEditing::CollectBoneBodyPoses(PhysicsRuntime::FPhysicsS
         Pose.mBodyIndex = Body->mInstanceBodyIndex;
         Pose.mWorld = Body->GetBodyTransform();
         Pose.mWorld.mScale = Body->GetBodyScale();
+        Pose.mLinearVelocity = Body->GetLinearVelocity();
         OutPoses.push_back(Pose);
+    }
+}
+
+void Editor::PhysicsAssetEditing::FindOverlappingBodyPairs(PhysicsRuntime::FPhysicsScene& Scene, Core::TArray<std::pair<Index_t, Index_t>>& OutPairs) {
+    OutPairs.clear();
+
+    physx::PxScene* PxSceneHandle{Scene.GetScene()};
+
+    if (PxSceneHandle == nullptr) {
+        return;
+    }
+
+    const physx::PxU32 Count{PxSceneHandle->getNbActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC)};
+    Core::TArray<physx::PxActor*> Actors(Count);
+
+    PxSceneHandle->getActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC, Actors.data(), Count);
+
+    // 뼈 바디의 액터를 바디 번호와 함께 모은다. 바닥 같은 바디 번호가 없는 액터는 제외한다.
+    Core::TArray<std::pair<Index_t, const physx::PxRigidActor*>> Bodies{};
+
+    for (const physx::PxActor* Actor : Actors) {
+        const PhysicsRuntime::FBodyInstance* Body{Actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Actor) : nullptr};
+
+        if (Body != nullptr && Body->mInstanceBodyIndex != InvalidIndex) {
+            Bodies.emplace_back(Body->mInstanceBodyIndex, Actor->is<physx::PxRigidActor>());
+        }
+    }
+
+    // 모든 형상 쌍을 PhysX 기하 질의로 검사한다. 한 쌍이라도 겹치면 그 바디 쌍은 겹치는 것이다.
+    const auto ShapesOf{[](const physx::PxRigidActor& Actor) {
+        Core::TArray<physx::PxShape*> Shapes(Actor.getNbShapes());
+
+        Actor.getShapes(Shapes.data(), static_cast<physx::PxU32>(Shapes.size()));
+
+        return Shapes;
+    }};
+
+    for (Index_t First{}; First < Bodies.size(); ++First) {
+        const Core::TArray<physx::PxShape*> FirstShapes{ShapesOf(*Bodies[First].second)};
+
+        for (Index_t Second{First + 1}; Second < Bodies.size(); ++Second) {
+            const Core::TArray<physx::PxShape*> SecondShapes{ShapesOf(*Bodies[Second].second)};
+            bool Overlaps{};
+
+            for (const physx::PxShape* A : FirstShapes) {
+                for (const physx::PxShape* B : SecondShapes) {
+                    if (physx::PxGeometryQuery::overlap(A->getGeometry().any(), physx::PxShapeExt::getGlobalPose(*A, *Bodies[First].second), B->getGeometry().any(), physx::PxShapeExt::getGlobalPose(*B, *Bodies[Second].second))) {
+                        Overlaps = true;
+
+                        break;
+                    }
+                }
+
+                if (Overlaps) {
+                    break;
+                }
+            }
+
+            if (Overlaps) {
+                OutPairs.emplace_back(std::min(Bodies[First].first, Bodies[Second].first), std::max(Bodies[First].first, Bodies[Second].first));
+            }
+        }
     }
 }
 

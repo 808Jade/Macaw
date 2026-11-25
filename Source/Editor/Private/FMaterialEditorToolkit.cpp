@@ -245,15 +245,36 @@ void FMaterialEditorToolkit::DrawViewport() {
         mNeedsFrame = !mViewer.Fit(1.15f);
     }
 
-    if (ImGui::IsItemActive()) {
+    // 오른쪽 버튼을 누른 동안은 비행(제자리 시선 회전 + WASD/QE 이동, 휠은 속도 조절), 왼쪽은 궤도 회전, 가운데는 이동이다.
+    const bool Flying{ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Right) && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)};
+
+    if (Flying) {
+        Viewer::FFlyInput Fly{};
+
+        Fly.mMouseDelta = {Input.MouseDelta.x, Input.MouseDelta.y};
+        Fly.mWheel = Hovered ? Input.MouseWheel : 0.0f;
+        Fly.mDeltaTime = Input.DeltaTime;
+        Fly.mFast = Input.KeyShift;
+
+        if (!Input.WantTextInput) {
+            Fly.mForward = ImGui::IsKeyDown(ImGuiKey_W);
+            Fly.mBackward = ImGui::IsKeyDown(ImGuiKey_S);
+            Fly.mRight = ImGui::IsKeyDown(ImGuiKey_D);
+            Fly.mLeft = ImGui::IsKeyDown(ImGuiKey_A);
+            Fly.mUp = ImGui::IsKeyDown(ImGuiKey_E);
+            Fly.mDown = ImGui::IsKeyDown(ImGuiKey_Q);
+        }
+
+        mFlyCamera.Update(Camera, Fly);
+    } else if (ImGui::IsItemActive()) {
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0f)) {
             Camera.Pan({Input.MouseDelta.x, Input.MouseDelta.y}, Size.y);
-        } else if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f) || ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0f)) {
+        } else if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)) {
             Camera.Orbit({Input.MouseDelta.x, Input.MouseDelta.y});
         }
     }
 
-    if (Hovered && Input.MouseWheel != 0.0f) {
+    if (Hovered && !Flying && Input.MouseWheel != 0.0f) {
         Camera.Zoom(Input.MouseWheel);
     }
 

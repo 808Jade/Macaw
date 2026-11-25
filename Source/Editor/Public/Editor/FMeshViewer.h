@@ -20,6 +20,7 @@
 #include "Core/Math/FVector.h"
 #include "Core/Math/FVector2.h"
 #include "Core/Math/FMatrix.h"
+#include "Viewer/FFlyCameraController.h"
 #include "Editor/FGizmoCore.h"
 #include "Engine/EEditorMesh.h"
 #include "Engine/FSceneView.h"
@@ -568,6 +569,11 @@ namespace Editor {
          * @brief 미리보기에서 시작한 마우스 드래그의 캡처 상태입니다.
          */
         bool mMouseCaptured{};
+
+        /**
+         * @brief 오른쪽 버튼을 누른 동안 시선 회전과 WASD/QE 이동을 처리하는 비행 카메라 컨트롤러입니다.
+         */
+        Viewer::FFlyCameraController mFlyCamera{};
     };
 
 }

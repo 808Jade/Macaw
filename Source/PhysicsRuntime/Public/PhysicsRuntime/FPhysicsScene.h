@@ -17,6 +17,9 @@
 #include <PxPhysicsAPI.h>
 #include <memory>
 #include <span>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 
 namespace PhysicsRuntime {
 
@@ -30,7 +33,7 @@ namespace PhysicsRuntime {
      * @note 이 객체에서 빌린 런타임보다 먼저 해제되어야 하며, 장면에 추가한 강체는 장면을 해제하기 전에 제거해야 합니다.
      * @ingroup PhysicsRuntime
      */
-    class FPhysicsScene final : private physx::PxSimulationEventCallback {
+    class FPhysicsScene final : private physx::PxSimulationEventCallback, private physx::PxSimulationFilterCallback {
     public:
 
         /**
@@ -98,6 +101,20 @@ namespace PhysicsRuntime {
         physx::PxScene* GetScene() const;
 
         /**
+         * @brief 같은 물리 에셋 인스턴스의 바디를 묶는 새 충돌 그룹 번호를 만듭니다.
+         * @return 0이 아닌 고유한 번호입니다. 바디의 필터 데이터에 이 번호를 넣으면 같은 그룹의 바디끼리 쌍 목록으로 충돌 여부를 정합니다.
+         */
+        Uint32 AllocateCollisionGroup();
+
+        /**
+         * @brief 충돌 그룹 안에서 서로 충돌하지 않을 바디 쌍을 등록합니다.
+         * @param[in] GroupId AllocateCollisionGroup이 반환한 그룹 번호입니다.
+         * @param[in] Pairs 충돌하지 않을 바디 번호의 쌍 목록입니다.
+         * @note 바디를 장면에 넣고 첫 시뮬레이션 전에 등록해야 합니다.
+         */
+        void SetCollisionDisabledPairs(Uint32 GroupId, const Core::TArray<std::pair<Uint32, Uint32>>& Pairs);
+
+        /**
          * @brief 마지막 스텝에서 자세가 바뀐 강체 목록을 반환합니다.
          * @return 장면이 소유한 목록이며 다음 시뮬레이션 전까지 유효합니다. 장면이 없으면 빈 목록입니다.
          */
@@ -122,6 +139,21 @@ namespace PhysicsRuntime {
         bool SweepSphere(const FVector& Start, const FVector& Delta, Core::FLength Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore = {}) const;
 
     private:
+
+        /**
+         * @brief 같은 충돌 그룹의 바디 쌍이 비활성으로 등록되어 있으면 그 쌍을 충돌에서 제외합니다.
+         */
+        physx::PxFilterFlags pairFound(physx::PxU32 PairId, physx::PxFilterObjectAttributes Attributes0, physx::PxFilterData FilterData0, const physx::PxActor* Actor0, const physx::PxShape* Shape0, physx::PxFilterObjectAttributes Attributes1, physx::PxFilterData FilterData1, const physx::PxActor* Actor1, const physx::PxShape* Shape1, physx::PxPairFlags& PairFlags) override;
+
+        /**
+         * @brief 쌍이 사라져도 보관한 상태가 없으므로 아무것도 하지 않습니다.
+         */
+        void pairLost(physx::PxU32 PairId, physx::PxFilterObjectAttributes Attributes0, physx::PxFilterData FilterData0, physx::PxFilterObjectAttributes Attributes1, physx::PxFilterData FilterData1, bool ObjectRemoved) override;
+
+        /**
+         * @brief 추적 중인 쌍의 상태를 바꾸지 않습니다.
+         */
+        bool statusChange(physx::PxU32& PairId, physx::PxPairFlags& PairFlags, physx::PxFilterFlags& FilterFlags) override;
 
         /**
          * @brief 새로 시작된 접촉을 접촉 목록에 기록합니다.
@@ -174,6 +206,16 @@ namespace PhysicsRuntime {
          * @brief 마지막 스텝에서 새로 시작된 접촉 목록입니다.
          */
         Core::TArray<PhysicsRuntime::FPhysicsContact> mContacts{};
+
+        /**
+         * @brief 충돌 그룹별로 충돌하지 않을 바디 쌍을 보관합니다. 키는 (작은 번호 << 32) | 큰 번호입니다.
+         */
+        std::unordered_map<Uint32, std::unordered_set<Uint64>> mDisabledPairs{};
+
+        /**
+         * @brief 마지막으로 만든 충돌 그룹 번호입니다.
+         */
+        Uint32 mLastCollisionGroup{};
     };
 
 }

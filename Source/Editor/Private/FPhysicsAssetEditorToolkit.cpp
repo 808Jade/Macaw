@@ -290,6 +290,7 @@ struct FPhysicsAssetEditorToolkit::FBaselineBody {
     Core::TArray<PhysicsRuntime::FKBoxElem> mBoxes{};
     Core::TArray<PhysicsRuntime::FKSphylElem> mSphyls{};
     bool mSimulatePhysics{true};
+    bool mCollisionEnabled{true};
 };
 
 struct FPhysicsAssetEditorToolkit::FBaseline {
@@ -318,6 +319,7 @@ void FPhysicsAssetEditorToolkit::EnsureBaseline() {
         Body.mBoxes = Setup->GetAggGeom().mBoxElems;
         Body.mSphyls = Setup->GetAggGeom().mSphylElems;
         Body.mSimulatePhysics = Setup->ShouldSimulatePhysics();
+        Body.mCollisionEnabled = Setup->IsCollisionEnabled();
     }
 
     for (const auto& Template : PhysicsAsset->mConstraintSetup) {
@@ -812,6 +814,9 @@ void FPhysicsAssetEditorToolkit::SaveAsset() {
         return;
     }
 
+    // 이름을 바꿔도 같은 메시로 열리도록 미리보기 메시 경로를 에셋에 함께 저장한다.
+    PhysicsAsset->mPreviewMeshPath = Core::FilePath::ToGenericUtf8(mMeshPath);
+
     const bool NewFile{mPhysicsAssetPath.empty()};
     const Core::FString TargetPath{NewFile ? Core::FilePath::ToGenericUtf8(PhysicsAssetEditing::GetDefaultPhysicsAssetPath(mMeshPath)) : mPhysicsAssetPath};
     Core::FString Error{};
@@ -892,6 +897,9 @@ void FPhysicsAssetEditorToolkit::StartSimulation() {
     mFloorBody = PhysicsAssetEditing::CreateFloorBody(*Scene, mFloorBounds);
     Component->SetAllBodiesSimulatePhysics(true);
     mSimulating = true;
+    mSimulationHalted = false;
+    mSimulationWarning.clear();
+    mSimulationStartPositions.clear();
 }
 
 void FPhysicsAssetEditorToolkit::StopSimulation() {
@@ -900,6 +908,9 @@ void FPhysicsAssetEditorToolkit::StopSimulation() {
 
     mFloorBody.reset();
     mSimulating = false;
+    mSimulationHalted = false;
+    mSimulationWarning.clear();
+    mSimulationStartPositions.clear();
 
     // 시뮬레이션이 바꾼 뼈 포즈를 기준 자세로 되돌린 뒤 키네마틱 바디를 다시 만든다.
     if (Component != nullptr) {
@@ -1206,7 +1217,42 @@ void FPhysicsAssetEditorToolkit::DrawViewport() {
     const ImGuiIO& Input{ImGui::GetIO()};
     Viewer::FViewerCamera& Camera{mViewer.GetCamera()};
 
-    if (mNeedsFrame || (Hovered && !Input.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F))) {
+    const bool FramePressed{Hovered && !Input.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F)};
+
+    if (FramePressed && mSimulating && mContent->GetWorld() != nullptr && mContent->GetWorld()->GetPhysicsScene() != nullptr) {
+        // 시뮬레이션 중에는 메시가 기준 자세에서 멀리 있을 수 있으므로, 선택한 바디(없으면 움직이는 바디 전체)의 현재 위치에 카메라를 맞춘다.
+        Core::TArray<PhysicsAssetEditing::FBodyPose> FramePoses{};
+
+        PhysicsAssetEditing::CollectBoneBodyPoses(*mContent->GetWorld()->GetPhysicsScene(), FramePoses);
+
+        FVector Minimum{};
+        FVector Maximum{};
+        bool HasPoint{};
+
+        for (const PhysicsAssetEditing::FBodyPose& Pose : FramePoses) {
+            const FVector& Location{Pose.mWorld.mLocation};
+
+            if (!std::isfinite(Location.x) || !std::isfinite(Location.y) || !std::isfinite(Location.z)) {
+                continue;
+            }
+
+            if (IsBodySelected(Pose.mBodyIndex) || mSelectedBodies.empty()) {
+                Minimum = HasPoint ? FVector{std::min(Minimum.x, Location.x), std::min(Minimum.y, Location.y), std::min(Minimum.z, Location.z)} : Location;
+                Maximum = HasPoint ? FVector{std::max(Maximum.x, Location.x), std::max(Maximum.y, Location.y), std::max(Maximum.z, Location.z)} : Location;
+                HasPoint = true;
+            }
+        }
+
+        if (HasPoint) {
+            // 점 하나나 아주 작은 범위는 카메라가 너무 가까워지지 않도록 최소 크기를 준다.
+            const FVector Margin{0.3f, 0.3f, 0.3f};
+            FBox Bounds{};
+
+            Bounds.mMinimum = Minimum - Margin;
+            Bounds.mMaximum = Maximum + Margin;
+            Camera.Fit(Bounds, {Size.x, Size.y}, 1.2f);
+        }
+    } else if (mNeedsFrame || FramePressed) {
         Camera = Viewer::FViewerCamera{};
         mNeedsFrame = !mViewer.Fit(1.15f);
     }
@@ -1315,19 +1361,103 @@ void FPhysicsAssetEditorToolkit::DrawViewport() {
         Source = "Source: Saved (" + mMesh->GetPhysicsAssetPath() + ")";
     }
 
-    const Core::TArray<Core::FString> InfoLines{
+    Core::TArray<Core::FString> InfoLines{
         "Camera speed x" + std::to_string(mCameraSpeed).substr(0, 4),
         Source,
         InfoAsset != nullptr ? "Bodies: " + std::to_string(InfoAsset->mSkeletalBodySetups.size()) + "   Constraints: " + std::to_string(InfoAsset->mConstraintSetup.size()) : Core::FString{"No physics asset"},
         Core::FString{"Physics scene: "} + (mContent->HasPhysicsScene() ? "Created" : "Not created")};
+    constexpr ImU32 InfoWhite{IM_COL32(220, 225, 235, 255)};
+    constexpr ImU32 InfoGreen{IM_COL32(120, 230, 140, 255)};
+    constexpr ImU32 InfoYellow{IM_COL32(255, 215, 90, 255)};
+    constexpr ImU32 InfoRed{IM_COL32(255, 110, 110, 255)};
+    Core::TArray<ImU32> InfoColors(InfoLines.size(), InfoWhite);
+    const auto AddInfo{[&](const Core::FString& Text, ImU32 Color) {
+        InfoLines.push_back(Text);
+        InfoColors.push_back(Color);
+    }};
 
-    // 물리는 보이는 탭에서만 고정 스텝 누적기를 통해 진행한다. 긴 프레임은 잘라 낸다.
-    if (mSimulating && mContent->GetWorld() != nullptr) {
+    // 물리는 보이는 탭에서만 고정 스텝 누적기를 통해 진행한다. 긴 프레임은 잘라 낸다. 불안정해져 멈춘 뒤에는 진행하지 않는다.
+    if (mSimulating && mContent->GetWorld() != nullptr && !mSimulationHalted) {
         mContent->GetWorld()->StepPhysics(std::min(Input.DeltaTime * 1_s, 100_ms));
 
         // 월드 Tick이 돌지 않으므로 스텝 결과를 직접 뼈 포즈에 써서 메시가 바디를 따라가게 한다.
         if (Engine::USkeletalMeshComponent* Component{mContent->GetComponent()}) {
             Component->BlendInPhysics();
+        }
+    }
+
+    // 시뮬레이션 상태를 한눈에 알 수 있게 표시한다: 전체 판정(색), Dynamic과 Kinematic 개수, 선택한 바디의 종류와 움직인 거리.
+    // 불안정하면(NaN, 너무 먼 거리, 너무 빠른 속도) 그 자세에서 멈춰 원인을 볼 수 있게 한다.
+    if (mSimulating && mContent->GetWorld() != nullptr && mContent->GetWorld()->GetPhysicsScene() != nullptr && InfoAsset != nullptr) {
+        Core::TArray<PhysicsAssetEditing::FBodyPose> StatePoses{};
+
+        PhysicsAssetEditing::CollectBoneBodyPoses(*mContent->GetWorld()->GetPhysicsScene(), StatePoses);
+
+        constexpr float MaxSpeed{300.0f};
+        constexpr float MaxDistance{1000.0f};
+        Index_t DynamicCount{};
+        Index_t KinematicCount{};
+        float LargestMove{};
+        Core::FString LargestMoveName{};
+        Core::FString SelectedLine{};
+        ImU32 SelectedColor{InfoWhite};
+
+        for (const PhysicsAssetEditing::FBodyPose& Pose : StatePoses) {
+            const FVector& Location{Pose.mWorld.mLocation};
+            const bool HasSetup{Pose.mBodyIndex < InfoAsset->mSkeletalBodySetups.size() && InfoAsset->mSkeletalBodySetups[Pose.mBodyIndex] != nullptr};
+            const Core::FString BodyName{HasSetup ? InfoAsset->mSkeletalBodySetups[Pose.mBodyIndex]->GetBoneName() : Core::FString{"?"}};
+            const bool IsDynamic{HasSetup && InfoAsset->mSkeletalBodySetups[Pose.mBodyIndex]->ShouldSimulatePhysics()};
+            const float Distance{Location.Length()};
+            const float Speed{Pose.mLinearVelocity.Length()};
+
+            ++(IsDynamic ? DynamicCount : KinematicCount);
+
+            if (!mSimulationHalted && (!std::isfinite(Distance) || !std::isfinite(Speed) || Distance > MaxDistance || Speed > MaxSpeed)) {
+                mSimulationHalted = true;
+                mSimulationWarning = "'" + BodyName + "' " + (std::isfinite(Distance) && std::isfinite(Speed) ? "flew " + std::to_string(static_cast<int>(Distance)) + " m away at " + std::to_string(static_cast<int>(Speed)) + " m/s" : Core::FString{"became NaN"});
+            }
+
+            // 시작 직후의 위치를 기준으로 얼마나 움직였는지 계산한다. 기준은 처음 본 프레임의 위치다.
+            if (mSimulationStartPositions.find(Pose.mBodyIndex) == mSimulationStartPositions.end() && std::isfinite(Distance)) {
+                mSimulationStartPositions.emplace(Pose.mBodyIndex, Location);
+            }
+
+            const auto Start{mSimulationStartPositions.find(Pose.mBodyIndex)};
+            const float Moved{Start != mSimulationStartPositions.end() && std::isfinite(Distance) ? (Location - Start->second).Length() : 0.0f};
+
+            if (IsDynamic && std::isfinite(Moved) && Moved >= LargestMove) {
+                LargestMove = Moved;
+                LargestMoveName = BodyName;
+            }
+
+            if (Pose.mBodyIndex == mSelectedBody) {
+                if (IsDynamic) {
+                    SelectedLine = "Selected '" + BodyName + "': Dynamic  moved " + std::to_string(Moved).substr(0, 6) + " m  speed " + std::to_string(Speed).substr(0, 6) + " m/s";
+                } else {
+                    SelectedLine = "Selected '" + BodyName + "': Kinematic - it follows the animation pose and will not move. Set Physics Type to Dynamic to simulate it.";
+                    SelectedColor = InfoYellow;
+                }
+            }
+        }
+
+        // 전체 판정: 불안정(빨강), 움직일 바디가 없음(노랑), 정상 진행(초록)
+        if (mSimulationHalted) {
+            AddInfo("UNSTABLE - simulation paused: " + mSimulationWarning, InfoRed);
+            AddInfo("Press F to find it, then Stop or Restart. Check overlapping bodies (Collision Pairs) and constraint limits.", InfoRed);
+        } else if (DynamicCount == 0) {
+            AddInfo("Nothing to simulate: all " + std::to_string(KinematicCount) + " bodies are Kinematic. Set Physics Type to Dynamic on the bodies you want to move.", InfoYellow);
+        } else {
+            AddInfo("Simulation running: " + std::to_string(DynamicCount) + " Dynamic, " + std::to_string(KinematicCount) + " Kinematic. Stable.", InfoGreen);
+
+            if (!LargestMoveName.empty()) {
+                AddInfo("Largest movement from start: '" + LargestMoveName + "' " + std::to_string(LargestMove).substr(0, 6) + " m", InfoWhite);
+            }
+        }
+
+        if (!SelectedLine.empty()) {
+            AddInfo(SelectedLine, SelectedColor);
+        } else if (mSelectedBody != InvalidIndex) {
+            AddInfo("Selected body has no active PhysX actor (it was not created).", InfoYellow);
         }
     }
 
@@ -1379,8 +1509,8 @@ void FPhysicsAssetEditorToolkit::DrawViewport() {
 
     float InfoY{Origin.y + 10.0f};
 
-    for (const Core::FString& Line : InfoLines) {
-        DrawList->AddText({Origin.x + 12.0f, InfoY}, IM_COL32(220, 225, 235, 255), Line.c_str());
+    for (Index_t Index{}; Index < InfoLines.size(); ++Index) {
+        DrawList->AddText({Origin.x + 12.0f, InfoY}, Index < InfoColors.size() ? InfoColors[Index] : InfoWhite, InfoLines[Index].c_str());
         InfoY += LineHeight;
     }
 
@@ -1445,6 +1575,7 @@ void FPhysicsAssetEditorToolkit::DrawDetails() {
 
         mFrameRotationConstraint = InvalidIndex;
         DrawBodyEditor();
+        DrawCollisionPairs();
     }
 
     ImGui::Separator();
@@ -1901,6 +2032,158 @@ bool FPhysicsAssetEditorToolkit::DrawShapeFields(const Core::TArray<PhysicsRunti
     return Changed;
 }
 
+void FPhysicsAssetEditorToolkit::DrawCollisionPairs() {
+    PhysicsRuntime::UPhysicsAsset* PhysicsAsset{GetPhysicsAsset()};
+    Engine::USkeletalMeshComponent* Component{mContent != nullptr ? mContent->GetComponent() : nullptr};
+
+    if (PhysicsAsset == nullptr || Component == nullptr || mSkeleton == nullptr || PhysicsAsset->mSkeletalBodySetups.empty()) {
+        return;
+    }
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Collision Pairs");
+    ImGui::TextDisabled("%zu pair(s) with collision disabled. Bodies joined by a constraint never collide.", PhysicsAsset->mCollisionDisabledPairs.size());
+
+    // 선택한 바디의 뼈 이름들
+    Core::TArray<Core::FString> SelectedBones{};
+
+    for (const Index_t Index : mSelectedBodies) {
+        if (Index < PhysicsAsset->mSkeletalBodySetups.size() && PhysicsAsset->mSkeletalBodySetups[Index] != nullptr) {
+            SelectedBones.push_back(PhysicsAsset->mSkeletalBodySetups[Index]->GetBoneName());
+        }
+    }
+
+    if (SelectedBones.size() == 1) {
+        const Core::FString& Bone{SelectedBones.front()};
+        Core::FString ToEnable{};
+
+        // 이 바디와 충돌을 끈 상대 목록
+        for (const auto& Pair : PhysicsAsset->mCollisionDisabledPairs) {
+            const Core::FString* Partner{Pair.first == Bone ? &Pair.second : Pair.second == Bone ? &Pair.first : nullptr};
+
+            if (Partner == nullptr) {
+                continue;
+            }
+
+            ImGui::PushID(Partner->c_str());
+            ImGui::TextUnformatted(Partner->c_str());
+            ImGui::SameLine();
+
+            if (ImGui::SmallButton("Enable collision")) {
+                ToEnable = *Partner;
+            }
+
+            ImGui::PopID();
+        }
+
+        if (!ToEnable.empty()) {
+            Component->DestroyPhysicsState();
+            PhysicsAsset->SetCollisionDisabled(Bone, ToEnable, false);
+            ApplyEdit();
+        }
+
+        // 충돌을 끌 상대 추가
+        if (ImGui::BeginCombo("Disable collision with", "Select a body...")) {
+            for (const auto& Other : PhysicsAsset->mSkeletalBodySetups) {
+                if (Other == nullptr || Other->GetBoneName() == Bone || PhysicsAsset->IsCollisionDisabled(Bone, Other->GetBoneName())) {
+                    continue;
+                }
+
+                if (ImGui::Selectable(Other->GetBoneName().c_str())) {
+                    Component->DestroyPhysicsState();
+                    PhysicsAsset->SetCollisionDisabled(Bone, Other->GetBoneName(), true);
+                    ApplyEdit();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    } else if (SelectedBones.size() >= 2) {
+        // 선택한 바디 사이의 모든 쌍을 한 번에 끄거나 켠다.
+        for (const bool Disable : {true, false}) {
+            if (Disable ? ImGui::Button("Disable Collision Between Selected") : ImGui::Button("Enable Collision Between Selected")) {
+                Component->DestroyPhysicsState();
+
+                for (Index_t First{}; First < SelectedBones.size(); ++First) {
+                    for (Index_t Second{First + 1}; Second < SelectedBones.size(); ++Second) {
+                        PhysicsAsset->SetCollisionDisabled(SelectedBones[First], SelectedBones[Second], Disable);
+                    }
+                }
+
+                ApplyEdit();
+            }
+
+            if (Disable) {
+                ImGui::SameLine();
+            }
+        }
+    }
+
+    // 현재 자세에서 겹치는데 이어져 있지 않은 쌍을 자동으로 끈다. 시뮬레이션 전 기준 자세에서 실행한다.
+    ImGui::BeginDisabled(mSimulating || mContent == nullptr || mContent->GetWorld() == nullptr || mContent->GetWorld()->GetPhysicsScene() == nullptr);
+
+    if (ImGui::Button("Auto-Disable Overlapping Pairs")) {
+        Core::TArray<std::pair<Index_t, Index_t>> Overlaps{};
+
+        PhysicsAssetEditing::FindOverlappingBodyPairs(*mContent->GetWorld()->GetPhysicsScene(), Overlaps);
+
+        Index_t Added{};
+        Index_t Joined{};
+        Index_t BothKinematic{};
+        const Core::TArray<std::pair<Index_t, Index_t>> Found{Overlaps};
+
+        for (const auto& [A, B] : Found) {
+            if (A >= PhysicsAsset->mSkeletalBodySetups.size() || B >= PhysicsAsset->mSkeletalBodySetups.size() || PhysicsAsset->mSkeletalBodySetups[A] == nullptr || PhysicsAsset->mSkeletalBodySetups[B] == nullptr) {
+                continue;
+            }
+
+            const PhysicsRuntime::UBodySetup& SetupA{*PhysicsAsset->mSkeletalBodySetups[A]};
+            const PhysicsRuntime::UBodySetup& SetupB{*PhysicsAsset->mSkeletalBodySetups[B]};
+            const bool IsJoined{std::any_of(PhysicsAsset->mConstraintSetup.begin(), PhysicsAsset->mConstraintSetup.end(), [&](const auto& Template) {
+                return Template != nullptr && ((Template->mDefaultInstance.mConstraintBone1 == SetupA.GetBoneName() && Template->mDefaultInstance.mConstraintBone2 == SetupB.GetBoneName()) || (Template->mDefaultInstance.mConstraintBone1 == SetupB.GetBoneName() && Template->mDefaultInstance.mConstraintBone2 == SetupA.GetBoneName()));
+            })};
+
+            // 관절로 이어진 쌍은 이미 충돌하지 않고, 둘 다 Kinematic이면 접촉이 만들어지지 않으므로 목록에 넣을 필요가 없다.
+            if (IsJoined) {
+                ++Joined;
+
+                continue;
+            }
+
+            if (!SetupA.ShouldSimulatePhysics() && !SetupB.ShouldSimulatePhysics()) {
+                ++BothKinematic;
+
+                continue;
+            }
+
+            if (PhysicsAsset->SetCollisionDisabled(SetupA.GetBoneName(), SetupB.GetBoneName(), true)) {
+                ++Added;
+            }
+        }
+
+        mCollisionMessage = "Found " + std::to_string(Found.size()) + " overlapping pair(s): disabled " + std::to_string(Added) + ", skipped " + std::to_string(Joined) + " joined and " + std::to_string(BothKinematic) + " kinematic-only.";
+
+        if (Added > 0) {
+            Component->DestroyPhysicsState();
+            ApplyEdit();
+        }
+    }
+
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+
+    if (ImGui::Button("Clear All Pairs") && !PhysicsAsset->mCollisionDisabledPairs.empty()) {
+        Component->DestroyPhysicsState();
+        PhysicsAsset->mCollisionDisabledPairs.clear();
+        mCollisionMessage = "Cleared all disabled pairs.";
+        ApplyEdit();
+    }
+
+    if (!mCollisionMessage.empty()) {
+        ImGui::TextWrapped("%s", mCollisionMessage.c_str());
+    }
+}
+
 void FPhysicsAssetEditorToolkit::DrawBodyEditor() {
     PhysicsRuntime::UPhysicsAsset* PhysicsAsset{GetPhysicsAsset()};
     Engine::USkeletalMeshComponent* Component{mContent != nullptr ? mContent->GetComponent() : nullptr};
@@ -2034,6 +2317,51 @@ void FPhysicsAssetEditorToolkit::DrawBodyEditor() {
 
             for (PhysicsRuntime::UBodySetup* Setup : Setups) {
                 Setup->SetSimulatePhysics(BaselineSimulate(Setup));
+            }
+
+            ApplyEdit();
+        }
+    }
+
+    // Collision: 이 바디의 모양이 다른 모양과 접촉(충돌)을 만드는지 정한다. Physics Type(움직임을 누가 정하는가)과는 별개이며,
+    // Disabled이면 Dynamic이어도 중력과 관절만 따르고 같은 에셋의 바디와도 월드의 다른 것과도 부딪히지 않는다.
+    {
+        const bool FirstEnabled{Setups.front()->IsCollisionEnabled()};
+        const bool MixedCollision{std::any_of(Setups.begin(), Setups.end(), [FirstEnabled](const PhysicsRuntime::UBodySetup* Setup) {
+            return Setup->IsCollisionEnabled() != FirstEnabled;
+        })};
+        constexpr const char* CollisionNames[]{"Disabled", "Enabled"};
+
+        if (ImGui::BeginCombo("Collision", MixedCollision ? "Multiple Values" : CollisionNames[FirstEnabled ? 1 : 0])) {
+            for (int Value{}; Value < 2; ++Value) {
+                if (ImGui::Selectable(CollisionNames[Value], !MixedCollision && (Value == 1) == FirstEnabled)) {
+                    Component->DestroyPhysicsState();
+
+                    for (PhysicsRuntime::UBodySetup* Setup : Setups) {
+                        Setup->SetCollisionEnabled(Value == 1);
+                    }
+
+                    ApplyEdit();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        const auto BaselineCollision{[this](const PhysicsRuntime::UBodySetup* Setup) {
+            const FBaselineBody* Body{FindBaselineBody(Setup->GetBoneName())};
+
+            return Body != nullptr ? Body->mCollisionEnabled : true;
+        }};
+        const bool CollisionDiffers{std::any_of(Setups.begin(), Setups.end(), [&](const PhysicsRuntime::UBodySetup* Setup) {
+            return Setup->IsCollisionEnabled() != BaselineCollision(Setup);
+        })};
+
+        if (ResetButton("Collision", CollisionDiffers)) {
+            Component->DestroyPhysicsState();
+
+            for (PhysicsRuntime::UBodySetup* Setup : Setups) {
+                Setup->SetCollisionEnabled(BaselineCollision(Setup));
             }
 
             ApplyEdit();
@@ -2277,12 +2605,25 @@ bool FPhysicsAssetEditorToolkit::GetGizmoPlacement(Editor::FGizmoPlacement& Out)
 
     Out.mMode = mGizmoMode;
 
-    // 세 축을 월드 축 또는 대상의 로컬 축으로 정한다.
-    const auto SetAxes{[this, &Out](const FVector& AxisX, const FVector& AxisY, const FVector& AxisZ) {
-        const FVector Local[3]{AxisX, AxisY, AxisZ};
+    // 세 축을 월드 축, 뼈의 축, 또는 대상(형상이나 관절 프레임)의 축으로 정한다.
+    // Details의 Center, Rotation, Position 값은 뼈 기준이므로 Bone 축을 쓰면 필드의 X, Y, Z와 기즈모 축이 같은 방향이다.
+    const auto SetAxes{[this, &Out](const FQuat& BoneRotation, const FVector& AxisX, const FVector& AxisY, const FVector& AxisZ) {
+        const FVector Target[3]{AxisX, AxisY, AxisZ};
 
         for (Index_t Index{}; Index < 3; ++Index) {
-            Out.mAxes[Index] = mGizmoSpace == Editor::EGizmoSpace::Local && !Local[Index].IsNearlyZero() ? Local[Index].Normalized() : Editor::FGizmoCore::GetUnitAxes()[Index];
+            const FVector Unit{Editor::FGizmoCore::GetUnitAxes()[Index]};
+
+            switch (mGizmoAxes) {
+                case EGizmoAxes::Bone:
+                    Out.mAxes[Index] = BoneRotation.RotateVector(Unit).Normalized();
+                    break;
+                case EGizmoAxes::Local:
+                    Out.mAxes[Index] = !Target[Index].IsNearlyZero() ? Target[Index].Normalized() : Unit;
+                    break;
+                default:
+                    Out.mAxes[Index] = Unit;
+                    break;
+            }
         }
     }};
 
@@ -2301,7 +2642,7 @@ bool FPhysicsAssetEditorToolkit::GetGizmoPlacement(Editor::FGizmoPlacement& Out)
         const FVector AxisY{BoneWorld.TransformVectorNoScale(Child ? Constraint.mSecAxis1 : Constraint.mSecAxis2).Normalized()};
 
         Out.mPivot = BoneWorld.TransformPosition(Child ? Constraint.mPos1 : Constraint.mPos2);
-        SetAxes(AxisX, AxisY, AxisX.Cross(AxisY));
+        SetAxes(BoneWorld.mRotation, AxisX, AxisY, AxisX.Cross(AxisY));
 
         return true;
     }
@@ -2330,7 +2671,7 @@ bool FPhysicsAssetEditorToolkit::GetGizmoPlacement(Editor::FGizmoPlacement& Out)
     const FQuat World{Rotation != nullptr ? BoneWorld.mRotation * Rotation->Quaternion() : BoneWorld.mRotation};
 
     Out.mPivot = BoneWorld.TransformPosition(*Center);
-    SetAxes(World.RotateVector(FVector{1.0f, 0.0f, 0.0f}), World.RotateVector(FVector{0.0f, 1.0f, 0.0f}), World.RotateVector(FVector{0.0f, 0.0f, 1.0f}));
+    SetAxes(BoneWorld.mRotation, World.RotateVector(FVector{1.0f, 0.0f, 0.0f}), World.RotateVector(FVector{0.0f, 1.0f, 0.0f}), World.RotateVector(FVector{0.0f, 0.0f, 1.0f}));
 
     return true;
 }
@@ -2570,12 +2911,17 @@ void FPhysicsAssetEditorToolkit::DrawViewportToolbar() {
 
     ImGui::SameLine();
 
-    int Space{mGizmoSpace == Editor::EGizmoSpace::Local ? 1 : 0};
+    // World: 월드 축 / Bone: 뼈의 축(Details 필드의 X, Y, Z와 같은 방향) / Local: 형상이나 관절 프레임 자체의 축.
+    int Space{static_cast<int>(mGizmoAxes)};
 
-    ImGui::SetNextItemWidth(80.0f * ImGui::GetStyle().FontScaleMain);
+    ImGui::SetNextItemWidth(90.0f * ImGui::GetStyle().FontScaleMain);
 
-    if (ImGui::Combo("##GizmoSpace", &Space, "World\0Local\0")) {
-        mGizmoSpace = Space == 1 ? Editor::EGizmoSpace::Local : Editor::EGizmoSpace::World;
+    if (ImGui::Combo("##GizmoSpace", &Space, "World\0Bone\0Local\0")) {
+        mGizmoAxes = static_cast<EGizmoAxes>(std::clamp(Space, 0, 2));
+    }
+
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("World: world axes\nBone: bone axes (same as the X, Y, Z fields in Details)\nLocal: the shape's or constraint frame's own axes");
     }
 
     // 관절은 프레임이 둘이므로 어느 프레임을 기즈모로 편집할지 고른다.

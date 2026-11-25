@@ -30,13 +30,25 @@ namespace PhysicsRuntime {
         constexpr physx::PxU32 MaxContactPointsPerPair{8};
 
         /**
-         * @brief 두 형상의 응답이 모두 Block인 쌍만 충돌시키고 새 접촉과 CCD 접촉을 알리도록 지정합니다.
+         * @brief 바디가 충돌하지 않도록 표시하는 필터 데이터 word3의 값입니다.
+         */
+        constexpr physx::PxU32 NoCollisionMarker{1};
+
+        /**
+         * @brief 충돌 그룹 안의 바디 쌍을 하나의 키로 만듭니다. 순서와 상관없이 같은 키가 나옵니다.
+         */
+        Uint64 MakePairKey(physx::PxU32 A, physx::PxU32 B) {
+            return (static_cast<Uint64>(std::min(A, B)) << 32) | static_cast<Uint64>(std::max(A, B));
+        }
+
+        /**
+         * @brief 충돌이 꺼진 바디의 쌍을 제외하고, 두 형상의 응답이 모두 Block인 쌍만 충돌시키며 새 접촉과 CCD 접촉을 알리도록 지정합니다.
          * @param[in] Attributes0 첫 번째 형상의 필터 속성입니다.
-         * @param[in] FilterData0 첫 번째 형상의 필터 데이터이며, word0에 응답이 있습니다.
+         * @param[in] FilterData0 첫 번째 형상의 필터 데이터입니다. word0은 충돌 응답, word1은 충돌 그룹, word2는 그룹 안의 바디 번호, word3은 충돌 끔 표시입니다.
          * @param[in] Attributes1 두 번째 형상의 필터 속성입니다.
-         * @param[in] FilterData1 두 번째 형상의 필터 데이터이며, word0에 응답이 있습니다.
+         * @param[in] FilterData1 두 번째 형상의 필터 데이터입니다.
          * @param[out] PairFlags 형상 쌍에 적용할 접촉 처리 플래그입니다.
-         * @return Block 쌍이면 기본 필터 플래그, 아니면 접촉을 만들지 않는 억제 플래그입니다.
+         * @return Block 쌍이면 기본 필터 플래그이고, 같은 충돌 그룹의 쌍은 쌍 목록을 보도록 콜백으로 넘깁니다. 충돌 끔 바디가 있으면 제외하고, Block이 아니면 접촉을 만들지 않는 억제 플래그입니다.
          * @note 겹침은 시뮬레이션이 아니라 장면 쿼리로 찾으므로, Overlap 쌍도 접촉을 만들지 않습니다.
          */
         physx::PxFilterFlags SimulationFilterShader(physx::PxFilterObjectAttributes Attributes0, physx::PxFilterData FilterData0, physx::PxFilterObjectAttributes Attributes1, physx::PxFilterData FilterData1, physx::PxPairFlags& PairFlags, const void*, physx::PxU32) {
@@ -46,6 +58,11 @@ namespace PhysicsRuntime {
                 return physx::PxFilterFlag::eDEFAULT;
             }
 
+            // 바디별로 충돌을 끈 경우: 어느 한쪽이라도 표시되어 있으면 월드와 같은 에셋의 모든 상대와 접촉을 만들지 않는다.
+            if (FilterData0.word3 == NoCollisionMarker || FilterData1.word3 == NoCollisionMarker) {
+                return physx::PxFilterFlag::eKILL;
+            }
+
             const auto Response{PhysicsRuntime::CombineCollisionResponse(static_cast<PhysicsRuntime::ECollisionResponse>(FilterData0.word0), static_cast<PhysicsRuntime::ECollisionResponse>(FilterData1.word0))};
 
             if (Response != PhysicsRuntime::ECollisionResponse::Block) {
@@ -53,6 +70,11 @@ namespace PhysicsRuntime {
             }
 
             PairFlags = physx::PxPairFlag::eCONTACT_DEFAULT | physx::PxPairFlag::eDETECT_CCD_CONTACT | physx::PxPairFlag::eNOTIFY_TOUCH_FOUND | physx::PxPairFlag::eNOTIFY_CONTACT_POINTS;
+
+            // 같은 물리 에셋 인스턴스의 두 바디는 비활성 쌍 목록을 봐야 하므로 콜백이 정한다.
+            if (FilterData0.word1 != 0 && FilterData0.word1 == FilterData1.word1) {
+                return physx::PxFilterFlag::eCALLBACK;
+            }
 
             return physx::PxFilterFlag::eDEFAULT;
         }
@@ -91,6 +113,7 @@ namespace PhysicsRuntime {
         Desc.cpuDispatcher = Runtime.GetDispatcher();
         Desc.filterShader = SimulationFilterShader;
         Desc.simulationEventCallback = this;
+        Desc.filterCallback = this;
         Desc.flags |= physx::PxSceneFlag::eENABLE_ACTIVE_ACTORS;
 
         if (Settings.mEnableCCD) {
@@ -132,6 +155,7 @@ namespace PhysicsRuntime {
      */
     void PhysicsRuntime::FPhysicsScene::Shutdown() {
         mContacts.clear();
+        mDisabledPairs.clear();
         mVehicleManager.reset();
         mScene.reset();
         mRuntime = nullptr;
@@ -189,6 +213,53 @@ namespace PhysicsRuntime {
      */
     physx::PxScene* PhysicsRuntime::FPhysicsScene::GetScene() const {
         return mScene.get();
+    }
+
+    /**
+     * @brief 같은 물리 에셋 인스턴스의 바디를 묶는 새 충돌 그룹 번호를 만듭니다.
+     */
+    Uint32 PhysicsRuntime::FPhysicsScene::AllocateCollisionGroup() {
+        return ++mLastCollisionGroup;
+    }
+
+    /**
+     * @brief 충돌 그룹 안에서 서로 충돌하지 않을 바디 쌍을 등록합니다.
+     */
+    void PhysicsRuntime::FPhysicsScene::SetCollisionDisabledPairs(Uint32 GroupId, const Core::TArray<std::pair<Uint32, Uint32>>& Pairs) {
+        std::unordered_set<Uint64>& Set{mDisabledPairs[GroupId]};
+
+        Set.clear();
+
+        for (const auto& Pair : Pairs) {
+            Set.insert(MakePairKey(Pair.first, Pair.second));
+        }
+    }
+
+    /**
+     * @brief 같은 충돌 그룹의 바디 쌍이 비활성으로 등록되어 있으면 그 쌍을 충돌에서 제외합니다.
+     */
+    physx::PxFilterFlags PhysicsRuntime::FPhysicsScene::pairFound(physx::PxU32, physx::PxFilterObjectAttributes, physx::PxFilterData FilterData0, const physx::PxActor*, const physx::PxShape*, physx::PxFilterObjectAttributes, physx::PxFilterData FilterData1, const physx::PxActor*, const physx::PxShape*, physx::PxPairFlags&) {
+        const auto Found{mDisabledPairs.find(FilterData0.word1)};
+
+        if (Found != mDisabledPairs.end() && Found->second.contains(MakePairKey(FilterData0.word2, FilterData1.word2))) {
+            return physx::PxFilterFlag::eKILL;
+        }
+
+        // 셰이더가 정한 접촉 플래그를 그대로 쓴다.
+        return physx::PxFilterFlag::eDEFAULT;
+    }
+
+    /**
+     * @brief 쌍이 사라져도 보관한 상태가 없으므로 아무것도 하지 않습니다.
+     */
+    void PhysicsRuntime::FPhysicsScene::pairLost(physx::PxU32, physx::PxFilterObjectAttributes, physx::PxFilterData, physx::PxFilterObjectAttributes, physx::PxFilterData, bool) {
+    }
+
+    /**
+     * @brief 추적 중인 쌍의 상태를 바꾸지 않습니다.
+     */
+    bool PhysicsRuntime::FPhysicsScene::statusChange(physx::PxU32&, physx::PxPairFlags&, physx::PxFilterFlags&) {
+        return false;
     }
 
     /**
