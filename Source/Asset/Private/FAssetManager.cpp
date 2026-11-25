@@ -781,6 +781,30 @@ namespace Asset {
         mAssetSaved = std::move(Handler);
     }
 
+    bool FAssetManager::MigrateAsset(const std::filesystem::path& Path, Core::FString& Error) {
+        std::filesystem::path ReferencePath{};
+        const auto ResolvedPath{ResolveAssetPath(Path, ReferencePath, Error)};
+        if (ResolvedPath.empty()) {
+            return false;
+        }
+
+        if (ReferencePath.has_root_directory() || ResolvedPath.extension() != L".masset") {
+            return true;
+        }
+
+        Asset::EAssetType Type{};
+        bool Migrated{};
+        if (!Asset::FAssetFile::Migrate(ResolvedPath, Type, Migrated, Error)) {
+            return false;
+        }
+
+        if (Migrated && mAssetSaved) {
+            mAssetSaved(ResolvedPath, Type);
+        }
+
+        return true;
+    }
+
     bool FAssetManager::SaveAssetFile(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid) {
         if (!Asset::FAssetFile::Save(Path, Type, Payload, Error, Guid)) {
             return false;
