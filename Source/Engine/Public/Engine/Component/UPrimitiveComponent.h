@@ -31,6 +31,7 @@ namespace Engine {
     class AActor;
     enum class EPrimitiveType : Uint8;
     class FPrimitiveDrawInterface;
+    class UMovementComponent;
     class UVehicleMovementComponent;
     struct FHitResult;
     struct FPrimitiveSceneProxy;
@@ -59,6 +60,13 @@ namespace Engine {
          * @brief 충돌한 액터·컴포넌트·충돌 정보를 전달하는 이벤트 시그니처입니다.
          */
         using FHitDelegate = CoreUObject::TDelegate<Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*, const Engine::FHitResult&>;
+
+    private:
+        enum class EInitialPenetrationMode : Uint8 {
+            Allow,
+            Stop,
+            Resolve
+        };
 
     public:
 
@@ -244,16 +252,17 @@ namespace Engine {
         FHitDelegate& GetOnComponentHit();
 
         /**
-         * @brief 다른 컴포넌트의 이동을 막는지 반환합니다.
-         * @return 이동을 막으면 true입니다.
+         * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만드는지 반환합니다.
+         * @return 겹침 이벤트를 만들면 true입니다.
          */
-        bool BlocksMovement() const;
+        bool GetGenerateOverlapEvents() const;
 
         /**
-         * @brief 다른 컴포넌트의 이동을 막을지 설정합니다.
-         * @param[in] Blocks 이동을 막으려면 true입니다.
+         * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만들지 설정합니다.
+         * @param[in] Generate 겹침 이벤트를 만들려면 true입니다.
+         * @note 두 컴포넌트가 모두 켜져 있어야 이벤트가 오갑니다. 끄면 다음 겹침 갱신에서 겹침 종료 이벤트가 나갑니다.
          */
-        void SetBlocksMovement(bool Blocks);
+        void SetGenerateOverlapEvents(bool Generate);
 
         /**
          * @brief 겹침 시작 델리게이트와 소유 액터의 충돌 이벤트를 호출합니다.
@@ -287,6 +296,52 @@ namespace Engine {
          * @note 반환한 바디 셋업은 물리 상태가 유지되는 동안 살아 있어야 합니다.
          */
         virtual const PhysicsRuntime::UBodySetup* GetBodySetup() const;
+
+        /**
+         * @brief 이 컴포넌트의 바디가 현재 자세에서 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+         * @param[out] OutOverlaps 겹친 바디 인스턴스의 비소유 주소 목록이며, 중복 없이 채웁니다.
+         * @return 쿼리할 바디가 있어 쿼리를 수행했으면 true입니다.
+         * @note 기본 구현은 컴포넌트 대표 바디 하나로 쿼리합니다. 바디를 여러 개 가진 컴포넌트는 재정의합니다.
+         *       결과에는 이 컴포넌트가 가진 다른 바디가 들어 있을 수 있습니다.
+         */
+        virtual bool ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const;
+
+        /**
+         * @brief 충돌 프리셋을 적용합니다.
+         * @param[in] Preset 적용할 프리셋입니다.
+         */
+        void SetCollisionPreset(PhysicsRuntime::ECollisionPreset Preset);
+
+        /**
+         * @brief 쿼리·시뮬레이션 참여 방식을 반환합니다.
+         * @return 참여 방식입니다.
+         */
+        PhysicsRuntime::ECollisionEnabled GetCollisionEnabled() const;
+
+        /**
+         * @brief 쿼리·시뮬레이션 참여 방식을 바꿉니다.
+         * @param[in] CollisionEnabled 새 참여 방식입니다.
+         */
+        void SetCollisionEnabled(PhysicsRuntime::ECollisionEnabled CollisionEnabled);
+
+        /**
+         * @brief 다른 모든 바디에 대한 응답을 바꿉니다.
+         * @param[in] Response 새 응답입니다.
+         */
+        void SetCollisionResponseToAllChannels(PhysicsRuntime::ECollisionResponse Response);
+
+    protected:
+        /**
+         * @brief 바디가 있으면 이동 경로를 쓸어 응답이 Block인 바디에 막히는 지점에서 멈추고 양쪽에 Hit 이벤트를 보냅니다.
+         * @param[in] Delta 이동할 월드 변위(m)입니다.
+         * @param[in] Sweep 이동 경로를 쓸지 여부입니다.
+         * @param[out] OutHit 막힌 지점의 정보입니다.
+         * @return 이동을 적용했으면 true입니다.
+         * @note 같은 액터의 바디에는 막히지 않습니다. 바디가 없거나 쿼리에 참여하지 않으면 쓸지 않고 옮깁니다.
+         */
+        bool MoveComponentImpl(const FVector& Delta, bool Sweep, Engine::FHitResult& OutHit) override;
+
+    public:
 
         /**
          * @brief 물리 시뮬레이션 설정과 실제 바디를 가진 바디 인스턴스를 반환합니다.
@@ -372,6 +427,7 @@ namespace Engine {
          * @note 바디 셋업이 없으면 아무것도 그리지 않습니다.
          */
         void DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight, float Thickness = 1.0f) const;
+        void DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector4& Color, float Thickness) const;
 
     private:
 
@@ -395,8 +451,12 @@ namespace Engine {
 
     private:
 
+        friend class UMovementComponent;
         friend class UVehicleMovementComponent;
 
+        bool MoveComponentSwept(const FVector& Delta, const FQuat& NewRotation, EInitialPenetrationMode PenetrationMode, Engine::FHitResult& OutHit);
+
+    private:
         /**
          * @brief 프록시 전체 재생성이 필요한지 여부입니다.
          */
@@ -405,19 +465,19 @@ namespace Engine {
         /**
          * @brief 프리미티브의 그림자 생성 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetCastShadow, Setter = SetCastShadow)
+        UPROPERTY(Edit, Serialize, Category = "Rendering", Getter = GetCastShadow, Setter = SetCastShadow)
         bool mCastShadow{true};
 
         /**
          * @brief 프리미티브의 그림자 수신 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetReceiveShadow, Setter = SetReceiveShadow)
+        UPROPERTY(Edit, Serialize, Category = "Rendering", Getter = GetReceiveShadow, Setter = SetReceiveShadow)
         bool mReceiveShadow{true};
 
         /**
          * @brief 이 프리미티브가 데칼을 받는지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetReceivesDecals, Setter = SetReceivesDecals)
+        UPROPERTY(Edit, Serialize, Category = "Rendering", Getter = GetReceivesDecals, Setter = SetReceivesDecals)
         bool mReceivesDecals{true};
 
         /**
@@ -457,15 +517,15 @@ namespace Engine {
         CoreUObject::TObjectRef<CoreUObject::UObject> mUVSource{};
 
         /**
-         * @brief 다른 컴포넌트의 이동을 막는지 여부입니다.
+         * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만드는지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = BlocksMovement, Setter = SetBlocksMovement)
-        bool mBlocksMovement{};
+        UPROPERTY(Edit, Serialize, Category = "Collision", Getter = GetGenerateOverlapEvents, Setter = SetGenerateOverlapEvents)
+        bool mGenerateOverlapEvents{};
 
         /**
          * @brief 물리 시뮬레이션 설정과 실제 바디입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetBodyInstance, Setter = SetBodyInstance)
+        UPROPERTY(Edit, Serialize, ShowOnlyInnerProperties, Category = "Physics", Getter = GetBodyInstance, Setter = SetBodyInstance)
         PhysicsRuntime::FBodyInstance mBodyInstance{};
 
         /** @brief 단일 바디 생성 직후와 해제 직전에 알립니다. */

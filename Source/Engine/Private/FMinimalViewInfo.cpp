@@ -5,11 +5,16 @@
  */
 
 #include "Engine/FMinimalViewInfo.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Engine/FSceneView.h"
 #include "Core/Math/FMatrix.h"
 #include <cmath>
 
+using namespace Core::Literals;
+
 namespace Engine {
+
+    constinit const Core::FAngle Engine::FMinimalViewInfo::mDefaultFieldOfView{60_deg};
 
     Engine::FMinimalViewInfo Engine::FMinimalViewInfo::Blend(const Engine::FMinimalViewInfo& Other, float Alpha) const {
         Engine::FMinimalViewInfo Result{};
@@ -24,9 +29,9 @@ namespace Engine {
 
         if (Alpha > 0.0f && Alpha < 1.0f) {
             if (From.mEnabled && To.mEnabled) {
-                DepthOfField.mFocalDistance = std::lerp(From.mFocalDistance, To.mFocalDistance, Alpha);
-                DepthOfField.mFocusWidth = std::lerp(From.mFocusWidth, To.mFocusWidth, Alpha);
-                DepthOfField.mTransitionDistance = std::lerp(From.mTransitionDistance, To.mTransitionDistance, Alpha);
+                DepthOfField.mFocalDistance = Core::Math::Lerp(From.mFocalDistance, To.mFocalDistance, Alpha);
+                DepthOfField.mFocusWidth = Core::Math::Lerp(From.mFocusWidth, To.mFocusWidth, Alpha);
+                DepthOfField.mTransitionDistance = Core::Math::Lerp(From.mTransitionDistance, To.mTransitionDistance, Alpha);
                 DepthOfField.mMaxBlurRadius = std::lerp(From.mMaxBlurRadius, To.mMaxBlurRadius, Alpha);
                 DepthOfField.mFStop = std::lerp(From.mFStop, To.mFStop, Alpha);
             } else if (From.mEnabled != To.mEnabled) {
@@ -40,7 +45,7 @@ namespace Engine {
     }
 
     bool Engine::FMinimalViewInfo::CalcSceneView(const FVector2& Size, Engine::FSceneView& View) const {
-        if (!std::isfinite(Size.x) || !std::isfinite(Size.y) || Size.x <= 0.0f || Size.y <= 0.0f || !mLocation.IsFinite() || !mRotation.IsFinite() || !std::isfinite(mFieldOfView) || mFieldOfView <= 0.0f || mFieldOfView >= 180.0f) {
+        if (!std::isfinite(Size.x) || !std::isfinite(Size.y) || Size.x <= 0.0f || Size.y <= 0.0f || !mLocation.IsFinite() || !mRotation.IsFinite() || !mFieldOfView.IsFinite() || mFieldOfView <= 0_deg || mFieldOfView >= 180_deg) {
             return false;
         }
 
@@ -51,7 +56,7 @@ namespace Engine {
         CameraView.mFieldOfView = mFieldOfView;
         CameraView.mDepthOfFieldSettings = mDepthOfFieldSettings;
         CameraView.mView = FMatrix::LookTo(CameraView.mLocation, CameraView.mForward, mRotation.UpVector());
-        CameraView.mProjection = FMatrix::Perspective(mFieldOfView, Size.x / Size.y, 0.05f, 10000.0f);
+        CameraView.mProjection = FMatrix::Perspective(mFieldOfView, Size.x / Size.y, 0.05_m, 10000_m);
         CameraView.mViewProjection = CameraView.mView * CameraView.mProjection;
         View = CameraView;
 

@@ -100,6 +100,7 @@ namespace Editor {
          * @return 월드 좌표계의 세 단위 축입니다.
          */
         static const Core::TStaticArray<FVector, 3>& GetUnitAxes();
+        static const Core::TStaticArray<FVector, 3>& GetAxisColors();
 
         /**
          * @brief 기즈모 핸들이 주어진 로컬 축에 영향을 주는지 검사합니다.
@@ -320,12 +321,12 @@ namespace Editor {
         /**
          * @brief 각 프레임의 회전을 더하여 여러 바퀴 회전도 유지하는 라디안 각도입니다.
          */
-        float mRawAngle{};
+        Core::FAngle mRawAngle{};
 
         /**
          * @brief 각도 스냅을 적용한 실제 라디안 회전량입니다.
          */
-        float mAppliedAngle{};
+        Core::FAngle mAppliedAngle{};
 
         /**
          * @brief 스냅을 적용한 스케일 변화량입니다.

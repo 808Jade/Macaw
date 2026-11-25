@@ -74,7 +74,7 @@ namespace Renderer {
     /**
      * @brief SubMesh마다 머티리얼 없이 깊이 전용 파이프라인 드로를 추가합니다.
      */
-    void Renderer::FShadowDepthPass::AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily&, Core::TArray<Renderer::FMeshDrawCommand>& Commands) {
+    void Renderer::FShadowDepthPass::AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily&, Core::TArray<Renderer::FMeshDrawCommand>& Commands, const Engine::FParticleMeshBatch*) {
         const bool Skinned{Primitive.mProxy.mSkeletalMesh != nullptr};
         Renderer::FMaterialPipeline* SurfacePipeline{Skinned ? mRenderer->GetDepthPipeline(true) : mPipeline};
 
@@ -86,10 +86,9 @@ namespace Renderer {
 
         for (Index_t SubMeshIndex{}; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
             const Asset::FSubMesh& SubMesh{SubMeshes[SubMeshIndex]};
-            Asset::UMaterial* SlotMaterial{SubMesh.GetMaterialIndex() < Primitive.mProxy.mMaterials.size() ? Primitive.mProxy.mMaterials[SubMesh.GetMaterialIndex()] : nullptr};
-            Asset::UMaterial* Material{Primitive.mProxy.mMaterial != nullptr ? Primitive.mProxy.mMaterial.Get() : SlotMaterial};
+            Asset::UMaterial* Material{ResolveMaterial(Primitive, SubMesh.GetMaterialIndex(), nullptr, nullptr)};
 
-            if (Material != nullptr && Material->GetBlendMode() == Asset::EBlendMode::Translucent) {
+            if (Material != nullptr && Material->GetBlendMode() != Asset::EBlendMode::Opaque) {
                 continue;
             }
 

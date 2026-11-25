@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Editor/FEditorContext.h"
 #include "Editor/FEditorViewport.h"
 #include "Core/FilePath.h"
@@ -54,6 +55,8 @@
 
 #include <Windows.h>
 #include <utility>
+
+using namespace Core::Literals;
 
 namespace Editor {
 
@@ -780,6 +783,47 @@ namespace Editor {
         return Added;
     }
 
+    bool Editor::FEditorContext::CanAttachComponent(const Engine::USceneComponent* Component, const Engine::USceneComponent* Parent) const {
+        return CanModifyScene() && GetWorld()->ContainsObject(Component) && (Parent == nullptr || GetWorld()->ContainsObject(Parent)) && Component->CanSetAttachParent(Parent);
+    }
+
+    bool Editor::FEditorContext::AttachComponent(Engine::USceneComponent* Component, Engine::USceneComponent* Parent) {
+        if (!CanAttachComponent(Component, Parent)) {
+            return false;
+        }
+
+        FSceneEditScope Edit{*this};
+
+        if (!Component->SetAttachParent(Parent)) {
+            return false;
+        }
+
+        NoteSceneEdit();
+
+        return true;
+    }
+
+    bool Editor::FEditorContext::CanPromoteRootComponent(const Engine::USceneComponent* Component) const {
+        return CanModifyScene() && GetWorld()->ContainsObject(Component) && Component->GetOwner()->CanPromoteRootComponent(Component);
+    }
+
+    bool Editor::FEditorContext::PromoteRootComponent(Engine::USceneComponent* Component) {
+        if (!CanPromoteRootComponent(Component)) {
+            return false;
+        }
+
+        FSceneEditScope Edit{*this};
+
+        if (!Component->GetOwner()->PromoteRootComponent(Component)) {
+            return false;
+        }
+
+        ++mSelectionRevision;
+        NoteSceneEdit();
+
+        return true;
+    }
+
     /**
      * @brief 현재 선택에서 사용할 수 있는 카메라 컴포넌트를 조회합니다.
      */
@@ -876,6 +920,42 @@ namespace Editor {
         return Removed;
     }
 
+    bool Editor::FEditorContext::DestroySelectedComponent() {
+        if (!CanModifyScene() || IsSceneEditActive()) {
+            return false;
+        }
+
+        auto* Component{CoreUObject::Cast<Engine::UActorComponent>(GetSelectedObject())};
+
+        if (Component == nullptr) {
+            return false;
+        }
+
+        FSceneEditScope Edit{*this};
+        FOperationScope Scope{&mChangingState};
+        Engine::AActor* Actor{Component->GetOwner()};
+        const CoreUObject::TObjectRef<Engine::AActor> ActorHandle{CoreUObject::MakeObjectRef(Actor)};
+        const Core::FString Name{Component->GetName()};
+
+        if (!Actor->RemoveComponent(Component)) {
+            return false;
+        }
+
+        AssignSelection({ActorHandle}, ActorHandle);
+        NoteSceneEdit();
+        AddLog("Deleted " + Name);
+
+        return true;
+    }
+
+    bool Editor::FEditorContext::DestroySelection() {
+        if (CoreUObject::Cast<Engine::UActorComponent>(GetSelectedObject()) != nullptr) {
+            return DestroySelectedComponent();
+        }
+
+        return DestroySelectedActor();
+    }
+
     /**
      * @brief 편집 월드, 객체, 프로퍼티 소속과 편집 권한을 함께 검사합니다.
      */
@@ -948,7 +1028,7 @@ namespace Editor {
         FOperationScope Scope{&mChangingState};
         Core::FString Error{};
         Engine::FProject* Project{GetProject()};
-        const std::filesystem::path ScenePath{Project != nullptr ? Project->GetAssets()->ResolvePath(Path, Error) : std::filesystem::path{}};
+        const std::filesystem::path ScenePath{Project != nullptr ? Project->GetAssets()->ResolveWritablePath(Path, Error) : std::filesystem::path{}};
 
         if (ScenePath.empty()) {
             AddLog(Error.empty() ? "Open a project before saving a scene" : Error);
@@ -1565,9 +1645,7 @@ namespace Editor {
         }
 
         // 설정 이름과 값의 위치를 한곳에 모아 보여 주기와 바꾸기에 함께 씁니다.
-        const auto GetFloats{[](PhysicsRuntime::UClothConfigNv& Config) {
-            return Editor::ClothEditing::GetConfigFloats(Config);
-        }};
+        const auto& Fields{Editor::ClothEditing::GetConfigFields()};
         const auto GetVectors{[](PhysicsRuntime::UClothConfigNv& Config) {
             return Editor::ClothEditing::GetConfigVectors(Config);
         }};
@@ -1580,8 +1658,10 @@ namespace Editor {
                 return false;
             }
 
-            for (const auto& [EntryName, Value] : GetFloats(*Config)) {
-                AddLog(EntryName + " = " + std::to_string(*Value));
+            for (const auto& Field : Fields) {
+                if (Field.HasScalarValue()) {
+                    AddLog(Core::FString{Field.mKey} + " = " + std::to_string(Field.GetScalarValue(*Config)));
+                }
             }
 
             for (const auto& [EntryName, Value] : GetVectors(*Config)) {
@@ -1609,9 +1689,9 @@ namespace Editor {
                 continue;
             }
 
-            for (const auto& [EntryName, Value] : GetFloats(*Config)) {
-                if (EntryName == Name) {
-                    *Value = Values[0];
+            for (const auto& Field : Fields) {
+                if (Field.HasScalarValue() && Name == Field.mKey) {
+                    Field.SetScalarValue(*Config, Values[0]);
                     Found = true;
                 }
             }
@@ -2090,7 +2170,7 @@ namespace Editor {
         FTransform Placement{mPlacementProvider ? mPlacementProvider() : FTransform{}};
 
         if (Preset.find("DirectionalLight") != Core::FString::npos || Preset.find("SpotLight") != Core::FString::npos) {
-            Placement.mRotation = FRotator{-45.0f, 0.0f, 0.0f}.Quaternion();
+            Placement.mRotation = FRotator{-45_deg, 0_deg, 0_deg}.Quaternion();
         }
 
         return SpawnActorPreset(Preset, Placement);
@@ -2132,7 +2212,7 @@ namespace Editor {
         }
 
         if (auto* Sprite{CoreUObject::Cast<Engine::UBillboardComponent>(Actor->GetRootComponent())}) {
-            Sprite->SetTexturePath("Editor/Icon/Pawn_64x.png");
+            Sprite->SetTexturePath("/Engine/Editor/Icon/Pawn_64x.png");
         }
 
         CompleteActorSpawn(Actor, "Placed ");

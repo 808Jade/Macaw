@@ -129,9 +129,21 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
 
     auto DepthOfField{Lua.new_usertype<Engine::FDepthOfFieldSettings>("DepthOfFieldSettings", sol::constructors<Engine::FDepthOfFieldSettings()>())};
     DepthOfField["Enabled"] = &Engine::FDepthOfFieldSettings::mEnabled;
-    DepthOfField["FocalDistance"] = &Engine::FDepthOfFieldSettings::mFocalDistance;
-    DepthOfField["FocusWidth"] = &Engine::FDepthOfFieldSettings::mFocusWidth;
-    DepthOfField["TransitionDistance"] = &Engine::FDepthOfFieldSettings::mTransitionDistance;
+    DepthOfField["FocalDistance"] = sol::property([](const Engine::FDepthOfFieldSettings& Settings) {
+        return Settings.mFocalDistance.GetBase();
+    }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
+        Settings.mFocalDistance = Core::FLength::FromBase(Meters);
+    });
+    DepthOfField["FocusWidth"] = sol::property([](const Engine::FDepthOfFieldSettings& Settings) {
+        return Settings.mFocusWidth.GetBase();
+    }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
+        Settings.mFocusWidth = Core::FLength::FromBase(Meters);
+    });
+    DepthOfField["TransitionDistance"] = sol::property([](const Engine::FDepthOfFieldSettings& Settings) {
+        return Settings.mTransitionDistance.GetBase();
+    }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
+        Settings.mTransitionDistance = Core::FLength::FromBase(Meters);
+    });
     DepthOfField["MaxBlurRadius"] = &Engine::FDepthOfFieldSettings::mMaxBlurRadius;
     DepthOfField["FStop"] = &Engine::FDepthOfFieldSettings::mFStop;
     DepthOfField["ApertureShape"] = &Engine::FDepthOfFieldSettings::mApertureShape;
@@ -143,13 +155,24 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Hit["ImpactPoint"] = sol::readonly(&Engine::FHitResult::mImpactPoint);
     Hit["Normal"] = sol::readonly(&Engine::FHitResult::mNormal);
     Hit["Time"] = sol::readonly(&Engine::FHitResult::mTime);
+    Hit["Distance"] = sol::property([](const Engine::FHitResult& Value) {
+        return Value.mDistance.GetBase();
+    });
+    Hit["Location"] = sol::readonly(&Engine::FHitResult::mLocation);
+    Hit["ImpactNormal"] = sol::readonly(&Engine::FHitResult::mImpactNormal);
+    Hit["StartPenetrating"] = sol::readonly(&Engine::FHitResult::mStartPenetrating);
+    Hit["PenetrationDepth"] = sol::property([](const Engine::FHitResult& Value) {
+        return Value.mPenetrationDepth.GetBase();
+    });
 
     auto RaycastHit{Lua.new_usertype<Engine::FWorldHit>("RaycastHit", sol::no_constructor)};
     RaycastHit["IsHit"] = sol::property([](const Engine::FWorldHit& Value) {
         return Value.mActor.Get() != nullptr;
     });
     RaycastHit["Position"] = sol::readonly(&Engine::FWorldHit::mPosition);
-    RaycastHit["Distance"] = sol::readonly(&Engine::FWorldHit::mDistance);
+    RaycastHit["Distance"] = sol::property([](const Engine::FWorldHit& Value) {
+        return Value.mDistance.GetBase();
+    });
 
     auto Component{Lua.new_usertype<FLuaComponentRef>("Component", sol::no_constructor)};
     Component["IsValid"] = [](const FLuaComponentRef& Ref) {
@@ -197,7 +220,7 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     };
     Component["SetDepthOfFieldFocalDistance"] = [](const FLuaComponentRef& Ref, float Distance) {
         auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
-        return Camera != nullptr && Camera->SetDepthOfFieldFocalDistance(Distance);
+        return Camera != nullptr && Camera->SetDepthOfFieldFocalDistance(Core::FLength::FromBase(Distance));
     };
     Component["SetDriveTorque"] = [](const FLuaComponentRef& Ref, float Torque, Uint32 WheelIndex) {
         auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};
@@ -345,6 +368,29 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Actor["SetActorTransform"] = [](const FActorRef& Ref, const FTransform& Value) {
         return Ref.Resolve().SetActorTransform(Value);
     };
+    Actor["GetActorLocation"] = [](const FActorRef& Ref) {
+        return Ref.Resolve().GetActorLocation();
+    };
+    Actor["SetActorLocation"] = [](const FActorRef& Ref, const FVector& NewLocation, sol::optional<bool> Sweep) {
+        if (!NewLocation.IsFinite()) {
+            throw sol::error{"Invalid actor location"};
+        }
+
+        Engine::FHitResult Hit{};
+        const bool Moved{Ref.Resolve().SetActorLocation(NewLocation, Sweep.value_or(false), &Hit)};
+
+        return std::make_tuple(Moved, Hit);
+    };
+    Actor["AddActorWorldOffset"] = [](const FActorRef& Ref, const FVector& DeltaLocation, sol::optional<bool> Sweep) {
+        if (!DeltaLocation.IsFinite()) {
+            throw sol::error{"Invalid actor offset"};
+        }
+
+        Engine::FHitResult Hit{};
+        const bool Moved{Ref.Resolve().AddActorWorldOffset(DeltaLocation, Sweep.value_or(false), &Hit)};
+
+        return std::make_tuple(Moved, Hit);
+    };
     Actor["GetComponentByClass"] = [](const FActorRef& Ref, const Core::FString& ClassName) -> sol::optional<FLuaComponentRef> {
         const auto* Class{CoreUObject::FReflectionRegistry::FindClass(ClassName)};
         if (Class == nullptr || !Class->IsChildOf(Engine::UActorComponent::StaticClass())) {
@@ -399,13 +445,6 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         const auto& Target{Ref.Resolve()};
         const auto Location{Target.GetActorTransform().mLocation};
         std::clog << Target.GetName() << " Location " << Location.x << ' ' << Location.y << ' ' << Location.z << '\n';
-    };
-    Actor["MoveSwept"] = [](const FActorRef& Ref, const FVector& Delta) {
-        auto& Target{Ref.Resolve()};
-        if (Target.GetWorld() == nullptr || !Delta.IsFinite()) {
-            throw sol::error{"Invalid sweep movement"};
-        }
-        return Target.GetWorld()->MoveActorSwept(Target, Delta);
     };
 
     auto World{Lua.create_named_table("World")};

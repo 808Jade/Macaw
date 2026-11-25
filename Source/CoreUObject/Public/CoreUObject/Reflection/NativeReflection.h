@@ -111,9 +111,10 @@ namespace CoreUObject {
      * @param[in,out] Information 프로퍼티를 추가할 리플렉션 빌더입니다.
      * @param[in] Name 조회하거나 기록할 이름입니다.
      * @param[in] Flags 프로퍼티의 편집·직렬화 정책 플래그입니다.
+     * @param[in] MetaData Category를 포함한 에디터용 키·값 메타데이터입니다.
      */
     template <auto Member, auto Getter, auto Setter>
-    void RegisterProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags);
+    void RegisterProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags, Core::FPropertyMetaData MetaData);
 
     /**
      * @brief 읽기 전용 프로퍼티와 로드에 사용하는 별도 쓰기 함수를 등록합니다.
@@ -210,9 +211,10 @@ namespace CoreUObject {
      * @param[in,out] Information 프로퍼티를 추가할 리플렉션 빌더입니다.
      * @param[in] Name 조회하거나 기록할 이름입니다.
      * @param[in] Flags 프로퍼티의 편집·직렬화 정책 플래그입니다.
+     * @param[in] MetaData Category를 포함한 에디터용 키·값 메타데이터입니다.
      */
     template <auto Member, auto Getter, auto Setter>
-    void RegisterArrayProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags);
+    void RegisterArrayProperty(CoreUObject::FReflectionBuilder& Information, Core::FString Name, Core::EPropertyFlags Flags, Core::FPropertyMetaData MetaData);
 
 }
 

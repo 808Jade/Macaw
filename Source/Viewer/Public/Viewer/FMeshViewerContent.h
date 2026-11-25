@@ -148,7 +148,7 @@ namespace Viewer {
          * @param Skeleton 호출자가 수명을 보장하는 스켈레톤입니다.
          * @return 메시와 스켈레톤을 함께 사용할 수 있으면 true입니다.
          */
-        bool SetSkeleton(Asset::USkeleton* Skeleton);
+        bool SetSkeleton(Asset::USkeleton* Skeleton, bool ShowBones = false);
 
         /**
          * @brief 콘텐츠 변경을 표시하고 미리보기 프록시와 경계를 다시 구성합니다.
@@ -230,6 +230,7 @@ namespace Viewer {
          * @brief 스켈레톤 오버레이의 본·관절 도형 캐시입니다.
          */
         Core::TArray<Viewer::FBoneShape> mSkeletonShapes{};
+        bool mShowBones{};
         
 
         /**

@@ -10,9 +10,9 @@
 #include "Engine/Collision/FHitResult.h"
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Engine/Component/USceneComponent.h"
+#include "Engine/UWorld.h"
 
 #include <algorithm>
-#include <cmath>
 
 namespace Engine {
 
@@ -85,8 +85,8 @@ namespace Engine {
         return true;
     }
 
-    bool UMovementComponent::ShouldSkipUpdate(float DeltaTime) const {
-        return !std::isfinite(DeltaTime) || DeltaTime <= 0.0f || GetUpdatedComponent() == nullptr;
+    bool UMovementComponent::ShouldSkipUpdate(Core::FTime DeltaTime) const {
+        return !DeltaTime.IsFinite() || DeltaTime <= Core::FTime{} || GetUpdatedComponent() == nullptr;
     }
 
     bool UMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool Sweep, Engine::FHitResult* OutHit) {
@@ -135,6 +135,46 @@ namespace Engine {
         auto* Component{IsRegistered() ? ResolveUpdatedComponent() : nullptr};
         GetPrimaryComponentTick().SetTickEnabled(Component != nullptr);
         OnUpdatedComponentChanged(Component);
+    }
+
+    bool UMovementComponent::MoveUpdatedComponentInternal(const FVector& Delta, const FQuat& NewRotation, bool Sweep, bool ResolvePenetration, Engine::FHitResult* OutHit) {
+        Engine::USceneComponent* Component{GetUpdatedComponent()};
+        FTransform Pose{Component != nullptr ? Component->GetTransform() : FTransform{}};
+        const FVector End{Pose.mLocation + Delta};
+
+        if (Component == nullptr || !End.IsFinite() || !NewRotation.IsNormalized()) {
+            if (OutHit != nullptr) {
+                OutHit->Init();
+            }
+
+            return false;
+        }
+
+        Engine::UWorld::FDispatchScope Scope{GetWorld()};
+        Engine::FHitResult Hit{};
+        Hit.Init(Pose.mLocation, End);
+        auto* Primitive{Sweep ? CoreUObject::Cast<Engine::UPrimitiveComponent>(Component) : nullptr};
+        bool Moved{};
+
+        if (Primitive != nullptr) {
+            const UPrimitiveComponent::EInitialPenetrationMode PenetrationMode{ResolvePenetration ? UPrimitiveComponent::EInitialPenetrationMode::Resolve : UPrimitiveComponent::EInitialPenetrationMode::Stop};
+            Moved = Primitive->MoveComponentSwept(Delta, NewRotation, PenetrationMode, Hit);
+        } else {
+            Pose.mLocation = End;
+            Pose.mRotation = NewRotation;
+            Moved = Component->SetTransform(Pose);
+        }
+
+        if (!Hit.mBlockingHit) {
+            Hit.mDistance = Core::FLength::FromBase(Delta.Length());
+            Hit.mLocation = Hit.mTraceEnd;
+        }
+
+        if (OutHit != nullptr) {
+            *OutHit = Hit;
+        }
+
+        return Moved;
     }
 
 }

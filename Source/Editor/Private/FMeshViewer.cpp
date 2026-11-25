@@ -10,6 +10,7 @@
 #include "Viewer/FMeshViewerContent.h"
 #include "Viewer/FBonePreview.h"
 #include "Core/FilePath.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/Math/FBox.h"
 #include "Core/Math/FQuat.h"
 #include "Core/Math/FRay.h"
@@ -40,6 +41,8 @@
 #include <cmath>
 #include <d3d11.h>
 #include <limits>
+
+using namespace Core::Literals;
 
 namespace Editor {
 
@@ -167,7 +170,7 @@ namespace Editor {
      */
     void Editor::FMeshViewer::FrameMesh() {
         if (mContent != nullptr) {
-            mViewer.GetCamera().SetRotation({-20.0f, 45.0f, 0.0f});
+            mViewer.GetCamera().SetRotation({-20_deg, 45_deg, 0_deg});
             mViewer.Fit();
             mNeedsFit = true;
         }

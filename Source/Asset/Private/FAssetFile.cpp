@@ -9,6 +9,7 @@
 #include "Core/LoadingStatus.h"
 #include "Core/Types.h"
 
+#include <algorithm>
 #include <fstream>
 
 namespace Asset {
@@ -25,17 +26,23 @@ namespace Asset {
         /**
          * @brief 현재 지원하는 에셋 파일 형식 버전입니다.
          */
-        constexpr Uint32 AssetVersion{1};
+        constexpr Uint32 InitialAssetVersion{1};
+        constexpr Uint32 GuidAssetVersion{2};
+        constexpr Uint32 ThumbnailAssetVersion{3};
 
         /**
          * @brief 에셋 파일에서 허용하는 최대 페이로드 바이트 수입니다.
          */
         constexpr Uint64 MaximumPayload{512ULL * 1024 * 1024};
+        constexpr Uint32 MaximumThumbnail{1024 * 1024};
+        constexpr Uint64 MaximumRedirectorPayload{128 * 1024};
 
         /**
          * @brief 페이로드 앞에 저장하는 에셋 헤더의 바이트 수입니다.
          */
         constexpr Uint64 HeaderSize{24};
+        constexpr Uint64 GuidHeaderSize{HeaderSize + 16};
+        constexpr Uint64 ThumbnailHeaderSize{GuidHeaderSize + sizeof(Uint32)};
 
         /**
          * @brief 에셋 파일을 열고 매직·버전·종류·데이터 크기를 검증합니다.
@@ -46,14 +53,15 @@ namespace Asset {
          * @param[out] Error 실패 원인을 받을 오류 문자열입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool ReadHeader(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType& Type, Uint64& Size, Core::FGuid& Guid, Core::FString& Error) {
+        bool ReadHeader(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType& Type, Uint64& Size, Core::FGuid& Guid, Uint32& ThumbnailSize, Core::FString& Error) {
             Error.clear();
             Guid = Core::FGuid::Null();
+            ThumbnailSize = 0;
 
             std::error_code Code{};
             const Uint64 FileSize{std::filesystem::file_size(Path, Code)};
 
-            if (Code || Path.extension() != L".masset" || FileSize < HeaderSize || FileSize - HeaderSize > MaximumPayload + 16) {
+            if (Code || Path.extension() != L".masset" || FileSize < HeaderSize || FileSize > ThumbnailHeaderSize + MaximumPayload + MaximumThumbnail) {
                 Error = "Cannot read asset file or invalid asset size";
 
                 return false;
@@ -70,13 +78,19 @@ namespace Asset {
             Input.read(reinterpret_cast<char*>(&TypeValue), sizeof(TypeValue));
             Input.read(reinterpret_cast<char*>(&Size), sizeof(Size));
 
-            if (Version == 2) {
+            if (Version == GuidAssetVersion || Version == ThumbnailAssetVersion) {
                 Input.read(reinterpret_cast<char*>(Guid.mBytes.data()), Guid.mBytes.size());
             }
 
-            const Uint64 ActualHeaderSize{HeaderSize + (Version == 2 ? Guid.mBytes.size() : 0)};
+            if (Version == ThumbnailAssetVersion) {
+                Input.read(reinterpret_cast<char*>(&ThumbnailSize), sizeof(ThumbnailSize));
+            }
 
-            if (!Input || Magic != AssetMagic || (Version != AssetVersion && Version != 2) || TypeValue < static_cast<Uint32>(Asset::EAssetType::Scene) || TypeValue > static_cast<Uint32>(Asset::EAssetType::PhysicsAsset) || (Version == 2 && !Guid.IsValid()) || FileSize < ActualHeaderSize || Size == 0 || Size > MaximumPayload || Size != FileSize - ActualHeaderSize) {
+            const bool ValidVersion{Version == InitialAssetVersion || Version == GuidAssetVersion || Version == ThumbnailAssetVersion};
+            const Uint64 ActualHeaderSize{Version == ThumbnailAssetVersion ? ThumbnailHeaderSize : Version == GuidAssetVersion ? GuidHeaderSize : HeaderSize};
+            const bool InvalidRedirector{TypeValue == static_cast<Uint32>(Asset::EAssetType::Redirector) && (Size > MaximumRedirectorPayload || Guid.IsValid() || ThumbnailSize != 0)};
+
+            if (!Input || Magic != AssetMagic || !ValidVersion || TypeValue < static_cast<Uint32>(Asset::EAssetType::Scene) || TypeValue > static_cast<Uint32>(Asset::EAssetType::Redirector) || InvalidRedirector || (Version == GuidAssetVersion && !Guid.IsValid()) || Size == 0 || Size > MaximumPayload || ThumbnailSize > MaximumThumbnail || FileSize != ActualHeaderSize + Size + ThumbnailSize) {
                 Error = "Invalid asset header, version or type";
                 Guid = Core::FGuid::Null();
 
@@ -87,24 +101,39 @@ namespace Asset {
 
             return true;
         }
+
+        void WriteHeader(std::ostream& Output, Uint32 Version, Asset::EAssetType Type, Uint64 Size, const Core::FGuid& Guid, Uint32 ThumbnailSize) {
+            const Uint32 TypeValue{static_cast<Uint32>(Type)};
+            Output.write(AssetMagic.data(), AssetMagic.size());
+            Output.write(reinterpret_cast<const char*>(&Version), sizeof(Version));
+            Output.write(reinterpret_cast<const char*>(&TypeValue), sizeof(TypeValue));
+            Output.write(reinterpret_cast<const char*>(&Size), sizeof(Size));
+
+            if (Version == GuidAssetVersion || Version == ThumbnailAssetVersion) {
+                Output.write(reinterpret_cast<const char*>(Guid.mBytes.data()), Guid.mBytes.size());
+            }
+
+            if (Version == ThumbnailAssetVersion) {
+                Output.write(reinterpret_cast<const char*>(&ThumbnailSize), sizeof(ThumbnailSize));
+            }
+        }
     }
 
     /**
      * @brief 에셋 파일 헤더를 검사하여 저장된 에셋 종류를 읽습니다.
      */
     bool Asset::FAssetFile::GetType(const std::filesystem::path& Path, Asset::EAssetType& Type, Core::FString& Error) {
-        std::ifstream Input{};
-        Uint64 Size{};
         Core::FGuid Guid{Core::FGuid::Null()};
 
-        return ReadHeader(Path, Input, Type, Size, Guid, Error);
+        return GetIdentity(Path, Type, Guid, Error);
     }
 
     bool FAssetFile::GetIdentity(const std::filesystem::path& Path, Asset::EAssetType& Type, Core::FGuid& Guid, Core::FString& Error) {
         std::ifstream Input{};
         Uint64 Size{};
+        Uint32 ThumbnailSize{};
 
-        return ReadHeader(Path, Input, Type, Size, Guid, Error);
+        return ReadHeader(Path, Input, Type, Size, Guid, ThumbnailSize, Error);
     }
 
     /**
@@ -113,7 +142,8 @@ namespace Asset {
     bool Asset::FAssetFile::Save(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid) {
         Error.clear();
 
-        if (Path.extension() != L".masset" || Payload.empty() || Payload.size() > MaximumPayload || Type < Asset::EAssetType::Scene || Type > Asset::EAssetType::PhysicsAsset) {
+        const bool InvalidRedirector{Type == Asset::EAssetType::Redirector && (Payload.size() > MaximumRedirectorPayload || Guid.IsValid())};
+        if (Path.extension() != L".masset" || Payload.empty() || Payload.size() > MaximumPayload || Type < Asset::EAssetType::Scene || Type > Asset::EAssetType::Redirector || InvalidRedirector) {
             Error = "Invalid asset path, type or payload";
 
             return false;
@@ -144,20 +174,11 @@ namespace Asset {
             return false;
         }
 
-        const Uint32 TypeValue{static_cast<Uint32>(Type)};
         const Uint64 Size{Payload.size()};
         const Core::FGuid Identity{Guid.IsValid() ? Guid : ExistingGuid};
-        const Uint32 Version{Identity.IsValid() ? 2U : AssetVersion};
+        const Uint32 Version{Identity.IsValid() ? GuidAssetVersion : InitialAssetVersion};
         std::ostream& Output{Writer.GetStream()};
-        Output.write(AssetMagic.data(), AssetMagic.size());
-        Output.write(reinterpret_cast<const char*>(&Version), sizeof(Version));
-        Output.write(reinterpret_cast<const char*>(&TypeValue), sizeof(TypeValue));
-        Output.write(reinterpret_cast<const char*>(&Size), sizeof(Size));
-
-        if (Version == 2) {
-            Output.write(reinterpret_cast<const char*>(Identity.mBytes.data()), Identity.mBytes.size());
-        }
-
+        WriteHeader(Output, Version, Type, Size, Identity, 0);
         Output.write(reinterpret_cast<const char*>(Payload.data()), static_cast<std::streamsize>(Size));
 
         return Writer.Commit(Error);
@@ -173,8 +194,9 @@ namespace Asset {
         Asset::EAssetType ActualType{Type};
         Uint64 Size{};
         Core::FGuid Guid{Core::FGuid::Null()};
+        Uint32 ThumbnailSize{};
 
-        if (!ReadHeader(Path, Input, ActualType, Size, Guid, Error)) {
+        if (!ReadHeader(Path, Input, ActualType, Size, Guid, ThumbnailSize, Error)) {
             return false;
         }
 
@@ -197,6 +219,89 @@ namespace Asset {
         Payload = std::move(Candidate);
 
         return true;
+    }
+
+    bool FAssetFile::LoadThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type, Core::TArray<Uint8>& Thumbnail) {
+        std::ifstream Input{};
+        Asset::EAssetType ActualType{};
+        Uint64 Size{};
+        Core::FGuid Guid{Core::FGuid::Null()};
+        Uint32 ThumbnailSize{};
+        Core::FString Error{};
+
+        if (!ReadHeader(Path, Input, ActualType, Size, Guid, ThumbnailSize, Error) || ActualType != Type || ThumbnailSize == 0) {
+            return false;
+        }
+
+        Core::TArray<Uint8> Candidate{};
+        Candidate.resize(ThumbnailSize);
+        Input.seekg(static_cast<std::streamoff>(Size), std::ios::cur);
+        Input.read(reinterpret_cast<char*>(Candidate.data()), static_cast<std::streamsize>(ThumbnailSize));
+
+        if (!Input) {
+            return false;
+        }
+
+        Thumbnail = std::move(Candidate);
+        return true;
+    }
+
+    bool FAssetFile::SaveThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Thumbnail, std::filesystem::file_time_type SavedTime, Core::FString& Error) {
+        if (Thumbnail.empty() || Thumbnail.size() > MaximumThumbnail) {
+            Error = "Invalid asset thumbnail size";
+            return false;
+        }
+
+        std::error_code Code{};
+        if (std::filesystem::last_write_time(Path, Code) != SavedTime || Code) {
+            Error = "Asset changed before saving its thumbnail";
+            return false;
+        }
+
+        std::ifstream Input{};
+        Asset::EAssetType ActualType{};
+        Uint64 Size{};
+        Core::FGuid Guid{Core::FGuid::Null()};
+        Uint32 ExistingThumbnailSize{};
+
+        if (!ReadHeader(Path, Input, ActualType, Size, Guid, ExistingThumbnailSize, Error)) {
+            return false;
+        }
+
+        if (ActualType != Type) {
+            Error = "The asset type does not match the thumbnail";
+            return false;
+        }
+
+        Core::FAtomicFileWriter Writer{};
+        if (!Writer.Open(Path, Error)) {
+            return false;
+        }
+
+        std::ostream& Output{Writer.GetStream()};
+        WriteHeader(Output, ThumbnailAssetVersion, Type, Size, Guid, static_cast<Uint32>(Thumbnail.size()));
+
+        Core::TStaticArray<char, 64 * 1024> Buffer{};
+        for (Uint64 Remaining{Size}; Remaining != 0;) {
+            const Uint64 Bytes{std::min<Uint64>(Remaining, Buffer.size())};
+            const auto Count{static_cast<std::streamsize>(Bytes)};
+            if (!Input.read(Buffer.data(), Count) || !Output.write(Buffer.data(), Count)) {
+                Error = "Cannot copy the asset payload while saving its thumbnail";
+                return false;
+            }
+
+            Remaining -= Bytes;
+        }
+
+        Output.write(reinterpret_cast<const char*>(Thumbnail.data()), static_cast<std::streamsize>(Thumbnail.size()));
+        Input.close();
+
+        if (std::filesystem::last_write_time(Path, Code) != SavedTime || Code) {
+            Error = "Asset changed before saving its thumbnail";
+            return false;
+        }
+
+        return Writer.Commit(Error);
     }
 
 }

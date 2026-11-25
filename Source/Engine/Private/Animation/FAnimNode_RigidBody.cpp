@@ -27,14 +27,14 @@ namespace Engine {
 
         // 그래프를 다시 초기화하면 시뮬레이션도 처음 자세에서 다시 시작한다.
         mSimulation.reset();
-        mPendingDeltaTime = 0.0f;
+        mPendingDeltaTime = {};
     }
 
     void FAnimNode_RigidBody::Update(const Engine::FAnimationUpdateContext& Context) {
         mInput.Update(Context);
 
         // 시간만 모은다. 스텝은 입력 포즈가 나오는 Evaluate에서 돌린다.
-        mPendingDeltaTime += Context.GetDeltaTime();
+        mPendingDeltaTime += Core::FTime::FromBase(Context.GetDeltaTime());
     }
 
     bool FAnimNode_RigidBody::EnsureSimulation(Engine::FPoseContext& Output, const Core::TArray<FMatrix>& Global, const FMatrix& ComponentToWorld) {
@@ -156,7 +156,7 @@ namespace Engine {
         }
 
         mSimulation->Advance(mPendingDeltaTime);
-        mPendingDeltaTime = 0.0f;
+        mPendingDeltaTime = {};
 
         // 부모부터 내려가며 Dynamic 바디가 붙은 뼈는 바디의 월드 변환으로, 나머지는 입력 로컬을 새 부모에 이어 붙인다.
         Core::TArray<FMatrix> NewGlobal(Bones.size(), FMatrix::Identity());

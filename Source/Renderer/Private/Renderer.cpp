@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "Renderer/Renderer.h"
+#include "Asset/FAssetManager.h"
 #include "RendererStats.h"
 #include "Core/FilePath.h"
 #include "Core/LoadingStatus.h"
@@ -46,6 +47,8 @@
 #include "FEditorMeshConstants.h"
 #include "FTextRenderer.h"
 #include "FSpriteRenderer.h"
+#include "FParticleRenderer.h"
+#include "Engine/Particles/FParticleRenderData.h"
 #include "Engine/EditorMesh.h"
 #include "Core/Math/FVector4.h"
 
@@ -63,28 +66,6 @@ namespace Renderer {
      */
     namespace {
         DEFINE_LOG_CATEGORY_STATIC(LogRenderer, Log, All);
-
-        /**
-         * @brief 프로젝트 또는 실행 파일의 기본 콘텐츠에서 우선순위에 맞는 경로를 반환합니다.
-         * @param[in] ContentRoot 프로젝트 Content 루트입니다.
-         * @param[in] RelativePath Content 기준 파일 경로입니다.
-         * @param[in] EngineFirst true이면 실행 파일과 함께 배포한 콘텐츠를 우선 사용합니다.
-         * @return 계산하거나 조회한 값입니다.
-         */
-        std::filesystem::path FindTextContent(const std::filesystem::path& ContentRoot, const std::filesystem::path& RelativePath, bool EngineFirst = false) {
-            std::error_code Error{};
-            const std::filesystem::path ProjectPath{ContentRoot / RelativePath};
-
-            if (!EngineFirst && std::filesystem::is_regular_file(ProjectPath, Error)) {
-                return ProjectPath;
-            }
-
-            Core::TStaticArray<wchar_t, 32768> Executable{};
-            const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
-            const std::filesystem::path EnginePath{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content" / RelativePath : ProjectPath};
-
-            return EngineFirst && !std::filesystem::is_regular_file(EnginePath, Error) ? ProjectPath : EnginePath;
-        }
 
         /**
          * @brief 보조 선분 정점 및 픽셀 셰이더의 내장 HLSL 소스입니다.
@@ -113,10 +94,11 @@ namespace Renderer {
     /**
      * @brief 프로젝트 콘텐츠의 셰이더 경로와 컴파일 캐시 경로를 설정합니다.
      */
-    void Renderer::FRenderer::SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory, bool ForwardShading) {
+    void Renderer::FRenderer::SetProjectPaths(const Asset::FAssetManager& Assets, const std::filesystem::path& CacheDirectory, bool ForwardShading) {
         mMaterialPipelines.clear();
         mShaderInstances.clear();
-        mShaderDirectory = ContentRoot / "Shaders";
+        mAssets = &Assets;
+        mShaderDirectory = Assets.GetEngineShaderRoot();
         mShaderManager.SetCacheDirectory(CacheDirectory);
         mForwardShading = ForwardShading;
     }
@@ -231,6 +213,7 @@ namespace Renderer {
         mLineVertices = Core::TArray<Renderer::FLineVertex>{};
         mTextRenderer.reset();
         mSpriteRenderer.reset();
+        mParticleRenderer.reset();
         mPostProcessResources.reset();
         mSkyResources.reset();
         mGridResources.reset();
@@ -238,6 +221,7 @@ namespace Renderer {
         mOverlayLayout.Reset();
         mEditorMeshBuffer.Reset();
         mOverlayBlend.Reset();
+        mAdditiveBlend.Reset();
         mViewBuffer.Reset();
         mLineViewBuffer.Reset();
         mLineBuffer.Reset();
@@ -254,6 +238,7 @@ namespace Renderer {
         mShadowResources.reset();
         mDefaultMaterial.reset();
         mDefaultMaterialTexture.reset();
+        mCheckerboardBackground.Reset();
         mMaterialSampler.Reset();
 
         mLineVertexShader.Reset();
@@ -355,7 +340,7 @@ namespace Renderer {
         return Texture;
     }
 
-    std::unique_ptr<Asset::UTexture2D> FRenderer::CaptureTexture(const Asset::UTexture2D& Source, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error) {
+    std::unique_ptr<Asset::UTexture2D> FRenderer::CaptureTexture(const Asset::UTexture2D& Source, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error, bool CheckerboardBackground) {
         if (mContext == nullptr || mPostProcessResources == nullptr || !Source.HasResources() || !std::isfinite(Region.x) || !std::isfinite(Region.y) || !std::isfinite(Region.z) || !std::isfinite(Region.w) || Region.x < 0.0f || Region.y < 0.0f || Region.z <= 0.0f || Region.w <= 0.0f || Region.x + Region.z > static_cast<float>(Width) + 0.01f || Region.y + Region.w > static_cast<float>(Height) + 0.01f) {
             Error = "Invalid texture capture";
 
@@ -376,9 +361,15 @@ namespace Renderer {
         mContext->GSSetShader(nullptr, nullptr, 0);
         mContext->HSSetShader(nullptr, nullptr, 0);
         mContext->DSSetShader(nullptr, nullptr, 0);
-        mContext->ClearRenderTargetView(Texture->GetRenderTargetView(), ClearColor);
+
+        const bool CheckerboardDrawn{CheckerboardBackground && CopyCheckerboardBackground(*Texture)};
+
+        if (!CheckerboardDrawn) {
+            mContext->ClearRenderTargetView(Texture->GetRenderTargetView(), ClearColor);
+        }
+
         mContext->RSSetViewports(1, &Viewport);
-        mPostProcessResources->RenderTexture(mContext.Get(), Source, *Texture);
+        mPostProcessResources->RenderTexture(mContext.Get(), Source, *Texture, CheckerboardDrawn ? mOverlayBlend.Get() : nullptr);
 
         return Texture;
     }
@@ -473,7 +464,8 @@ namespace Renderer {
             OpaqueParameters.mColorAttachments = Attachments;
         }
 
-        ClearTarget(SceneTarget, ClearColor);
+        const bool CheckerboardDrawn{Family.mCheckerboardBackground && CopyCheckerboardBackground(*Target->GetSceneColor())};
+        ClearTarget(SceneTarget, CheckerboardDrawn ? nullptr : ClearColor);
         const bool Visualization{Engine::IsBufferVisualization(Family.mViewMode)};
         const bool DepthVisualization{Family.mViewMode == Engine::EViewMode::SceneDepth || Family.mViewMode == Engine::EViewMode::DepthOfFieldWeights};
         const bool ShowDecals{!Visualization || Family.mViewMode == Engine::EViewMode::WorldNormal || Family.mViewMode == Engine::EViewMode::BaseColor || Family.mViewMode == Engine::EViewMode::BaseColorAlpha};
@@ -494,7 +486,7 @@ namespace Renderer {
         mContext->OMSetRenderTargets(1, &SceneTarget.mColor, SceneTarget.mDepth);
 
         if (Family.mShowFlags.mSky && !Family.mView.mOrthographic && Family.mViewMode != Engine::EViewMode::Wireframe && !Visualization) {
-            mStats.mDrawCalls += mSkyResources->Render(mContext.Get(), SceneTarget, Family.mView, Family.mPreviewSky);
+            mStats.mDrawCalls += mSkyResources->Render(mDevice.Get(), mContext.Get(), SceneTarget, Family.mView, *Scene, Family.mPreviewSky);
         }
 
         // 그리드는 반투명 패스보다 먼저 그립니다. 깊이 기반 시각화에서는 후처리가 색상을 덮어쓰므로 그 뒤에 그립니다.
@@ -510,12 +502,12 @@ namespace Renderer {
 
         mLineViewBuffer.Update(mContext.Get(), LineView);
 
-        const Renderer::FTranslucencyMeshPass::FRenderParameters TranslucencyParameters{mSpriteRenderer.get(), mTextRenderer.get(), mOverlayBlend.Get(), mDepthReadOnly.Get(), mDepthDisabled.Get(), mRasterizer.Get(), mWireframeRasterizer.Get()};
+        const Renderer::FTranslucencyMeshPass::FRenderParameters TranslucencyParameters{mSpriteRenderer.get(), mTextRenderer.get(), mParticleRenderer.get(), mOverlayBlend.Get(), mDepthReadOnly.Get(), mDepthDisabled.Get(), mRasterizer.Get(), mWireframeRasterizer.Get()};
 
         if (!Visualization) {
-            const Uint32 TranslucencyDrawCalls{mTranslucencyMeshPass->Render(Family, false, TranslucencyParameters)};
-            mStats.mDrawCalls += TranslucencyDrawCalls;
-            mStats.mVisiblePrimitives += TranslucencyDrawCalls;
+            const auto Translucency{mTranslucencyMeshPass->Render(Family, false, TranslucencyParameters)};
+            mStats.mDrawCalls += Translucency.mDrawCalls;
+            mStats.mVisiblePrimitives += Translucency.mVisiblePrimitives;
         }
 
         FinishLighting();
@@ -530,9 +522,9 @@ namespace Renderer {
 
         mContext->OMSetRenderTargets(1, &RenderTarget, Target->GetDepthView());
 
-        const Uint32 EditorDrawCalls{mTranslucencyMeshPass->Render(Family, true, TranslucencyParameters)};
-        mStats.mDrawCalls += EditorDrawCalls;
-        mStats.mVisiblePrimitives += EditorDrawCalls;
+        const auto Editor{mTranslucencyMeshPass->Render(Family, true, TranslucencyParameters)};
+        mStats.mDrawCalls += Editor.mDrawCalls;
+        mStats.mVisiblePrimitives += Editor.mVisiblePrimitives;
 
         if (Family.mEditorElements != nullptr) {
             DrawMeshes(Family.mEditorElements, true);
@@ -556,6 +548,7 @@ namespace Renderer {
         mStats.mGpuBytes = Scene->GetPrimitiveCount() * sizeof(Renderer::FObjectConstants) + sizeof(FMatrix) + sizeof(Renderer::FEditorMeshConstants) + mLineBuffer.GetResourceBytes() + Target->GetResourceBytes();
         mStats.mGpuBytes += mTextRenderer != nullptr ? mTextRenderer->GetResourceBytes() : 0;
         mStats.mGpuBytes += mSpriteRenderer != nullptr ? mSpriteRenderer->GetResourceBytes() : 0;
+        mStats.mGpuBytes += mParticleRenderer != nullptr ? mParticleRenderer->GetResourceBytes() : 0;
         mStats.mGpuBytes += mStats.mShadowAtlasBytes;
         mStats.mGpuBytes += mMeshInstanceBuffer.GetResourceBytes();
 
@@ -787,7 +780,7 @@ namespace Renderer {
     /**
      * @brief 프로젝트 HLSL 소스를 지정한 진입점과 프로파일로 컴파일합니다.
      */
-    bool Renderer::FRenderer::Compile(const char* Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code) {
+    bool Renderer::FRenderer::Compile(const std::filesystem::path& Source, const char* Entry, const char* Target, CoreUObject::TObjectRef<RenderCore::UShader>& Code) {
         RenderCore::FShaderDescription Description{};
         Description.mSourcePath = mShaderDirectory / Source;
         Description.mIncludeDirectories = {mShaderDirectory};
@@ -862,6 +855,26 @@ namespace Renderer {
             return false;
         }
 
+        std::error_code ParticleShaderError{};
+        const auto SpriteSource{mShaderDirectory / "ParticleSprite.hlsl"};
+        const auto TrailSource{mShaderDirectory / "ParticleTrail.hlsl"};
+
+        if (std::filesystem::is_regular_file(SpriteSource, ParticleShaderError)) {
+            if (!Compile(SpriteSource, "VertexMain", "vs_5_0", VertexCode) || !Compile(SpriteSource, "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+                return false;
+            }
+        } else {
+            Core::ErrorHandler::Report("Renderer", "ParticleSprite.hlsl is missing; sprite particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
+        }
+
+        if (std::filesystem::is_regular_file(TrailSource, ParticleShaderError)) {
+            if (!Compile(TrailSource, "VertexMain", "vs_5_0", VertexCode) || !Compile(TrailSource, "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateTrailShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+                return false;
+            }
+        } else {
+            Core::ErrorHandler::Report("Renderer", "ParticleTrail.hlsl is missing; beam and ribbon particles are not drawn", Core::ErrorHandler::EErrorLevel::Warning);
+        }
+
         if (!Compile("PostProcess.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("PostProcess.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mPostProcessResources->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
             return false;
         }
@@ -890,6 +903,10 @@ namespace Renderer {
         }
 
         if (!Compile("Sky.hlsl", "VertexMain", "vs_5_0", VertexCode) || !Compile("Sky.hlsl", "PixelMain", "ps_5_0", PixelCode) || !mSkyResources->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
+            return false;
+        }
+
+        if (!Compile("SkyAtmosphere.hlsl", "PixelMainAtmosphere", "ps_5_0", PixelCode) || !mSkyResources->CreateAtmosphereShader(mDevice.Get(), PixelCode->GetByteCode())) {
             return false;
         }
 
@@ -963,6 +980,7 @@ namespace Renderer {
         mTranslucencyMeshPass = std::make_unique<Renderer::FTranslucencyMeshPass>(*this, mDevice.Get(), mContext.Get(), mMeshes);
         mTextRenderer = std::make_unique<Renderer::FTextRenderer>();
         mSpriteRenderer = std::make_unique<Renderer::FSpriteRenderer>();
+        mParticleRenderer = std::make_unique<Renderer::FParticleRenderer>();
         mPostProcessResources = std::make_unique<Renderer::FPostProcessResources>();
         mSkyResources = std::make_unique<Renderer::FSkyResources>();
         mGridResources = std::make_unique<Renderer::FGridResources>();
@@ -975,6 +993,13 @@ namespace Renderer {
         Blend.RenderTarget[0] = {true, D3D11_BLEND_SRC_ALPHA, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD, D3D11_BLEND_ONE, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_OP_ADD, D3D11_COLOR_WRITE_ENABLE_ALL};
 
         if (FAILED(mDevice->CreateBlendState(&Blend, mOverlayBlend.GetAddressOf()))) {
+            return false;
+        }
+
+        D3D11_BLEND_DESC AdditiveBlend{Blend};
+        AdditiveBlend.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+
+        if (FAILED(mDevice->CreateBlendState(&AdditiveBlend, mAdditiveBlend.GetAddressOf()))) {
             return false;
         }
 
@@ -995,17 +1020,17 @@ namespace Renderer {
             return false;
         }
 
-        const std::filesystem::path ContentRoot{mShaderDirectory.parent_path()};
+        const auto& EngineContent{mAssets->GetEngineContentRoot()};
 
-        if (!mSkyResources->Initialize(mDevice.Get(), FindTextContent(ContentRoot, "Sky/Epic_BlueSunset_EquiRect_flat.dds"), FindTextContent(ContentRoot, "Sky/PreviewCourtyard.dds", true))) {
+        if (!mSkyResources->Initialize(mDevice.Get(), EngineContent / "Sky/Epic_BlueSunset_EquiRect_flat.dds.masset", EngineContent / "Sky/PreviewCourtyard.dds.masset")) {
             return false;
         }
 
-        if (!mSpriteRenderer->Initialize(mDevice.Get())) {
+        if (!mSpriteRenderer->Initialize(mDevice.Get()) || !mParticleRenderer->Initialize(mDevice.Get())) {
             return false;
         }
 
-        if (!mTextRenderer->Initialize(mDevice.Get(), FindTextContent(mShaderDirectory.parent_path(), "Fonts/Default.json"))) {
+        if (!mTextRenderer->Initialize(mDevice.Get(), EngineContent / "Fonts/Default.json")) {
             return false;
         }
 
@@ -1264,8 +1289,9 @@ namespace Renderer {
     /**
      * @brief 머티리얼별 GPU 파이프라인을 반환합니다.
      */
-    Renderer::FMaterialPipeline* Renderer::FRenderer::GetMaterialPipeline(const Asset::UMaterial& Material, Engine::EViewMode Mode, bool Skinned, bool ReceiveShadows, bool Cloth) {
+    Renderer::FMaterialPipeline* Renderer::FRenderer::GetMaterialPipeline(const Asset::UMaterial& Material, Engine::EViewMode Mode, bool Skinned, bool ReceiveShadows, bool Cloth, bool ParticleMesh) {
         Cloth = Cloth && Skinned;
+        ParticleMesh = ParticleMesh && !Skinned;
 
         if (Engine::IsBufferVisualization(Mode) && Mode != Engine::EViewMode::WorldNormal && Mode != Engine::EViewMode::SceneDepth) {
             Mode = Engine::EViewMode::Lit_Phong;
@@ -1287,11 +1313,11 @@ namespace Renderer {
         const Engine::EViewMode PixelMode{Unlit ? Engine::EViewMode::Unlit : Mode == Engine::EViewMode::Lit_Gouraud || Mode == Engine::EViewMode::Lit_Lambert || Mode == Engine::EViewMode::WorldNormal ? Mode : Engine::EViewMode::Lit_Phong};
         const bool Shadowed{ReceiveShadows && !Unlit && (Mode == Engine::EViewMode::Lit_Lambert || Mode == Engine::EViewMode::Lit_Phong)};
         const bool NormalMap{Material.GetNormalMapTexture() != nullptr};
-        const bool Translucent{Material.GetBlendMode() == Asset::EBlendMode::Translucent};
+        const bool Translucent{Material.GetBlendMode() != Asset::EBlendMode::Opaque};
         const Renderer::EMeshPass Pass{Translucent ? Renderer::EMeshPass::TranslucencyMeshPass : Renderer::EMeshPass::OpaqueMeshPass};
         const bool Instanced{!Skinned};
         const auto ShaderHandle{Shader->GetHandle()};
-        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : "|Static") + (Cloth ? "|Cloth" : "") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
+        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : ParticleMesh ? "|ParticleMesh" : "|Static") + (Cloth ? "|Cloth" : "") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
         const auto Existing{mMaterialPipelines.find(Key)};
 
         if (Existing != mMaterialPipelines.end()) {
@@ -1302,10 +1328,18 @@ namespace Renderer {
             return nullptr;
         }
 
-        const std::filesystem::path VertexSource{mShaderDirectory / (Skinned ? "SkinnedMesh.vs.hlsl" : "StaticMesh.vs.hlsl")};
+        const std::filesystem::path VertexSource{mShaderDirectory / (ParticleMesh ? "ParticleMesh.vs.hlsl" : Skinned ? "SkinnedMesh.vs.hlsl" : "StaticMesh.vs.hlsl")};
         const bool OverridePixel{Mode == Engine::EViewMode::Unlit || Mode == Engine::EViewMode::WorldNormal};
         const bool WritesGBuffer{!mForwardShading && !Translucent && (Shader->WritesGBuffer() || OverridePixel)};
-        const std::filesystem::path PixelSource{OverridePixel ? mShaderDirectory / "Lit.hlsl" : mShaderDirectory.parent_path() / RelativePath};
+        Core::FString PathError{};
+        const auto PixelSource{OverridePixel ? mShaderDirectory / "Lit.hlsl" : mAssets->ResolvePath(RelativePath, PathError)};
+
+        if (PixelSource.empty()) {
+            MACAW_LOG(LogRenderer, Error, "Cannot resolve shader '{}': {}", ShaderPath, PathError);
+
+            return nullptr;
+        }
+
         RenderCore::FShaderDescription VertexDescription{};
         VertexDescription.mSourcePath = VertexSource;
         VertexDescription.mIncludeDirectories = {VertexSource.parent_path(), mShaderDirectory};
@@ -1315,6 +1349,10 @@ namespace Renderer {
         // 천 섹션은 스키닝한 정점을 천 입자 위치로 옮기는 코드를 함께 컴파일합니다.
         if (Cloth) {
             VertexDescription.mMacros.push_back({"MacawCloth", "1"});
+        }
+
+        if (ParticleMesh) {
+            VertexDescription.mMacros.push_back({"MACAW_PARTICLE_COLOR", "1"});
         }
 
         if (PixelMode == Engine::EViewMode::Lit_Gouraud) {
@@ -1327,7 +1365,13 @@ namespace Renderer {
 
         RenderCore::FShaderDescription PixelDescription{};
         PixelDescription.mSourcePath = PixelSource;
-        PixelDescription.mIncludeDirectories = {PixelSource.parent_path(), VertexSource.parent_path(), mShaderDirectory};
+        PixelDescription.mIncludeDirectories = {PixelSource.parent_path()};
+
+        if (!OverridePixel && Core::FilePath::GetContentMount(RelativePath) == Core::FilePath::EContentMount::Game) {
+            PixelDescription.mIncludeDirectories.push_back(mAssets->GetContentRoot() / "Shaders");
+        }
+
+        PixelDescription.mIncludeDirectories.push_back(mShaderDirectory);
         PixelDescription.mEntryPoint = OverridePixel ? "PixelMain" : Shader->GetEntryPoint();
         PixelDescription.mTargetProfile = "ps_5_0";
 
@@ -1500,6 +1544,63 @@ namespace Renderer {
         }
     }
 
+    bool FRenderer::CopyCheckerboardBackground(Asset::UTexture2D& Target) {
+        const Uint32 Width{Target.GetSizeX()};
+        const Uint32 Height{Target.GetSizeY()};
+
+        if (Width == 0 || Height == 0 || Target.GetTexture() == nullptr || Target.GetFormat() != Asset::ETextureFormat::RGBA8) {
+            return false;
+        }
+
+        D3D11_TEXTURE2D_DESC Cached{};
+
+        if (mCheckerboardBackground != nullptr) {
+            mCheckerboardBackground->GetDesc(&Cached);
+        }
+
+        if (Cached.Width != Width || Cached.Height != Height) {
+            using FPixel = Core::TStaticArray<Uint8, 4>;
+
+            constexpr Uint32 Squares{8};
+            constexpr FPixel Dark{21, 27, 36, 255};
+            constexpr FPixel Light{31, 39, 50, 255};
+            Core::TArray<FPixel> Pixels{static_cast<std::size_t>(Width) * Height};
+
+            for (Uint32 Y{}; Y < Height; ++Y) {
+                const Uint32 Row{Y * Squares / Height};
+
+                for (Uint32 X{}; X < Width; ++X) {
+                    const Uint32 Column{X * Squares / Width};
+                    Pixels[static_cast<std::size_t>(Y) * Width + X] = (Row + Column) % 2 == 0 ? Dark : Light;
+                }
+            }
+
+            D3D11_TEXTURE2D_DESC Description{};
+            Description.Width = Width;
+            Description.Height = Height;
+            Description.MipLevels = 1;
+            Description.ArraySize = 1;
+            Description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            Description.SampleDesc.Count = 1;
+            Description.Usage = D3D11_USAGE_IMMUTABLE;
+            Description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+            const D3D11_SUBRESOURCE_DATA Data{Pixels.data(), static_cast<UINT>(Width * sizeof(FPixel)), 0};
+            Microsoft::WRL::ComPtr<ID3D11Texture2D> Background{};
+
+            if (FAILED(mDevice->CreateTexture2D(&Description, &Data, Background.GetAddressOf()))) {
+                return false;
+            }
+
+            mCheckerboardBackground = std::move(Background);
+        }
+
+        mContext->OMSetRenderTargets(0, nullptr, nullptr);
+        mContext->CopyResource(Target.GetTexture(), mCheckerboardBackground.Get());
+
+        return true;
+    }
+
     /**
      * @brief 그림자 맵마다 캐시된 아틀라스 타일이 현재 상태와 다를 때만 타일을 지우고 깊이를 다시 그립니다.
      */
@@ -1587,21 +1688,34 @@ namespace Renderer {
         return Built;
     }
 
+    ID3D11BlendState* Renderer::FRenderer::GetTranslucencyBlendState(const Asset::UMaterial* Material) const {
+        return Material != nullptr && Material->GetBlendMode() == Asset::EBlendMode::Additive ? mAdditiveBlend.Get() : mOverlayBlend.Get();
+    }
+
     /**
      * @brief 정렬된 드로 목록을 상태 변경을 줄여 제출하고 인스턴스를 묶어 그립니다.
      */
     Uint32 Renderer::FRenderer::SubmitMeshCommands(ID3D11RasterizerState* Rasterizer, Renderer::EMeshPass Pass, std::span<const Renderer::FMeshDrawCommand> Commands, bool MarkDecalReceivers) {
         const bool OpaquePass{Pass == Renderer::EMeshPass::OpaqueMeshPass};
+        const bool TranslucencyPass{Pass == Renderer::EMeshPass::TranslucencyMeshPass};
         const bool SurfacePass{Pass != Renderer::EMeshPass::ShadowDepth};
+        const auto ReceivesDecals{[](const Renderer::FMeshDrawCommand& Command) {
+            return Command.mParticleInstance == nullptr && Command.mPrimitive->mProxy.mReceivesDecals;
+        }};
 
         if (std::any_of(Commands.begin(), Commands.end(), [](const Renderer::FMeshDrawCommand& Command) {
             return Command.mPipeline->IsInstanced();
         })) {
-            Core::TArray<Renderer::FObjectConstants> Instances{};
+            Core::TArray<Renderer::FMeshInstanceData> Instances{};
             Instances.reserve(Commands.size());
 
             for (const Renderer::FMeshDrawCommand& Command : Commands) {
-                Instances.push_back(Command.mPrimitive->mObjectConstants);
+                const Engine::FParticleMeshInstance* Particle{Command.mParticleInstance};
+                if (Particle != nullptr) {
+                    Instances.push_back({{Particle->mWorld, Particle->mWorldInverse}, Particle->mColor});
+                } else {
+                    Instances.push_back({Command.mPrimitive->mObjectConstants});
+                }
             }
 
             Core::FString Error{};
@@ -1621,12 +1735,12 @@ namespace Renderer {
 
         for (Index_t First{}; First < Commands.size();) {
             const Renderer::FMeshDrawCommand& Command{Commands[First]};
-            const bool ReceivesDecals{Command.mPrimitive->mProxy.mReceivesDecals};
+            const bool Receives{ReceivesDecals(Command)};
             Index_t End{static_cast<Index_t>(First + 1)};
 
-            if (Command.mPipeline->IsInstanced() && Pass != Renderer::EMeshPass::TranslucencyMeshPass) {
+            if (Command.mPipeline->IsInstanced() && (!TranslucencyPass || Command.mParticleInstance != nullptr)) {
                 while (End < Commands.size() && Commands[End].mPipeline == Command.mPipeline && Commands[End].mMaterial == Command.mMaterial && Commands[End].mMesh == Command.mMesh && Commands[End].mFirstIndex == Command.mFirstIndex && Commands[End].mIndexCount == Command.mIndexCount) {
-                    if (MarkDecalReceivers && Commands[End].mPrimitive->mProxy.mReceivesDecals != ReceivesDecals) {
+                    if ((TranslucencyPass && Commands[End].mParticleInstance == nullptr) || (MarkDecalReceivers && ReceivesDecals(Commands[End]) != Receives)) {
                         break;
                     }
 
@@ -1638,7 +1752,7 @@ namespace Renderer {
 
             if (OpaquePass && !mForwardShading) {
                 const Uint32 SurfaceStencil{Command.mPipeline->WritesGBuffer() ? Renderer::GBuffer::Surface : Renderer::GBuffer::Prelit};
-                const Uint32 Stencil{SurfaceStencil | (MarkDecalReceivers && ReceivesDecals ? Renderer::GBuffer::ReceivesDecals : 0u)};
+                const Uint32 Stencil{SurfaceStencil | (MarkDecalReceivers && Receives ? Renderer::GBuffer::ReceivesDecals : 0u)};
 
                 if (LastStencil != Stencil) {
                     mContext->OMSetDepthStencilState(mGBufferDepth.Get(), Stencil);
@@ -1677,6 +1791,10 @@ namespace Renderer {
 
             if (Command.mMaterial != nullptr && LastMaterial != Command.mMaterial) {
                 Renderer::RendererStats::MaterialBinds.Add();
+
+                if (TranslucencyPass) {
+                    mContext->OMSetBlendState(GetTranslucencyBlendState(Command.mMaterial), nullptr, 0xFFFFFFFFu);
+                }
 
                 Asset::UTexture2D* Texture{Command.mMaterial->GetBaseColorTexture()};
                 ID3D11ShaderResourceView* Resource{Texture != nullptr ? Texture->GetShaderResourceView() : mDefaultMaterialTexture->GetShaderResourceView()};

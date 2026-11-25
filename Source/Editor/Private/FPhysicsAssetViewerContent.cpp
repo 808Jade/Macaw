@@ -125,18 +125,8 @@ void FPhysicsAssetViewerContent::SynchronizeScene() {
         return;
     }
 
-    // 현재 포즈의 스키닝 행렬마다 바인드 경계를 변환해 포즈 전체를 감싸는 경계를 만듭니다.
-    const FBox& BindBounds{Component->GetSkeletalMesh()->GetBounds()};
     const FMatrix World{Component->GetWorldMatrix()};
-
-    mBounds = BindBounds.Transformed(World);
-
-    for (const FMatrix& Skin : Component->GetPose().GetSkinMatrices()) {
-        const FBox Bounds{BindBounds.Transformed(Skin * World)};
-
-        mBounds.mMinimum = mBounds.mMinimum.Min(Bounds.mMinimum);
-        mBounds.mMaximum = mBounds.mMaximum.Max(Bounds.mMaximum);
-    }
+    mBounds = Component->GetSkeletalMesh()->CalcSkinnedWorldBounds(Component->GetPose().GetSkinMatrices(), World);
 
     PreviewWorld->SendAllEndOfFrameUpdates();
 

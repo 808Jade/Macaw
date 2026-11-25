@@ -5,7 +5,10 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
+
+using namespace Core::Literals;
 
 namespace PhysicsRuntime {
 
@@ -55,7 +58,7 @@ namespace PhysicsRuntime {
      * @brief 엔진의 로컬 Z축 캡슐을 PhysX의 로컬 X축 캡슐로 맞추는 회전을 반환합니다.
      */
     physx::PxQuat GetSphylBasis() {
-        return physx::PxQuat{-physx::PxHalfPi, physx::PxVec3{0.0f, 1.0f, 0.0f}};
+        return physx::PxQuat{-(90_deg).GetBase(), physx::PxVec3{0.0f, 1.0f, 0.0f}};
     }
 
 }

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Math/FBox.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Core/Math/FRotator.h"
 #include "Engine/FSceneView.h"
 
@@ -89,7 +90,7 @@ namespace Viewer {
          * @brief 유한한 수직 시야각을 1~170도로 제한하여 설정합니다.
          * @param FieldOfView 수직 시야각(도)입니다.
          */
-        void SetFieldOfView(float FieldOfView);
+        void SetFieldOfView(Core::FAngle FieldOfView);
 
         /**
          * @brief 궤도 카메라의 회전각을 반환합니다.
@@ -120,7 +121,7 @@ namespace Viewer {
         /**
          * @brief 궤도 카메라의 회전각(도)입니다.
          */
-        FRotator mRotation{-20.0f, 45.0f, 0.0f};
+        FRotator mRotation{};
 
         /**
          * @brief 카메라가 바라보고 회전하는 중심의 월드 좌표입니다.
@@ -130,16 +131,16 @@ namespace Viewer {
         /**
          * @brief 카메라 거리와 클립 평면 계산의 기준이 되는 경계 반지름입니다.
          */
-        float mRadius{1.0f};
+        float mRadius{};
 
         /**
          * @brief 카메라와 궤도 중심 사이의 월드 단위 거리입니다.
          */
-        float mDistance{3.0f};
+        float mDistance{};
 
         /**
          * @brief 수직 시야각(도)입니다.
          */
-        float mFieldOfView{60.0f};
+        Core::FAngle mFieldOfView{};
     };
 }

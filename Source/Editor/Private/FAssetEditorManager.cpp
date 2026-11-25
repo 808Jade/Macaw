@@ -9,6 +9,7 @@
 #include "FMaterialEditorToolkit.h"
 #include "FTextureEditorToolkit.h"
 #include "FPhysicsAssetEditorToolkit.h"
+#include "FParticleEditorToolkit.h"
 #include "FPhysicsAssetEditing.h"
 #include "Asset/FAssetFile.h"
 #include "FEditorWorkspace.h"
@@ -24,6 +25,7 @@
 #include "Engine/AActor.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
 #include "Engine/UWorld.h"
+#include "Engine/Particles/ParticleAssets.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Asset/UMaterial.h"
 #include "Asset/UTexture2D.h"
@@ -325,7 +327,7 @@ FAssetEditorManager::FSourceEditor::FSourceEditor(NativeIDE::EIDELanguage Langua
     });
 }
 
-void FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
+void FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace, bool ReadOnly) {
     if (mTab.IsVisible() && (mIDE.IsDirty() || mIDE.HasUnbuiltChanges()) && Core::FilePath::ToLower(Path) == Core::FilePath::ToLower(mIDE.GetPath())) {
         mTab.Open();
 
@@ -333,18 +335,18 @@ void FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path,
     }
 
     if (auto Prompt{GetClosePrompt()}) {
-        mMessages.ConfirmSave({std::move(*Prompt)}, [this, Path, Workspace]() {
-            OpenNow(Path, Workspace);
+        mMessages.ConfirmSave({std::move(*Prompt)}, [this, Path, Workspace, ReadOnly]() {
+            OpenNow(Path, Workspace, ReadOnly);
         });
 
         return;
     }
 
-    OpenNow(Path, Workspace);
+    OpenNow(Path, Workspace, ReadOnly);
 }
 
-void FAssetEditorManager::FSourceEditor::OpenNow(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
-    if (!mIDE.Open(Path, Workspace)) {
+void FAssetEditorManager::FSourceEditor::OpenNow(const std::filesystem::path& Path, const std::filesystem::path& Workspace, bool ReadOnly) {
+    if (!mIDE.Open(Path, Workspace, ReadOnly)) {
         mContext->AddLog("Could not read source file " + Core::FilePath::ToGenericUtf8(Path));
 
         return;
@@ -490,9 +492,9 @@ void FAssetEditorManager::SetChangedHandler(std::function<void()> Handler) {
     mChanged = std::move(Handler);
 }
 
-bool FAssetEditorManager::HasOpenMaterial(const std::function<bool(const std::filesystem::path&)>& Predicate) const {
-    return std::any_of(mEditors.begin(), mEditors.end(), [&Predicate](const auto& Editor) {
-        return Editor->GetAssetType() == Asset::EAssetType::Material && Predicate(Editor->GetAssetPath());
+bool FAssetEditorManager::HasOpenAsset(Asset::EAssetType Type, const std::function<bool(const std::filesystem::path&)>& Predicate) const {
+    return std::any_of(mEditors.begin(), mEditors.end(), [Type, &Predicate](const auto& Editor) {
+        return Editor->GetAssetType() == Type && Predicate(Editor->GetAssetPath());
     });
 }
 
@@ -576,28 +578,38 @@ void FAssetEditorManager::Draw(float DeltaTime) {
 }
 
 void FAssetEditorManager::OpenLuaScript(const std::filesystem::path& Path) {
-    OpenSource(Path, mLuaEditor);
+    OpenSource(Path, mLuaEditor, false);
 }
 
 void FAssetEditorManager::OpenShaderSource(const std::filesystem::path& Path) {
-    OpenSource(Path, mShaderEditor);
+    OpenSource(Path, mShaderEditor, true);
 }
 
-void FAssetEditorManager::OpenSource(const std::filesystem::path& Path, FSourceEditor& Editor) {
+void FAssetEditorManager::OpenSource(const std::filesystem::path& Path, FSourceEditor& Editor, bool AllowEngine) {
     Core::FString Error{};
     const auto* Assets{mContext->GetProject()->GetAssets()};
     const auto Absolute{Assets->ResolvePath(Path, Error)};
+    const bool ReadOnly{!Absolute.empty() && Assets->ResolveWritablePath(Absolute, Error).empty()};
 
-    if (Absolute.empty()) {
+    if (Absolute.empty() || (ReadOnly && !AllowEngine)) {
         mContext->AddLog("Could not open source file " + Core::FilePath::ToGenericUtf8(Path) + (Error.empty() ? "" : ": " + Error));
 
         return;
     }
 
-    Editor.Open(Absolute, Assets->GetContentRoot());
+    Editor.Open(Absolute, Assets->GetContentRoot(), ReadOnly);
 }
 
 void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, Asset::EAssetType Type) {
+    Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
+    Core::FString Error{};
+
+    if (Assets->ResolveWritablePath(Path, Error).empty()) {
+        mContext->AddLog(Error);
+
+        return;
+    }
+
     if (Type == Asset::EAssetType::Scene) {
         mCommands.OpenLevel(Path);
 
@@ -611,8 +623,6 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         }
     }
 
-    Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
-    Core::FString Error{};
     if (Type == Asset::EAssetType::Shader) {
         if (const auto* Shader{Assets->LoadShader(Path, Error)}) {
             OpenShaderSource(Core::FilePath::FromUtf8(Shader->GetSourcePath()));
@@ -645,6 +655,14 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         if (Content->Open(Path, Error)) {
             const Core::FString Name{Content->GetWindowId()};
             Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);
+        }
+    } else if (Type == Asset::EAssetType::ParticleSystem) {
+        if (auto* Particle{Engine::LoadParticleSystem(*Assets, Path, Error)}) {
+            auto ParticleEditor{std::make_unique<FParticleEditorToolkit>(*mContext, Path, mCatalog, mThumbnails, mMessages)};
+
+            if (ParticleEditor->Open(*Particle, Error)) {
+                Toolkit = std::move(ParticleEditor);
+            }
         }
     } else if (Type == Asset::EAssetType::PhysicsAsset) {
         // 경로가 실제 물리 에셋 파일이면 그 파일을 편집하고, 스켈레탈 메시면 메시가 쓰는 물리 에셋을 편집합니다.

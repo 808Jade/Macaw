@@ -7,11 +7,14 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/ReflectionMacros.h"
 #include "Core/Math/FTransform.h"
 #include "Core/Math/FVector.h"
 #include "PhysicsRuntime/FPhysXRelease.h"
+#include "PhysicsRuntime/CollisionTypes.h"
 
+#include <functional>
 #include <memory>
 
 #include "FBodyInstance.generated.h"
@@ -45,6 +48,50 @@ namespace PhysicsRuntime {
          */
         bool mStaticPhysics{true};
     };
+
+    struct FBodyInstance;
+
+    /**
+     * @brief 바디를 이동 경로로 쓸었을 때 처음 막힌 지점의 정보입니다.
+     * @ingroup PhysicsRuntime
+     */
+    struct FBodySweepHit {
+    public:
+        /**
+         * @brief 막은 바디이며, FBodyInstance가 만들지 않은 강체이면 nullptr입니다.
+         */
+        PhysicsRuntime::FBodyInstance* mBody{};
+
+        /**
+         * @brief 이동 시작점에서 막힌 지점까지 이동한 거리(m)입니다.
+         */
+        Core::FLength mDistance{};
+
+        /**
+         * @brief 두 형상이 닿은 월드 위치입니다.
+         */
+        FVector mImpactPoint{};
+
+        /**
+         * @brief 막은 표면에서 이동한 바디 쪽을 향하는 법선입니다.
+         */
+        FVector mImpactNormal{};
+
+        /**
+         * @brief 시작부터 겹쳐 있었을 때의 침투 깊이(m)입니다.
+         */
+        Core::FLength mPenetrationDepth{};
+
+        /**
+         * @brief 이동을 시작할 때 이미 겹쳐 있었는지 여부입니다.
+         */
+        bool mStartPenetrating{};
+    };
+
+    /**
+     * @brief 쿼리에서 제외할 바디를 고르는 판정 함수입니다.
+     */
+    using FIgnoreBodyPredicate = std::function<bool(const PhysicsRuntime::FBodyInstance&)>;
 
     /**
      * @brief 컴포넌트 하나에 대응하는 PhysX 강체와 그 시뮬레이션 설정을 관리합니다.
@@ -207,6 +254,25 @@ namespace PhysicsRuntime {
         bool SetAngularVelocity(const FVector& Velocity);
 
         /**
+         * @brief 바디의 현재 자세에서 각 형상과 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+         * @param[out] OutOverlaps 겹친 바디 인스턴스의 비소유 주소 목록이며, 중복 없이 채웁니다.
+         * @return 바디가 있어 쿼리를 수행했으면 true입니다.
+         * @note 시뮬레이션과 무관한 장면 쿼리이므로 정적 바디끼리도 찾습니다. 두 바디의 응답이 Overlap인 바디만 찾습니다.
+         *       이 바디가 쿼리에 참여하지 않으면 찾지 않습니다. 자기 강체는 제외하고, FBodyInstance가 만들지 않은 강체는 무시합니다.
+         */
+        bool OverlapMulti(Core::TArray<FBodyInstance*>& OutOverlaps) const;
+
+        /**
+         * @brief 바디의 형상을 현재 자세에서 Delta만큼 쓸어 처음 막히는 바디를 찾습니다.
+         * @param[in] Delta 이동할 월드 변위(m)입니다.
+         * @param[out] OutHit 막힌 지점의 정보이며, 막히지 않으면 바꾸지 않습니다.
+         * @param[in] ShouldIgnore true를 반환한 바디는 무시합니다. 비어 있으면 자기 강체만 무시합니다.
+         * @return 응답이 Block인 바디에 막혔으면 true입니다.
+         * @note 쿼리에 참여하지 않는 바디는 쓸지 않습니다. 시작부터 겹친 바디는 그 바디에서 멀어지는 방향이면 무시합니다.
+         */
+        bool Sweep(const FVector& Delta, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore = {}, const FVector& StartOffset = {}) const;
+
+        /**
          * @brief PhysX 강체에서 그 강체를 만든 바디 인스턴스를 찾습니다.
          * @param[in] Actor 조회할 PhysX 강체입니다.
          * @return 바디 인스턴스의 비소유 주소이며, userData가 비어 있으면 nullptr입니다.
@@ -258,40 +324,40 @@ namespace PhysicsRuntime {
          * @brief 동적 강체의 지정 질량을 반환합니다.
          * @return 질량(kg)이며, 0이면 형상 부피와 기본 밀도로 계산합니다.
          */
-        float GetMassInKg() const;
+        Core::FMass GetMassInKg() const;
 
         /**
          * @brief 동적 강체의 질량을 설정하고 실제 바디의 질량과 관성을 다시 계산합니다.
          * @param[in] MassInKg 질량(kg)이며, 0이면 형상 부피와 기본 밀도로 계산합니다.
          * @return 0 이상의 유한값이어서 적용했으면 true입니다.
          */
-        bool SetMassInKg(float MassInKg);
+        bool SetMassInKg(Core::FMass MassInKg);
 
         /**
          * @brief 동적 강체의 선형 감쇠 계수를 반환합니다.
          * @return 선형 감쇠 계수입니다.
          */
-        float GetLinearDamping() const;
+        Core::FFrequency GetLinearDamping() const;
 
         /**
          * @brief 동적 강체의 선형 감쇠 계수를 설정하고 실제 바디에 반영합니다.
          * @param[in] Damping 선형 감쇠 계수입니다.
          * @return 0 이상의 유한값이어서 적용했으면 true입니다.
          */
-        bool SetLinearDamping(float Damping);
+        bool SetLinearDamping(Core::FFrequency Damping);
 
         /**
          * @brief 동적 강체의 회전 감쇠 계수를 반환합니다.
          * @return 회전 감쇠 계수입니다.
          */
-        float GetAngularDamping() const;
+        Core::FFrequency GetAngularDamping() const;
 
         /**
          * @brief 동적 강체의 회전 감쇠 계수를 설정하고 실제 바디에 반영합니다.
          * @param[in] Damping 회전 감쇠 계수입니다.
          * @return 0 이상의 유한값이어서 적용했으면 true입니다.
          */
-        bool SetAngularDamping(float Damping);
+        bool SetAngularDamping(Core::FFrequency Damping);
 
         /**
          * @brief 이미 만든 움직이는 강체의 시뮬레이션 여부를 다시 만들지 않고 바꿉니다.
@@ -299,6 +365,56 @@ namespace PhysicsRuntime {
          * @note 정적 강체는 설정만 바꾸고 실제 강체에는 반영하지 않습니다.
          */
         void SetInstanceSimulatePhysics(bool Simulate);
+
+        /**
+         * @brief 충돌 프리셋을 반환합니다.
+         * @return 참여 방식이나 응답을 직접 바꿨으면 Custom입니다.
+         */
+        PhysicsRuntime::ECollisionPreset GetCollisionPreset() const;
+
+        /**
+         * @brief 충돌 프리셋을 적용하고 실제 바디의 형상에 반영합니다.
+         * @param[in] Preset 적용할 프리셋이며, Custom이면 현재 참여 방식과 응답을 유지합니다.
+         */
+        void SetCollisionPreset(PhysicsRuntime::ECollisionPreset Preset);
+
+        /**
+         * @brief 쿼리·시뮬레이션 참여 방식을 반환합니다.
+         * @return 참여 방식입니다.
+         */
+        PhysicsRuntime::ECollisionEnabled GetCollisionEnabled() const;
+
+        /**
+         * @brief 쿼리·시뮬레이션 참여 방식을 바꾸고 실제 바디의 형상에 반영합니다.
+         * @param[in] CollisionEnabled 새 참여 방식입니다.
+         * @note 프리셋의 값과 다르면 프리셋을 Custom으로 바꿉니다.
+         */
+        void SetCollisionEnabled(PhysicsRuntime::ECollisionEnabled CollisionEnabled);
+
+        /**
+         * @brief 다른 모든 바디에 대한 응답을 반환합니다.
+         * @return 응답입니다.
+         */
+        PhysicsRuntime::ECollisionResponse GetCollisionResponse() const;
+
+        /**
+         * @brief 다른 모든 바디에 대한 응답을 바꾸고 실제 바디의 형상에 반영합니다.
+         * @param[in] Response 새 응답입니다.
+         * @note 프리셋의 값과 다르면 프리셋을 Custom으로 바꿉니다.
+         */
+        void SetCollisionResponse(PhysicsRuntime::ECollisionResponse Response);
+
+        /**
+         * @brief 다른 바디 인스턴스의 충돌 설정만 복사하고 실제 바디의 형상에 반영합니다.
+         * @param[in] Source 충돌 설정을 복사할 바디 인스턴스입니다.
+         */
+        void CopyCollisionSettings(const FBodyInstance& Source);
+
+        /**
+         * @brief 장면 쿼리에 참여하는지 반환합니다.
+         * @return QueryOnly 또는 QueryAndPhysics이면 true입니다.
+         */
+        bool IsQueryCollisionEnabled() const;
 
     public:
 
@@ -327,43 +443,68 @@ namespace PhysicsRuntime {
          */
         void UpdateMassProperties(physx::PxRigidDynamic& Dynamic) const;
 
+        /**
+         * @brief 충돌 참여 방식과 응답을 실제 바디의 모든 형상 플래그와 필터 데이터에 반영합니다.
+         * @note 바디가 없으면 아무 일도 하지 않습니다.
+         */
+        void ApplyCollisionSettings() const;
+
     private:
 
         /**
          * @brief 바디를 만들 때 동적 강체로 시뮬레이션할지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = ShouldSimulatePhysics, Setter = SetSimulatePhysics)
+        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = ShouldSimulatePhysics, Setter = SetSimulatePhysics)
         bool mSimulatePhysics{};
 
         /**
          * @brief 동적 강체에 중력을 적용할지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = IsGravityEnabled, Setter = SetGravityEnabled)
+        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = IsGravityEnabled, Setter = SetGravityEnabled)
         bool mEnableGravity{true};
 
         /**
          * @brief 동적 강체에 연속 충돌 검출(CCD)을 사용할지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = IsCCDEnabled, Setter = SetCCDEnabled)
+        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = IsCCDEnabled, Setter = SetCCDEnabled)
         bool mUseCCD{};
 
         /**
          * @brief 동적 강체의 질량(kg)이며, 0이면 형상 부피와 기본 밀도로 계산합니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetMassInKg, Setter = SetMassInKg)
-        float mMassInKg{};
+        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetMassInKg, Setter = SetMassInKg)
+        Core::FMass mMassInKg{};
 
         /**
          * @brief 동적 강체의 선형 감쇠 계수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetLinearDamping, Setter = SetLinearDamping)
-        float mLinearDamping{0.01f};
+        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetLinearDamping, Setter = SetLinearDamping, Meta = (DisplayUnit = "1/s"))
+        Core::FFrequency mLinearDamping{};
 
         /**
          * @brief 동적 강체의 회전 감쇠 계수입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetAngularDamping, Setter = SetAngularDamping)
-        float mAngularDamping{0.05f};
+        UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetAngularDamping, Setter = SetAngularDamping, Meta = (DisplayUnit = "1/s"))
+        Core::FFrequency mAngularDamping{};
+
+        /**
+         * @brief 충돌 프리셋이며, 참여 방식이나 응답을 직접 바꾸면 Custom입니다.
+         * @note 직렬화할 때 먼저 읽도록 참여 방식과 응답보다 앞에 둡니다.
+         */
+        UPROPERTY(Edit, Serialize, Category = "Collision", Getter = GetCollisionPreset, Setter = SetCollisionPreset)
+        PhysicsRuntime::ECollisionPreset mCollisionPreset{PhysicsRuntime::ECollisionPreset::BlockAll};
+
+        /**
+         * @brief 쿼리·시뮬레이션 참여 방식입니다.
+         */
+        UPROPERTY(Edit, Serialize, Category = "Collision", Getter = GetCollisionEnabled, Setter = SetCollisionEnabled)
+        PhysicsRuntime::ECollisionEnabled mCollisionEnabled{PhysicsRuntime::ECollisionEnabled::QueryAndPhysics};
+
+        /**
+         * @brief 다른 모든 바디에 대한 응답입니다.
+         */
+        UPROPERTY(Edit, Serialize, Category = "Collision", Getter = GetCollisionResponse, Setter = SetCollisionResponse)
+        PhysicsRuntime::ECollisionResponse mCollisionResponse{PhysicsRuntime::ECollisionResponse::Block};
 
         /**
          * @brief 이 객체가 단독 소유하는 PhysX 강체입니다.

@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Asset/Import/FFBXImporter.h"
 #include "Core/FilePath.h"
 #include "Core/Math/FTransform.h"
@@ -15,6 +16,8 @@
 #include <d3d11.h>
 #include <limits>
 #include <utility>
+
+using namespace Core::Literals;
 
 using namespace fbxsdk;
 
@@ -905,7 +908,7 @@ namespace Asset {
         Asset::FFrameRate FrameRate{Asset::FFrameRate::FromDecimal(Rate)};
 
         if (!FrameRate.IsValid()) {
-            FrameRate = {30, 1};
+            FrameRate = {static_cast<Uint32>((30_Hz).GetBase()), 1};
         }
 
         const double Interval{FrameRate.AsInterval()};

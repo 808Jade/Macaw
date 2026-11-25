@@ -59,7 +59,6 @@ namespace Editor {
         using FInputFloat = float ImGuiIO::*;
         using FViewportFloatGetter = float (Editor::FEditorViewportClient::*)() const;
         using FViewportFloatSetter = bool (Editor::FEditorViewportClient::*)(float);
-        using FGizmoFloat = float Editor::FGizmoSettings::*;
         using FShowFlag = bool Engine::FEngineShowFlags::*;
 
     public:
@@ -157,7 +156,7 @@ namespace Editor {
 
         void RegisterInputSlider(Core::FString Label, FInputFloat Member, float Minimum, float Maximum, Core::FString Format);
         void RegisterViewportSlider(Core::FString Label, float Minimum, float Maximum, FViewportFloatGetter Getter, FViewportFloatSetter Setter, Core::FString Format, float DragSpeed);
-        void RegisterGizmoSlider(Core::FString Label, FGizmoFloat Member, Editor::EGizmoSetting Setting, float Minimum, float Maximum, Core::FString Format, float DragSpeed = 0.0f);
+        void RegisterGizmoSlider(Core::FString Label, Editor::EGizmoSetting Setting, float Minimum, float Maximum, Core::FString Format, float DragSpeed = 0.0f);
         void RegisterStatisticsWidget(const Core::FString& Group);
 
         void ApplyFloatChange(const std::function<void(float)>& Setter, float Value);
@@ -207,7 +206,7 @@ namespace Editor {
         float GetFarClip() const;
         void SetFarClip(float Value);
 
-        float GetGizmoFloat(FGizmoFloat Member) const;
+        float GetGizmoFloat(Editor::EGizmoSetting Setting) const;
         void SetGizmoFloat(Editor::EGizmoSetting Setting, float Value);
         bool GetShowOption(FShowFlag Member) const;
         void SetShowOption(FShowFlag Member, bool Value);

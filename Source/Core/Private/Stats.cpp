@@ -14,6 +14,8 @@
 #include <stdexcept>
 #include <utility>
 
+using namespace std::chrono_literals;
+
 namespace Core {
 
     /**
@@ -193,7 +195,7 @@ namespace Core {
 
         FrameInterval.mValue = Interval;
         FrameInterval.mSamples = Interval > 0.0 ? 1 : 0;
-        FrameRate.mValue = Interval > 0.0 ? 1000.0 / Interval : 0.0;
+        FrameRate.mValue = Interval > 0.0 ? static_cast<double>(std::chrono::milliseconds{1s}.count()) / Interval : 0.0;
         FrameRate.mSamples = FrameInterval.mSamples;
         mInFrame = true;
 

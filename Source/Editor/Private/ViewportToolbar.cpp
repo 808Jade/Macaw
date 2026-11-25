@@ -5,15 +5,19 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "ViewportToolbar.h"
 #include "BufferVisualization.h"
 #include "EditorStyle.h"
 #include "Editor/FEditorViewportClient.h"
 #include "Editor/FViewportCommandInfo.h"
+#include "Editor/Widget/FEditorQuantityInputWidget.h"
 
 #include <algorithm>
 #include <format>
 #include <span>
+
+using namespace Core::Literals;
 
 namespace Editor {
 
@@ -31,19 +35,18 @@ namespace Editor {
         struct FSnapControl {
             Editor::EViewportCommand mCommand{};
             Editor::EGizmoSetting mSetting{};
-            float Editor::FGizmoSettings::* mValue{};
             const char* mTooltip{};
             const char* mSuffix{};
             std::span<const float> mPresets{};
         };
 
-        constexpr Core::TStaticArray<float, 12> TranslationPresets{0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f, 25.0f, 50.0f, 100.0f};
-        constexpr Core::TStaticArray<float, 8> RotationPresets{1.0f, 5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 60.0f, 90.0f};
+        constexpr Core::TStaticArray<float, 12> TranslationPresets{(0.01_m).GetBase(), (0.05_m).GetBase(), (0.1_m).GetBase(), (0.25_m).GetBase(), (0.5_m).GetBase(), (1_m).GetBase(), (2_m).GetBase(), (5_m).GetBase(), (10_m).GetBase(), (25_m).GetBase(), (50_m).GetBase(), (100_m).GetBase()};
+        constexpr Core::TStaticArray<float, 8> RotationPresets{Core::Math::ToDegrees(1_deg), Core::Math::ToDegrees(5_deg), Core::Math::ToDegrees(10_deg), Core::Math::ToDegrees(15_deg), Core::Math::ToDegrees(30_deg), Core::Math::ToDegrees(45_deg), Core::Math::ToDegrees(60_deg), Core::Math::ToDegrees(90_deg)};
         constexpr Core::TStaticArray<float, 8> ScalePresets{0.01f, 0.025f, 0.05f, 0.1f, 0.125f, 0.25f, 0.5f, 1.0f};
         constexpr Core::TStaticArray<FSnapControl, 3> SnapControls{
-            FSnapControl{Editor::EViewportCommand::ToggleTranslationSnap, Editor::EGizmoSetting::TranslationStep, &Editor::FGizmoSettings::mTranslationStep, "이동 스냅", "", TranslationPresets},
-            FSnapControl{Editor::EViewportCommand::ToggleRotationSnap, Editor::EGizmoSetting::RotationStep, &Editor::FGizmoSettings::mRotationStep, "회전 스냅", "°", RotationPresets},
-            FSnapControl{Editor::EViewportCommand::ToggleScaleSnap, Editor::EGizmoSetting::ScaleStep, &Editor::FGizmoSettings::mScaleStep, "스케일 스냅", "", ScalePresets}
+            FSnapControl{Editor::EViewportCommand::ToggleTranslationSnap, Editor::EGizmoSetting::TranslationStep, "이동 스냅", " m", TranslationPresets},
+            FSnapControl{Editor::EViewportCommand::ToggleRotationSnap, Editor::EGizmoSetting::RotationStep, "회전 스냅", "°", RotationPresets},
+            FSnapControl{Editor::EViewportCommand::ToggleScaleSnap, Editor::EGizmoSetting::ScaleStep, "스케일 스냅", "", ScalePresets}
         };
 
         bool BeginToolbarPopup(const char* Id, bool Open) {
@@ -147,7 +150,7 @@ namespace Editor {
         }
 
         void DrawSnapValues(Editor::FEditorViewportClient* Client, const FSnapControl& Control) {
-            const float Current{Client->GetGizmoSettings()->*(Control.mValue)};
+            const float Current{Client->GetGizmoSettingValue(Control.mSetting)};
 
             for (const float Value : Control.mPresets) {
                 const Core::FString Label{std::format("{:g}{}", Value, Control.mSuffix)};
@@ -158,7 +161,24 @@ namespace Editor {
             }
 
             ImGui::Separator();
-            DrawNumericSetting(Client, Control.mSetting, "직접 입력", Current);
+
+            if (Control.mSetting == Editor::EGizmoSetting::TranslationStep) {
+                Editor::FEditorQuantityInputWidget Input{"직접 입력", Client->GetGizmoSettings()->mTranslationStep.GetBase(), Core::QuantityUnits::Meter};
+                Input.Draw(0.0f);
+
+                if (const auto Value{Input.GetEditedValue()}; Value.has_value()) {
+                    Client->SetTranslationSnapStep(Core::FLength::FromBase(*Value));
+                }
+            } else if (Control.mSetting == Editor::EGizmoSetting::RotationStep) {
+                Editor::FEditorQuantityInputWidget Input{"직접 입력", Client->GetGizmoSettings()->mRotationStep.GetBase(), Core::QuantityUnits::Degree};
+                Input.Draw(0.0f);
+
+                if (const auto Value{Input.GetEditedValue()}; Value.has_value()) {
+                    Client->SetRotationSnapStep(Core::FAngle::FromBase(*Value));
+                }
+            } else {
+                DrawNumericSetting(Client, Control.mSetting, "직접 입력", Current);
+            }
         }
 
         void DrawSnapButton(Editor::FEditorViewportClient* Client, const FSnapControl& Control, const char* Label) {
@@ -292,10 +312,10 @@ namespace Editor {
         }
 
         void DrawCameraSpeed(Editor::FEditorViewportClient* Client) {
-            float Speed{Client->GetCameraSpeed()};
+            float Speed{Client->GetCameraSpeed().GetBase()};
 
-            if (ImGui::SliderFloat("Movement Speed", &Speed, 0.1f, 128.0f, "%.2f", ImGuiSliderFlags_Logarithmic)) {
-                Client->SetCameraSpeed(Speed);
+            if (ImGui::SliderFloat("Movement Speed", &Speed, (0.1_mps).GetBase(), (128_mps).GetBase(), "%.2f m/s", ImGuiSliderFlags_Logarithmic)) {
+                Client->SetCameraSpeed(Core::FSpeed::FromBase(Speed));
             }
         }
 
@@ -304,20 +324,20 @@ namespace Editor {
 
             float Sensitivity{Client->GetCameraSensitivity()};
 
-            if (ImGui::SliderFloat("Sensitivity", &Sensitivity, 0.01f, 2.0f, "%.2f")) {
+            if (ImGui::SliderFloat("Sensitivity", &Sensitivity, Core::Math::ToDegrees(0.01_deg), Core::Math::ToDegrees(2_deg), "%.2f")) {
                 Client->SetCameraSensitivity(Sensitivity);
             }
 
             Engine::FEditorCameraState Camera{Client->GetPerspectiveCamera()};
-            float FieldOfView{Camera.GetFieldOfView()};
-            float NearClip{Camera.GetNearClip()};
-            float FarClip{Camera.GetFarClip()};
-            bool ProjectionChanged{ImGui::SliderFloat("FOV", &FieldOfView, 1.0f, 179.0f, "%.1f")};
+            float FieldOfView{Core::Math::ToDegrees(Camera.GetFieldOfView())};
+            float NearClip{Camera.GetNearClip().GetBase()};
+            float FarClip{Camera.GetFarClip().GetBase()};
+            bool ProjectionChanged{ImGui::SliderFloat("FOV", &FieldOfView, Core::Math::ToDegrees(1_deg), Core::Math::ToDegrees(179_deg), "%.1f")};
 
             ProjectionChanged = ImGui::InputFloat("Near Clip", &NearClip) || ProjectionChanged;
             ProjectionChanged = ImGui::InputFloat("Far Clip", &FarClip) || ProjectionChanged;
 
-            if (ProjectionChanged && Camera.Set(Camera.GetLocation(), Camera.GetRotation(), FieldOfView, NearClip, FarClip)) {
+            if (ProjectionChanged && Camera.Set(Camera.GetLocation(), Camera.GetRotation(), FieldOfView * 1_deg, Core::FLength::FromBase(NearClip), Core::FLength::FromBase(FarClip))) {
                 Client->SetPerspectiveCamera(Camera);
             }
 
@@ -468,7 +488,7 @@ namespace Editor {
             const float LayoutWidth{DrawLayout ? SplitWidth + Spacing : 0.0f};
             const Core::FString ViewTypeLabel{Core::FString{Client->GetViewTypeName()} + "###ViewType"};
             const Core::FString ViewModeLabel{Core::FString{GetViewModeName(Client)} + "###ViewMode"};
-            const Core::FString SpeedLabel{std::format("{:.3g}###CameraSpeed", Client->GetCameraSpeed())};
+            const Core::FString SpeedLabel{std::format("{:.3g}###CameraSpeed", Client->GetCameraSpeed().GetBase())};
             Core::TStaticArray<Core::FString, SnapControls.size()> SnapLabels{};
             const float ModesWidth{4.0f * (IconWidth + Spacing)};
             const float TransformPlaceholderWidth{2.0f * (DropdownWidth + Spacing)};
@@ -478,7 +498,7 @@ namespace Editor {
 
             for (Index_t Index{}; Index < SnapControls.size(); ++Index) {
                 const FSnapControl& Control{SnapControls[Index]};
-                SnapLabels[Index] = std::format("{:.4g}{}", Client->GetGizmoSettings()->*(Control.mValue), Control.mSuffix);
+                SnapLabels[Index] = std::format("{:.4g}{}", Client->GetGizmoSettingValue(Control.mSetting), Control.mSuffix);
                 TransformWidth += Editor::EditorStyle::GetSplitIconButtonWidth(SnapLabels[Index].c_str());
             }
 

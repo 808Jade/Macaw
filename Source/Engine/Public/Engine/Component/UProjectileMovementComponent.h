@@ -149,31 +149,31 @@ namespace Engine {
         /**
          * @brief 게임 실행 시작 시 적용할 초기 속도이며 월드 단위/초입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetInitialVelocity, Setter = SetInitialVelocity)
-        FVector mInitialVelocity{10.0f, 0.0f, 5.0f};
+        UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetInitialVelocity, Setter = SetInitialVelocity)
+        FVector mInitialVelocity{};
 
         /**
          * @brief 발사체 속도 크기의 상한이며 0이면 제한하지 않습니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetMaxSpeed, Setter = SetMaxSpeed)
-        Core::FSpeed mMaxSpeed{Core::FSpeed::FromBase(100.0f)};
+        UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetMaxSpeed, Setter = SetMaxSpeed)
+        Core::FSpeed mMaxSpeed{};
 
         /**
          * @brief 월드 -Z 방향의 기본 중력 9.81에 곱할 0~100 배율입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetGravityScale, Setter = SetGravityScale)
+        UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetGravityScale, Setter = SetGravityScale)
         float mGravityScale{1.0f};
 
         /**
          * @brief 실행 시작 시 초기 속도를 이동 대상의 회전으로 월드 공간에 변환할지 나타냅니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetInitialVelocityInLocalSpace, Setter = SetInitialVelocityInLocalSpace)
+        UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetInitialVelocityInLocalSpace, Setter = SetInitialVelocityInLocalSpace)
         bool mInitialVelocityInLocalSpace{true};
 
         /**
          * @brief 속도가 충분히 클 때 이동 대상의 전방을 현재 속도 방향에 맞출지 나타냅니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetRotationFollowsVelocity, Setter = SetRotationFollowsVelocity)
+        UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetRotationFollowsVelocity, Setter = SetRotationFollowsVelocity)
         bool mRotationFollowsVelocity{true};
 
         UPROPERTY(Edit, Serialize, Getter = GetSweepCollision, Setter = SetSweepCollision)

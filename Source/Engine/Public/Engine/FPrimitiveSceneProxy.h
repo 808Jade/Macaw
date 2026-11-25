@@ -18,12 +18,17 @@
 #include "Engine/FDrawSprite.h"
 #include "PhysicsRuntime/FClothSimulData.h"
 
+#include <memory>
 #include <optional>
 
 namespace Asset {
     class UStaticMesh;
     class USkeletalMesh;
     class UMaterial;
+}
+
+namespace Engine {
+    struct FParticleRenderData;
 }
 
 namespace Engine {
@@ -134,6 +139,11 @@ namespace Engine {
          * @brief 이 프리미티브가 데칼을 받는지 여부입니다.
          */
         bool mReceivesDecals{true};
+
+        /**
+         * @brief 파티클 컴포넌트가 매 Tick 만든 그리기 데이터이며 파티클이 아니면 비어 있습니다.
+         */
+        std::shared_ptr<const Engine::FParticleRenderData> mParticles{};
     };
 
 }

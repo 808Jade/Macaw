@@ -8,8 +8,10 @@
 
 #include "Core/ReflectionMacros.h"
 #include "CoreUObject/Reflection/FPropertyValue.h"
+#include "Core/Literals/QuantityUnits.h"
 #include "CoreUObject/Reflection/EPropertyType.h"
 #include "Core/Reflection/EPropertyFlags.h"
+#include "Core/Reflection/FPropertyMetaData.h"
 #include "CoreUObject/Reflection/FEnumValue.h"
 
 #include <string_view>
@@ -64,6 +66,38 @@ namespace CoreUObject {
         const Core::FString& GetName() const;
 
         /**
+         * @brief 키에 해당하는 메타데이터 값을 반환합니다.
+         * @param[in] Key 조회할 메타데이터 키입니다.
+         * @return 소유 객체가 유지하는 값의 참조이며, 키가 없으면 빈 문자열입니다.
+         */
+        const Core::FString& GetMetaData(std::string_view Key) const;
+
+        /**
+         * @brief 키에 해당하는 메타데이터가 있는지 검사합니다.
+         * @param[in] Key 조회할 메타데이터 키입니다.
+         * @return 키가 있으면 값이 비어 있어도 true입니다.
+         */
+        bool HasMetaData(std::string_view Key) const;
+
+        /**
+         * @brief 메타데이터 목록 전체를 반환합니다.
+         * @return 적은 순서대로 담긴 키·값 목록의 참조입니다.
+         */
+        const Core::FPropertyMetaData& GetMetaDataMap() const;
+
+        /**
+         * @brief 메타데이터 목록 전체를 바꿉니다.
+         * @param[in] MetaData 적은 순서대로 담긴 키·값 목록입니다.
+         */
+        void SetMetaData(Core::FPropertyMetaData MetaData);
+
+        /**
+         * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 반환합니다.
+         * @return Category 메타데이터 값의 참조이며, 지정하지 않았으면 빈 문자열입니다.
+         */
+        const Core::FString& GetCategory() const;
+
+        /**
          * @brief 프로퍼티 저장 타입을 반환합니다.
          * @return 프로퍼티 저장 타입입니다.
          */
@@ -116,6 +150,10 @@ namespace CoreUObject {
          */
         bool WriteValue(void* Container, const CoreUObject::FPropertyValue& Value) const;
 
+        std::optional<Core::FQuantityUnit> GetQuantityDisplayUnit(Core::FDimension Dimension) const;
+        std::optional<float> ToNumericValue(const CoreUObject::FPropertyValue& Value) const;
+        bool FromNumericValue(float Number, CoreUObject::FPropertyValue& Value) const;
+
         /**
          * @brief 로드 전용 쓰기 경로로 동일 프로퍼티의 값을 복사합니다.
          * @param[in,out] Destination 이 프로퍼티를 포함한 대상 컨테이너입니다.
@@ -141,6 +179,8 @@ namespace CoreUObject {
         void BindObjectReferences(void* Container, const CoreUObject::FObjectGuidMap& Objects) const;
 
     private:
+        std::optional<Core::FQuantityUnit> GetQuantityUnit(std::string_view Symbol, Core::FDimension Dimension) const;
+
         /**
          * @brief 값 타입과 쓰기 정책을 검사한 뒤 등록된 함수로 프로퍼티를 변경합니다.
          * @param[in] Container 프로퍼티 소유 타입의 유효한 인스턴스 주소입니다.
@@ -180,6 +220,11 @@ namespace CoreUObject {
          * @brief 프로퍼티 이름입니다.
          */
         Core::FString mName{};
+
+        /**
+         * @brief Category를 포함한 에디터용 키·값 메타데이터입니다.
+         */
+        Core::FPropertyMetaData mMetaData{};
 
         /**
          * @brief 프로퍼티 저장 타입입니다.

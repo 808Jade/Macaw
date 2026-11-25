@@ -189,8 +189,8 @@ namespace Engine {
     /**
      * @brief 등록된 월드의 핸들 스냅샷을 순회하여 실행을 갱신합니다.
      */
-    void Engine::UEngine::Tick(float DeltaTime, bool TickEditorWorlds) {
-        if (!mInitialized || IsDispatching() || !std::isfinite(DeltaTime) || DeltaTime < 0.0f) {
+    void Engine::UEngine::Tick(Core::FTime DeltaTime, bool TickEditorWorlds) {
+        if (!mInitialized || IsDispatching() || !DeltaTime.IsFinite() || DeltaTime < Core::FTime{}) {
             return;
         }
 

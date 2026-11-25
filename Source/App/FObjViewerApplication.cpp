@@ -62,19 +62,15 @@ namespace App {
 
         std::filesystem::create_directories(Content, Code);
 
-        if (!Code) {
-            std::filesystem::copy(Directory / "Templates/Project/Content", Content, std::filesystem::copy_options::recursive | std::filesystem::copy_options::skip_existing, Code);
-        }
-
         if (Code) {
-            MessageBoxW(mPlatform.GetWindowHandle(), L"Cannot prepare viewer content. Build the application with its project templates.", L"OBJ Viewer", MB_OK | MB_ICONERROR);
+            MessageBoxW(mPlatform.GetWindowHandle(), L"Cannot create the viewer content folder.", L"OBJ Viewer", MB_OK | MB_ICONERROR);
 
             return 1;
         }
 
         mAssets = std::make_unique<Asset::FAssetManager>(Content);
 
-        mRenderer.SetProjectPaths(Content, Directory / "Viewer/Saved/ShaderCache");
+        mRenderer.SetProjectPaths(*mAssets, Directory / "Viewer/Saved/ShaderCache");
 
         if (!mRenderer.Initialize(mPlatform.GetWindowHandle(), mPlatform.GetWidth(), mPlatform.GetHeight())) {
             return 1;

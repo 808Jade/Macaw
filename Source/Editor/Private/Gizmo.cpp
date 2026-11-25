@@ -366,10 +366,31 @@ namespace Editor {
     bool Editor::FTransformGizmo::CaptureTargets() {
         mTargets.clear();
 
-        for (CoreUObject::TObjectRef<Engine::USceneComponent> Handle : mContext->GetTransformTargets()) {
+        const auto Targets{mContext->GetTransformTargets()};
+        const auto HasSelectedAncestor{[&Targets](const Engine::USceneComponent* Component) {
+            const Engine::USceneComponent* Parent{Component->GetAttachParent()};
+
+            while (Parent != nullptr) {
+                Engine::USceneComponent* Root{Parent->GetOwner()->GetRootComponent()};
+
+                if (Root == nullptr) {
+                    break;
+                }
+
+                if (std::find(Targets.begin(), Targets.end(), CoreUObject::MakeObjectRef(Root)) != Targets.end()) {
+                    return true;
+                }
+
+                Parent = Root->GetAttachParent();
+            }
+
+            return false;
+        }};
+
+        for (CoreUObject::TObjectRef<Engine::USceneComponent> Handle : Targets) {
             const auto* Component{CoreUObject::Cast<Engine::USceneComponent>(mContext->ResolveObject(Handle))};
 
-            if (Component != nullptr) {
+            if (Component != nullptr && (Targets.size() == 1 || !HasSelectedAncestor(Component))) {
                 mTargets.push_back({Handle, Component->GetTransform()});
             }
         }

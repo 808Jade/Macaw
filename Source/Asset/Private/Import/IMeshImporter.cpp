@@ -138,7 +138,7 @@ namespace Asset {
         for (const Asset::FMeshMaterialSlot& Slot : MeshData.GetMaterialSlots()) {
             const std::filesystem::path Path{Core::FilePath::FromUtf8(Slot.GetMaterialPath())};
 
-            if (Slot.GetMaterialPath().find('\0') != Core::FString::npos || (!Path.empty() && (Path.has_root_path() || Path.extension() != L".masset"))) {
+            if (Slot.GetMaterialPath().find('\0') != Core::FString::npos || (!Path.empty() && (Core::FilePath::GetContentMount(Path) == Core::FilePath::EContentMount::Invalid || Path.extension() != L".masset"))) {
                 return false;
             }
 

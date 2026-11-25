@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "CoreUObject/TObjectRef.h"
 
 #include "Core/ReflectionMacros.h"
@@ -79,7 +81,7 @@ namespace Engine {
          * @param[in] TickEditorWorlds 편집 및 편집 미리보기 월드의 Tick 전달을 허용할지 지정합니다.
          * @note 월드 상태와 객체별 설정으로 Tick을 제어하며 콜백에서 요청한 엔진 종료는 순회를 마친 뒤 처리합니다.
          */
-        void Tick(float DeltaTime, bool TickEditorWorlds = true);
+        void Tick(Core::FTime DeltaTime, bool TickEditorWorlds = true);
 
         /**
          * @brief 지정한 용도의 월드 컨텍스트를 생성하여 엔진이 소유합니다.

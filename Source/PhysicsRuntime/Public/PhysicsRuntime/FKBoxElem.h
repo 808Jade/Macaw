@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/ReflectionMacros.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FRotator.h"
 #include "FKBoxElem.generated.h"
@@ -50,7 +51,10 @@ namespace PhysicsRuntime {
          * @brief 스케일을 적용하기 전 상자의 축별 반길이(m)입니다.
          */
         UPROPERTY(Edit, Serialize)
-        FVector mHalfExtent{0.5f, 0.5f, 0.5f};
+        FVector mHalfExtent{mDefaultHalfExtent, mDefaultHalfExtent, mDefaultHalfExtent};
+
+    private:
+        static const float mDefaultHalfExtent;
     };
 
 }

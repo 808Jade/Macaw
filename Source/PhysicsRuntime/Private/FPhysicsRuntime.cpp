@@ -19,6 +19,11 @@ using namespace Core::Literals;
 
 namespace PhysicsRuntime {
 
+    constinit const Core::FSpeed PhysicsRuntime::FPhysicsSettings::mDefaultTypicalSpeed{9.81_mps};
+    constinit const Core::FDensity PhysicsRuntime::FPhysicsSettings::mDefaultMassDensity{1000_kg / (1_m * 1_m * 1_m)};
+    constinit const float PhysicsRuntime::FPhysicsSettings::mDefaultGravityZ{-(9.81_mps2).GetBase()};
+    constinit const Core::FTime PhysicsRuntime::FPhysicsSettings::mDefaultFixedStep{1.0f / 60_Hz};
+
     /**
      * @brief PhysX 런타임의 단위 규약, 볼록 메시 쿠킹 보조 함수와 로그 범주입니다.
      */
@@ -79,7 +84,7 @@ namespace PhysicsRuntime {
         }
 
         mTolerancesScale.length = UnitLength / 1_m;
-        mTolerancesScale.speed = mSettings.mTypicalSpeed;
+        mTolerancesScale.speed = mSettings.mTypicalSpeed.GetBase();
 
         mFoundation.reset(PxCreateFoundation(PX_PHYSICS_VERSION, mAllocator, mErrorCallback));
 

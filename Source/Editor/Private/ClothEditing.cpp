@@ -165,10 +165,10 @@ namespace Editor::ClothEditing {
 
             FClothConfigField{.mKey = "solverfrequency", .mLabel = "Solver Frequency", .mGroup = "Simulation", .mFormat = "%.0f Hz", .mMin = 30.0f, .mMax = 1000.0f, .mSpeed = 1.0f, .mDefault = FVector{120.0f, 0.0f, 0.0f},
                 .mTooltip = "1초에 푸는 횟수.\n높이면 덜 늘어나고 안정되지만 느려짐",
-                .mGetFloat = [](UClothConfigNv& C) { return &C.mSolverFrequency; }},
+                .mFrequency = &UClothConfigNv::mSolverFrequency},
             FClothConfigField{.mKey = "stiffnessfrequency", .mLabel = "Stiffness Frequency", .mGroup = "Simulation", .mFormat = "%.0f Hz", .mMin = 1.0f, .mMax = 1000.0f, .mSpeed = 1.0f, .mDefault = FVector{100.0f, 0.0f, 0.0f},
                 .mTooltip = "세기·감쇠 값의 기준 횟수.\n낮추면 같은 값이라도 약해짐",
-                .mGetFloat = [](UClothConfigNv& C) { return &C.mStiffnessFrequency; }},
+                .mFrequency = &UClothConfigNv::mStiffnessFrequency},
             FClothConfigField{.mKey = "gravityscale", .mLabel = "Gravity Scale", .mGroup = "Simulation", .mFormat = "%.2fx", .mMin = 0.0f, .mMax = 10.0f, .mSpeed = 0.01f, .mDefault = FVector{1.0f, 0.0f, 0.0f},
                 .mTooltip = "중력 배율. 0 = 무중력",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mGravityScale; }},
@@ -205,14 +205,14 @@ namespace Editor::ClothEditing {
 
             FClothConfigField{.mKey = "collisionthickness", .mLabel = "Thickness", .mGroup = "Collision", .mFormat = "%.3f m", .mMin = 0.0f, .mMax = 0.1f, .mSpeed = 0.0005f, .mDefault = FVector{0.01f, 0.0f, 0.0f},
                 .mTooltip = "충돌체에서 천을 띄우는 거리.\n높이면 덜 뚫지만 떠 보임",
-                .mGetFloat = [](UClothConfigNv& C) { return &C.mCollisionThickness; }},
+                .mLength = &UClothConfigNv::mCollisionThickness},
             FClothConfigField{.mKey = "friction", .mLabel = "Friction", .mGroup = "Collision", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.005f, .mDefault = FVector{0.1f, 0.0f, 0.0f},
                 .mTooltip = "충돌체에서 덜 미끄러지는 정도",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mFriction; }},
 
             FClothConfigField{.mKey = "selfcollisionradius", .mLabel = "Radius", .mGroup = "Self Collision", .mFormat = "%.3f m", .mMin = 0.0f, .mMax = 0.1f, .mSpeed = 0.0005f, .mDefault = FVector{0.0f, 0.0f, 0.0f},
                 .mTooltip = "천끼리 충돌용 입자 반지름. 0 = 끔\n켜면 계산이 크게 늘어남",
-                .mGetFloat = [](UClothConfigNv& C) { return &C.mSelfCollisionRadius; }},
+                .mLength = &UClothConfigNv::mSelfCollisionRadius},
             FClothConfigField{.mKey = "selfcollisionstiffness", .mLabel = "Stiffness", .mGroup = "Self Collision", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.005f, .mDefault = FVector{0.0f, 0.0f, 0.0f},
                 .mTooltip = "천끼리 겹치면 밀어내는 세기. 0 = 끔",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mSelfCollisionStiffness; }},
@@ -295,19 +295,30 @@ namespace Editor::ClothEditing {
         return "Legacy: 입자를 바람 쪽으로 직접 끎. 바람이 없어도 공기 저항처럼 작용\nAccurate: 천 면 방향으로 Drag·Lift를 계산";
     }
 
-    /**
-     * @brief 설정의 실수 항목 이름과 값 위치를 모읍니다.
-     */
-    Core::TArray<std::pair<Core::FString, float*>> GetConfigFloats(PhysicsRuntime::UClothConfigNv& Config) {
-        Core::TArray<std::pair<Core::FString, float*>> Floats{};
+    bool FClothConfigField::HasScalarValue() const {
+        return mGetFloat != nullptr || mLength != nullptr || mFrequency != nullptr;
+    }
 
-        for (const FClothConfigField& Field : GetConfigFields()) {
-            if (Field.mGetFloat != nullptr) {
-                Floats.emplace_back(Field.mKey, Field.mGetFloat(Config));
-            }
+    float FClothConfigField::GetScalarValue(PhysicsRuntime::UClothConfigNv& Config) const {
+        if (mLength != nullptr) {
+            return (Config.*mLength).GetBase();
         }
 
-        return Floats;
+        if (mFrequency != nullptr) {
+            return (Config.*mFrequency).GetBase();
+        }
+
+        return *mGetFloat(Config);
+    }
+
+    void FClothConfigField::SetScalarValue(PhysicsRuntime::UClothConfigNv& Config, float BaseValue) const {
+        if (mLength != nullptr) {
+            Config.*mLength = Core::FLength::FromBase(BaseValue);
+        } else if (mFrequency != nullptr) {
+            Config.*mFrequency = Core::FFrequency::FromBase(BaseValue);
+        } else {
+            *mGetFloat(Config) = BaseValue;
+        }
     }
 
     /**

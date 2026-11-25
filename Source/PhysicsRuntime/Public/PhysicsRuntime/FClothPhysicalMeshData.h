@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FVector4.h"
 #include "PhysicsRuntime/FClothVertBoneData.h"
@@ -74,7 +75,7 @@ namespace PhysicsRuntime {
          * @details 고정되지 않은 입자 중에서 처음부터 서로 거리 안에 있는 입자는 앞의 것만 남깁니다.
          * @param[in] SelfCollisionRadius 고를 때 쓰는 거리(m)이며 0이면 아무것도 바꾸지 않습니다.
          */
-        void BuildSelfCollisionData(float SelfCollisionRadius);
+        void BuildSelfCollisionData(Core::FLength SelfCollisionRadius);
 
     public:
 

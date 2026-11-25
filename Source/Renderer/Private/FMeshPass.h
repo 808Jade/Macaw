@@ -17,10 +17,12 @@
 #include <d3d11.h>
 
 namespace Asset {
+    class UMaterial;
     class UStaticMesh;
 }
 
 namespace Engine {
+    struct FParticleMeshBatch;
     struct FSceneViewFamily;
 }
 
@@ -111,7 +113,9 @@ namespace Renderer {
          * @param[in] Family 표시 모드를 가진 현재 뷰 요청입니다.
          * @param[in,out] Commands 드로 명령을 추가할 목록입니다.
          */
-        virtual void AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily& Family, Core::TArray<Renderer::FMeshDrawCommand>& Commands) = 0;
+        virtual void AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily& Family, Core::TArray<Renderer::FMeshDrawCommand>& Commands, const Engine::FParticleMeshBatch* ParticleBatch) = 0;
+
+        static Asset::UMaterial* ResolveMaterial(const Renderer::FScenePrimitive& Primitive, Index_t MaterialIndex, Asset::UMaterial* Default, const Engine::FParticleMeshBatch* ParticleBatch);
 
         /**
          * @brief SubMesh가 이번 프레임에 천 결과로 그려야 하는 천 섹션인지 검사합니다.
@@ -120,6 +124,9 @@ namespace Renderer {
          * @return 천 섹션이고 메시의 천 정점 버퍼와 입자 버퍼가 준비되어 있으면 그 천 에셋 번호, 아니면 InvalidIndex입니다.
          */
         static Index_t GetClothAssetIndex(const Renderer::FScenePrimitive& Primitive, Index_t SubMeshIndex);
+
+    private:
+        void AddParticleCommands(const Renderer::FScenePrimitive& Primitive, const Engine::FSceneViewFamily& Family, const FMatrix& ViewProjection, Core::TArray<Renderer::FMeshDrawCommand>& Commands, Uint32& Primitives);
 
     protected:
         /**

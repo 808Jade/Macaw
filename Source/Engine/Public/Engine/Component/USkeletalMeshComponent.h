@@ -81,6 +81,7 @@ namespace Engine {
          * @return 피킹용 형상입니다.
          */
         const Asset::FMeshData& GetMeshData() const override;
+        FBox GetWorldBounds() const override;
 
         /**
          * @brief 프로젝트 상대 에셋 경로를 반환합니다.
@@ -332,6 +333,14 @@ namespace Engine {
         const PhysicsRuntime::UBodySetup* GetBodySetup() const override;
 
         /**
+         * @brief 뼈별 바디가 현재 자세에서 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+         * @param[out] OutOverlaps 겹친 바디 인스턴스의 비소유 주소 목록이며, 중복 없이 채웁니다.
+         * @return 쿼리할 바디가 하나라도 있어 쿼리를 수행했으면 true입니다.
+         * @note 뼈별 바디가 없으면 메시 전체 바디로 쿼리합니다. 결과에는 이 컴포넌트의 다른 뼈 바디가 들어 있을 수 있습니다.
+         */
+        bool ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const override;
+
+        /**
          * @brief 물리 에셋이나 메시 경계 바디 셋업이 있으면 물리 상태가 필요하다고 판단합니다.
          * @return 뼈별 바디나 메시 전체 바디를 만들 수 있으면 true입니다.
          */
@@ -558,6 +567,8 @@ namespace Engine {
          */
         void UpdateKinematicBonesToAnim();
 
+        const Core::FString& GetAssignedPhysicsAssetPath() const;
+
         /**
          * @brief 만든 천을 모두 해제합니다.
          */
@@ -573,7 +584,7 @@ namespace Engine {
          * @brief 현재 포즈, 변환, 시간, 중력으로 천 시뮬레이션 입력을 채웁니다.
          * @param[in] DeltaTime 초 단위 프레임 시간입니다.
          */
-        void UpdateClothSimulationContext(float DeltaTime);
+        void UpdateClothSimulationContext(Core::FTime DeltaTime);
 
         /**
          * @brief 기준 뼈가 한 프레임에 너무 멀리 움직이거나 많이 돌았으면 천 순간 이동을 요청합니다.
@@ -641,19 +652,19 @@ namespace Engine {
         /**
          * @brief Content 기준 스켈레탈 메시 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "SkeletalMesh", Getter = GetMeshPath, Setter = SetMeshPath)
+        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "SkeletalMesh", Meta = (AssetType = "SkeletalMesh"), Getter = GetMeshPath, Setter = SetMeshPath)
         Core::FString mMeshPath{};
 
         /**
          * @brief 스켈레톤 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "Skeleton", Getter = GetSkeletonPath, Setter = SetSkeletonPath)
+        UPROPERTY(Edit, Serialize, Category = "Mesh", Name = "Skeleton", Meta = (AssetType = "Skeleton"), Getter = GetSkeletonPath, Setter = SetSkeletonPath)
         Core::FString mSkeletonPath{};
 
         /**
          * @brief 메시의 물리 에셋 대신 쓸 물리 에셋 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
+        UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Category = "Physics", Meta = (AssetType = "PhysicsAsset", EmptyLabel = "Use mesh physics asset"), Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
         Core::FString mPhysicsAssetOverride{};
 
         /**
@@ -666,7 +677,7 @@ namespace Engine {
          * @brief 애니메이션 그래프를 만드는 UAnimInstance 파생 클래스 이름입니다. 비어 있으면 Animation을 단일 노드로 재생합니다.
          * @details 인스턴스의 Serialize 프로퍼티는 이 컴포넌트를 저장할 때 AnimInstance 객체 안에 함께 저장합니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "AnimClass", Getter = GetAnimClass, Setter = SetAnimClass)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "AnimClass", Getter = GetAnimClass, Setter = SetAnimClass)
         Core::FString mAnimClass{};
 
         /**
@@ -677,31 +688,31 @@ namespace Engine {
         /**
          * @brief 플레이를 시작하면 재생할 Content 기준 애니메이션 시퀀스 경로입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "Animation", Getter = GetAnimationPath, Setter = SetAnimationPath)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "Animation", Meta = (AssetType = "AnimSequence"), Getter = GetAnimationPath, Setter = SetAnimationPath)
         Core::FString mAnimationPath{};
 
         /**
          * @brief 애니메이션을 반복 재생할지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "Looping", Getter = IsLooping, Setter = SetLooping)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "Looping", Getter = IsLooping, Setter = SetLooping)
         bool mLooping{true};
 
         /**
          * @brief 애니메이션 재생 속도 배율입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "PlayRate", Getter = GetPlayRate, Setter = SetPlayRate)
+        UPROPERTY(Edit, Serialize, Category = "Animation", Name = "PlayRate", Getter = GetPlayRate, Setter = SetPlayRate)
         float mPlayRate{1.0f};
 
         /**
          * @brief 단일 시퀀스 재생 시 적용할 루트 모션 방식입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "SingleNodeRootMotionMode", Getter = GetSingleNodeRootMotionMode, Setter = SetSingleNodeRootMotionMode)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "SingleNodeRootMotionMode", Getter = GetSingleNodeRootMotionMode, Setter = SetSingleNodeRootMotionMode)
         Engine::ERootMotionMode mSingleNodeRootMotionMode{Engine::ERootMotionMode::NoRootMotionExtraction};
 
         /**
          * @brief 소비한 루트 모션을 소유 액터 변환에 자동 적용할지 여부입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "ApplyRootMotionToActor", Getter = IsRootMotionAppliedToActor, Setter = SetApplyRootMotionToActor)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "ApplyRootMotionToActor", Getter = IsRootMotionAppliedToActor, Setter = SetApplyRootMotionToActor)
         bool mApplyRootMotionToActor{true};
 
         /**
@@ -780,12 +791,12 @@ namespace Engine {
         /**
          * @brief 기준 뼈가 한 프레임에 이 거리(m)보다 멀리 움직이면 천을 순간 이동시키며 0이면 검사하지 않습니다.
          */
-        float mTeleportDistanceThreshold{3.0f};
+        Core::FLength mTeleportDistanceThreshold{Core::FLength::FromBase(3.0f)};
 
         /**
          * @brief 기준 뼈가 한 프레임에 이 각도(도)보다 많이 돌면 천을 순간 이동시키며 0이면 검사하지 않습니다.
          */
-        float mTeleportRotationThreshold{};
+        Core::FAngle mTeleportRotationThreshold{};
 
         /**
          * @brief 순간 이동할 때 입자를 스키닝 위치에 다시 놓을지 나타냅니다.

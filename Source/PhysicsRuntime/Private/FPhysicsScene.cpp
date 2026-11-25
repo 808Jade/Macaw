@@ -6,12 +6,14 @@
 
 #include "Core/Types.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/CollisionTypes.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/FVehicleManager.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
 #include "PhysicsRuntime/PhysicsStats.h"
 #include "Core/Log/Log.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace PhysicsRuntime {
@@ -28,18 +30,26 @@ namespace PhysicsRuntime {
         constexpr physx::PxU32 MaxContactPointsPerPair{8};
 
         /**
-         * @brief 모든 강체 쌍을 충돌시키고 새 접촉과 CCD 접촉을 알리도록 지정합니다.
+         * @brief 두 형상의 응답이 모두 Block인 쌍만 충돌시키고 새 접촉과 CCD 접촉을 알리도록 지정합니다.
          * @param[in] Attributes0 첫 번째 형상의 필터 속성입니다.
+         * @param[in] FilterData0 첫 번째 형상의 필터 데이터이며, word0에 응답이 있습니다.
          * @param[in] Attributes1 두 번째 형상의 필터 속성입니다.
+         * @param[in] FilterData1 두 번째 형상의 필터 데이터이며, word0에 응답이 있습니다.
          * @param[out] PairFlags 형상 쌍에 적용할 접촉 처리 플래그입니다.
-         * @return 형상 쌍을 유지하는 기본 필터 플래그입니다.
-         * @note 충돌 채널 필터링은 아직 사용하지 않으므로 필터 데이터와 상수 블록은 읽지 않습니다.
+         * @return Block 쌍이면 기본 필터 플래그, 아니면 접촉을 만들지 않는 억제 플래그입니다.
+         * @note 겹침은 시뮬레이션이 아니라 장면 쿼리로 찾으므로, Overlap 쌍도 접촉을 만들지 않습니다.
          */
-        physx::PxFilterFlags SimulationFilterShader(physx::PxFilterObjectAttributes Attributes0, physx::PxFilterData, physx::PxFilterObjectAttributes Attributes1, physx::PxFilterData, physx::PxPairFlags& PairFlags, const void*, physx::PxU32) {
+        physx::PxFilterFlags SimulationFilterShader(physx::PxFilterObjectAttributes Attributes0, physx::PxFilterData FilterData0, physx::PxFilterObjectAttributes Attributes1, physx::PxFilterData FilterData1, physx::PxPairFlags& PairFlags, const void*, physx::PxU32) {
             if (physx::PxFilterObjectIsTrigger(Attributes0) || physx::PxFilterObjectIsTrigger(Attributes1)) {
                 PairFlags = physx::PxPairFlag::eTRIGGER_DEFAULT;
 
                 return physx::PxFilterFlag::eDEFAULT;
+            }
+
+            const auto Response{PhysicsRuntime::CombineCollisionResponse(static_cast<PhysicsRuntime::ECollisionResponse>(FilterData0.word0), static_cast<PhysicsRuntime::ECollisionResponse>(FilterData1.word0))};
+
+            if (Response != PhysicsRuntime::ECollisionResponse::Block) {
+                return physx::PxFilterFlag::eSUPPRESS;
             }
 
             PairFlags = physx::PxPairFlag::eCONTACT_DEFAULT | physx::PxPairFlag::eDETECT_CCD_CONTACT | physx::PxPairFlag::eNOTIFY_TOUCH_FOUND | physx::PxPairFlag::eNOTIFY_CONTACT_POINTS;
@@ -148,8 +158,8 @@ namespace PhysicsRuntime {
     /**
      * @brief 장면을 한 스텝 진행하고 결과를 받을 때까지 기다립니다.
      */
-    bool PhysicsRuntime::FPhysicsScene::Simulate(float StepSeconds) {
-        if (mScene == nullptr || !std::isfinite(StepSeconds) || StepSeconds <= 0.0f) {
+    bool PhysicsRuntime::FPhysicsScene::Simulate(Core::FTime Step) {
+        if (mScene == nullptr || !Step.IsFinite() || Step <= Core::FTime{}) {
             return false;
         }
 
@@ -157,8 +167,8 @@ namespace PhysicsRuntime {
             const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::Simulate};
 
             mContacts.clear();
-            mVehicleManager->Step(Core::FTime::FromBase(StepSeconds));
-            mScene->simulate(StepSeconds);
+            mVehicleManager->Step(Step);
+            mScene->simulate(Step.GetBase());
             mScene->fetchResults(true);
         }
 
@@ -271,6 +281,88 @@ namespace PhysicsRuntime {
      * @brief 시뮬레이션 도중 자세 전달 이벤트는 아직 사용하지 않습니다.
      */
     void PhysicsRuntime::FPhysicsScene::onAdvance(const physx::PxRigidBody* const*, const physx::PxTransform*, const physx::PxU32) {
+    }
+
+    namespace {
+
+        // 구 쓸기에서 Block 응답 형상만 받고 제외 조건에 맞는 바디는 거릅니다.
+        class FSphereSweepFilter final : public physx::PxQueryFilterCallback {
+        public:
+            explicit FSphereSweepFilter(const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore)
+                : mShouldIgnore{ShouldIgnore} {
+            }
+
+            physx::PxQueryHitType::Enum preFilter(const physx::PxFilterData&, const physx::PxShape* Shape, const physx::PxRigidActor* Actor, physx::PxHitFlags&) override {
+                if (Shape == nullptr || Actor == nullptr) {
+                    return physx::PxQueryHitType::eNONE;
+                }
+
+                const PhysicsRuntime::FBodyInstance* Body{PhysicsRuntime::FBodyInstance::FromPxActor(*Actor)};
+
+                if (Body == nullptr || (mShouldIgnore && mShouldIgnore(*Body))) {
+                    return physx::PxQueryHitType::eNONE;
+                }
+
+                // 시작부터 겹친 형상을 직접 거르려고 막힘도 터치로 받아 가장 가까운 것을 고릅니다.
+                return static_cast<PhysicsRuntime::ECollisionResponse>(Shape->getQueryFilterData().word0) == PhysicsRuntime::ECollisionResponse::Block ? physx::PxQueryHitType::eTOUCH : physx::PxQueryHitType::eNONE;
+            }
+
+            physx::PxQueryHitType::Enum postFilter(const physx::PxFilterData&, const physx::PxQueryHit&) override {
+                return physx::PxQueryHitType::eNONE;
+            }
+
+        private:
+            const PhysicsRuntime::FIgnoreBodyPredicate& mShouldIgnore;
+        };
+
+    }
+
+    bool PhysicsRuntime::FPhysicsScene::SweepSphere(const FVector& Start, const FVector& Delta, Core::FLength Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore) const {
+        if (mScene == nullptr || !Start.IsFinite() || !Delta.IsFinite() || !Radius.IsFinite()) {
+            return false;
+        }
+
+        const float Length{Delta.Length()};
+
+        if (Length <= 1.0e-6f) {
+            return false;
+        }
+
+        FSphereSweepFilter Callback{ShouldIgnore};
+        const physx::PxQueryFilterData Filter{physx::PxQueryFlag::eSTATIC | physx::PxQueryFlag::eDYNAMIC | physx::PxQueryFlag::ePREFILTER | physx::PxQueryFlag::eNO_BLOCK};
+        const physx::PxTransform Pose{PhysicsRuntime::ToPxVec3(Start)};
+        const physx::PxVec3 Direction{PhysicsRuntime::ToPxVec3(Delta / Length)};
+        Core::TArray<physx::PxSweepHit> Touches(64);
+        physx::PxSweepBuffer Buffer{Touches.data(), static_cast<physx::PxU32>(Touches.size())};
+
+        // 반지름이 0인 구는 PhysX가 받지 않으므로 아주 작은 값으로 올립니다.
+        const physx::PxSphereGeometry Sphere{std::max(Radius, Core::FLength::FromBase(0.0001f)).GetBase()};
+
+        if (!mScene->sweep(Sphere, Pose, Direction, Length, Buffer, physx::PxHitFlag::eDEFAULT, Filter, &Callback)) {
+            return false;
+        }
+
+        bool Found{};
+
+        for (physx::PxU32 Index{}; Index < Buffer.getNbTouches(); ++Index) {
+            const physx::PxSweepHit& Touch{Buffer.getTouch(Index)};
+
+            const Core::FLength Distance{Core::FLength::FromBase(Touch.distance)};
+
+            if (Touch.hadInitialOverlap() || (Found && Distance >= OutHit.mDistance)) {
+                continue;
+            }
+
+            Found = true;
+            OutHit.mBody = Touch.actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Touch.actor) : nullptr;
+            OutHit.mDistance = Distance;
+            OutHit.mImpactPoint = PhysicsRuntime::ToFVector(Touch.position);
+            OutHit.mImpactNormal = PhysicsRuntime::ToFVector(Touch.normal);
+            OutHit.mPenetrationDepth = {};
+            OutHit.mStartPenetrating = false;
+        }
+
+        return Found;
     }
 
 }

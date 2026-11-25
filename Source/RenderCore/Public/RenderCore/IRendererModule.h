@@ -100,7 +100,7 @@ namespace RenderCore {
          * @param Error 실패 원인을 기록할 출력 문자열입니다.
          * @return 호출자가 소유하는 출력 텍스처이며 실패하면 nullptr이고 Error에 원인을 기록합니다.
          */
-        virtual std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error) = 0;
+        virtual std::unique_ptr<Asset::UTexture2D> CaptureTexture(const Asset::UTexture2D& Texture, Uint32 Width, Uint32 Height, const FVector4& Region, Core::FString& Error, bool CheckerboardBackground = false) = 0;
 
         /**
          * @brief 기존 오프스크린 렌더 타깃을 새 픽셀 크기로 변경합니다.

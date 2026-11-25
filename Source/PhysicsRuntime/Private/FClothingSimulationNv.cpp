@@ -353,7 +353,7 @@ namespace PhysicsRuntime {
         }
 
         nv::cloth::Cloth& CurrentCloth{*mLodData[mCurrentLodIndex].mCloth};
-        const float InverseTimestep{mPreviousTimestep != 0.0f ? 1.0f / mPreviousTimestep : 0.0f};
+        const Core::FFrequency InverseTimestep{mPreviousTimestep != Core::FTime{} ? 1.0f / mPreviousTimestep : Core::FFrequency{}};
         nv::cloth::MappedRange<physx::PxVec4> PreviousPositions{CurrentCloth.getPreviousParticles()};
         nv::cloth::MappedRange<physx::PxVec4> CurrentPositions{CurrentCloth.getCurrentParticles()};
         const Index_t NumParticles{static_cast<Index_t>(std::min(PreviousPositions.size(), CurrentPositions.size()))};
@@ -364,7 +364,7 @@ namespace PhysicsRuntime {
             const physx::PxVec4& OldPosition{PreviousPositions[static_cast<Uint32>(ParticleIndex)]};
             const physx::PxVec4& NewPosition{CurrentPositions[static_cast<Uint32>(ParticleIndex)]};
 
-            OutVelocities[ParticleIndex] = FVector{NewPosition.x - OldPosition.x, NewPosition.y - OldPosition.y, NewPosition.z - OldPosition.z} * InverseTimestep;
+            OutVelocities[ParticleIndex] = FVector{NewPosition.x - OldPosition.x, NewPosition.y - OldPosition.y, NewPosition.z - OldPosition.z} * InverseTimestep.GetBase();
         }
     }
 
@@ -728,7 +728,7 @@ namespace PhysicsRuntime {
             // 캡슐 축은 회전 전 Z축이고 길이는 양 끝 반구 중심 사이 거리입니다.
             for (const FKSphylElem& Sphyl : AggGeom.mSphylElems) {
                 const FVector OrientedDirection{Sphyl.mRotation.RotateVector(FVector{0.0f, 0.0f, 1.0f})};
-                const FVector HalfDim{OrientedDirection * (Sphyl.mLength * 0.5f)};
+                const FVector HalfDim{OrientedDirection * (Sphyl.mLength.GetBase() * 0.5f)};
 
                 FClothCollisionPrim_Sphere Sphere0{};
                 Sphere0.mLocalPosition = Sphyl.mCenter - HalfDim;
@@ -760,7 +760,7 @@ namespace PhysicsRuntime {
      */
     void FClothingSimulationNv::ApplyClothConfig(const UClothConfigNv& Config, FClothingActorNv& Actor) const {
         // 감쇠와 항력은 세기 기준 횟수 10 Hz일 때의 비율로 보고 실제 기준 횟수에 맞게 바꿉니다.
-        constexpr float DampStiffnessFrequency{10.0f};
+        constexpr Core::FFrequency DampStiffnessFrequency{Core::FFrequency::FromBase(10.0f)};
         const float DampStiffFreqRatio{DampStiffnessFrequency / Config.mStiffnessFrequency};
         const auto AdjustRatio{[DampStiffFreqRatio](float Value) {
             return 1.0f - std::exp2(DampStiffFreqRatio * std::log2(1.0f - Value));
@@ -824,11 +824,11 @@ namespace PhysicsRuntime {
                 LodCloth->clearParticleAccelerations();
             }
 
-            LodCloth->setSolverFrequency(Config.mSolverFrequency);
-            LodCloth->setStiffnessFrequency(Config.mStiffnessFrequency);
-            LodCloth->setAcceleationFilterWidth(2u * static_cast<Uint32>(Config.mSolverFrequency));
+            LodCloth->setSolverFrequency(Config.mSolverFrequency.GetBase());
+            LodCloth->setStiffnessFrequency(Config.mStiffnessFrequency.GetBase());
+            LodCloth->setAcceleationFilterWidth(2u * static_cast<Uint32>(Config.mSolverFrequency.GetBase()));
 
-            LodCloth->setSelfCollisionDistance(Config.mSelfCollisionRadius);
+            LodCloth->setSelfCollisionDistance(Config.mSelfCollisionRadius.GetBase());
             LodCloth->setSelfCollisionStiffness(Config.mSelfCollisionStiffness);
 
             // 천끼리 부딪히려면 처음 모양의 입자 위치가 있어야 합니다.
@@ -1024,7 +1024,7 @@ namespace PhysicsRuntime {
      * @brief 입력으로 천 에셋의 천을 한 프레임 진행합니다.
      */
     void FClothingSimulationNv::Simulate(const FClothingSimulationContextCommon& Context) {
-        if (mSolver == nullptr || mActors.empty() || Context.mBoneTransforms.empty() || !(Context.mDeltaSeconds > 0.0f)) {
+        if (mSolver == nullptr || mActors.empty() || Context.mBoneTransforms.empty() || !(Context.mDeltaTime > Core::FTime{})) {
             return;
         }
 
@@ -1113,7 +1113,7 @@ namespace PhysicsRuntime {
                     }
 
                     SphereLocation = RootBoneTransform.InverseTransformPositionNoScale(SphereLocation);
-                    Scratch.mSphereData.emplace_back(ToPxVec3(SphereLocation), Sphere.mRadius * RadiusScale + Actor.mCollisionThickness);
+                    Scratch.mSphereData.emplace_back(ToPxVec3(SphereLocation), (Sphere.mRadius * RadiusScale + Actor.mCollisionThickness).GetBase());
                 }
 
                 Cloth.setSpheres(MakeRange(Scratch.mSphereData), 0, Cloth.getNumSpheres());
@@ -1174,13 +1174,13 @@ namespace PhysicsRuntime {
             Actor.UpdateAnimDrive(Context);
 
             // 이번 프레임 기준 뼈의 속도와 변환을 남깁니다.
-            Actor.mLastVelocity = Context.mDeltaSeconds > 0.0f ? (RootBoneWorldTransform.mLocation - Actor.mLastRootTransform.mLocation) * (1.0f / Context.mDeltaSeconds) : FVector{};
+            Actor.mLastVelocity = Context.mDeltaTime > Core::FTime{} ? (RootBoneWorldTransform.mLocation - Actor.mLastRootTransform.mLocation) * (1.0f / Context.mDeltaTime).GetBase() : FVector{};
             Actor.mLastRootTransform = RootBoneWorldTransform;
 
             NumParticles += Cloth.getNumParticles();
         }
 
-        if (mSolver->beginSimulation(Context.mDeltaSeconds)) {
+        if (mSolver->beginSimulation(Context.mDeltaTime.GetBase())) {
             const int ChunkCount{mSolver->getSimulationChunkCount()};
 
             for (int ChunkIndex{}; ChunkIndex < ChunkCount; ++ChunkIndex) {
@@ -1198,7 +1198,7 @@ namespace PhysicsRuntime {
             ComputePhysicalMeshNormals(Actor);
 
             // 다음 프레임에 입자 속도를 구할 때 쓰도록 진행한 시간을 남깁니다.
-            Actor.mPreviousTimestep = Context.mDeltaSeconds;
+            Actor.mPreviousTimestep = Context.mDeltaTime;
 
             // 다음 프레임 스키닝은 다른 버퍼에 써서 이번 프레임 값을 지난 프레임 값으로 남깁니다.
             Actor.mCurrentSkinnedPositionIndex = (Actor.mCurrentSkinnedPositionIndex + 1) % 2;

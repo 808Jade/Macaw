@@ -6,12 +6,16 @@
 
 #pragma once
 
+#include "Core/Math/FBox.h"
 #include "Core/Types.h"
 #include "Core/ReflectionMacros.h"
 #include "PhysicsRuntime/FKSphereElem.h"
 #include "PhysicsRuntime/FKBoxElem.h"
 #include "PhysicsRuntime/FKSphylElem.h"
 #include "PhysicsRuntime/FKConvexElem.h"
+
+#include <optional>
+
 #include "FKAggregateGeom.generated.h"
 
 namespace PhysicsRuntime {
@@ -38,6 +42,8 @@ namespace PhysicsRuntime {
          * @return 형상이 하나도 없으면 true입니다.
          */
         bool IsEmpty() const;
+
+        std::optional<FBox> CalcAABB(const FMatrix& LocalToWorld) const;
 
     public:
 

@@ -73,13 +73,13 @@ namespace Engine {
         /**
          * @brief Pitch·Yaw·Roll 축별 초당 회전 각도이며 단위는 도입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetRotationRate, Setter = SetRotationRate)
-        FRotator mRotationRate{0.0f, 90.0f, 0.0f};
+        UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetRotationRate, Setter = SetRotationRate)
+        FRotator mRotationRate{};
 
         /**
          * @brief true이면 이동 대상의 로컬 축, false이면 월드 축에 회전 증분을 합성합니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetRotationInLocalSpace, Setter = SetRotationInLocalSpace)
+        UPROPERTY(Edit, Serialize, Category = "Movement", Getter = GetRotationInLocalSpace, Setter = SetRotationInLocalSpace)
         bool mRotationInLocalSpace{true};
 
         /** @brief 회전 중심의 로컬 오프셋이며 기본값은 이동 대상의 원점입니다. */

@@ -137,7 +137,6 @@ namespace Editor {
         /**
          * @brief 레벨 편집기 액터와 에셋 표시용 아이콘을 준비합니다.
          */
-        void InstallEditorIcons();
 
     private:
         /**

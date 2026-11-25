@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FVector.h"
 
 #include <utility>
@@ -35,6 +36,12 @@ namespace Editor {
          * @brief 천 설정 항목 하나의 이름, 묶음, 단위, 범위, 기본값, 설명입니다.
          */
         struct FClothConfigField {
+        public:
+            bool HasScalarValue() const;
+            float GetScalarValue(PhysicsRuntime::UClothConfigNv& Config) const;
+            void SetScalarValue(PhysicsRuntime::UClothConfigNv& Config, float BaseValue) const;
+
+        public:
             /**
              * @brief 콘솔 명령에서 쓰는 소문자 이름입니다.
              */
@@ -94,6 +101,9 @@ namespace Editor {
              * @brief 벡터 항목의 값 위치를 구하는 함수이며 실수 항목이면 nullptr입니다.
              */
             FVector* (*mGetVector)(PhysicsRuntime::UClothConfigNv&){};
+
+            Core::FLength PhysicsRuntime::UClothConfigNv::* mLength{};
+            Core::FFrequency PhysicsRuntime::UClothConfigNv::* mFrequency{};
         };
 
         /**
@@ -224,13 +234,6 @@ namespace Editor {
          * @return 다시 만들었으면 true입니다.
          */
         bool RebuildSectionMapping(Asset::USkeletalMesh& Mesh, Index_t SubMeshIndex, Core::FString& Error);
-
-        /**
-         * @brief 설정의 실수 항목 이름과 값 위치를 모읍니다.
-         * @param[in] Config 값을 가진 설정입니다.
-         * @return 소문자 이름과 값 위치입니다.
-         */
-        Core::TArray<std::pair<Core::FString, float*>> GetConfigFloats(PhysicsRuntime::UClothConfigNv& Config);
 
         /**
          * @brief 설정의 벡터 항목 이름과 값 위치를 모읍니다.

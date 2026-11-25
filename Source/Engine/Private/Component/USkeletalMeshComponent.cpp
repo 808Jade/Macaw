@@ -11,6 +11,7 @@
 #include "Asset/FAssetManager.h"
 #include "Core/Archive.h"
 #include "Core/FilePath.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Core/Base/ErrorHandler.h"
 #include "Engine/EPrimitiveType.h"
 #include "Engine/FPrimitiveSceneProxy.h"
@@ -37,6 +38,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <optional>
 #include <utility>
 
 namespace Engine {
@@ -54,7 +56,7 @@ namespace Engine {
         bool IsAssetPath(const Core::FString& Path) {
             const std::filesystem::path AssetPath{Core::FilePath::FromUtf8(Path)};
 
-            if (Path.find('\0') != Core::FString::npos || (!Path.empty() && (AssetPath.has_root_path() || AssetPath.extension() != L".masset"))) {
+            if (Path.find('\0') != Core::FString::npos || (!Path.empty() && (Core::FilePath::GetContentMount(AssetPath) == Core::FilePath::EContentMount::Invalid || AssetPath.extension() != L".masset"))) {
                 return false;
             }
 
@@ -108,6 +110,52 @@ namespace Engine {
     const Asset::FMeshData& USkeletalMeshComponent::GetMeshData() const {
         // 피킹이 실제 보이는 표면과 일치하도록 에셋의 바인드 형상이 아니라 현재 포즈로 변형한 형상을 반환합니다.
         return mSkeletalMesh != nullptr && !mPose.GetRevision().IsValid() ? mSkeletalMesh->GetMeshData() : mPose.GetMeshData();
+    }
+
+    FBox USkeletalMeshComponent::GetWorldBounds() const {
+        if (mSkeletalMesh == nullptr) {
+            return Engine::UMeshComponent::GetWorldBounds();
+        }
+
+        const FMatrix ComponentToWorld{GetWorldMatrix()};
+        const Core::TArray<FMatrix>& GlobalTransforms{mPose.GetGlobalTransforms()};
+
+        if (!GlobalTransforms.empty()) {
+            if (const PhysicsRuntime::UPhysicsAsset* PhysicsAsset{LoadPhysicsAsset(GetAssignedPhysicsAssetPath())}; PhysicsAsset != nullptr) {
+                FBox Bounds{mSkeletalMesh->CalcSkinnedWorldBounds(mPose.GetSkinMatrices(), ComponentToWorld)};
+
+                for (const auto& Body : PhysicsAsset->mSkeletalBodySetups) {
+                    if (Body == nullptr) {
+                        continue;
+                    }
+
+                    const Index_t BoneIndex{GetBoneIndex(Body->GetBoneName())};
+
+                    if (BoneIndex == InvalidIndex || BoneIndex >= GlobalTransforms.size()) {
+                        continue;
+                    }
+
+                    const std::optional<FBox> BodyBounds{Body->GetAggGeom().CalcAABB(GlobalTransforms[BoneIndex] * ComponentToWorld)};
+
+                    if (BodyBounds.has_value()) {
+                        Bounds.mMinimum = Bounds.mMinimum.Min(BodyBounds->mMinimum);
+                        Bounds.mMaximum = Bounds.mMaximum.Max(BodyBounds->mMaximum);
+                    }
+                }
+
+                return Bounds;
+            }
+        }
+
+        FBox MeshBounds{mSkeletalMesh->GetBounds()};
+
+        if (mSkeleton != nullptr && !GlobalTransforms.empty() && !mSkeleton->GetGlobalBindPoses().empty()) {
+            const FVector RootOffset{GlobalTransforms.front().Origin() - mSkeleton->GetGlobalBindPoses().front().Origin()};
+            MeshBounds.mMinimum += RootOffset;
+            MeshBounds.mMaximum += RootOffset;
+        }
+
+        return MeshBounds.Transformed(ComponentToWorld);
     }
 
     /**
@@ -266,16 +314,14 @@ namespace Engine {
      * @brief 뼈별 바디와 관절을 만들 물리 에셋을 반환합니다.
      */
     PhysicsRuntime::UPhysicsAsset* USkeletalMeshComponent::GetPhysicsAsset() const {
-        if (!mPhysicsAssetOverride.empty()) {
-            return LoadPhysicsAsset(mPhysicsAssetOverride);
+        const Core::FString& Path{GetAssignedPhysicsAssetPath()};
+
+        if (!Path.empty()) {
+            return LoadPhysicsAsset(Path);
         }
 
         if (mSkeletalMesh == nullptr) {
             return nullptr;
-        }
-
-        if (!mSkeletalMesh->GetPhysicsAssetPath().empty()) {
-            return LoadPhysicsAsset(mSkeletalMesh->GetPhysicsAssetPath());
         }
 
         // 지정된 물리 에셋이 없으면 메시가 뼈와 정점으로 만든 것을 임시로 씁니다.
@@ -307,6 +353,7 @@ namespace Engine {
 
         mPhysicsAssetOverride = Path;
         RecreatePhysicsState();
+        MarkRenderTransformDirty();
 
         return true;
     }
@@ -439,8 +486,9 @@ namespace Engine {
 
             auto Body{std::make_unique<PhysicsRuntime::FBodyInstance>()};
 
-            // 물리 에셋의 바디는 시뮬레이션을 끈 키네마틱으로 시작합니다.
+            // 물리 에셋의 바디는 시뮬레이션을 끈 키네마틱으로 시작하고, 충돌 설정은 컴포넌트의 바디 인스턴스를 따릅니다.
             Body->SetSimulatePhysics(false);
+            Body->CopyCollisionSettings(GetBodyInstance());
             Body->mInstanceBodyIndex = BodyIndex;
             Body->mInstanceBoneIndex = BoneIndex;
 
@@ -727,7 +775,7 @@ namespace Engine {
         mPrevRootBoneMatrix = GetClothRootBoneWorldMatrix();
         mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
 
-        UpdateClothSimulationContext(0.0f);
+        UpdateClothSimulationContext({});
 
         for (Index_t AssetIndex{}; AssetIndex < MeshClothingAssets.size(); ++AssetIndex) {
             const PhysicsRuntime::UClothingAssetCommon* const ClothingAsset{MeshClothingAssets[AssetIndex].get()};
@@ -777,7 +825,7 @@ namespace Engine {
             return;
         }
 
-        UpdateClothSimulationContext(DeltaTime);
+        UpdateClothSimulationContext(Core::FTime::FromBase(DeltaTime));
         mClothingSimulation->Simulate(mClothingSimulationContext);
         WritebackClothingSimulationData();
 
@@ -788,15 +836,15 @@ namespace Engine {
     /**
      * @brief 현재 포즈, 변환, 시간, 중력으로 천 시뮬레이션 입력을 채웁니다.
      */
-    void USkeletalMeshComponent::UpdateClothSimulationContext(float DeltaTime) {
+    void USkeletalMeshComponent::UpdateClothSimulationContext(Core::FTime DeltaTime) {
         // 한 프레임이 너무 길면 천이 튀므로 물리 한 번에 진행할 최대 시간으로 자릅니다.
-        constexpr float MaxPhysicsDelta{1.0f / 30.0f};
+        constexpr Core::FTime MaxPhysicsDelta{1.0f / Core::FFrequency::FromBase(30.0f)};
 
         // 프레임이 최대 시간의 이 배수보다 길면 관성 대신 순간 이동으로 처리합니다.
         constexpr float MaxDeltaTimeTeleportMultiplier{1.5f};
 
         // 진행할 때만 순간 이동을 검사합니다. 처음 천을 만들 때는 이미 지금 위치에 놓습니다.
-        if (DeltaTime > 0.0f) {
+        if (DeltaTime > Core::FTime{}) {
             CheckClothTeleport();
         }
 
@@ -807,7 +855,7 @@ namespace Engine {
         mClothingSimulationContext.mRefToLocals = mPose.GetSkinMatrices();
         mClothingSimulationContext.mComponentToWorld = GetWorldMatrix();
         mClothingSimulationContext.mWorldGravity = Runtime != nullptr ? Runtime->GetSettings().mGravity : FVector{0.0f, 0.0f, -9.81f};
-        mClothingSimulationContext.mDeltaSeconds = std::min(DeltaTime, MaxPhysicsDelta);
+        mClothingSimulationContext.mDeltaTime = std::min(DeltaTime, MaxPhysicsDelta);
         mClothingSimulationContext.mPredictedLod = 0;
         mClothingSimulationContext.mMaxDistanceScale = mClothMaxDistanceScale;
 
@@ -818,7 +866,7 @@ namespace Engine {
         mClothingSimulationContext.mTeleportMode = DeltaTime > MaxPhysicsDelta * MaxDeltaTimeTeleportMultiplier ? PhysicsRuntime::EClothingTeleportMode::Teleport : mClothTeleportMode;
 
         // 요청한 순간 이동은 이번 진행 한 번에만 씁니다.
-        if (DeltaTime > 0.0f) {
+        if (DeltaTime > Core::FTime{}) {
             mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
         }
     }
@@ -843,19 +891,19 @@ namespace Engine {
         const bool HasTransforms{CurRootBoneMatrix.TryGetTransform(CurRoot) && mPrevRootBoneMatrix.TryGetTransform(PrevRoot)};
 
         // 거리 검사입니다.
-        if (HasTransforms && mTeleportDistanceThreshold > 0.0f && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
-            if ((CurRoot.mLocation - PrevRoot.mLocation).LengthSquared() > mTeleportDistanceThreshold * mTeleportDistanceThreshold) {
+        if (HasTransforms && mTeleportDistanceThreshold > Core::FLength{} && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
+            if (Core::FArea::FromBase((CurRoot.mLocation - PrevRoot.mLocation).LengthSquared()) > mTeleportDistanceThreshold * mTeleportDistanceThreshold) {
                 mClothTeleportMode = RequestedMode;
             }
         }
 
         // 회전 검사입니다. 두 회전 사이 각도의 코사인을 사원수 내적으로 구합니다.
-        if (HasTransforms && mTeleportRotationThreshold > 0.0f && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
+        if (HasTransforms && mTeleportRotationThreshold > Core::FAngle{} && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
             const FQuat& A{CurRoot.mRotation};
             const FQuat& B{PrevRoot.mRotation};
             const float Dot{A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w};
             const float CosineTheta{2.0f * Dot * Dot - 1.0f};
-            const float CosineThreshold{std::cos(mTeleportRotationThreshold * 3.14159265f / 180.0f)};
+            const float CosineThreshold{Core::Math::Cos(mTeleportRotationThreshold)};
 
             if (CosineTheta < CosineThreshold) {
                 mClothTeleportMode = RequestedMode;
@@ -999,6 +1047,36 @@ namespace Engine {
                 }
             }
         }
+    }
+
+    /**
+     * @brief 뼈별 바디가 현재 자세에서 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+     */
+    bool USkeletalMeshComponent::ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const {
+        if (mBodies.empty()) {
+            return Engine::UMeshComponent::ComponentOverlapMulti(OutOverlaps);
+        }
+
+        OutOverlaps.clear();
+
+        Core::TArray<PhysicsRuntime::FBodyInstance*> BodyOverlaps{};
+        bool Queried{};
+
+        for (const auto& Body : mBodies) {
+            if (Body == nullptr || !Body->OverlapMulti(BodyOverlaps)) {
+                continue;
+            }
+
+            Queried = true;
+
+            for (PhysicsRuntime::FBodyInstance* Other : BodyOverlaps) {
+                if (std::find(OutOverlaps.begin(), OutOverlaps.end(), Other) == OutOverlaps.end()) {
+                    OutOverlaps.push_back(Other);
+                }
+            }
+        }
+
+        return Queried;
     }
 
     /**
@@ -1389,6 +1467,10 @@ namespace Engine {
         }
 
         return PhysicsAsset;
+    }
+
+    const Core::FString& USkeletalMeshComponent::GetAssignedPhysicsAssetPath() const {
+        return !mPhysicsAssetOverride.empty() || mSkeletalMesh == nullptr ? mPhysicsAssetOverride : mSkeletalMesh->GetPhysicsAssetPath();
     }
 
     Asset::UAnimSequence* USkeletalMeshComponent::LoadAnimation(const Core::FString& Path) const {

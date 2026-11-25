@@ -156,7 +156,7 @@ namespace Engine {
     /**
      * @brief 재생 중이면 시간을 진행하고 값을 적용합니다.
      */
-    void Engine::FSequencePlayer::Advance(float DeltaTime) {
+    void Engine::FSequencePlayer::Advance(Core::FTime DeltaTime) {
         const Asset::ULevelSequence* Sequence{GetSequence()};
 
         if (Sequence == nullptr || GetWorld() == nullptr) {
@@ -165,14 +165,14 @@ namespace Engine {
             return;
         }
 
-        if (mState != Engine::ESequencePlayState::Playing || !std::isfinite(DeltaTime) || DeltaTime < 0.0f) {
+        if (mState != Engine::ESequencePlayState::Playing || !DeltaTime.IsFinite() || DeltaTime < Core::FTime{}) {
             return;
         }
 
         const double Start{static_cast<double>(Sequence->GetStartTick())};
         const double End{static_cast<double>(Sequence->GetEndTick())};
 
-        mTick += static_cast<double>(DeltaTime) * Asset::ULevelSequence::TicksPerSecond;
+        mTick += static_cast<double>(DeltaTime.GetBase()) * Asset::ULevelSequence::TicksPerSecond;
 
         if (mTick < End) {
             Evaluate();
@@ -246,7 +246,7 @@ namespace Engine {
                 const CoreUObject::FProperty* Property{Component != nullptr ? Component->GetClass()->FindClassProperty(Saved.mName) : nullptr};
 
                 if (Property != nullptr) {
-                    Property->WriteValue(Component, CoreUObject::FPropertyValue{Saved.mValue});
+                    Property->WriteValue(Component, Saved.mValue);
                 }
             }
 
@@ -355,7 +355,14 @@ namespace Engine {
                     const CoreUObject::FProperty* Property{Component->GetClass()->FindClassProperty(PropertyTrack->GetPropertyName())};
                     float Value{};
 
-                    if (Property == nullptr || Property->GetType() != CoreUObject::EPropertyType::Float || !PropertyTrack->GetChannel().Evaluate(mTick, Value)) {
+                    if (Property == nullptr || !PropertyTrack->GetChannel().Evaluate(mTick, Value)) {
+                        continue;
+                    }
+
+                    const CoreUObject::FPropertyValue Original{Property->ReadValue(Component)};
+                    CoreUObject::FPropertyValue Animated{Original};
+
+                    if (!Property->FromNumericValue(Value, Animated)) {
                         continue;
                     }
 
@@ -366,12 +373,12 @@ namespace Engine {
                     if (!Captured) {
                         FSavedProperty Saved{};
                         Saved.mName = Property->GetName();
-                        Saved.mValue = std::get<float>(Property->ReadValue(Component));
+                        Saved.mValue = Original;
 
                         Binding.mBaseProperties.push_back(Saved);
                     }
 
-                    Property->WriteValue(Component, CoreUObject::FPropertyValue{Value});
+                    Property->WriteValue(Component, Animated);
 
                     continue;
                 }

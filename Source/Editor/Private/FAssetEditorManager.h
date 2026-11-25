@@ -43,7 +43,7 @@ namespace Editor {
             FSourceEditor(NativeIDE::EIDELanguage Language, const char* Title, const char* Id, Editor::FEditorContext* Context, Editor::FMessageBox& Messages, NativeIDE::FIDEContent::FValidator Validator = {}, NativeIDE::FIDEContent::FBuildSavedHandler BuildSavedHandler = {});
 
         public:
-            void Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace);
+            void Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace, bool ReadOnly);
             void Draw(float DeltaTime, Editor::FEditorWorkspace& Workspace);
             void CloseRetired(const std::filesystem::path& Absolute);
 
@@ -54,7 +54,7 @@ namespace Editor {
         private:
             bool RequestTabClose();
             Editor::FMessageBox::FSavePrompt MakeSavePrompt();
-            void OpenNow(const std::filesystem::path& Path, const std::filesystem::path& Workspace);
+            void OpenNow(const std::filesystem::path& Path, const std::filesystem::path& Workspace, bool ReadOnly);
 
         private:
             NativeIDE::FIDEContent mIDE;
@@ -147,7 +147,7 @@ namespace Editor {
          * @param[in] Predicate 열린 머티리얼 경로를 판정할 조건입니다.
          * @return 조건에 맞는 열린 머티리얼이 있으면 true입니다.
          */
-        bool HasOpenMaterial(const std::function<bool(const std::filesystem::path&)>& Predicate) const;
+        bool HasOpenAsset(Asset::EAssetType Type, const std::function<bool(const std::filesystem::path&)>& Predicate) const;
 
         /**
          * @brief 소스 편집기에 조건에 맞는 저장하지 않은 소스가 열려 있는지 검사합니다.
@@ -163,7 +163,7 @@ namespace Editor {
         void SetChangedHandler(std::function<void()> Handler);
 
     private:
-        void OpenSource(const std::filesystem::path& Path, Editor::FAssetEditorManager::FSourceEditor& Editor);
+        void OpenSource(const std::filesystem::path& Path, Editor::FAssetEditorManager::FSourceEditor& Editor, bool AllowEngine);
 
         /**
          * @brief 포커스와 마지막 활성 상태로 표시 중인 에셋 편집기를 찾습니다.

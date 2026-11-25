@@ -80,12 +80,12 @@ namespace PhysicsRuntime {
     /**
      * @brief 천끼리 부딪힐 입자를 고릅니다.
      */
-    void FClothPhysicalMeshData::BuildSelfCollisionData(float SelfCollisionRadius) {
-        if (SelfCollisionRadius == 0.0f) {
+    void FClothPhysicalMeshData::BuildSelfCollisionData(Core::FLength SelfCollisionRadius) {
+        if (SelfCollisionRadius == Core::FLength{}) {
             return;
         }
 
-        const float RadiusSquared{SelfCollisionRadius * SelfCollisionRadius};
+        const Core::FArea RadiusSquared{SelfCollisionRadius * SelfCollisionRadius};
         const FPointWeightMap* const MaxDistances{FindWeightMap(EWeightMapTargetCommon::MaxDistance)};
         constexpr Uint32 RemovedIndex{0xFFFFFFFFu};
 
@@ -111,7 +111,7 @@ namespace PhysicsRuntime {
             for (Index_t Vert1Itr{Vert0Itr + 1}; Vert1Itr < mSelfCollisionIndices.size(); ++Vert1Itr) {
                 const Uint32 V1Index{mSelfCollisionIndices[Vert1Itr]};
 
-                if (V1Index != RemovedIndex && (mVertices[V1Index] - V0Pos).LengthSquared() < RadiusSquared) {
+                if (V1Index != RemovedIndex && Core::FArea::FromBase((mVertices[V1Index] - V0Pos).LengthSquared()) < RadiusSquared) {
                     mSelfCollisionIndices[Vert1Itr] = RemovedIndex;
                 }
             }

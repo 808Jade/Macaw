@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FTransform.h"
 #include "PhysicsRuntime/FBodyInstance.h"
 #include "PhysicsRuntime/FConstraintInstance.h"
@@ -124,7 +125,7 @@ namespace PhysicsRuntime {
          *       Kinematic 바디의 목표는 이전 목표에서 현재 목표까지 보간해 스텝마다 주어, 마지막 스텝에서만 움직이지 않게 합니다.
          *       스텝이 0번이면 목표만 보관하고 바디는 움직이지 않습니다.
          */
-        void Advance(float DeltaSeconds);
+        void Advance(Core::FTime DeltaTime);
 
         /**
          * @brief 바디의 현재 월드 변환을 구합니다.
@@ -191,7 +192,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 아직 스텝으로 쓰지 않은 누적 시간(초)입니다.
          */
-        float mAccumulator{};
+        Core::FTime mAccumulator{};
     };
 
 }
