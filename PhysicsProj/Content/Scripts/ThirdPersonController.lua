@@ -12,6 +12,9 @@ local Settings = {
     Gravity = 15.0,
     TurnSpeed = 10.0,
     StepHeight = 0.35,
+    StepForwardDistance = 0.15,
+    FloorProbeDistance = 0.05,
+    WalkableFloorZ = 0.7,
     CameraDistance = 4.0,
     LookSensitivity = 0.003,
 }
@@ -29,12 +32,9 @@ local Clip = {
     Sword_Attack = 39,
 }
 
-local UnitX = Vector.new(1, 0, 0)
 local UnitY = Vector.new(0, 1, 0)
 local UnitZ = Vector.new(0, 0, 1)
 local Back = Vector.new(-1, 0, 0)
-local Down = Vector.new(0, 0, -1)
-local WallProbeHeights = { 0.40, 1.60 }
 
 local function Clamp(Value, Minimum, Maximum)
     return math.max(Minimum, math.min(Value, Maximum))
@@ -162,21 +162,104 @@ local function UpdateControls()
     end
 end
 
-local function MoveAlong(Position, Direction, Distance)
-    if math.abs(Distance) < 0.00001 then
-        return Position
+local function SweepMove(Delta)
+    return select(2, Actor:AddActorWorldOffset(Delta, true))
+end
+
+local function IsWalkable(Hit)
+    return Hit.BlockingHit and Hit.Normal.z >= Settings.WalkableFloorZ
+end
+
+local function SlideMove(Delta, Hit)
+    for Attempt = 1, 3 do
+        if not Hit.BlockingHit then
+            return
+        end
+
+        local Remaining = Delta * (1 - Hit.Time)
+        local Normal = Hit.Normal
+        if not IsWalkable(Hit) then
+            Normal = Vector.new(Normal.x, Normal.y, 0)
+            if Normal:LengthSquared() < 0.000001 then
+                return
+            end
+            Normal = Normal:Normalized()
+        end
+
+        local IntoSurface = Remaining.x * Normal.x + Remaining.y * Normal.y + Remaining.z * Normal.z
+        Delta = Remaining - Normal * IntoSurface
+        if Delta:LengthSquared() < 0.00000001 then
+            return
+        end
+
+        Hit = SweepMove(Delta)
+    end
+end
+
+local function TryStepUp(Delta)
+    local Distance = Delta:Length()
+    if Distance < 0.0001 then
+        return false
     end
 
-    local TraceDirection = Direction * (Distance > 0 and 1 or -1)
-    local Allowed = math.abs(Distance)
-    for _, Height in ipairs(WallProbeHeights) do
-        local Wall = World.Raycast(Position + UnitZ * Height, TraceDirection, Actor)
-        if Wall.IsHit then
-            Allowed = math.min(Allowed, math.max(0, Wall.Distance - 0.30))
+    local Start = Actor:GetActorLocation()
+    local Ceiling = SweepMove(UnitZ * Settings.StepHeight)
+    if Ceiling.BlockingHit then
+        Actor:SetActorLocation(Start)
+        return false
+    end
+
+    local Raised = Actor:GetActorLocation()
+    local Forward = Delta * (math.max(Distance, Settings.StepForwardDistance) / Distance)
+    SweepMove(Forward)
+    local Progress = Actor:GetActorLocation() - Raised
+    local Floor = SweepMove(UnitZ * -(Settings.StepHeight + Settings.FloorProbeDistance))
+
+    if Progress:LengthSquared() > 0.000001 and IsWalkable(Floor) and Actor:GetActorLocation().z > Start.z + Settings.FloorProbeDistance then
+        return true
+    end
+
+    Actor:SetActorLocation(Start)
+    return false
+end
+
+local function MoveHorizontal(Delta)
+    if Delta:LengthSquared() < 0.00000001 then
+        return
+    end
+
+    local Hit = SweepMove(Delta)
+    if State.mGrounded and Hit.BlockingHit and not IsWalkable(Hit) and TryStepUp(Delta * (1 - Hit.Time)) then
+        return
+    end
+
+    SlideMove(Delta, Hit)
+end
+
+local function MoveVertical(Distance)
+    local Hit = SweepMove(UnitZ * Distance)
+    if Distance > 0 then
+        if Hit.BlockingHit then
+            State.mVerticalSpeed = 0
+        end
+        State.mGrounded = false
+        return
+    end
+
+    if not Hit.BlockingHit and State.mGrounded then
+        local Start = Actor:GetActorLocation()
+        local Floor = SweepMove(UnitZ * -Settings.StepHeight)
+        if IsWalkable(Floor) then
+            Hit = Floor
+        else
+            Actor:SetActorLocation(Start)
         end
     end
 
-    return Position + TraceDirection * Allowed
+    State.mGrounded = IsWalkable(Hit)
+    if State.mGrounded then
+        State.mVerticalSpeed = 0
+    end
 end
 
 local function MovePlayer(Step)
@@ -209,50 +292,27 @@ local function MovePlayer(Step)
         State.mFacing = WrapAngle(State.mFacing + Clamp(Turn, -MaxTurn, MaxTurn))
     end
 
-    local Player = Actor:GetActorTransform()
-    local Previous = Player.Location
-    local Position = MoveAlong(Previous, UnitX, State.mVelocity.x * Step)
-    Position = MoveAlong(Position, UnitY, State.mVelocity.y * Step)
-    local Horizontal = Vector.new(Position.x - Previous.x, Position.y - Previous.y, 0)
-    State.mSpeed = Step > 0 and Horizontal:Length() / Step or 0
+    local Previous = Actor:GetActorLocation()
+    MoveHorizontal(State.mVelocity * Step)
     State.mVerticalSpeed = State.mVerticalSpeed - Settings.Gravity * Step
-    local VerticalDistance = State.mVerticalSpeed * Step
+    MoveVertical(State.mVerticalSpeed * Step)
 
-    if VerticalDistance > 0 then
-        local Ceiling = World.Raycast(Position + UnitZ * 1.75, UnitZ, Actor)
-        if Ceiling.IsHit and Ceiling.Distance < VerticalDistance + 0.05 then
-            VerticalDistance = math.max(0, Ceiling.Distance - 0.05)
-            State.mVerticalSpeed = 0
-        end
-    end
-
-    Position = Position + UnitZ * VerticalDistance
-    local Probe = Vector.new(Position.x, Position.y, math.max(Previous.z, Position.z) + Settings.StepHeight)
-    local Ground = World.Raycast(Probe, Down, Actor)
-    local GroundHeight = Ground.Position.z + 0.025
-    local SnapDistance = State.mGrounded and Settings.StepHeight or 0
-    local Reachable = Ground.IsHit and GroundHeight <= Previous.z + SnapDistance + 0.01
-    local Contact = Position.z <= GroundHeight or (State.mGrounded and Position.z - GroundHeight <= Settings.StepHeight)
-    State.mGrounded = State.mVerticalSpeed <= 0 and Reachable and Contact
-
-    if State.mGrounded then
-        Position.z = GroundHeight
-        State.mVerticalSpeed = 0
-    end
-
+    local Player = Actor:GetActorTransform()
+    local Position = Player.Location
     if Position.z < -10 then
         ResetPlayer()
         return
     end
 
-    Player.Location = Position
+    local Horizontal = Vector.new(Position.x - Previous.x, Position.y - Previous.y, 0)
+    State.mSpeed = Step > 0 and math.min(Horizontal:Length() / Step, State.mVelocity:Length()) or 0
     Player.Rotation = Quat.new(UnitZ, State.mFacing) * State.mSpawn.Rotation
     Actor:SetActorTransform(Player)
 end
 
 local function UpdateCamera(Step)
     local Rotation = (Quat.new(UnitZ, State.mYaw) * Quat.new(UnitY, -State.mPitch)):Normalized()
-    local Target = Actor.Location + UnitZ * (State.mCrouch and 1.12 or 1.4)
+    local Target = Actor:GetActorLocation() + UnitZ * (State.mCrouch and 0.22 or 0.5)
     local Direction = Rotation:RotateVector(Back)
     local Obstacle = World.Raycast(Target, Direction, Actor)
     local Distance = Settings.CameraDistance * (State.mAim and 0.75 or 1)
@@ -266,6 +326,7 @@ local function UpdateCamera(Step)
 end
 
 function BeginPlay()
+    assert(Actor:GetComponentByClass("UCapsuleComponent"), "The third person character needs a movement capsule.")
     State.mMesh = assert(Actor:GetComponentByClass("USkeletalMeshComponent"), "The third person character needs a skeletal mesh.")
     State.mCamera = assert(World.FindActor("Follow Camera"), "The follow camera is missing.")
     assert(World.SetActiveCamera(State.mCamera), "The follow camera needs a camera component.")
