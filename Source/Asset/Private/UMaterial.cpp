@@ -32,13 +32,7 @@ namespace Asset {
 
             const std::filesystem::path File{Core::FilePath::FromUtf8(Path)};
 
-            if (File.is_absolute() || File.has_root_path()) {
-                return false;
-            }
-
-            return std::none_of(File.begin(), File.end(), [](const auto& Part) {
-                return Part == L"..";
-            });
+            return Core::FilePath::GetContentMount(File) != Core::FilePath::EContentMount::Invalid;
         }
     }
 

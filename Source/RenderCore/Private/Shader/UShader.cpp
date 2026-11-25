@@ -182,9 +182,7 @@ bool UShader::SetSourcePath(const Core::FString& Path) {
 
     const std::filesystem::path Source{Core::FilePath::FromUtf8(Path)};
 
-    if (Source.has_root_path() || Source.extension() != L".hlsl" || std::any_of(Source.begin(), Source.end(), [](const auto& Part) {
-        return Part == L"..";
-    })) {
+    if (Core::FilePath::GetContentMount(Source) == Core::FilePath::EContentMount::Invalid || Source.extension() != L".hlsl") {
         return false;
     }
 
@@ -271,7 +269,7 @@ UShader* UShader::GetDefault() {
     auto& Shader{GetBuiltinShaders().mLit};
 
     if (Shader == nullptr) {
-        Shader = CreateBuiltin("6D414341-5753-4844-8000-000000000001", "Lit", "Shaders/Lit.hlsl", false);
+        Shader = CreateBuiltin("6D414341-5753-4844-8000-000000000001", "Lit", "/Engine/Shaders/Lit.hlsl", false);
     }
 
     return Shader.get();
@@ -284,7 +282,7 @@ UShader* UShader::GetUnlit() {
     auto& Shader{GetBuiltinShaders().mUnlit};
 
     if (Shader == nullptr) {
-        Shader = CreateBuiltin("6D414341-5753-4844-8000-000000000002", "Unlit", "Shaders/Unlit.hlsl", true);
+        Shader = CreateBuiltin("6D414341-5753-4844-8000-000000000002", "Unlit", "/Engine/Shaders/Unlit.hlsl", true);
     }
 
     return Shader.get();
@@ -314,5 +312,9 @@ UShader* UShader::FindBuiltin(const Core::FGuid& Guid) {
 UShader* UShader::FindBuiltin(const Core::FString& SourcePath) {
     const Core::FString Path{Core::FilePath::ToGenericUtf8(Core::FilePath::ToLower(Core::FilePath::FromUtf8(SourcePath).lexically_normal()))};
 
-    return Path == "shaders/lit.hlsl" || Path == "shaders/mesh.hlsl" ? GetDefault() : Path == "shaders/unlit.hlsl" ? GetUnlit() : nullptr;
+    if (Path == "/engine/shaders/lit.hlsl" || Path == "/engine/shaders/mesh.hlsl" || Path == "shaders/lit.hlsl" || Path == "shaders/mesh.hlsl") {
+        return GetDefault();
+    }
+
+    return Path == "/engine/shaders/unlit.hlsl" || Path == "shaders/unlit.hlsl" ? GetUnlit() : nullptr;
 }

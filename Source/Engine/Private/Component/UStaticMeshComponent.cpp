@@ -68,14 +68,8 @@ namespace Engine {
 
         const std::filesystem::path AssetPath{Core::FilePath::FromUtf8(Path)};
 
-        if (!Path.empty() && (AssetPath.is_absolute() || AssetPath.has_root_name() || AssetPath.extension() != L".masset")) {
+        if (!Path.empty() && (Core::FilePath::GetContentMount(AssetPath) == Core::FilePath::EContentMount::Invalid || AssetPath.extension() != L".masset")) {
             return false;
-        }
-
-        for (const auto& Part : AssetPath) {
-            if (Part == L"..") {
-                return false;
-            }
         }
 
         if (mMeshPath == Path && (Path.empty() || mStaticMesh != nullptr)) {

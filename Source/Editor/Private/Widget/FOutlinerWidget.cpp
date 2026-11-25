@@ -152,15 +152,15 @@ namespace Editor {
 
             if (ImGui::BeginMenu("Editor Icons")) {
                 if (ImGui::MenuItem("Spot Light Icon")) {
-                    Context->SpawnBillboard("Editor/Icon/SpotLight_64x.png");
+                    Context->SpawnBillboard("/Engine/Editor/Icon/SpotLight_64x.png");
                 }
 
                 if (ImGui::MenuItem("Point Light Icon")) {
-                    Context->SpawnBillboard("Editor/Icon/PointLight_64x.png");
+                    Context->SpawnBillboard("/Engine/Editor/Icon/PointLight_64x.png");
                 }
 
                 if (ImGui::MenuItem("Pawn Icon")) {
-                    Context->SpawnBillboard("Editor/Icon/Pawn_64x.png");
+                    Context->SpawnBillboard("/Engine/Editor/Icon/Pawn_64x.png");
                 }
 
                 ImGui::EndMenu();

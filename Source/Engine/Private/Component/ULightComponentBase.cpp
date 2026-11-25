@@ -9,6 +9,7 @@
 #include "Engine/UWorld.h"
 #include "Engine/FSceneInterface.h"
 #include "Asset/FAssetManager.h"
+#include "Core/FilePath.h"
 #include "Engine/FPrimitiveDrawInterface.h"
 #include "Core/Math/FTransform.h"
 #include "Core/Math.h"
@@ -16,7 +17,6 @@
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Core/Literals.h"
 
-#include <Windows.h>
 #include <algorithm>
 #include <cmath>
 
@@ -172,21 +172,14 @@ namespace Engine {
         if (Assets != nullptr) {
             Core::FString Error{};
 
-            mIcon = Assets->LoadTexture(Core::FString{"Editor/Icon/"} + Name, Error);
+            mIcon = Assets->LoadTexture(Core::FString{"/Engine/Editor/Icon/"} + Name, Error);
         }
 
         if (mIcon != nullptr) {
             return;
         }
 
-        Core::TStaticArray<wchar_t, 32768> Executable{};
-        const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
-        std::filesystem::path Path{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content/Editor/Icon" / Name : std::filesystem::path{}};
-        std::error_code Error{};
-
-        if (Path.empty() || !std::filesystem::is_regular_file(Path, Error)) {
-            Path = std::filesystem::path{"Templates/Project/Content/Editor/Icon"} / Name;
-        }
+        const auto Path{Core::FilePath::GetEngineContentRoot() / "Editor/Icon" / std::filesystem::path{Name}};
 
         auto Icon{CoreUObject::NewObject<Asset::UTexture2D>()};
 

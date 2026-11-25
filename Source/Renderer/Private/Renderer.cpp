@@ -6,6 +6,7 @@
 
 #include "Core/Types.h"
 #include "Renderer/Renderer.h"
+#include "Asset/FAssetManager.h"
 #include "RendererStats.h"
 #include "Core/FilePath.h"
 #include "Core/LoadingStatus.h"
@@ -67,39 +68,6 @@ namespace Renderer {
         DEFINE_LOG_CATEGORY_STATIC(LogRenderer, Log, All);
 
         /**
-         * @brief 프로젝트 또는 실행 파일의 기본 콘텐츠에서 우선순위에 맞는 경로를 반환합니다.
-         * @param[in] ContentRoot 프로젝트 Content 루트입니다.
-         * @param[in] RelativePath Content 기준 파일 경로입니다.
-         * @param[in] EngineFirst true이면 실행 파일과 함께 배포한 콘텐츠를 우선 사용합니다.
-         * @return 계산하거나 조회한 값입니다.
-         */
-        std::filesystem::path FindTextContent(const std::filesystem::path& ContentRoot, const std::filesystem::path& RelativePath, bool EngineFirst = false, bool PreferAsset = false) {
-            std::error_code Error{};
-            const auto FindInRoot{[&](const std::filesystem::path& Root) {
-                const auto Source{Root / RelativePath};
-                if (!PreferAsset) {
-                    return Source;
-                }
-
-                auto AssetPath{Source};
-                AssetPath += L".masset";
-
-                return std::filesystem::is_regular_file(AssetPath, Error) ? AssetPath : Source;
-            }};
-            const auto ProjectPath{FindInRoot(ContentRoot)};
-
-            if (!EngineFirst && std::filesystem::is_regular_file(ProjectPath, Error)) {
-                return ProjectPath;
-            }
-
-            Core::TStaticArray<wchar_t, 32768> Executable{};
-            const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
-            const auto EnginePath{Length > 0 && Length < Executable.size() ? FindInRoot(std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content") : ProjectPath};
-
-            return EngineFirst && !std::filesystem::is_regular_file(EnginePath, Error) ? ProjectPath : EnginePath;
-        }
-
-        /**
          * @brief 보조 선분 정점 및 픽셀 셰이더의 내장 HLSL 소스입니다.
          */
         constexpr char LineShader[]{"Line.hlsl"};
@@ -126,10 +94,11 @@ namespace Renderer {
     /**
      * @brief 프로젝트 콘텐츠의 셰이더 경로와 컴파일 캐시 경로를 설정합니다.
      */
-    void Renderer::FRenderer::SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory, bool ForwardShading) {
+    void Renderer::FRenderer::SetProjectPaths(const Asset::FAssetManager& Assets, const std::filesystem::path& CacheDirectory, bool ForwardShading) {
         mMaterialPipelines.clear();
         mShaderInstances.clear();
-        mShaderDirectory = ContentRoot / "Shaders";
+        mAssets = &Assets;
+        mShaderDirectory = Assets.GetEngineShaderRoot();
         mShaderManager.SetCacheDirectory(CacheDirectory);
         mForwardShading = ForwardShading;
     }
@@ -887,8 +856,8 @@ namespace Renderer {
         }
 
         std::error_code ParticleShaderError{};
-        const auto SpriteSource{std::filesystem::absolute(FindTextContent(mShaderDirectory.parent_path(), "Shaders/ParticleSprite.hlsl"))};
-        const auto TrailSource{std::filesystem::absolute(FindTextContent(mShaderDirectory.parent_path(), "Shaders/ParticleTrail.hlsl"))};
+        const auto SpriteSource{mShaderDirectory / "ParticleSprite.hlsl"};
+        const auto TrailSource{mShaderDirectory / "ParticleTrail.hlsl"};
 
         if (std::filesystem::is_regular_file(SpriteSource, ParticleShaderError)) {
             if (!Compile(SpriteSource, "VertexMain", "vs_5_0", VertexCode) || !Compile(SpriteSource, "PixelMain", "ps_5_0", PixelCode) || !mParticleRenderer->CreateShaders(mDevice.Get(), VertexCode->GetByteCode(), PixelCode->GetByteCode())) {
@@ -1047,9 +1016,9 @@ namespace Renderer {
             return false;
         }
 
-        const std::filesystem::path ContentRoot{mShaderDirectory.parent_path()};
+        const auto& EngineContent{mAssets->GetEngineContentRoot()};
 
-        if (!mSkyResources->Initialize(mDevice.Get(), FindTextContent(ContentRoot, "Sky/Epic_BlueSunset_EquiRect_flat.dds", false, true), FindTextContent(ContentRoot, "Sky/PreviewCourtyard.dds", true, true))) {
+        if (!mSkyResources->Initialize(mDevice.Get(), EngineContent / "Sky/Epic_BlueSunset_EquiRect_flat.dds.masset", EngineContent / "Sky/PreviewCourtyard.dds.masset")) {
             return false;
         }
 
@@ -1057,7 +1026,7 @@ namespace Renderer {
             return false;
         }
 
-        if (!mTextRenderer->Initialize(mDevice.Get(), FindTextContent(mShaderDirectory.parent_path(), "Fonts/Default.json"))) {
+        if (!mTextRenderer->Initialize(mDevice.Get(), EngineContent / "Fonts/Default.json")) {
             return false;
         }
 
@@ -1355,10 +1324,18 @@ namespace Renderer {
             return nullptr;
         }
 
-        const std::filesystem::path VertexSource{ParticleMesh ? FindTextContent(mShaderDirectory.parent_path(), "Shaders/ParticleMesh.vs.hlsl", true) : mShaderDirectory / (Skinned ? "SkinnedMesh.vs.hlsl" : "StaticMesh.vs.hlsl")};
+        const std::filesystem::path VertexSource{mShaderDirectory / (ParticleMesh ? "ParticleMesh.vs.hlsl" : Skinned ? "SkinnedMesh.vs.hlsl" : "StaticMesh.vs.hlsl")};
         const bool OverridePixel{Mode == Engine::EViewMode::Unlit || Mode == Engine::EViewMode::WorldNormal};
         const bool WritesGBuffer{!mForwardShading && !Translucent && (Shader->WritesGBuffer() || OverridePixel)};
-        const std::filesystem::path PixelSource{OverridePixel ? mShaderDirectory / "Lit.hlsl" : mShaderDirectory.parent_path() / RelativePath};
+        Core::FString PathError{};
+        const auto PixelSource{OverridePixel ? mShaderDirectory / "Lit.hlsl" : mAssets->ResolvePath(RelativePath, PathError)};
+
+        if (PixelSource.empty()) {
+            MACAW_LOG(LogRenderer, Error, "Cannot resolve shader '{}': {}", ShaderPath, PathError);
+
+            return nullptr;
+        }
+
         RenderCore::FShaderDescription VertexDescription{};
         VertexDescription.mSourcePath = VertexSource;
         VertexDescription.mIncludeDirectories = {VertexSource.parent_path(), mShaderDirectory};
@@ -1384,7 +1361,13 @@ namespace Renderer {
 
         RenderCore::FShaderDescription PixelDescription{};
         PixelDescription.mSourcePath = PixelSource;
-        PixelDescription.mIncludeDirectories = {PixelSource.parent_path(), mShaderDirectory};
+        PixelDescription.mIncludeDirectories = {PixelSource.parent_path()};
+
+        if (!OverridePixel && Core::FilePath::GetContentMount(RelativePath) == Core::FilePath::EContentMount::Game) {
+            PixelDescription.mIncludeDirectories.push_back(mAssets->GetContentRoot() / "Shaders");
+        }
+
+        PixelDescription.mIncludeDirectories.push_back(mShaderDirectory);
         PixelDescription.mEntryPoint = OverridePixel ? "PixelMain" : Shader->GetEntryPoint();
         PixelDescription.mTargetProfile = "ps_5_0";
 

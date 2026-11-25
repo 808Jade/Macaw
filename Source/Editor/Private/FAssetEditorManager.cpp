@@ -327,7 +327,7 @@ FAssetEditorManager::FSourceEditor::FSourceEditor(NativeIDE::EIDELanguage Langua
     });
 }
 
-void FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
+void FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path, const std::filesystem::path& Workspace, bool ReadOnly) {
     if (mTab.IsVisible() && (mIDE.IsDirty() || mIDE.HasUnbuiltChanges()) && Core::FilePath::ToLower(Path) == Core::FilePath::ToLower(mIDE.GetPath())) {
         mTab.Open();
 
@@ -335,18 +335,18 @@ void FAssetEditorManager::FSourceEditor::Open(const std::filesystem::path& Path,
     }
 
     if (auto Prompt{GetClosePrompt()}) {
-        mMessages.ConfirmSave({std::move(*Prompt)}, [this, Path, Workspace]() {
-            OpenNow(Path, Workspace);
+        mMessages.ConfirmSave({std::move(*Prompt)}, [this, Path, Workspace, ReadOnly]() {
+            OpenNow(Path, Workspace, ReadOnly);
         });
 
         return;
     }
 
-    OpenNow(Path, Workspace);
+    OpenNow(Path, Workspace, ReadOnly);
 }
 
-void FAssetEditorManager::FSourceEditor::OpenNow(const std::filesystem::path& Path, const std::filesystem::path& Workspace) {
-    if (!mIDE.Open(Path, Workspace)) {
+void FAssetEditorManager::FSourceEditor::OpenNow(const std::filesystem::path& Path, const std::filesystem::path& Workspace, bool ReadOnly) {
+    if (!mIDE.Open(Path, Workspace, ReadOnly)) {
         mContext->AddLog("Could not read source file " + Core::FilePath::ToGenericUtf8(Path));
 
         return;
@@ -578,28 +578,38 @@ void FAssetEditorManager::Draw(float DeltaTime) {
 }
 
 void FAssetEditorManager::OpenLuaScript(const std::filesystem::path& Path) {
-    OpenSource(Path, mLuaEditor);
+    OpenSource(Path, mLuaEditor, false);
 }
 
 void FAssetEditorManager::OpenShaderSource(const std::filesystem::path& Path) {
-    OpenSource(Path, mShaderEditor);
+    OpenSource(Path, mShaderEditor, true);
 }
 
-void FAssetEditorManager::OpenSource(const std::filesystem::path& Path, FSourceEditor& Editor) {
+void FAssetEditorManager::OpenSource(const std::filesystem::path& Path, FSourceEditor& Editor, bool AllowEngine) {
     Core::FString Error{};
     const auto* Assets{mContext->GetProject()->GetAssets()};
     const auto Absolute{Assets->ResolvePath(Path, Error)};
+    const bool ReadOnly{!Absolute.empty() && Assets->ResolveWritablePath(Absolute, Error).empty()};
 
-    if (Absolute.empty()) {
+    if (Absolute.empty() || (ReadOnly && !AllowEngine)) {
         mContext->AddLog("Could not open source file " + Core::FilePath::ToGenericUtf8(Path) + (Error.empty() ? "" : ": " + Error));
 
         return;
     }
 
-    Editor.Open(Absolute, Assets->GetContentRoot());
+    Editor.Open(Absolute, Assets->GetContentRoot(), ReadOnly);
 }
 
 void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, Asset::EAssetType Type) {
+    Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
+    Core::FString Error{};
+
+    if (Assets->ResolveWritablePath(Path, Error).empty()) {
+        mContext->AddLog(Error);
+
+        return;
+    }
+
     if (Type == Asset::EAssetType::Scene) {
         mCommands.OpenLevel(Path);
 
@@ -613,8 +623,6 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         }
     }
 
-    Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
-    Core::FString Error{};
     if (Type == Asset::EAssetType::Shader) {
         if (const auto* Shader{Assets->LoadShader(Path, Error)}) {
             OpenShaderSource(Core::FilePath::FromUtf8(Shader->GetSourcePath()));

@@ -379,7 +379,7 @@ namespace Editor {
                     Asset::EAssetType Type{};
                     Core::FString TypeError{};
 
-                    if (Asset::FAssetFile::GetType(Assets->GetContentRoot() / Candidate, Type, TypeError) && Type == Asset::EAssetType::Sequence) {
+                    if (Asset::FAssetFile::GetType(Assets->ResolvePath(Candidate, TypeError), Type, TypeError) && Type == Asset::EAssetType::Sequence) {
                         mSequencePaths.push_back(Core::FilePath::ToGenericUtf8(Candidate));
                     }
                 }

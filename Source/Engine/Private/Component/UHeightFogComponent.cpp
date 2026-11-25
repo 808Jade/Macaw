@@ -9,11 +9,11 @@
 #include "Engine/UWorld.h"
 #include "Engine/FSceneInterface.h"
 #include "Asset/FAssetManager.h"
+#include "Core/FilePath.h"
 #include "Asset/UTexture2D.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Core/Types.h"
 
-#include <Windows.h>
 #include <algorithm>
 #include <cmath>
 
@@ -284,21 +284,14 @@ namespace Engine {
         if (mIconAssets != nullptr) {
             Core::FString Error{};
 
-            mIcon = mIconAssets->LoadTexture("Editor/Icon/ExponentialHeightFog_64x.png", Error);
+            mIcon = mIconAssets->LoadTexture("/Engine/Editor/Icon/ExponentialHeightFog_64x.png", Error);
         }
 
         if (mIcon != nullptr) {
             return;
         }
 
-        Core::TStaticArray<wchar_t, 32768> Executable{};
-        const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
-        std::filesystem::path Path{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content/Editor/Icon/ExponentialHeightFog_64x.png" : std::filesystem::path{}};
-        std::error_code Error{};
-
-        if (Path.empty() || !std::filesystem::is_regular_file(Path, Error)) {
-            Path = "Templates/Project/Content/Editor/Icon/ExponentialHeightFog_64x.png";
-        }
+        const auto Path{Core::FilePath::GetEngineContentRoot() / "Editor/Icon/ExponentialHeightFog_64x.png"};
 
         auto Icon{CoreUObject::NewObject<Asset::UTexture2D>()};
 

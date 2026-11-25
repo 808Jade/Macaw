@@ -218,6 +218,7 @@ void FContentBrowserWidget::DrawContent() {
         ImGui::TableSetColumnIndex(0);
         ImGui::BeginChild("Content Folders", ImVec2{0.0f, Height});
         DrawContentTree({});
+        DrawContentTree(L"/Engine");
 
         mRevealContentDirectory = false;
 
@@ -252,10 +253,16 @@ void FContentBrowserWidget::DrawContent() {
 }
 
 std::filesystem::path FContentBrowserWidget::GetContentActionPath(const std::filesystem::path& Path) const {
-    return mContext->GetProject()->GetAssets()->GetContentRoot() / Path;
+    Core::FString Error{};
+
+    return mContext->GetProject()->GetAssets()->ResolveWritablePath(Path, Error);
 }
 
 void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
+    if (GetContentActionPath(mSelectedContentPath).empty()) {
+        return;
+    }
+
     mContentAction = Action;
     mContentActionTarget = mSelectedContentPath;
     mContentActionError.clear();
@@ -297,6 +304,10 @@ void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
 }
 
 Core::FString FContentBrowserWidget::FindContentActionBlocker(const std::filesystem::path& Absolute) const {
+    if (Absolute.empty()) {
+        return "Cannot edit this content path";
+    }
+
     Asset::FAssetManager* Assets{mContext->GetProject()->GetAssets()};
     Core::FString Error{};
     std::error_code Code{};
@@ -540,7 +551,8 @@ bool FContentBrowserWidget::DeleteContent() {
 }
 
 void FContentBrowserWidget::DrawContentContextMenu() {
-    const bool CanEdit{mContext->CanEditWorld()};
+    const bool CanEdit{mContext->CanEditWorld() && !mContentDirectory.has_root_directory()};
+    const bool CanEditSelection{CanEdit && !mSelectedContentPath.has_root_directory()};
 
     if (ImGui::MenuItem("New Folder", nullptr, false, CanEdit)) {
         CreateContentFolder();
@@ -566,7 +578,7 @@ void FContentBrowserWidget::DrawContentContextMenu() {
         CreateLuaScript();
     }
 
-    if (const auto Type{mAssetTypes.find(mSelectedContentPath)}; !mSelectedContentPath.empty() && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::SkeletalMesh) {
+    if (const auto Type{mAssetTypes.find(mSelectedContentPath)}; !mSelectedContentPath.empty() && !mSelectedContentPath.has_root_directory() && Type != mAssetTypes.end() && Type->second == Asset::EAssetType::SkeletalMesh) {
         ImGui::Separator();
 
         // 메시로 물리 에셋 파일을 자동 생성해 저장한 뒤 그 파일을 에디터로 연다.
@@ -591,11 +603,11 @@ void FContentBrowserWidget::DrawContentContextMenu() {
     if (!mSelectedContentPath.empty()) {
         ImGui::Separator();
 
-        if (ImGui::MenuItem("Rename...", "F2", false, CanEdit)) {
+        if (ImGui::MenuItem("Rename...", "F2", false, CanEditSelection)) {
             BeginContentAction(EContentAction::Rename);
         }
 
-        if (ImGui::MenuItem("Delete", "Del", false, CanEdit)) {
+        if (ImGui::MenuItem("Delete", "Del", false, CanEditSelection)) {
             BeginContentAction(EContentAction::Delete);
         }
     }
@@ -637,10 +649,16 @@ void FContentBrowserWidget::CreateContentFolder() {
 }
 
 void FContentBrowserWidget::ShowContentInExplorer() const {
-    std::filesystem::path Target{mContext->GetProject()->GetAssets()->GetContentRoot() / (!mSelectedContentPath.empty() ? mSelectedContentPath : mContentDirectory)};
+    const auto& Path{mSelectedContentPath.empty() ? mContentDirectory : mSelectedContentPath};
+    Core::FString Error{};
+    auto Target{mContext->GetProject()->GetAssets()->ResolvePath(Path.empty() ? std::filesystem::path{L"."} : Path, Error)};
     std::error_code Code{};
 
-    Target = std::filesystem::weakly_canonical(Target, Code).make_preferred();
+    if (Target.empty()) {
+        return;
+    }
+
+    Target.make_preferred();
 
     // 파일은 상위 폴더를 열고 그 파일을 선택하며, 폴더는 그 폴더를 엽니다.
     const std::wstring Arguments{std::filesystem::is_directory(Target, Code) ? L"\"" + Target.native() + L"\"" : L"/select,\"" + Target.native() + L"\""};
@@ -672,7 +690,12 @@ void FContentBrowserWidget::RefreshContent() {
     }
 
     for (const auto& Directory : mAssetCatalog->GetDirectories()) {
-        mContentFolders[Directory.parent_path()].push_back(Directory);
+        const auto Parent{Directory.parent_path()};
+
+        if (Parent != Directory.root_path() || !Directory.has_root_directory()) {
+            mContentFolders[Parent].push_back(Directory);
+        }
+
         mContentFolders.try_emplace(Directory);
     }
 
@@ -769,7 +792,10 @@ void FContentBrowserWidget::DrawContentTree(const std::filesystem::path& Directo
 void FContentBrowserWidget::DrawContentBreadcrumbs() {
     ImGui::PushID("Content Path");
 
-    ImGui::BeginDisabled(mContentDirectory.empty());
+    const bool Engine{mContentDirectory.has_root_directory()};
+    const std::filesystem::path Root{Engine ? std::filesystem::path{L"/Engine"} : std::filesystem::path{}};
+
+    ImGui::BeginDisabled(mContentDirectory == Root);
 
     if (EditorStyle::SmallButton("Up")) {
         NavigateContent(mContentDirectory.parent_path());
@@ -778,14 +804,22 @@ void FContentBrowserWidget::DrawContentBreadcrumbs() {
     ImGui::EndDisabled();
     ImGui::SameLine();
 
-    if (EditorStyle::SmallButton("Content")) {
-        NavigateContent({});
+    if (EditorStyle::SmallButton(Engine ? "Engine" : "Content")) {
+        NavigateContent(Root);
     }
 
-    const std::filesystem::path Current{mContentDirectory};
-    std::filesystem::path Path{};
+    if (Engine && ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Engine content is read-only");
+    }
+
+    const auto Current{Engine ? mContentDirectory.lexically_relative(Root) : mContentDirectory};
+    auto Path{Root};
 
     for (const auto& Part : Current) {
+        if (Part == L".") {
+            continue;
+        }
+
         Path /= Part;
 
         const Core::FString Label{Core::FilePath::ToUtf8(Part)};
@@ -826,7 +860,7 @@ void FContentBrowserWidget::DrawContentEntries() {
     for (const auto& Path : mAssetPaths) {
         const auto Type{mAssetTypes.find(Path)};
         const auto Relative{Path.lexically_relative(mContentDirectory)};
-        const bool InFolder{Recursive ? mContentDirectory.empty() || (!Relative.empty() && *Relative.begin() != L"..") : Path.parent_path() == mContentDirectory};
+        const bool InFolder{Recursive ? (mContentDirectory.empty() && !Path.has_root_directory()) || (!Relative.empty() && *Relative.begin() != L"..") : Path.parent_path() == mContentDirectory};
 
         const bool MatchesFilter{!mContentFilter.has_value() || (Type != mAssetTypes.end() ? Type->second == *mContentFilter : *mContentFilter == Asset::EAssetType::Shader && IsShaderSource(Path))};
 
@@ -907,10 +941,12 @@ void FContentBrowserWidget::DrawContentEntries() {
                             if (Directory) {
                                 Requested = Path;
                                 Navigate = true;
-                            } else if (LuaScript) {
-                                mAssetEditors.OpenLuaScript(Path);
                             } else if (ShaderSource) {
                                 mAssetEditors.OpenShaderSource(Path);
+                            } else if (Path.has_root_directory()) {
+                                mContext->AddLog("Engine content is read-only");
+                            } else if (LuaScript) {
+                                mAssetEditors.OpenLuaScript(Path);
                             } else if (Type != mAssetTypes.end() && mContext->CanEditWorld()) {
                                 mAssetEditors.OpenContentAsset(Path, Type->second);
                             }

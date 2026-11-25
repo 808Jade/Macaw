@@ -219,7 +219,7 @@ namespace App {
         mRenderer.Shutdown();
         mProject = std::move(Project);
         mEngine.SetProject(mProject.get());
-        mRenderer.SetProjectPaths(mProject->GetAssets()->GetContentRoot(), mProject->GetShaderCachePath(), mProject->UsesForwardShading());
+        mRenderer.SetProjectPaths(*mProject->GetAssets(), mProject->GetShaderCachePath(), mProject->UsesForwardShading());
 
         const bool RendererReady{mRenderer.Initialize(mPlatform.GetWindowHandle(), mPlatform.GetWidth(), mPlatform.GetHeight())};
 

@@ -165,7 +165,7 @@ namespace Engine {
 
         const std::filesystem::path AssetPath{Core::FilePath::FromUtf8(Path).lexically_normal()};
 
-        if (!Path.empty() && (AssetPath.has_root_path() || AssetPath.begin() == AssetPath.end() || *AssetPath.begin() == L".." || !AssetPath.has_filename() || AssetPath == L".")) {
+        if (!Path.empty() && (Core::FilePath::GetContentMount(AssetPath) == Core::FilePath::EContentMount::Invalid || AssetPath.begin() == AssetPath.end() || *AssetPath.begin() == L".." || !AssetPath.has_filename() || AssetPath == L".")) {
             return false;
         }
 

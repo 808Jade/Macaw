@@ -138,7 +138,7 @@ namespace Game {
             return false;
         }
 
-        mRenderer.SetProjectPaths(mProject.GetAssets()->GetContentRoot(), mProject.GetRootPath() / "Saved/ShaderCache", mProject.UsesForwardShading());
+        mRenderer.SetProjectPaths(*mProject.GetAssets(), mProject.GetRootPath() / "Saved/ShaderCache", mProject.UsesForwardShading());
         mEngine.SetProject(&mProject);
 
         if (!mRenderer.Initialize(mPlatform.GetWindowHandle(), mPlatform.GetWidth(), mPlatform.GetHeight()) || !mEngine.Initialize(&mRenderer)) {

@@ -125,7 +125,7 @@ void FPreviewScene::PrepareEnvironment(Engine::FSceneViewFamily& Family, const F
     if (mFloorMaterial == nullptr) {
         static const auto Shader{[] {
             auto FloorShader{CoreUObject::NewObject<RenderCore::UShader>()};
-            FloorShader->SetSourcePath("Shaders/PreviewFloor.hlsl");
+            FloorShader->SetSourcePath("/Engine/Shaders/PreviewFloor.hlsl");
             FloorShader->SetWritesGBuffer(true);
 
             return FloorShader;

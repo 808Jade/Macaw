@@ -108,6 +108,7 @@ namespace Editor {
          * @param Path Content 기준 경로입니다.
          * @return 대소문자를 정규화한 경로 키입니다.
          */
+        bool ScanContent(const std::filesystem::path& Root, bool Engine, Core::FString& Error, bool ShaderSources = false);
         static Core::FString MakeKey(const std::filesystem::path& Path);
 
     private:

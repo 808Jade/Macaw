@@ -120,6 +120,8 @@ namespace Asset {
          * @return 객체가 보유한 데이터의 참조이며 소유 객체의 수명 동안 유효합니다.
          */
         const std::filesystem::path& GetContentRoot() const;
+        const std::filesystem::path& GetEngineContentRoot() const;
+        const std::filesystem::path& GetEngineShaderRoot() const;
 
         /**
          * @brief 메시를 임포트할 때 볼록 충돌 형상을 계산할 PhysX 런타임을 설정합니다.
@@ -173,6 +175,7 @@ namespace Asset {
          * @return 검증한 콘텐츠 내부 경로이며 실패하면 비어 있습니다.
          */
         std::filesystem::path ResolvePath(const std::filesystem::path& Path, Core::FString& Error) const;
+        std::filesystem::path ResolveWritablePath(const std::filesystem::path& Path, Core::FString& Error) const;
 
         /**
          * @brief 경로가 콘텐츠 폴더 안에 있는지 검증하고 UTF-8 상대 경로를 반환합니다.
@@ -505,6 +508,9 @@ namespace Asset {
 
     private:
 
+        std::filesystem::path ResolveContentPath(const std::filesystem::path& Path, std::filesystem::path& ReferencePath, Core::FString& Error) const;
+        std::filesystem::path GetPathWithinRoot(const std::filesystem::path& Root, const std::filesystem::path& Path) const;
+
         bool SaveAssetFile(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid);
         Core::FGuid GetSaveIdentity(const std::filesystem::path& Path, const Core::FGuid& Guid) const;
         bool ValidateAssetIdentity(const std::filesystem::path& Path, const Core::FGuid& Guid, Core::FString& Error);
@@ -529,6 +535,8 @@ namespace Asset {
          * @brief 에셋 접근을 제한하는 프로젝트 콘텐츠 폴더의 절대 경로입니다.
          */
         std::filesystem::path mContentRoot{};
+        std::filesystem::path mEngineContentRoot{};
+        std::filesystem::path mEngineShaderRoot{};
         std::function<void(const std::filesystem::path&, Asset::EAssetType)> mAssetSaved{};
 
         /**

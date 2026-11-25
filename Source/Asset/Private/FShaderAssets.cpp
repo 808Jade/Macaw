@@ -53,15 +53,6 @@ bool FAssetManager::ValidateAssetIdentity(const std::filesystem::path& Path, con
 }
 
 bool FAssetManager::RefreshAssetRegistry(Core::FString& Error) {
-    std::error_code Code{};
-
-    if (!std::filesystem::exists(mContentRoot, Code) && !Code) {
-        Error.clear();
-        mAssetPaths.clear();
-
-        return true;
-    }
-
     const auto Paths{GetAssetPaths(Error)};
 
     if (!Error.empty()) {
@@ -293,11 +284,15 @@ UShader* FAssetManager::LoadShader(const std::filesystem::path& Path, Core::FStr
 }
 
 bool FAssetManager::SaveShader(const std::filesystem::path& Path, UShader& Shader, Core::FString& Error) {
-    Error.clear();
-    const auto Target{ResolvePath(Path, Error)};
+    const auto Target{ResolveWritablePath(Path, Error)};
+
+    if (Target.empty()) {
+        return false;
+    }
+
     const auto Source{Core::FilePath::FromUtf8(Shader.GetSourcePath())};
 
-    if (Source.has_root_path()) {
+    if (Source.is_absolute()) {
         const Core::FString Relative{GetRelativePath(Source, Error)};
 
         if (Relative.empty() || !Shader.SetSourcePath(Relative)) {
@@ -305,7 +300,7 @@ bool FAssetManager::SaveShader(const std::filesystem::path& Path, UShader& Shade
         }
     }
 
-    if (Target.empty() || Shader.IsBuiltin() || ResolvePath(Core::FilePath::FromUtf8(Shader.GetSourcePath()), Error).empty() || !ValidateAssetIdentity(Target, Shader.GetGuid(), Error)) {
+    if (Shader.IsBuiltin() || ResolvePath(Core::FilePath::FromUtf8(Shader.GetSourcePath()), Error).empty() || !ValidateAssetIdentity(Target, Shader.GetGuid(), Error)) {
         if (Error.empty()) {
             Error = "Cannot save a builtin shader as a project asset";
         }
@@ -401,7 +396,7 @@ UShader* FAssetManager::LoadShaderSource(const Core::FString& SourcePath, Core::
                 return nullptr;
             }
 
-            if (Core::FilePath::ToLower(Core::FilePath::FromUtf8(Shader->GetSourcePath())) == Core::FilePath::ToLower(Core::FilePath::FromUtf8(SourcePath).lexically_normal())) {
+            if (Core::FilePath::ToLower(ResolvePath(Core::FilePath::FromUtf8(Shader->GetSourcePath()), Error)) == Core::FilePath::ToLower(Source)) {
                 return Shader;
             }
         }
@@ -425,7 +420,7 @@ UShader* FAssetManager::LoadShaderSource(const Core::FString& SourcePath, Core::
 bool FAssetManager::ImportShader(const std::filesystem::path& Source, const std::filesystem::path& Directory, std::filesystem::path& ImportedPath, Core::FString& Error) {
     Error.clear();
     ImportedPath.clear();
-    const auto Parent{Directory.empty() ? mContentRoot : ResolvePath(Directory, Error)};
+    const auto Parent{Directory.empty() ? mContentRoot : ResolveWritablePath(Directory, Error)};
     const auto Target{Parent.empty() ? std::filesystem::path{} : MakeUniqueAssetPath(Parent, Core::FilePath::ToUtf8(Source.stem()) + "_Shader", Error)};
     std::error_code Code{};
 

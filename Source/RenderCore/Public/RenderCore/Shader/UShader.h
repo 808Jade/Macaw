@@ -242,7 +242,7 @@ namespace RenderCore {
          * @brief HLSL 원본 파일의 경로이며, 에셋 저장 시 Content 상대 경로로 정규화합니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Settings", Name = "Source", Getter = GetSourcePath, Setter = SetSourcePath)
-        Core::FString mSourcePath{"Shaders/Lit.hlsl"};
+        Core::FString mSourcePath{"/Engine/Shaders/Lit.hlsl"};
 
         /**
          * @brief 원본 HLSL에서 사용할 진입 함수 이름입니다.

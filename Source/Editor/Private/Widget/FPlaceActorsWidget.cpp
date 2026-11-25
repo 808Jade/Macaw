@@ -67,7 +67,7 @@ namespace Editor {
             return;
         }
 
-        static constexpr Core::TStaticArray<const char*, static_cast<std::size_t>(Editor::EPlaceActorIcon::Count)> Paths{nullptr, "Editor/Icon/Pawn_64x.png", "Editor/Icon/SkyLight_64x.png", "Editor/Icon/DirectionalLight_64x.png", "Editor/Icon/PointLight_64x.png", "Editor/Icon/SpotLight_64x.png", "Editor/Icon/ExponentialHeightFog_64x.png", "Editor/Icon/EmptyActor_64x.png", "Editor/Icon/DecalActor_64x.png", "Editor/Icon/LevelSequenceActor_64x.png"};
+        static constexpr Core::TStaticArray<const char*, static_cast<std::size_t>(Editor::EPlaceActorIcon::Count)> Paths{nullptr, "/Engine/Editor/Icon/Pawn_64x.png", "/Engine/Editor/Icon/SkyLight_64x.png", "/Engine/Editor/Icon/DirectionalLight_64x.png", "/Engine/Editor/Icon/PointLight_64x.png", "/Engine/Editor/Icon/SpotLight_64x.png", "/Engine/Editor/Icon/ExponentialHeightFog_64x.png", "/Engine/Editor/Icon/EmptyActor_64x.png", "/Engine/Editor/Icon/DecalActor_64x.png", "/Engine/Editor/Icon/LevelSequenceActor_64x.png"};
 
         mIcons = {};
 

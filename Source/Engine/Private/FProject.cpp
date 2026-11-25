@@ -228,7 +228,7 @@ namespace Engine {
 
         const std::filesystem::path RelativeScene{Core::FilePath::FromUtf8(StartupScene)};
 
-        if (RelativeScene.is_absolute() || RelativeScene.has_root_name()) {
+        if (Core::FilePath::GetContentMount(RelativeScene) != Core::FilePath::EContentMount::Game) {
             Error = "The startup scene must use a Content relative path";
 
             return false;
@@ -290,7 +290,8 @@ namespace Engine {
             return false;
         }
 
-        const Core::FString Relative{mAssets->GetRelativePath(Path, Error)};
+        const auto WritablePath{mAssets->ResolveWritablePath(Path, Error)};
+        const Core::FString Relative{WritablePath.empty() ? Core::FString{} : mAssets->GetRelativePath(WritablePath, Error)};
 
         if (Relative.empty()) {
             return false;

@@ -29,6 +29,10 @@
 #include <span>
 #include <wrl/client.h>
 
+namespace Asset {
+    class FAssetManager;
+}
+
 namespace Renderer {
 
     class FTextRenderer;
@@ -298,7 +302,7 @@ namespace Renderer {
          * @param[in] ContentRoot 프로젝트 에셋 경로의 기준 콘텐츠 폴더입니다.
          * @param[in] CacheDirectory 컴파일된 셰이더의 캐시 파일을 보관할 폴더입니다.
          */
-        void SetProjectPaths(const std::filesystem::path& ContentRoot, const std::filesystem::path& CacheDirectory, bool ForwardShading = false);
+        void SetProjectPaths(const Asset::FAssetManager& Assets, const std::filesystem::path& CacheDirectory, bool ForwardShading = false);
         bool UsesForwardShading() const override;
 
     private:
@@ -525,9 +529,10 @@ namespace Renderer {
         RenderCore::FShaderManager mShaderManager{};
 
         /**
-         * @brief 현재 프로젝트의 HLSL 소스와 include 파일을 찾는 폴더입니다.
+         * @brief 엔진의 기본 HLSL 소스와 include 파일을 찾는 폴더입니다.
          */
         std::filesystem::path mShaderDirectory{};
+        const Asset::FAssetManager* mAssets{};
 
         /**
          * @brief 다음 렌더링에서 GPU 셰이더를 다시 준비할지 나타냅니다.

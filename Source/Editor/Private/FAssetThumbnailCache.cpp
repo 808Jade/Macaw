@@ -263,10 +263,17 @@ void FAssetThumbnailCache::QueueSavedThumbnail(const std::filesystem::path& Path
         return;
     }
 
+    Core::FString Error{};
+    const auto WritablePath{mAssets->ResolveWritablePath(Path, Error)};
+
+    if (WritablePath.empty()) {
+        return;
+    }
+
     std::error_code Code{};
-    const auto SavedTime{std::filesystem::last_write_time(Path, Code)};
+    const auto SavedTime{std::filesystem::last_write_time(WritablePath, Code)};
     if (!Code) {
-        mSavedThumbnails.insert_or_assign(Path, std::pair{Type, SavedTime});
+        mSavedThumbnails.insert_or_assign(WritablePath, std::pair{Type, SavedTime});
     }
 }
 

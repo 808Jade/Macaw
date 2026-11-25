@@ -735,7 +735,9 @@ namespace Asset {
      * @brief 전달받은 설정과 의존성으로 FAssetManager의 초기 상태를 구성합니다.
      */
     Asset::FAssetManager::FAssetManager(std::filesystem::path ContentRoot)
-		: mContentRoot{std::filesystem::absolute(ContentRoot).lexically_normal()} {
+		: mContentRoot{std::filesystem::absolute(ContentRoot).lexically_normal()},
+		  mEngineContentRoot{Core::FilePath::GetEngineContentRoot()},
+		  mEngineShaderRoot{Core::FilePath::GetEngineShaderRoot()} {
     }
 
     /**
@@ -748,6 +750,14 @@ namespace Asset {
      */
     const std::filesystem::path& Asset::FAssetManager::GetContentRoot() const {
         return mContentRoot;
+    }
+
+    const std::filesystem::path& Asset::FAssetManager::GetEngineContentRoot() const {
+        return mEngineContentRoot;
+    }
+
+    const std::filesystem::path& Asset::FAssetManager::GetEngineShaderRoot() const {
+        return mEngineShaderRoot;
     }
 
     /**
@@ -825,7 +835,7 @@ namespace Asset {
     std::filesystem::path Asset::FAssetManager::MakeUniqueAssetPath(const std::filesystem::path& Directory, const Core::FString& Name, Core::FString& Error) const {
         Error.clear();
 
-        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolvePath(Directory, Error)};
+        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolveWritablePath(Directory, Error)};
 
         return Folder.empty() ? std::filesystem::path{} : UniqueAssetPath(Folder, AssetFileName(Name, "Asset"), Error);
     }
@@ -834,35 +844,17 @@ namespace Asset {
      * @brief 콘텐츠 폴더를 벗어나는 경로를 거부하고 정규화된 절대 경로를 반환합니다.
      */
     std::filesystem::path Asset::FAssetManager::ResolvePath(const std::filesystem::path& Path, Core::FString& Error) const {
-        Error.clear();
+        std::filesystem::path ReferencePath{};
 
-        if (Path.empty() || (Path.has_root_name() && !Path.is_absolute())) {
-            Error = "An asset path is required";
+        return ResolveContentPath(Path, ReferencePath, Error);
+    }
 
-            return {};
-        }
+    std::filesystem::path Asset::FAssetManager::ResolveWritablePath(const std::filesystem::path& Path, Core::FString& Error) const {
+        std::filesystem::path ReferencePath{};
+        const auto Resolved{ResolveContentPath(Path, ReferencePath, Error)};
 
-        std::error_code Code{};
-        const auto Root{std::filesystem::weakly_canonical(mContentRoot, Code)};
-        const auto Resolved{Code ? std::filesystem::path{} : std::filesystem::weakly_canonical(Path.is_absolute() ? Path : Root / Path, Code)};
-
-        if (Code || Root.empty() || Resolved.empty()) {
-            Error = "Cannot resolve the project asset path";
-
-            return {};
-        }
-
-        auto RootPart{Root.begin()};
-        auto PathPart{Resolved.begin()};
-
-        for (; RootPart != Root.end() && PathPart != Resolved.end(); ++RootPart, ++PathPart) {
-            if (_wcsicmp(RootPart->c_str(), PathPart->c_str()) != 0) {
-                break;
-            }
-        }
-
-        if (RootPart != Root.end() || PathPart == Resolved.end()) {
-            Error = "Assets must be inside the current project's Content folder";
+        if (ReferencePath.has_root_directory()) {
+            Error = "Engine content is read-only";
 
             return {};
         }
@@ -870,26 +862,114 @@ namespace Asset {
         return Resolved;
     }
 
+    std::filesystem::path Asset::FAssetManager::ResolveContentPath(const std::filesystem::path& Path, std::filesystem::path& ReferencePath, Core::FString& Error) const {
+        Error.clear();
+        ReferencePath.clear();
+
+        const bool Absolute{Path.is_absolute()};
+        std::filesystem::path Relative{};
+        const auto Mount{Absolute ? Core::FilePath::EContentMount::Invalid : Core::FilePath::GetContentMount(Path, &Relative)};
+
+        if (Path.native().find(L'\0') != std::wstring::npos || (!Absolute && Mount == Core::FilePath::EContentMount::Invalid)) {
+            Error = "Invalid content path";
+
+            return {};
+        }
+
+        const bool EngineMount{Mount == Core::FilePath::EContentMount::Engine};
+        const std::filesystem::path ShaderFolder{L"Shaders"};
+        const auto MountedShaderPath{EngineMount ? GetPathWithinRoot(ShaderFolder, Relative.lexically_normal()) : std::filesystem::path{}};
+        const bool EngineShaderMount{!MountedShaderPath.empty()};
+        std::error_code Code{};
+        const auto ProjectRoot{std::filesystem::weakly_canonical(mContentRoot, Code)};
+        const auto EngineRoot{mEngineContentRoot.empty() ? std::filesystem::path{} : std::filesystem::weakly_canonical(mEngineContentRoot, Code)};
+        const auto ShaderRoot{mEngineShaderRoot.empty() ? std::filesystem::path{} : std::filesystem::weakly_canonical(mEngineShaderRoot, Code)};
+        const auto& Root{EngineShaderMount ? ShaderRoot : EngineMount ? EngineRoot : ProjectRoot};
+
+        if (!Absolute && Root.empty()) {
+            Error = "Cannot locate the content directory";
+
+            return {};
+        }
+
+        Code.clear();
+        const auto Resolved{std::filesystem::weakly_canonical(Absolute ? Path : Root / (EngineShaderMount ? MountedShaderPath : Relative), Code)};
+
+        if (Code || Resolved.empty()) {
+            Error = "Cannot resolve the content path";
+
+            return {};
+        }
+
+        const auto ShaderRelative{GetPathWithinRoot(ShaderRoot, Resolved)};
+
+        if (!ShaderRelative.empty() && (Absolute || EngineShaderMount)) {
+            ReferencePath = L"/Engine/Shaders";
+
+            if (ShaderRelative != L".") {
+                ReferencePath /= ShaderRelative;
+            }
+
+            return Resolved;
+        }
+
+        const auto EngineRelative{GetPathWithinRoot(EngineRoot, Resolved)};
+
+        if (!EngineRelative.empty() && ShaderRelative.empty() && (Absolute || (EngineMount && !EngineShaderMount)) && GetPathWithinRoot(ShaderFolder, EngineRelative).empty()) {
+            ReferencePath = L"/Engine";
+
+            if (EngineRelative != L".") {
+                ReferencePath /= EngineRelative;
+            }
+
+            return Resolved;
+        }
+
+        if (EngineRelative.empty() && ShaderRelative.empty() && !EngineMount) {
+            ReferencePath = GetPathWithinRoot(ProjectRoot, Resolved);
+
+            if (!ReferencePath.empty()) {
+                return Resolved;
+            }
+        }
+
+        Error = "The path is outside its content directory";
+
+        return {};
+    }
+
+    std::filesystem::path Asset::FAssetManager::GetPathWithinRoot(const std::filesystem::path& Root, const std::filesystem::path& Path) const {
+        if (Root.empty()) {
+            return {};
+        }
+
+        auto Part{Path.begin()};
+
+        for (const auto& RootPart : Root) {
+            if (Part == Path.end() || _wcsicmp(RootPart.c_str(), Part->c_str()) != 0) {
+                return {};
+            }
+
+            ++Part;
+        }
+
+        std::filesystem::path Relative{};
+
+        for (; Part != Path.end(); ++Part) {
+            Relative /= *Part;
+        }
+
+        return Relative.empty() ? std::filesystem::path{L"."} : Relative;
+    }
+
     /**
      * @brief 경로가 콘텐츠 폴더 안에 있는지 검증하고 UTF-8 상대 경로를 반환합니다.
      */
     Core::FString Asset::FAssetManager::GetRelativePath(const std::filesystem::path& Path, Core::FString& Error) const {
-        const auto Resolved{ResolvePath(Path, Error)};
+        std::filesystem::path ReferencePath{};
+        ResolveContentPath(Path, ReferencePath, Error);
 
-        if (Resolved.empty()) {
-            return {};
-        }
-
-        std::error_code Code{};
-        const auto Relative{std::filesystem::relative(Resolved, mContentRoot, Code)};
-
-        if (Code) {
-            Error = "Cannot make a project relative asset path";
-
-            return {};
-        }
-
-        return Core::FilePath::ToGenericUtf8(Relative);
+        return Core::FilePath::ToGenericUtf8(ReferencePath);
     }
 
     /**
@@ -899,26 +979,38 @@ namespace Asset {
         Error.clear();
 
         Core::TArray<std::filesystem::path> Paths{};
-        std::error_code Code{};
-        std::filesystem::recursive_directory_iterator Iterator{mContentRoot, Code};
-        const std::filesystem::recursive_directory_iterator End{};
-
-        while (!Code && Iterator != End) {
-            if (Iterator->is_regular_file(Code) && Iterator->path().extension() == L".masset") {
-                const auto Resolved{ResolvePath(Iterator->path(), Error)};
-
-                if (Resolved.empty()) {
-                    return {};
-                }
-
-                Paths.push_back(Resolved.lexically_relative(mContentRoot));
+        for (const auto* Root : {&mContentRoot, &mEngineContentRoot}) {
+            std::error_code Code{};
+            if (Root->empty() || (!std::filesystem::exists(*Root, Code) && !Code)) {
+                continue;
             }
 
-            Iterator.increment(Code);
-        }
+            std::filesystem::recursive_directory_iterator Iterator{*Root, Code};
+            const std::filesystem::recursive_directory_iterator End{};
 
-        if (Code) {
-            Error = "Cannot enumerate project assets: " + Code.message();
+            while (!Code && Iterator != End) {
+                if (Iterator->is_symlink(Code)) {
+                    Iterator.disable_recursion_pending();
+                } else if (!Code && Iterator->is_regular_file(Code) && Core::FilePath::ToLowerExtension(Iterator->path()) == L".masset") {
+                    const auto Reference{GetRelativePath(Iterator->path(), Error)};
+
+                    if (Reference.empty()) {
+                        return {};
+                    }
+
+                    Paths.push_back(Core::FilePath::FromUtf8(Reference));
+                }
+
+                if (!Code) {
+                    Iterator.increment(Code);
+                }
+            }
+
+            if (Code) {
+                Error = "Cannot enumerate content assets: " + Code.message();
+
+                return {};
+            }
         }
 
         std::sort(Paths.begin(), Paths.end());
@@ -1318,7 +1410,7 @@ namespace Asset {
      * @brief 검증한 CPU 메시 데이터를 바이너리 에셋 파일로 저장합니다.
      */
     bool Asset::FAssetManager::SaveMesh(const std::filesystem::path& Path, const Asset::UStaticMesh& Mesh, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, Mesh.GetGuid(), Error)) {
             return false;
@@ -1361,7 +1453,7 @@ namespace Asset {
      * @brief 스켈레탈 메시의 기하·본 계층·스킨 가중치를 에셋 파일에 저장합니다.
      */
     bool Asset::FAssetManager::SaveSkeletalMesh(const std::filesystem::path& Path, const Asset::USkeletalMesh& Mesh, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, Mesh.GetGuid(), Error)) {
             return false;
@@ -1404,7 +1496,7 @@ namespace Asset {
     }
 
     bool Asset::FAssetManager::SaveSkeleton(const std::filesystem::path& Path, const Asset::USkeleton& Skeleton, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, Skeleton.GetGuid(), Error)) {
             return false;
@@ -1445,7 +1537,7 @@ namespace Asset {
      * @brief 물리 에셋의 바디 설계도와 관절 설정을 지정한 에셋 파일에 저장합니다.
      */
     bool Asset::FAssetManager::SavePhysicsAsset(const std::filesystem::path& Path, const PhysicsRuntime::UPhysicsAsset& PhysicsAsset, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, PhysicsAsset.GetGuid(), Error)) {
             return false;
@@ -1485,7 +1577,7 @@ namespace Asset {
     }
 
     bool Asset::FAssetManager::SaveAnimSequence(const std::filesystem::path& Path, const Asset::UAnimSequence& Sequence, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, Sequence.GetGuid(), Error)) {
             return false;
@@ -1530,7 +1622,7 @@ namespace Asset {
      * @brief 텍스처의 크기·형식·색 공간과 이미지 데이터를 에셋 파일로 저장합니다.
      */
     bool Asset::FAssetManager::SaveTexture(const std::filesystem::path& Path, const Asset::UTexture2D& Texture, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, Texture.GetGuid(), Error)) {
             return false;
@@ -1599,7 +1691,7 @@ namespace Asset {
             return false;
         }
 
-        const auto Parent{Directory.empty() ? mContentRoot : ResolvePath(Directory, Error)};
+        const auto Parent{Directory.empty() ? mContentRoot : ResolveWritablePath(Directory, Error)};
 
         if (Parent.empty()) {
             return false;
@@ -1678,7 +1770,7 @@ namespace Asset {
      */
     bool Asset::FAssetManager::ImportMesh(const std::filesystem::path& Source, std::filesystem::path& Target, const Asset::FAssetImportOption& Option, Core::FString& Error) {
         const Core::FScopedStatTimer StatTimer{Asset::AssetStats::MeshImport};
-        const auto Destination{ResolvePath(Target, Error)};
+        const auto Destination{ResolveWritablePath(Target, Error)};
 
         if (Destination.empty()) {
             return false;
@@ -2117,7 +2209,7 @@ namespace Asset {
      * @brief 시퀀스를 에셋 파일로 저장합니다.
      */
     bool Asset::FAssetManager::SaveSequence(const std::filesystem::path& Path, Asset::ULevelSequence& Sequence, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, Sequence.GetGuid(), Error)) {
             return false;
@@ -2206,7 +2298,7 @@ namespace Asset {
 
     Asset::UBlendSpace* Asset::FAssetManager::CreateBlendSpace1D(const std::filesystem::path& Directory, const Core::FString& Name, std::filesystem::path& Path, Core::FString& Error) {
         // 콘텐츠 루트 자체는 ResolvePath가 에셋 경로로 받지 않으므로 직접 씁니다.
-        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolvePath(Directory, Error)};
+        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolveWritablePath(Directory, Error)};
 
         if (Folder.empty()) {
             return nullptr;
@@ -2242,7 +2334,7 @@ namespace Asset {
     }
 
     bool Asset::FAssetManager::SaveBlendSpace(const std::filesystem::path& Path, Asset::UBlendSpace& BlendSpace, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, BlendSpace.GetGuid(), Error)) {
             return false;
@@ -2337,7 +2429,7 @@ namespace Asset {
 
     Asset::UAnimGraph* Asset::FAssetManager::CreateAnimGraph(const std::filesystem::path& Directory, const Core::FString& Name, std::filesystem::path& Path, Core::FString& Error) {
         // 콘텐츠 루트 자체는 ResolvePath가 에셋 경로로 받지 않으므로 직접 씁니다.
-        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolvePath(Directory, Error)};
+        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolveWritablePath(Directory, Error)};
 
         if (Folder.empty()) {
             return nullptr;
@@ -2373,7 +2465,7 @@ namespace Asset {
     }
 
     bool Asset::FAssetManager::SaveAnimGraph(const std::filesystem::path& Path, Asset::UAnimGraph& Graph, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (!ValidateAssetIdentity(Target, Graph.GetGuid(), Error)) {
             return false;
@@ -2513,7 +2605,7 @@ namespace Asset {
         }
 
         // 콘텐츠 루트 자체는 ResolvePath가 에셋 경로로 받지 않으므로 직접 씁니다.
-        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolvePath(Directory, Error)};
+        const auto Folder{Directory.empty() || Directory == L"." ? mContentRoot : ResolveWritablePath(Directory, Error)};
 
         if (Folder.empty()) {
             return nullptr;
@@ -2571,7 +2663,7 @@ namespace Asset {
             return false;
         }
 
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
 
         if (Target.empty()) {
             return false;
@@ -2658,7 +2750,12 @@ namespace Asset {
      * @brief 머티리얼을 안전하게 저장하고 같은 경로의 캐시 객체를 갱신합니다.
      */
     bool Asset::FAssetManager::SaveMaterial(const std::filesystem::path& Path, const Asset::UMaterial& Material, Core::FString& Error) {
-        const auto Target{ResolvePath(Path, Error)};
+        const auto Target{ResolveWritablePath(Path, Error)};
+
+        if (Target.empty()) {
+            return false;
+        }
+
         auto Candidate{CoreUObject::NewObject<Asset::UMaterial>()};
         Asset::EAssetType ExistingType{};
         Core::FGuid ExistingGuid{Core::FGuid::Null()};
@@ -2666,11 +2763,11 @@ namespace Asset {
         Asset::FAssetFile::GetIdentity(Target, ExistingType, ExistingGuid, HeaderError);
         Candidate->RestoreGuid(ExistingGuid.IsValid() ? ExistingGuid : Material.GetGuid());
 
-        if (Target.empty() || LoadAsset(Material.GetShader().GetGuid(), Error, RenderCore::UShader::StaticClass()) == nullptr || !ValidateAssetIdentity(Target, Candidate->GetGuid(), Error)) {
+        if (LoadAsset(Material.GetShader().GetGuid(), Error, RenderCore::UShader::StaticClass()) == nullptr || !ValidateAssetIdentity(Target, Candidate->GetGuid(), Error)) {
             return false;
         }
 
-        if (Target.empty() || !ApplyMaterialSettings(*Candidate, Material, Error) || !Asset::FMaterialFile::Save(Target, *this, *Candidate, Error)) {
+        if (!ApplyMaterialSettings(*Candidate, Material, Error) || !Asset::FMaterialFile::Save(Target, *this, *Candidate, Error)) {
             return false;
         }
 

@@ -143,7 +143,9 @@ bool FSourceIntellisense::StartServer(const std::filesystem::path& Workspace) {
 std::string FSourceIntellisense::GetShaderSettings() const {
     const auto ProjectShaders{Core::FilePath::ToGenericUtf8(mWorkspace / L"Shaders")};
 
-    return R"({"validate":false,"includes":[)" + QuoteJson(ProjectShaders) + "]}";
+    const auto EngineShaders{Core::FilePath::ToGenericUtf8(Core::FilePath::GetEngineShaderRoot())};
+
+    return R"({"validate":false,"includes":[)" + QuoteJson(ProjectShaders) + "," + QuoteJson(EngineShaders) + "]}";
 }
 
 void FSourceIntellisense::Close() {

@@ -640,7 +640,7 @@ namespace Editor {
             return false;
         }
 
-        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"Editor/Icon/EmptyActor.png", "Editor/Icon/S_DecalActorIcon.png", "Editor/Icon/S_LevelSequence.png"};
+        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"/Engine/Editor/Icon/EmptyActor.png", "/Engine/Editor/Icon/S_DecalActorIcon.png", "/Engine/Editor/Icon/S_LevelSequence.png"};
         const Index_t Index{static_cast<Index_t>(Icon)};
         CoreUObject::TObjectRef<Asset::UTexture2D>& Texture{mActorIconTextures[Index]};
 

@@ -992,7 +992,7 @@ namespace Editor {
         FOperationScope Scope{&mChangingState};
         Core::FString Error{};
         Engine::FProject* Project{GetProject()};
-        const std::filesystem::path ScenePath{Project != nullptr ? Project->GetAssets()->ResolvePath(Path, Error) : std::filesystem::path{}};
+        const std::filesystem::path ScenePath{Project != nullptr ? Project->GetAssets()->ResolveWritablePath(Path, Error) : std::filesystem::path{}};
 
         if (ScenePath.empty()) {
             AddLog(Error.empty() ? "Open a project before saving a scene" : Error);
@@ -2176,7 +2176,7 @@ namespace Editor {
         }
 
         if (auto* Sprite{CoreUObject::Cast<Engine::UBillboardComponent>(Actor->GetRootComponent())}) {
-            Sprite->SetTexturePath("Editor/Icon/Pawn_64x.png");
+            Sprite->SetTexturePath("/Engine/Editor/Icon/Pawn_64x.png");
         }
 
         CompleteActorSpawn(Actor, "Placed ");

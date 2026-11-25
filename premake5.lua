@@ -175,8 +175,8 @@ Configure("NativeIDE", "StaticLib")
     links(Modules.NativeIDE.Private)
 
 Configure("Shaders", "Utility")
-    files { "Templates/Project/Content/Shaders/**.hlsl", "Templates/Project/Content/Shaders/**.hlsli" }
-    vpaths { ["*"] = "Templates/Project/Content/Shaders" }
+    files { "Engine/Shaders/**.hlsl", "Engine/Shaders/**.hlsli" }
+    vpaths { ["*"] = "Engine/Shaders" }
     filter "files:**"
         buildaction "None"
     filter {}
@@ -207,7 +207,7 @@ ConfigureRuntimeExecutable("MacawGame", "WindowedApp", "Source/Game")
     targetdir "Binaries/%{cfg.buildcfg}/GameRuntime"
     files { "Source/App/**.rc", "Macaw.ico" }
     resincludedirs { "." }
-    postbuildcommands { '{COPYDIR} "%{wks.location}/Templates/Project/Content" "%{cfg.targetdir}/Templates/Project/Content"' }
+    postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageRuntimeContent.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}."' }
     postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageGameRuntime.ps1" -RuntimeDirectory "%{cfg.targetdir}" -RedistDirectory "$(VCToolsRedistInstallDir)." -Configuration "%{cfg.buildcfg}"' }
 
 ConfigureRuntimeExecutable("Macaw", "WindowedApp", "Source/App")
@@ -223,5 +223,5 @@ ConfigureRuntimeExecutable("Macaw", "WindowedApp", "Source/App")
     dependson { "MacawGame" }
     files { "Source/App/**.rc", "Resources/Editor.rc", "Macaw.ico" }
     resincludedirs { "." }
-    postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageProjectTemplates.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}."' }
+    postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageRuntimeContent.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}." -IncludeTemplates' }
     postbuildcommands { 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/Scripts/StageLanguageServers.ps1" -RuntimeDirectory "%{cfg.targetdir}" -WorkspaceRoot "%{wks.location}."' }

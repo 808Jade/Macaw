@@ -54,6 +54,14 @@ void FAssetImportController::BeginFrame() {
 }
 
 void FAssetImportController::ImportAsset() {
+    const auto Directory{mGetDirectory ? mGetDirectory() : std::filesystem::path{}};
+
+    if (Core::FilePath::GetContentMount(Directory) == Core::FilePath::EContentMount::Engine) {
+        mContext->AddLog("Engine content is read-only");
+
+        return;
+    }
+
     Core::TStaticArray<wchar_t, 32768> Buffer{};
     OPENFILENAMEW Dialog{};
     Dialog.lStructSize = sizeof(Dialog);
@@ -65,12 +73,18 @@ void FAssetImportController::ImportAsset() {
     Dialog.Flags = OFN_EXPLORER | OFN_NOCHANGEDIR | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 
     if (GetOpenFileNameW(&Dialog)) {
-        RequestImport({std::filesystem::path{Buffer.data()}}, (mGetDirectory ? mGetDirectory() : std::filesystem::path{}));
+        RequestImport({std::filesystem::path{Buffer.data()}}, Directory);
     }
 }
 
 void FAssetImportController::RequestImport(Core::TArray<std::filesystem::path> Sources, const std::filesystem::path& Directory) {
     if (!mContext->CanEditWorld() || Sources.empty()) {
+        return;
+    }
+
+    if (Core::FilePath::GetContentMount(Directory) == Core::FilePath::EContentMount::Engine) {
+        mContext->AddLog("Engine content is read-only");
+
         return;
     }
 
