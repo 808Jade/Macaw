@@ -617,6 +617,10 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
         return;
     }
 
+    if (Core::FString MigrationError{}; !Assets->MigrateAsset(Path, MigrationError)) {
+        mContext->AddLog("Cannot migrate '" + Core::FilePath::ToGenericUtf8(Path) + "': " + MigrationError);
+    }
+
     for (auto& Editor : mEditors) {
         if (Editor->GetAssetPath() == Path && Editor->GetAssetType() == Type) {
             Editor->GetTab().Open();

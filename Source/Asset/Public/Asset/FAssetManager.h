@@ -130,6 +130,7 @@ namespace Asset {
          */
         void SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime);
         void SetAssetSavedHandler(std::function<void(const std::filesystem::path&, Asset::EAssetType)> Handler);
+        bool MigrateAsset(const std::filesystem::path& Path, Core::FString& Error);
 
         /**
          * @brief 이 관리자가 보유한 메시의 경로를 조회합니다.

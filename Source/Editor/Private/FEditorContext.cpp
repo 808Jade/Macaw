@@ -1253,6 +1253,10 @@ namespace Editor {
             return false;
         }
 
+        if (!Project->GetAssets()->MigrateAsset(ScenePath, Error)) {
+            AddLog("Cannot migrate '" + Core::FilePath::ToUtf8(ScenePath) + "': " + Error);
+        }
+
         AddLog("Loaded " + Core::FilePath::ToUtf8(ScenePath));
 
         return true;

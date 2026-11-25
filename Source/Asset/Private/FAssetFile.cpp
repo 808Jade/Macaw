@@ -53,7 +53,7 @@ namespace Asset {
          * @param[out] Error 실패 원인을 받을 오류 문자열입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool ReadHeader(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType& Type, Uint64& Size, Core::FGuid& Guid, Uint32& ThumbnailSize, Core::FString& Error) {
+        bool ReadHeader(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType& Type, Uint64& Size, Core::FGuid& Guid, Uint32& ThumbnailSize, Core::FString& Error, Uint32* FileVersion = nullptr) {
             Error.clear();
             Guid = Core::FGuid::Null();
             ThumbnailSize = 0;
@@ -98,24 +98,56 @@ namespace Asset {
             }
 
             Type = static_cast<Asset::EAssetType>(TypeValue);
+            if (FileVersion != nullptr) {
+                *FileVersion = Version;
+            }
 
             return true;
         }
 
-        void WriteHeader(std::ostream& Output, Uint32 Version, Asset::EAssetType Type, Uint64 Size, const Core::FGuid& Guid, Uint32 ThumbnailSize) {
+        void WriteHeader(std::ostream& Output, Asset::EAssetType Type, Uint64 Size, const Core::FGuid& Guid, Uint32 ThumbnailSize) {
             const Uint32 TypeValue{static_cast<Uint32>(Type)};
             Output.write(AssetMagic.data(), AssetMagic.size());
-            Output.write(reinterpret_cast<const char*>(&Version), sizeof(Version));
+            Output.write(reinterpret_cast<const char*>(&ThumbnailAssetVersion), sizeof(ThumbnailAssetVersion));
             Output.write(reinterpret_cast<const char*>(&TypeValue), sizeof(TypeValue));
             Output.write(reinterpret_cast<const char*>(&Size), sizeof(Size));
+            Output.write(reinterpret_cast<const char*>(Guid.mBytes.data()), Guid.mBytes.size());
+            Output.write(reinterpret_cast<const char*>(&ThumbnailSize), sizeof(ThumbnailSize));
+        }
 
-            if (Version == GuidAssetVersion || Version == ThumbnailAssetVersion) {
-                Output.write(reinterpret_cast<const char*>(Guid.mBytes.data()), Guid.mBytes.size());
+        bool RewriteAssetFile(const std::filesystem::path& Path, std::ifstream& Input, Asset::EAssetType Type, Uint64 Size, const Core::FGuid& Guid, std::span<const Uint8> Thumbnail, std::filesystem::file_time_type SavedTime, Core::FString& Error) {
+            Core::FAtomicFileWriter Writer{};
+            if (!Writer.Open(Path, Error)) {
+                return false;
             }
 
-            if (Version == ThumbnailAssetVersion) {
-                Output.write(reinterpret_cast<const char*>(&ThumbnailSize), sizeof(ThumbnailSize));
+            std::ostream& Output{Writer.GetStream()};
+            WriteHeader(Output, Type, Size, Guid, static_cast<Uint32>(Thumbnail.size()));
+
+            Core::TStaticArray<char, 64 * 1024> Buffer{};
+            for (Uint64 Remaining{Size}; Remaining != 0;) {
+                const Uint64 Bytes{std::min<Uint64>(Remaining, Buffer.size())};
+                const auto Count{static_cast<std::streamsize>(Bytes)};
+                if (!Input.read(Buffer.data(), Count) || !Output.write(Buffer.data(), Count)) {
+                    Error = "Cannot copy the asset payload";
+                    return false;
+                }
+
+                Remaining -= Bytes;
             }
+
+            if (!Thumbnail.empty()) {
+                Output.write(reinterpret_cast<const char*>(Thumbnail.data()), static_cast<std::streamsize>(Thumbnail.size()));
+            }
+            Input.close();
+
+            std::error_code Code{};
+            if (std::filesystem::last_write_time(Path, Code) != SavedTime || Code) {
+                Error = "Asset changed before its file could be updated";
+                return false;
+            }
+
+            return Writer.Commit(Error);
         }
     }
 
@@ -176,9 +208,8 @@ namespace Asset {
 
         const Uint64 Size{Payload.size()};
         const Core::FGuid Identity{Guid.IsValid() ? Guid : ExistingGuid};
-        const Uint32 Version{Identity.IsValid() ? GuidAssetVersion : InitialAssetVersion};
         std::ostream& Output{Writer.GetStream()};
-        WriteHeader(Output, Version, Type, Size, Identity, 0);
+        WriteHeader(Output, Type, Size, Identity, 0);
         Output.write(reinterpret_cast<const char*>(Payload.data()), static_cast<std::streamsize>(Size));
 
         return Writer.Commit(Error);
@@ -221,6 +252,34 @@ namespace Asset {
         return true;
     }
 
+    bool FAssetFile::Migrate(const std::filesystem::path& Path, Asset::EAssetType& Type, bool& Migrated, Core::FString& Error) {
+        Migrated = false;
+
+        std::error_code Code{};
+        const auto SavedTime{std::filesystem::last_write_time(Path, Code)};
+        if (Code) {
+            Error = "Cannot read asset modification time: " + Code.message();
+            return false;
+        }
+
+        std::ifstream Input{};
+        Uint64 Size{};
+        Core::FGuid Guid{Core::FGuid::Null()};
+        Uint32 ThumbnailSize{};
+        Uint32 Version{};
+
+        if (!ReadHeader(Path, Input, Type, Size, Guid, ThumbnailSize, Error, &Version)) {
+            return false;
+        }
+
+        if (Version == ThumbnailAssetVersion) {
+            return true;
+        }
+
+        Migrated = RewriteAssetFile(Path, Input, Type, Size, Guid, {}, SavedTime, Error);
+        return Migrated;
+    }
+
     bool FAssetFile::LoadThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type, Core::TArray<Uint8>& Thumbnail) {
         std::ifstream Input{};
         Asset::EAssetType ActualType{};
@@ -247,6 +306,11 @@ namespace Asset {
     }
 
     bool FAssetFile::SaveThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Thumbnail, std::filesystem::file_time_type SavedTime, Core::FString& Error) {
+        if (Type == Asset::EAssetType::Redirector) {
+            Error = "Cannot save a thumbnail for an asset redirector";
+            return false;
+        }
+
         if (Thumbnail.empty() || Thumbnail.size() > MaximumThumbnail) {
             Error = "Invalid asset thumbnail size";
             return false;
@@ -273,35 +337,7 @@ namespace Asset {
             return false;
         }
 
-        Core::FAtomicFileWriter Writer{};
-        if (!Writer.Open(Path, Error)) {
-            return false;
-        }
-
-        std::ostream& Output{Writer.GetStream()};
-        WriteHeader(Output, ThumbnailAssetVersion, Type, Size, Guid, static_cast<Uint32>(Thumbnail.size()));
-
-        Core::TStaticArray<char, 64 * 1024> Buffer{};
-        for (Uint64 Remaining{Size}; Remaining != 0;) {
-            const Uint64 Bytes{std::min<Uint64>(Remaining, Buffer.size())};
-            const auto Count{static_cast<std::streamsize>(Bytes)};
-            if (!Input.read(Buffer.data(), Count) || !Output.write(Buffer.data(), Count)) {
-                Error = "Cannot copy the asset payload while saving its thumbnail";
-                return false;
-            }
-
-            Remaining -= Bytes;
-        }
-
-        Output.write(reinterpret_cast<const char*>(Thumbnail.data()), static_cast<std::streamsize>(Thumbnail.size()));
-        Input.close();
-
-        if (std::filesystem::last_write_time(Path, Code) != SavedTime || Code) {
-            Error = "Asset changed before saving its thumbnail";
-            return false;
-        }
-
-        return Writer.Commit(Error);
+        return RewriteAssetFile(Path, Input, Type, Size, Guid, Thumbnail, SavedTime, Error);
     }
 
 }

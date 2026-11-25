@@ -48,6 +48,7 @@ using namespace Editor;
 namespace {
 
     constexpr char ContentMovePayload[]{"MacawContentMove"};
+    constexpr float CutContentOpacity{0.65f};
 
     bool IsShaderSource(const std::filesystem::path& Path) {
         const auto Extension{Core::FilePath::ToLowerExtension(Path)};
@@ -308,6 +309,7 @@ void FContentBrowserWidget::DrawContent() {
 
     // 테이블 행의 위아래 셀 여백만큼 줄여 창 스크롤바가 생기지 않게 합니다.
     const float Height{std::max(64.0f, ImGui::GetContentRegionAvail().y - ImGui::GetStyle().CellPadding.y * 2.0f)};
+    bool FolderPaneFocused{};
 
     if (ImGui::BeginTable("Content Browser", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
         ImGui::TableSetupColumn("Folders", ImGuiTableColumnFlags_WidthFixed, 190.0f);
@@ -317,17 +319,21 @@ void FContentBrowserWidget::DrawContent() {
         ImGui::BeginChild("Content Folders", ImVec2{0.0f, Height});
         DrawContentTree({});
         DrawContentTree(L"/Engine");
+        FolderPaneFocused = ImGui::IsWindowFocused();
 
         mRevealContentDirectory = false;
 
         if (ImGui::BeginPopupContextWindow("ContentFolderMenu", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems)) {
-            DrawContentContextMenu();
+            DrawContentContextMenu(mContentDirectory);
             ImGui::EndPopup();
         }
 
         ImGui::EndChild();
         ImGui::TableSetColumnIndex(1);
         ImGui::BeginChild("Content Files", ImVec2{0.0f, Height});
+        if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            mContextPasteDirectory = mContentDirectory;
+        }
         DrawContentEntries();
 
         if (ImGui::IsWindowFocused() && !ImGui::GetIO().WantTextInput && !mSelectedContentPath.empty() && mContext->CanEditWorld()) {
@@ -339,7 +345,7 @@ void FContentBrowserWidget::DrawContent() {
         }
 
         if (ImGui::BeginPopupContextWindow("ContentFileMenu")) {
-            DrawContentContextMenu();
+            DrawContentContextMenu(mContextPasteDirectory);
             ImGui::EndPopup();
         }
 
@@ -347,7 +353,27 @@ void FContentBrowserWidget::DrawContent() {
         ImGui::EndTable();
     }
 
+    DrawContentClipboardShortcuts(FolderPaneFocused);
     DrawContentActionPopup();
+}
+
+void FContentBrowserWidget::DrawContentClipboardShortcuts(bool FolderPaneFocused) {
+    const ImGuiIO& Input{ImGui::GetIO()};
+    if (!ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows) || Input.WantTextInput || ImGui::IsAnyItemActive() || ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup) || mOpenContentAction) {
+        return;
+    }
+
+    if (Input.KeyCtrl && !Input.KeyShift && !Input.KeyAlt && !Input.KeySuper) {
+        if (ImGui::IsKeyPressed(ImGuiKey_X, false)) {
+            CutContent(FolderPaneFocused ? mContentDirectory : mSelectedContentPath);
+        } else if (ImGui::IsKeyPressed(ImGuiKey_V, false)) {
+            PasteContent(mContentDirectory);
+        }
+    } else if (!mCutContentPath.empty() && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        ImGui::SetKeyOwner(ImGuiKey_Escape, ImGui::GetID("##CutContentCancel"), ImGuiInputFlags_LockThisFrame);
+        mCutContentPath.clear();
+        mContentError.clear();
+    }
 }
 
 std::filesystem::path FContentBrowserWidget::GetContentActionPath(const std::filesystem::path& Path) const {
@@ -457,25 +483,8 @@ void FContentBrowserWidget::DrawContentActionPopup() {
 
         Confirmed = ImGui::InputText("##ContentRename", mContentActionName.data(), mContentActionName.size(), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
     } else if (mContentAction == EContentAction::Move) {
-        ImGui::TextUnformatted(Display.c_str());
         const Core::FString Current{mMoveDestinationDirectory.empty() ? "Content" : Core::FilePath::ToGenericUtf8(mMoveDestinationDirectory)};
-        ImGui::SetNextItemWidth(280.0f * mUIScale.GetScale());
-        if (ImGui::BeginCombo("Destination", Current.c_str())) {
-            Core::TArray<std::filesystem::path> Directories{};
-            for (const auto& Entry : mContentFolders) {
-                if (!Entry.first.has_root_directory() && !IsContentPathWithin(Entry.first, mContentActionTarget)) {
-                    Directories.push_back(Entry.first);
-                }
-            }
-            std::sort(Directories.begin(), Directories.end());
-            for (const auto& Folder : Directories) {
-                const Core::FString Label{Folder.empty() ? "Content" : Core::FilePath::ToGenericUtf8(Folder)};
-                if (ImGui::Selectable(Label.c_str(), mMoveDestinationDirectory == Folder)) {
-                    mMoveDestinationDirectory = Folder;
-                }
-            }
-            ImGui::EndCombo();
-        }
+        ImGui::Text("%s을(를) %s 폴더로 옮길까요?", Display.c_str(), Current.c_str());
     } else {
         ImGui::Text("%s%s을(를) 휴지통으로 옮길까요?", Display.c_str(), Directory ? " 폴더와 그 안의 모든 파일" : "");
         const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
@@ -566,7 +575,7 @@ void FContentBrowserWidget::DrawContentActionPopup() {
         }
     } else if (Force && DeleteContent(true)) {
         ImGui::CloseCurrentPopup();
-    } else if (Confirmed && (mContentAction == EContentAction::Rename ? RenameContent() : mContentAction == EContentAction::Move ? RelocateContent(mMoveDestinationDirectory / mContentActionTarget.filename()) : DeleteContent(false))) {
+    } else if (Confirmed && (mContentAction == EContentAction::Rename ? RenameContent() : mContentAction == EContentAction::Move ? RelocateContent(mContentActionTarget, mMoveDestinationDirectory / mContentActionTarget.filename(), mContentActionError) : DeleteContent(false))) {
         ImGui::CloseCurrentPopup();
     }
 
@@ -595,19 +604,19 @@ bool FContentBrowserWidget::RenameContent() {
         NewFile += mContentActionTarget.extension();
     }
 
-    return RelocateContent(mContentActionTarget.parent_path() / NewFile);
+    return RelocateContent(mContentActionTarget, mContentActionTarget.parent_path() / NewFile, mContentActionError);
 }
 
-bool FContentBrowserWidget::RelocateContent(const std::filesystem::path& Target) {
-    const auto Absolute{GetContentActionPath(mContentActionTarget)};
-    if (mContentActionError = FindContentActionBlocker(Absolute); !mContentActionError.empty()) {
+bool FContentBrowserWidget::RelocateContent(const std::filesystem::path& SourcePath, const std::filesystem::path& Target, Core::FString& Error) {
+    const auto Absolute{GetContentActionPath(SourcePath)};
+    if (Error = FindContentActionBlocker(Absolute); !Error.empty()) {
         return false;
     }
 
     const auto Parent{GetContentActionPath(Target.parent_path().empty() ? std::filesystem::path{L"."} : Target.parent_path())};
     std::error_code Code{};
     if (Parent.empty() || !std::filesystem::is_directory(Parent, Code)) {
-        mContentActionError = "이동할 폴더를 찾을 수 없습니다.";
+        Error = "이동할 폴더를 찾을 수 없습니다.";
         return false;
     }
 
@@ -618,35 +627,33 @@ bool FContentBrowserWidget::RelocateContent(const std::filesystem::path& Target)
 
     // 대소문자만 바꾸는 경우는 같은 파일로 보이므로 존재 검사를 건너뜁니다.
     if (std::filesystem::exists(Destination, Code) && !std::filesystem::equivalent(Destination, Absolute, Code)) {
-        mContentActionError = "같은 이름의 항목이 이미 있습니다.";
+        Error = "같은 이름의 항목이 이미 있습니다.";
 
         return false;
     }
 
-    const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
+    const auto Source{mAssetCatalog->FindTextureSource(SourcePath)};
     const auto SourceAbsolute{Source.empty() ? std::filesystem::path{} : GetContentActionPath(Source)};
     const auto SourceDestination{Destination.parent_path() / Destination.stem()};
     if (!SourceAbsolute.empty() && SourceAbsolute != SourceDestination) {
         if (std::filesystem::exists(SourceDestination, Code) && !std::filesystem::equivalent(SourceDestination, SourceAbsolute, Code)) {
-            mContentActionError = "같은 이름의 원본 이미지가 이미 있습니다.";
+            Error = "같은 이름의 원본 이미지가 이미 있습니다.";
             return false;
         }
 
         std::filesystem::rename(SourceAbsolute, SourceDestination, Code);
         if (Code) {
-            mContentActionError = "원본 이미지 이름을 바꾸지 못했습니다: " + Code.message();
+            Error = "원본 이미지를 옮기지 못했습니다: " + Code.message();
             return false;
         }
     }
 
     auto* Assets{mContext->GetProject()->GetAssets()};
-    Core::FString RenameError{};
-    if (!Assets->RenameContentPath(Absolute, Destination, RenameError)) {
-        mContentActionError = RenameError;
+    if (!Assets->RenameContentPath(Absolute, Destination, Error)) {
         if (!SourceAbsolute.empty() && SourceAbsolute != SourceDestination) {
             std::filesystem::rename(SourceDestination, SourceAbsolute, Code);
             if (Code) {
-                mContentActionError += " 원본 이미지를 되돌리지 못했습니다: " + Code.message();
+                Error += " 원본 이미지를 되돌리지 못했습니다: " + Code.message();
             }
         }
 
@@ -664,15 +671,46 @@ bool FContentBrowserWidget::RelocateContent(const std::filesystem::path& Target)
     mSelectedContentPath = Target;
     mRefreshContent = true;
 
-    if (mContentDirectory == mContentActionTarget) {
+    if (mContentDirectory == SourcePath) {
         mContentDirectory = mSelectedContentPath;
-    } else if (mContentAction == EContentAction::Move) {
+    } else if (SourcePath.parent_path() != Target.parent_path()) {
         mContentDirectory = Target.parent_path();
     }
 
-    mContext->AddLog("Moved " + Core::FilePath::ToGenericUtf8(mContentActionTarget) + " to " + Core::FilePath::ToGenericUtf8(Target));
+    mContext->AddLog("Moved " + Core::FilePath::ToGenericUtf8(SourcePath) + " to " + Core::FilePath::ToGenericUtf8(Target));
+    if (!mCutContentPath.empty() && IsContentPathWithin(mCutContentPath, SourcePath)) {
+        mCutContentPath.clear();
+    }
 
     return true;
+}
+
+bool FContentBrowserWidget::CanCutContent(const std::filesystem::path& Path) const {
+    return mContext->CanEditWorld() && !Path.empty() && !Path.has_root_directory() && (mContentFolders.contains(Path) || (mAssetTypes.contains(Path) && Core::FilePath::ToLowerExtension(Path) == L".masset"));
+}
+
+bool FContentBrowserWidget::CanPasteContent(const std::filesystem::path& Directory) const {
+    return mContext->CanEditWorld() && !mCutContentPath.empty() && !Directory.has_root_directory() && mContentFolders.contains(Directory) && Core::FilePath::ToLower(Directory) != Core::FilePath::ToLower(mCutContentPath.parent_path()) && !IsContentPathWithin(Directory, mCutContentPath);
+}
+
+void FContentBrowserWidget::CutContent(const std::filesystem::path& Path) {
+    if (CanCutContent(Path)) {
+        mCutContentPath = Path;
+        mContentError.clear();
+    }
+}
+
+void FContentBrowserWidget::PasteContent(const std::filesystem::path& Directory) {
+    if (mCutContentPath.empty() || !mContext->CanEditWorld()) {
+        return;
+    }
+
+    if (!CanPasteContent(Directory)) {
+        mContentError = "이 폴더에 붙여넣을 수 없습니다. 다른 프로젝트 콘텐츠 폴더를 선택하세요.";
+        return;
+    }
+
+    RelocateContent(mCutContentPath, Directory / mCutContentPath.filename(), mContentError);
 }
 
 void FContentBrowserWidget::AcceptContentMove(const std::filesystem::path& Directory) {
@@ -682,8 +720,7 @@ void FContentBrowserWidget::AcceptContentMove(const std::filesystem::path& Direc
     }
 
     const auto Path{Core::FilePath::FromUtf8(static_cast<const char*>(Payload->Data))};
-    const auto AssetType{mAssetTypes.find(Path)};
-    if (Path.empty() || Path.has_root_directory() || (!mContentFolders.contains(Path) && (AssetType == mAssetTypes.end() || Core::FilePath::ToLowerExtension(Path) != L".masset")) || Path.parent_path() == Directory || IsContentPathWithin(Directory, Path)) {
+    if (!CanCutContent(Path) || Path.parent_path() == Directory || IsContentPathWithin(Directory, Path)) {
         return;
     }
 
@@ -1076,6 +1113,9 @@ bool FContentBrowserWidget::DeleteContent(bool Force) {
     }
 
     mSelectedContentPath.clear();
+    if (!mCutContentPath.empty() && IsContentPathWithin(mCutContentPath, mContentActionTarget)) {
+        mCutContentPath.clear();
+    }
 
     // 지운 에셋을 참조하던 객체는 살려 두고, 같은 경로에 다시 임포트하면 새 객체를 로드하게 합니다.
     mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
@@ -1094,7 +1134,7 @@ bool FContentBrowserWidget::DeleteContent(bool Force) {
     return true;
 }
 
-void FContentBrowserWidget::DrawContentContextMenu() {
+void FContentBrowserWidget::DrawContentContextMenu(const std::filesystem::path& PasteDirectory) {
     const bool CanEdit{mContext->CanEditWorld() && !mContentDirectory.has_root_directory()};
     const bool CanEditSelection{CanEdit && !mSelectedContentPath.has_root_directory()};
 
@@ -1151,13 +1191,17 @@ void FContentBrowserWidget::DrawContentContextMenu() {
             BeginContentAction(EContentAction::Rename);
         }
 
-        if (ImGui::MenuItem("Move To...", nullptr, false, CanEditSelection && (mContentFolders.contains(mSelectedContentPath) || (mAssetTypes.contains(mSelectedContentPath) && Core::FilePath::ToLowerExtension(mSelectedContentPath) == L".masset")))) {
-            BeginContentAction(EContentAction::Move);
+        if (ImGui::MenuItem("Cut", "Ctrl+X", false, CanCutContent(mSelectedContentPath))) {
+            CutContent(mSelectedContentPath);
         }
 
         if (ImGui::MenuItem("Delete", "Del", false, CanEditSelection)) {
             BeginContentAction(EContentAction::Delete);
         }
+    }
+
+    if (ImGui::MenuItem("Paste Here", "Ctrl+V", false, CanPasteContent(PasteDirectory))) {
+        PasteContent(PasteDirectory);
     }
 
     ImGui::Separator();
@@ -1599,7 +1643,15 @@ void FContentBrowserWidget::DrawContentTree(const std::filesystem::path& Directo
 
     ImGui::PushID(Id.c_str());
 
+    const bool Cut{!mCutContentPath.empty() && Directory == mCutContentPath};
+    if (Cut) {
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * CutContentOpacity);
+    }
     const bool Open{ImGui::TreeNodeEx(Label.c_str(), Flags)};
+    if (Cut) {
+        ImGui::PopStyleVar();
+    }
+
     const ImVec2 Minimum{ImGui::GetItemRectMin()};
     const ImVec2 Maximum{ImGui::GetItemRectMax()};
 
@@ -1611,12 +1663,14 @@ void FContentBrowserWidget::DrawContentTree(const std::filesystem::path& Directo
     }
 
     if (!Directory.has_root_directory() && ImGui::BeginPopupContextItem("##FolderRedirectors")) {
-        if (!Directory.empty() && ImGui::MenuItem("Move To...", nullptr, false, mContext->CanEditWorld())) {
-            mSelectedContentPath = Directory;
-            BeginContentAction(EContentAction::Move);
-        }
         if (ImGui::MenuItem("Fix Up Redirectors in Folder", nullptr, false, mContext->CanEditWorld())) {
             mPendingFixUpDirectory = Directory;
+        }
+        if (!Directory.empty() && ImGui::MenuItem("Cut", "Ctrl+X", false, CanCutContent(Directory))) {
+            CutContent(Directory);
+        }
+        if (ImGui::MenuItem("Paste Here", "Ctrl+V", false, CanPasteContent(Directory))) {
+            PasteContent(Directory);
         }
         ImGui::EndPopup();
     }
@@ -1770,12 +1824,21 @@ void FContentBrowserWidget::DrawContentEntries() {
                     void* Thumbnail{SupportsThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
                     const Core::FString Actual{Core::FilePath::ToGenericUtf8(Path)};
                     const Core::FString Name{Core::FilePath::ToUtf8(Directory || ShaderSource ? Path.filename() : Path.stem())};
-                    const auto& TileStyle{HasAssetType ? FAssetTileWidget::GetStyle(Type->second) : FAssetTileWidget::GetStyle(Kind)};
+                    auto TileStyle{HasAssetType ? FAssetTileWidget::GetStyle(Type->second) : FAssetTileWidget::GetStyle(Kind)};
 
                     ImGui::PushID(Actual.c_str());
 
+                    const bool Cut{Path == mCutContentPath};
+                    if (Cut) {
+                        TileStyle.mAccent = IM_COL32(162, 162, 162, 255);
+                        TileStyle.mIconTint = IM_COL32(190, 190, 190, 255);
+                        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * CutContentOpacity);
+                    }
                     const bool Selected{mSelectedContentPath == Path};
                     const bool Pressed{Directory ? DrawFolderEntry(mAssetTile, TileStyle, Name, TileSize, Scale, Selected) : mAssetTile.Draw("##AssetTile", Name, TileStyle, Thumbnail, TileSize, Scale, Selected)};
+                    if (Cut) {
+                        ImGui::PopStyleVar();
+                    }
 
                     if (Pressed) {
                         mSelectedContentPath = Path;
@@ -1799,6 +1862,7 @@ void FContentBrowserWidget::DrawContentEntries() {
                     // 우클릭 메뉴가 이 항목을 대상으로 하도록 먼저 선택합니다.
                     if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
                         mSelectedContentPath = Path;
+                        mContextPasteDirectory = Directory ? Path : mContentDirectory;
                     }
 
                     const bool Hovered{ImGui::IsItemHovered()};
