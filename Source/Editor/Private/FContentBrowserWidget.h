@@ -183,8 +183,13 @@ namespace Editor {
          * @return 이름 변경이 완료되면 true입니다.
          */
         bool RenameContent();
-        bool RelocateContent(const std::filesystem::path& Destination);
+        bool RelocateContent(const std::filesystem::path& Source, const std::filesystem::path& Destination, Core::FString& Error);
         void AcceptContentMove(const std::filesystem::path& Directory);
+        bool CanCutContent(const std::filesystem::path& Path) const;
+        bool CanPasteContent(const std::filesystem::path& Directory) const;
+        void CutContent(const std::filesystem::path& Path);
+        void PasteContent(const std::filesystem::path& Directory);
+        void DrawContentClipboardShortcuts(bool FolderPaneFocused);
 
         /**
          * @brief 참조와 편집 상태를 확인하고 선택한 콘텐츠를 삭제합니다.
@@ -196,7 +201,7 @@ namespace Editor {
         /**
          * @brief 선택 콘텐츠에 맞는 생성·탐색·이름 변경·삭제 메뉴를 그립니다.
          */
-        void DrawContentContextMenu();
+        void DrawContentContextMenu(const std::filesystem::path& PasteDirectory);
         void FixUpRedirectors(const std::filesystem::path& Directory);
 
         /**
@@ -318,6 +323,8 @@ namespace Editor {
          * @brief 콘텐츠 브라우저에서 선택한 파일 또는 폴더 경로입니다.
          */
         std::filesystem::path mSelectedContentPath{};
+        std::filesystem::path mCutContentPath{};
+        std::filesystem::path mContextPasteDirectory{};
 
         /**
          * @brief 콘텐츠 브라우저에 표시할 최근 오류입니다.
