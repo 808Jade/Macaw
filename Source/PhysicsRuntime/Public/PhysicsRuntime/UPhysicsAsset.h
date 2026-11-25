@@ -97,6 +97,12 @@ namespace PhysicsRuntime {
          */
         Core::TArray<std::pair<Core::FString, Core::FString>> mCollisionDisabledPairs{};
 
+        /**
+         * @brief 에디터가 이 에셋을 열 때 미리보기로 쓰는 스켈레탈 메시의 콘텐츠 경로입니다. 비어 있으면 지정하지 않은 것입니다.
+         * @details 에셋 이름과 무관하므로 에셋 이름을 바꿔도 미리보기 메시를 잃지 않습니다. 시뮬레이션에는 쓰지 않습니다.
+         */
+        Core::FString mPreviewMeshPath{};
+
     private:
         /**
          * @brief 뼈 이름에서 설계도 번호를 찾는 표입니다.

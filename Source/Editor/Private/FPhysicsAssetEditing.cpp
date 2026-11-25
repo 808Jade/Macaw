@@ -237,7 +237,18 @@ std::filesystem::path Editor::PhysicsAssetEditing::GetDefaultPhysicsAssetPath(co
 
 std::filesystem::path Editor::PhysicsAssetEditing::GetMeshPathForPhysicsAsset(const std::filesystem::path& PhysicsAssetPath) {
     constexpr std::wstring_view Suffix{L"_PhysicsAsset"};
-    const std::wstring Stem{PhysicsAssetPath.stem().native()};
+    std::wstring Stem{PhysicsAssetPath.stem().native()};
+
+    // 같은 메시의 추가 물리 에셋은 "_PhysicsAsset_<숫자>"로 저장되므로 끝의 "_<숫자>"를 먼저 뗀다.
+    size_t DigitStart{Stem.size()};
+
+    while (DigitStart > 0 && Stem[DigitStart - 1] >= L'0' && Stem[DigitStart - 1] <= L'9') {
+        --DigitStart;
+    }
+
+    if (DigitStart < Stem.size() && DigitStart > 0 && Stem[DigitStart - 1] == L'_' && Stem.substr(0, DigitStart - 1).ends_with(Suffix)) {
+        Stem.resize(DigitStart - 1);
+    }
 
     if (Stem.size() <= Suffix.size() || !Stem.ends_with(Suffix)) {
         return {};
@@ -266,14 +277,27 @@ bool Editor::PhysicsAssetEditing::CreatePhysicsAssetFile(Asset::FAssetManager& A
 
     std::error_code Code{};
 
-    if (std::filesystem::exists(Assets.GetContentRoot() / OutPath, Code) || Code) {
-        Error = "A physics asset already exists: " + Core::FilePath::ToGenericUtf8(OutPath);
+    // 이미 있으면 "_PhysicsAsset_1", "_2" ... 로 비어 있는 이름을 찾아 추가로 만든다.
+    for (Index_t Number{1}; std::filesystem::exists(Assets.GetContentRoot() / OutPath, Code); ++Number) {
+        if (Code || Number > 999) {
+            Error = "Cannot find a free physics asset name: " + Core::FilePath::ToGenericUtf8(OutPath);
+
+            return false;
+        }
+
+        OutPath = GetDefaultPhysicsAssetPath(MeshPath);
+        OutPath.replace_filename(OutPath.stem().native() + L"_" + std::to_wstring(Number) + OutPath.extension().native());
+    }
+
+    if (Code) {
+        Error = "Cannot check the physics asset path: " + Core::FilePath::ToGenericUtf8(OutPath);
 
         return false;
     }
 
     auto PhysicsAsset{CoreUObject::NewObject<PhysicsRuntime::UPhysicsAsset>()};
     PhysicsAsset->SetName(Core::FilePath::ToUtf8(OutPath.stem()));
+    PhysicsAsset->mPreviewMeshPath = Core::FilePath::ToGenericUtf8(MeshPath);
 
     if (!Asset::FPhysicsAssetUtils::CreateFromSkeletalMesh(*PhysicsAsset, *Mesh, *Skeleton, Asset::FPhysAssetCreateParams{})) {
         Error = "Cannot generate bodies from the mesh.";

@@ -811,6 +811,9 @@ void FPhysicsAssetEditorToolkit::SaveAsset() {
         return;
     }
 
+    // 이름을 바꿔도 같은 메시로 열리도록 미리보기 메시 경로를 에셋에 함께 저장한다.
+    PhysicsAsset->mPreviewMeshPath = Core::FilePath::ToGenericUtf8(mMeshPath);
+
     const bool NewFile{mPhysicsAssetPath.empty()};
     const Core::FString TargetPath{NewFile ? Core::FilePath::ToGenericUtf8(PhysicsAssetEditing::GetDefaultPhysicsAssetPath(mMeshPath)) : mPhysicsAssetPath};
     Core::FString Error{};
