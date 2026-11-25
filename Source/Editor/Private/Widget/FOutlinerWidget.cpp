@@ -313,9 +313,7 @@ namespace Editor {
         ImGui::PopClipRect();
         ImGui::SetCursorPosX(ContentX);
 
-        if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
-            DeleteRequested = CanEdit && Context->GetSelectedActor() != nullptr;
-        }
+        const bool DeletePressed{CanEdit && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::IsAnyItemActive() && !ImGui::GetIO().WantTextInput && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup) && ImGui::IsKeyPressed(ImGuiKey_Delete, false)};
 
         // 순회 중인 핸들 목록이 바뀌지 않도록 테이블을 닫은 뒤 적용합니다.
         if (DuplicateRequested) {
@@ -324,6 +322,8 @@ namespace Editor {
 
         if (DeleteRequested) {
             Context->DestroySelectedActor();
+        } else if (DeletePressed) {
+            Context->DestroySelection();
         }
 
         const Engine::UCameraComponent* Camera{Context->GetWorld() != nullptr ? Context->GetWorld()->GetActiveCamera() : nullptr};

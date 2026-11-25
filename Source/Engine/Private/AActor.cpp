@@ -116,6 +116,65 @@ namespace Engine {
         return true;
     }
 
+    bool Engine::AActor::RemoveComponent(Engine::UActorComponent* Component) {
+        if (Component == nullptr || mPendingDestroy || mChangingWorld || (mWorld != nullptr && (!mWorld->CanAddActor() || mWorld->IsDispatching()))) {
+            return false;
+        }
+
+        const auto Position{std::ranges::find(mComponents, Component, &std::unique_ptr<Engine::UActorComponent>::get)};
+
+        if (Position == mComponents.end()) {
+            return false;
+        }
+
+        Engine::UWorld::FDispatchScope Scope{mWorld};
+        auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(Component)};
+        const bool RemovingRoot{Scene != nullptr && Scene == mRootComponent};
+
+        if (Scene != nullptr) {
+            Engine::USceneComponent* Parent{Scene->GetAttachParent()};
+            Engine::USceneComponent* ChildParent{Parent != nullptr ? Parent : mRootComponent};
+
+            if (RemovingRoot) {
+                const auto Replacement{std::ranges::find_if(mComponents, [Scene](const auto& Entry) {
+                    return Entry.get() != Scene && Entry->IsA(Engine::USceneComponent::StaticClass());
+                })};
+
+                ChildParent = Replacement != mComponents.end() ? static_cast<Engine::USceneComponent*>(Replacement->get()) : nullptr;
+            }
+
+            if (ChildParent != nullptr) {
+                ChildParent->mAttachChildren.reserve(ChildParent->mAttachChildren.size() + Scene->mAttachChildren.size());
+            }
+
+            Scene->UpdateAttachParent(nullptr);
+
+            if (RemovingRoot) {
+                mRootComponent = ChildParent;
+
+                if (mRootComponent != nullptr) {
+                    mRootComponent->UpdateAttachParent(nullptr);
+                    mRootComponent->UpdateAttachParent(Parent);
+                }
+            }
+
+            while (!Scene->mAttachChildren.empty()) {
+                Scene->mAttachChildren.back()->UpdateAttachParent(ChildParent);
+            }
+        }
+
+        auto Removed{std::move(*Position)};
+        mComponents.erase(Position);
+        Removed->UnregisterComponent();
+        Removed->SetOwner(nullptr);
+
+        if (RemovingRoot) {
+            UpdateRootMovementComponents();
+        }
+
+        return true;
+    }
+
     /**
      * @brief 액터가 소유한 컴포넌트 목록을 반환합니다.
      */

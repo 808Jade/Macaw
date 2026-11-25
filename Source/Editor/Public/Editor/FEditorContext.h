@@ -481,6 +481,8 @@ namespace Editor {
          * @return 삭제 요청을 수락하면 true입니다.
          */
         bool DestroySelectedActor();
+        bool DestroySelectedComponent();
+        bool DestroySelection();
 
         /**
          * @brief 대상 액터들의 가시성을 변경하고 실행 취소 이력에 반영합니다.

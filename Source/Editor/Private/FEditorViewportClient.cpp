@@ -264,7 +264,7 @@ namespace Editor {
         }
 
         if (Input.mDelete && Input.mFocused) {
-            mContext->DestroySelectedActor();
+            mContext->DestroySelection();
 
             return;
         }

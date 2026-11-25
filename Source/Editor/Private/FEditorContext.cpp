@@ -920,6 +920,42 @@ namespace Editor {
         return Removed;
     }
 
+    bool Editor::FEditorContext::DestroySelectedComponent() {
+        if (!CanModifyScene() || IsSceneEditActive()) {
+            return false;
+        }
+
+        auto* Component{CoreUObject::Cast<Engine::UActorComponent>(GetSelectedObject())};
+
+        if (Component == nullptr) {
+            return false;
+        }
+
+        FSceneEditScope Edit{*this};
+        FOperationScope Scope{&mChangingState};
+        Engine::AActor* Actor{Component->GetOwner()};
+        const CoreUObject::TObjectRef<Engine::AActor> ActorHandle{CoreUObject::MakeObjectRef(Actor)};
+        const Core::FString Name{Component->GetName()};
+
+        if (!Actor->RemoveComponent(Component)) {
+            return false;
+        }
+
+        AssignSelection({ActorHandle}, ActorHandle);
+        NoteSceneEdit();
+        AddLog("Deleted " + Name);
+
+        return true;
+    }
+
+    bool Editor::FEditorContext::DestroySelection() {
+        if (CoreUObject::Cast<Engine::UActorComponent>(GetSelectedObject()) != nullptr) {
+            return DestroySelectedComponent();
+        }
+
+        return DestroySelectedActor();
+    }
+
     /**
      * @brief 편집 월드, 객체, 프로퍼티 소속과 편집 권한을 함께 검사합니다.
      */

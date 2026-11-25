@@ -541,6 +541,13 @@ namespace Editor {
         }
 
         ImGui::EndChild();
+
+        const ImGuiIO& Input{ImGui::GetIO()};
+
+        if (IsEnabled() && mLockedContext == nullptr && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::IsAnyItemActive() && !Input.WantTextInput && Input.KeyMods == 0 && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup) && ImGui::IsKeyPressed(ImGuiKey_Delete, false)) {
+            Context->DestroySelectedComponent();
+        }
+
         mExpandCategories.reset();
     }
 
