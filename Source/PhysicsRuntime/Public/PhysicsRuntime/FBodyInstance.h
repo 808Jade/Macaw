@@ -361,6 +361,19 @@ namespace PhysicsRuntime {
         bool SetAngularDamping(Core::FFrequency Damping);
 
         /**
+         * @brief 동적 강체의 관성 배율을 반환합니다.
+         * @return 형상에서 계산한 관성 모멘트에 곱하는 값입니다. 1이면 형상 그대로입니다.
+         */
+        float GetInertiaScale() const;
+
+        /**
+         * @brief 동적 강체의 관성 배율을 설정하고 실제 바디의 관성을 다시 계산합니다.
+         * @param[in] Scale 0보다 큰 유한값입니다. 클수록 같은 토크에 회전이 둔해져 가는 형상의 회전 떨림이 줄어듭니다.
+         * @return 유효한 값이어서 적용했으면 true입니다.
+         */
+        bool SetInertiaScale(float Scale);
+
+        /**
          * @brief 이미 만든 움직이는 강체의 시뮬레이션 여부를 다시 만들지 않고 바꿉니다.
          * @param[in] Simulate true이면 시뮬레이션하고, false이면 키네마틱으로 바꿉니다.
          * @note 정적 강체는 설정만 바꾸고 실제 강체에는 반영하지 않습니다.
@@ -496,6 +509,11 @@ namespace PhysicsRuntime {
          */
         UPROPERTY(Edit, Serialize, Category = "Physics", Getter = GetAngularDamping, Setter = SetAngularDamping, Meta = (DisplayUnit = "1/s"))
         Core::FFrequency mAngularDamping{};
+
+        /**
+         * @brief 형상에서 계산한 관성 모멘트에 곱하는 배율입니다. 피직스 에셋의 바디 셋업이 정하며 저장하지 않습니다.
+         */
+        float mInertiaScale{1.0f};
 
         /**
          * @brief 충돌 프리셋이며, 참여 방식이나 응답을 직접 바꾸면 Custom입니다.
