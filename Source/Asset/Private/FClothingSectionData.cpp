@@ -22,7 +22,23 @@ namespace Asset {
     void FClothingSectionData::Serialize(Core::FArchive& Archive) {
         constexpr Uint32 MaxSerializedCount{50000000u};
 
-        Archive.Serialize("AssetGuid", mAssetGuid);
+        // 천이 없는 섹션은 빈 식별자를 가집니다. 식별자 읽기는 빈 값을 오류로 보므로 문자열로 직접 읽고 씁니다.
+        Core::FString GuidText{mAssetGuid.ToString()};
+        Archive.Serialize("AssetGuid", GuidText);
+
+        if (Archive.HasError()) {
+            return;
+        }
+
+        if (Archive.IsLoading()) {
+            if (GuidText == Core::FGuid::Null().ToString()) {
+                mAssetGuid = Core::FGuid::Null();
+            } else if (!Core::FGuid::Parse(GuidText, mAssetGuid)) {
+                Archive.SetError("Invalid clothing section asset guid");
+
+                return;
+            }
+        }
 
         Uint64 AssetLodIndex{static_cast<Uint64>(mAssetLodIndex)};
         Uint64 CorrespondClothAssetIndex{static_cast<Uint64>(mCorrespondClothAssetIndex)};
