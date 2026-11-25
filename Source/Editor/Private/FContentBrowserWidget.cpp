@@ -90,33 +90,11 @@ FContentBrowserWidget::FContentBrowserWidget(FEditorContext* Context, Platform::
 	  mWorkspace{Workspace},
 	  mImports{Imports},
 	  mAssetEditors{AssetEditors} {
-    if (auto* Assets{AssetCatalog.GetAssets()}; Assets != nullptr) {
-        mContentChanges = FindFirstChangeNotificationW(Assets->GetContentRoot().c_str(), TRUE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
-    }
 }
 
-FContentBrowserWidget::~FContentBrowserWidget() {
-    if (mContentChanges != nullptr && mContentChanges != INVALID_HANDLE_VALUE) {
-        FindCloseChangeNotification(mContentChanges);
-    }
-}
+FContentBrowserWidget::~FContentBrowserWidget() = default;
 
 void FContentBrowserWidget::Tick() {
-    const auto Now{std::chrono::steady_clock::now()};
-    if (mContentChanges != nullptr && mContentChanges != INVALID_HANDLE_VALUE && WaitForSingleObject(mContentChanges, 0) == WAIT_OBJECT_0) {
-        if (!FindNextChangeNotification(mContentChanges)) {
-            FindCloseChangeNotification(mContentChanges);
-            mContentChanges = nullptr;
-        }
-
-        mContentRefreshTime = Now + std::chrono::milliseconds{250};
-    }
-
-    if (mContentRefreshTime != std::chrono::steady_clock::time_point{} && Now >= mContentRefreshTime && mContext->CanEditWorld()) {
-        mContentRefreshTime = {};
-        mRefreshContent = true;
-    }
-
     if (mRefreshContent) {
         RefreshContent();
     }

@@ -10,7 +10,6 @@
 #include "Editor/Widget/FEditorContextWidget.h"
 #include "Asset/FAssetFile.h"
 #include "Core/Types.h"
-#include <chrono>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -287,8 +286,6 @@ namespace Editor {
          * @brief 다음 갱신에 콘텐츠 목록을 다시 읽을지 나타냅니다.
          */
         bool mRefreshContent{true};
-        void* mContentChanges{};
-        std::chrono::steady_clock::time_point mContentRefreshTime{};
 
         /**
          * @brief 디렉터리별 콘텐츠 하위 폴더 캐시입니다.
