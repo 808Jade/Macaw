@@ -181,6 +181,20 @@ namespace Engine {
     }
 
     /**
+     * @brief 월드의 바람장을 반환합니다.
+     */
+    Engine::FWindField& Engine::UWorld::GetWindField() {
+        return mWindField;
+    }
+
+    /**
+     * @brief 월드의 바람장을 반환합니다.
+     */
+    const Engine::FWindField& Engine::UWorld::GetWindField() const {
+        return mWindField;
+    }
+
+    /**
      * @brief 설정된 런타임으로 물리 장면을 만들고 고정 스텝 누적 시간을 초기화합니다.
      */
     bool Engine::UWorld::CreatePhysicsScene() {

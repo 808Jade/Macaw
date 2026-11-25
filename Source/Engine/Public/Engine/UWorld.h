@@ -16,6 +16,7 @@
 #include "Engine/EWorldPlayState.h"
 #include "Engine/FWorldHandle.h"
 #include "Engine/Tick/FTickTaskManager.h"
+#include "Engine/FWindField.h"
 
 #include <utility>
 
@@ -314,6 +315,18 @@ namespace Engine {
         PhysicsRuntime::FPhysicsScene* GetPhysicsScene() const;
 
         /**
+         * @brief 월드의 바람장을 반환합니다. 바람 원천 컴포넌트가 등록하고, 천과 머리카락이 위치별 바람을 질의합니다.
+         * @return 월드가 소유한 바람장의 참조이며 월드의 수명 동안 유효합니다.
+         */
+        Engine::FWindField& GetWindField();
+
+        /**
+         * @brief 월드의 바람장을 반환합니다.
+         * @return 월드가 소유한 바람장의 상수 참조입니다.
+         */
+        const Engine::FWindField& GetWindField() const;
+
+        /**
          * @brief 설정된 런타임으로 물리 장면을 만들고 이미 등록된 컴포넌트의 물리 상태를 만듭니다.
          * @return 이미 장면이 있거나 생성에 성공하면 true, 런타임이 없거나 생성에 실패하면 false입니다.
          * @note Game·PIE 월드는 BeginPlay에서 호출합니다. BeginPlay를 거치지 않는 미리보기 월드도 직접 호출할 수 있습니다.
@@ -580,6 +593,11 @@ namespace Engine {
          * @brief 월드가 소유한 물리 장면입니다.
          */
         std::unique_ptr<PhysicsRuntime::FPhysicsScene> mPhysicsScene{};
+
+        /**
+         * @brief 월드의 바람 원천을 모아 위치별 바람 속도를 계산하는 바람장입니다.
+         */
+        Engine::FWindField mWindField{};
 
         /**
          * @brief 아직 고정 스텝으로 진행하지 않은 물리 시간(초)입니다.
