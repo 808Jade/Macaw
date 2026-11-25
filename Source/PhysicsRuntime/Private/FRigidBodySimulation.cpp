@@ -63,6 +63,9 @@ namespace PhysicsRuntime {
             auto Body{std::make_unique<PhysicsRuntime::FBodyInstance>()};
 
             Body->SetSimulatePhysics(Setup->ShouldSimulatePhysics());
+            Body->SetLinearDamping(Setup->GetLinearDamping());
+            Body->SetAngularDamping(Setup->GetAngularDamping());
+            Body->SetMassInKg(Setup->GetMassInKg());
             Body->mInstanceBodyIndex = BodyIndex;
 
             PhysicsRuntime::FInitBodySpawnParams SpawnParams{};

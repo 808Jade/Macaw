@@ -656,11 +656,12 @@ namespace Asset {
             // 2: 바디마다 SimulatePhysics(Dynamic 여부)를 저장한다. 1은 모든 바디가 Dynamic이다.
             // 3: 바디마다 CollisionEnabled와 충돌 비활성 쌍 목록을 저장한다. 2 이하는 모든 바디가 충돌하고 비활성 쌍이 없다.
             // 4: 에디터 미리보기 스켈레탈 메시 경로를 저장한다. 3 이하는 에셋 이름 규칙으로 메시를 찾는다.
-            Uint32 Version{4};
+            // 5: 바디마다 선형 감쇠, 회전 감쇠, 질량, 관성 배율을 저장한다. 4 이하는 바디 셋업의 기본값을 쓴다.
+            Uint32 Version{5};
 
             Archive.Serialize("PhysicsAssetVersion", Version);
 
-            if (Archive.HasError() || Version < 1 || Version > 4) {
+            if (Archive.HasError() || Version < 1 || Version > 5) {
                 Archive.SetError("Unsupported physics asset version");
 
                 return;
@@ -697,6 +698,26 @@ namespace Asset {
 
                     if (Archive.IsLoading()) {
                         BodySetup->SetCollisionEnabled(Collision != 0);
+                    }
+                }
+
+                if (Version >= 5) {
+                    float LinearDamping{BodySetup->GetLinearDamping().GetBase()};
+                    float AngularDamping{BodySetup->GetAngularDamping().GetBase()};
+                    float Mass{BodySetup->GetMassInKg().GetBase()};
+                    float InertiaScale{BodySetup->GetInertiaScale()};
+
+                    Archive.Serialize("LinearDamping", LinearDamping);
+                    Archive.Serialize("AngularDamping", AngularDamping);
+                    Archive.Serialize("MassInKg", Mass);
+                    Archive.Serialize("InertiaScale", InertiaScale);
+
+                    if (Archive.IsLoading()) {
+                        // 잘못된 값은 Setter가 무시하므로 기본값이 남는다.
+                        BodySetup->SetLinearDamping(Core::FFrequency::FromBase(LinearDamping));
+                        BodySetup->SetAngularDamping(Core::FFrequency::FromBase(AngularDamping));
+                        BodySetup->SetMassInKg(Core::FMass::FromBase(Mass));
+                        BodySetup->SetInertiaScale(InertiaScale);
                     }
                 }
 

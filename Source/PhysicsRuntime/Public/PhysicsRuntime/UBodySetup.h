@@ -7,10 +7,12 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FVector.h"
 #include "PhysicsRuntime/UBodySetupCore.h"
 #include "PhysicsRuntime/FKAggregateGeom.h"
 
+#include <cmath>
 #include <memory>
 
 #include "UBodySetup.generated.h"
@@ -110,6 +112,79 @@ namespace PhysicsRuntime {
         }
 
         /**
+         * @brief 이 바디의 선형 감쇠 계수를 반환합니다. 클수록 이동 속도가 빨리 줄어듭니다.
+         * @return 감쇠 계수(1/s)입니다.
+         * @note 피직스 에셋의 바디에만 쓰며, 시뮬레이션할 때 바디 인스턴스에 복사됩니다.
+         */
+        Core::FFrequency GetLinearDamping() const {
+            return mLinearDamping;
+        }
+
+        /**
+         * @brief 이 바디의 선형 감쇠 계수를 설정합니다.
+         * @param[in] Damping 0 이상의 유한한 값입니다. 유효하지 않으면 무시합니다.
+         */
+        void SetLinearDamping(Core::FFrequency Damping) {
+            if (Damping.IsFinite() && Damping >= Core::FFrequency{}) {
+                mLinearDamping = Damping;
+            }
+        }
+
+        /**
+         * @brief 이 바디의 회전 감쇠 계수를 반환합니다. 클수록 회전 속도가 빨리 줄어들어 떨림이 줄어듭니다.
+         * @return 감쇠 계수(1/s)입니다.
+         */
+        Core::FFrequency GetAngularDamping() const {
+            return mAngularDamping;
+        }
+
+        /**
+         * @brief 이 바디의 회전 감쇠 계수를 설정합니다.
+         * @param[in] Damping 0 이상의 유한한 값입니다. 유효하지 않으면 무시합니다.
+         */
+        void SetAngularDamping(Core::FFrequency Damping) {
+            if (Damping.IsFinite() && Damping >= Core::FFrequency{}) {
+                mAngularDamping = Damping;
+            }
+        }
+
+        /**
+         * @brief 이 바디의 질량을 반환합니다.
+         * @return 질량(kg)이며, 0이면 충돌 형상의 부피와 기본 밀도로 계산합니다.
+         */
+        Core::FMass GetMassInKg() const {
+            return mMassInKg;
+        }
+
+        /**
+         * @brief 이 바디의 질량을 설정합니다.
+         * @param[in] Mass 0 이상의 유한한 값입니다. 0이면 밀도로 계산합니다. 유효하지 않으면 무시합니다.
+         */
+        void SetMassInKg(Core::FMass Mass) {
+            if (Mass.IsFinite() && Mass >= Core::FMass{}) {
+                mMassInKg = Mass;
+            }
+        }
+
+        /**
+         * @brief 이 바디의 관성 배율을 반환합니다.
+         * @return 질량 중심 기준 관성 모멘트에 곱하는 값이며 1이면 형상 그대로입니다. 클수록 회전이 둔해집니다.
+         */
+        float GetInertiaScale() const {
+            return mInertiaScale;
+        }
+
+        /**
+         * @brief 이 바디의 관성 배율을 설정합니다.
+         * @param[in] Scale 0보다 큰 유한한 값입니다. 유효하지 않으면 무시합니다.
+         */
+        void SetInertiaScale(float Scale) {
+            if (std::isfinite(Scale) && Scale > 0.0f) {
+                mInertiaScale = Scale;
+            }
+        }
+
+        /**
          * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
          * @param[in,out] Actor 형상을 붙일 PhysX 강체입니다.
          * @param[in] Scale 형상 크기와 중심에 반영할 컴포넌트 스케일입니다.
@@ -143,6 +218,26 @@ namespace PhysicsRuntime {
          * @brief 피직스 에셋에서 이 바디의 모양이 충돌하는지 나타냅니다. mSimulatePhysics처럼 리플렉션 직렬화 대상이 아니며 물리 에셋 파일이 따로 저장합니다.
          */
         bool mCollisionEnabled{true};
+
+        /**
+         * @brief 선형 감쇠 계수(1/s)입니다. 기본값은 0이 아니어서 작은 진동이 쌓이지 않습니다. 피직스 에셋 파일이 따로 저장합니다.
+         */
+        Core::FFrequency mLinearDamping{Core::FFrequency::FromBase(0.1f)};
+
+        /**
+         * @brief 회전 감쇠 계수(1/s)입니다. 머리카락처럼 가는 형상의 회전 떨림을 줄이도록 기본값을 둡니다.
+         */
+        Core::FFrequency mAngularDamping{Core::FFrequency::FromBase(0.5f)};
+
+        /**
+         * @brief 질량(kg)입니다. 0이면 형상 부피와 기본 밀도로 계산합니다.
+         */
+        Core::FMass mMassInKg{};
+
+        /**
+         * @brief 관성 모멘트에 곱하는 배율입니다.
+         */
+        float mInertiaScale{1.0f};
     };
 
 }
