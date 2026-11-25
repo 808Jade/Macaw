@@ -7,6 +7,7 @@
 #include "Engine/Component/UPrimitiveComponent.h"
 #include "Asset/UStaticMesh.h"
 #include "Engine/AActor.h"
+#include "Engine/Collision/FHitResult.h"
 #include "Engine/Component/UActorComponent.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/UWorld.h"
@@ -145,7 +146,10 @@ namespace Engine {
             return;
         }
 
-        if (!IsOwnerVisible() || !ShouldCreateRenderState()) {
+        const Engine::EWorldType WorldType{GetWorld()->GetWorldType()};
+        const bool HiddenInThisWorld{mHiddenInGame && (WorldType == Engine::EWorldType::Game || WorldType == Engine::EWorldType::PIE)};
+
+        if (!IsOwnerVisible() || HiddenInThisWorld || !ShouldCreateRenderState()) {
             if (mRenderStateCreated) {
                 GetWorld()->GetScene()->RemovePrimitive(GetGuid());
 
@@ -297,6 +301,17 @@ namespace Engine {
         MarkRenderStateDirty();
     }
 
+    bool Engine::UPrimitiveComponent::IsHiddenInGame() const {
+        return mHiddenInGame;
+    }
+
+    void Engine::UPrimitiveComponent::SetHiddenInGame(bool HiddenInGame) {
+        if (mHiddenInGame != HiddenInGame) {
+            mHiddenInGame = HiddenInGame;
+            MarkRenderStateDirty();
+        }
+    }
+
     /**
      * @brief 프리미티브의 그림자 수신 여부를 검증하고 변경합니다.
      */
@@ -330,17 +345,17 @@ namespace Engine {
     }
 
     /**
-     * @brief 다른 컴포넌트의 이동을 막는지 반환합니다.
+     * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만드는지 반환합니다.
      */
-    bool Engine::UPrimitiveComponent::BlocksMovement() const {
-        return mBlocksMovement;
+    bool Engine::UPrimitiveComponent::GetGenerateOverlapEvents() const {
+        return mGenerateOverlapEvents;
     }
 
     /**
-     * @brief 다른 컴포넌트의 이동을 막을지 설정합니다.
+     * @brief 다른 컴포넌트와 겹칠 때 겹침 이벤트를 만들지 설정합니다.
      */
-    void Engine::UPrimitiveComponent::SetBlocksMovement(bool Blocks) {
-        mBlocksMovement = Blocks;
+    void Engine::UPrimitiveComponent::SetGenerateOverlapEvents(bool Generate) {
+        mGenerateOverlapEvents = Generate;
     }
 
     /**
@@ -387,6 +402,139 @@ namespace Engine {
      */
     const PhysicsRuntime::UBodySetup* Engine::UPrimitiveComponent::GetBodySetup() const {
         return nullptr;
+    }
+
+    /**
+     * @brief 이 컴포넌트의 바디가 현재 자세에서 겹치는 다른 바디를 장면 쿼리로 찾습니다.
+     */
+    bool Engine::UPrimitiveComponent::ComponentOverlapMulti(Core::TArray<PhysicsRuntime::FBodyInstance*>& OutOverlaps) const {
+        return mBodyInstance.OverlapMulti(OutOverlaps);
+    }
+
+    /**
+     * @brief 충돌 프리셋을 적용합니다.
+     */
+    void Engine::UPrimitiveComponent::SetCollisionPreset(PhysicsRuntime::ECollisionPreset Preset) {
+        mBodyInstance.SetCollisionPreset(Preset);
+    }
+
+    /**
+     * @brief 쿼리·시뮬레이션 참여 방식을 반환합니다.
+     */
+    PhysicsRuntime::ECollisionEnabled Engine::UPrimitiveComponent::GetCollisionEnabled() const {
+        return mBodyInstance.GetCollisionEnabled();
+    }
+
+    /**
+     * @brief 쿼리·시뮬레이션 참여 방식을 바꿉니다.
+     */
+    void Engine::UPrimitiveComponent::SetCollisionEnabled(PhysicsRuntime::ECollisionEnabled CollisionEnabled) {
+        mBodyInstance.SetCollisionEnabled(CollisionEnabled);
+    }
+
+    /**
+     * @brief 다른 모든 바디에 대한 응답을 바꿉니다.
+     */
+    void Engine::UPrimitiveComponent::SetCollisionResponseToAllChannels(PhysicsRuntime::ECollisionResponse Response) {
+        mBodyInstance.SetCollisionResponse(Response);
+    }
+
+    /**
+     * @brief 바디가 있으면 이동 경로를 쓸어 응답이 Block인 바디에 막히는 지점에서 멈추고 양쪽에 Hit 이벤트를 보냅니다.
+     */
+    bool Engine::UPrimitiveComponent::MoveComponentImpl(const FVector& Delta, bool Sweep, Engine::FHitResult& OutHit) {
+        return Sweep ? MoveComponentSwept(Delta, GetTransform().mRotation, EInitialPenetrationMode::Allow, OutHit) : ApplyMove(Delta);
+    }
+
+    bool Engine::UPrimitiveComponent::MoveComponentSwept(const FVector& Delta, const FQuat& NewRotation, EInitialPenetrationMode PenetrationMode, Engine::FHitResult& OutHit) {
+        const auto ApplyTransform{[this, &NewRotation](const FVector& Offset) {
+            FTransform Transform{GetTransform()};
+            Transform.mLocation += Offset;
+            Transform.mRotation = NewRotation;
+
+            return SetTransform(Transform);
+        }};
+
+        if (Delta.IsNearlyZero() || !mBodyInstance.IsValidBodyInstance()) {
+            return ApplyTransform(Delta);
+        }
+
+        Engine::AActor* const Owner{GetOwner()};
+        const PhysicsRuntime::FIgnoreBodyPredicate IgnoreOwnActor{[this, Owner](const PhysicsRuntime::FBodyInstance& Body) {
+            const Engine::UPrimitiveComponent* Component{Body.GetOwnerComponent()};
+
+            return Component == this || (Component != nullptr && Owner != nullptr && Component->GetOwner() == Owner);
+        }};
+        PhysicsRuntime::FBodySweepHit SweepHit{};
+
+        if (!mBodyInstance.Sweep(Delta, SweepHit, IgnoreOwnActor)) {
+            return ApplyTransform(Delta);
+        }
+
+        constexpr Core::FLength PullBackDistance{1_cm};
+        FVector Adjustment{};
+
+        if (PenetrationMode == EInitialPenetrationMode::Resolve && SweepHit.mStartPenetrating && SweepHit.mImpactNormal.IsNormalized() && SweepHit.mPenetrationDepth.IsFinite() && SweepHit.mPenetrationDepth > 0_m) {
+            const FVector Candidate{SweepHit.mImpactNormal * (SweepHit.mPenetrationDepth + PullBackDistance).GetBase()};
+            const FVector AdjustedStart{OutHit.mTraceStart + Candidate};
+            const FVector AdjustedEnd{AdjustedStart + Delta};
+            PhysicsRuntime::FBodySweepHit AdjustmentHit{};
+
+            if (AdjustedEnd.IsFinite() && !mBodyInstance.Sweep(Candidate, AdjustmentHit, IgnoreOwnActor)) {
+                PhysicsRuntime::FBodySweepHit RetryHit{};
+                const bool RetryBlocked{mBodyInstance.Sweep(Delta, RetryHit, IgnoreOwnActor, Candidate)};
+
+                if (!RetryHit.mStartPenetrating) {
+                    OutHit.Init(AdjustedStart, AdjustedEnd);
+
+                    if (!RetryBlocked) {
+                        return ApplyTransform(Candidate + Delta);
+                    }
+
+                    Adjustment = Candidate;
+                    SweepHit = RetryHit;
+                }
+            }
+        }
+
+        Engine::UPrimitiveComponent* const OtherComponent{SweepHit.mBody != nullptr ? SweepHit.mBody->GetOwnerComponent() : nullptr};
+        const Core::FLength Length{Core::FLength::FromBase(Delta.Length())};
+
+        OutHit.mBlockingHit = true;
+        OutHit.mStartPenetrating = SweepHit.mStartPenetrating;
+        OutHit.mTime = SweepHit.mDistance / Length;
+        OutHit.mDistance = SweepHit.mDistance;
+        OutHit.mLocation = OutHit.mTraceStart + Delta * OutHit.mTime;
+        OutHit.mImpactPoint = SweepHit.mImpactPoint;
+        OutHit.mNormal = SweepHit.mImpactNormal;
+        OutHit.mImpactNormal = SweepHit.mImpactNormal;
+        OutHit.mPenetrationDepth = SweepHit.mPenetrationDepth;
+        OutHit.SetComponent(OtherComponent);
+        OutHit.SetActor(OtherComponent != nullptr ? OtherComponent->GetOwner() : nullptr);
+
+        if (PenetrationMode != EInitialPenetrationMode::Allow && OutHit.mStartPenetrating) {
+            return false;
+        }
+
+        // 막은 표면에 붙어 다음 이동이 시작부터 겹치지 않도록 1 cm 물러난 위치까지만 옮깁니다.
+        const Core::FLength MoveDistance{std::max(0_m, SweepHit.mDistance - PullBackDistance)};
+
+        if (!ApplyTransform(Adjustment + Delta * (MoveDistance / Length))) {
+            return false;
+        }
+
+        // Hit 이벤트 안에서 액터가 파괴될 수 있으므로 지연 삭제 범위 안에서 보내고, 상대에게 보내기 전에 핸들을 다시 확인합니다.
+        Engine::UWorld::FDispatchScope Scope{GetWorld()};
+        const CoreUObject::TObjectRef<Engine::UPrimitiveComponent> SelfHandle{CoreUObject::MakeObjectRef(this)};
+        const CoreUObject::TObjectRef<Engine::UPrimitiveComponent> OtherHandle{CoreUObject::MakeObjectRef(OtherComponent)};
+
+        OnHit(OutHit.GetActor(), OtherComponent, OutHit);
+
+        if (Engine::UPrimitiveComponent* Self{SelfHandle.Get()}, *Other{OtherHandle.Get()}; Self != nullptr && Other != nullptr) {
+            Other->OnHit(Self->GetOwner(), Self, Engine::FHitResult::GetReversedHit(OutHit, Self, Self->GetOwner()));
+        }
+
+        return true;
     }
 
     /**
@@ -495,13 +643,19 @@ namespace Engine {
      * @brief 바디 셋업의 충돌 형상을 현재 트랜스폼에 맞춰 선분으로 수집합니다.
      */
     void Engine::UPrimitiveComponent::DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, bool Highlight, float Thickness) const {
+        const FVector4 Color{Highlight ? FVector4{1.0f, 0.65f, 0.15f, 1.0f} : mBodyInstance.ShouldSimulatePhysics() ? FVector4{0.35f, 1.0f, 0.35f, 1.0f} : FVector4{0.35f, 0.6f, 1.0f, 1.0f}};
+        DrawCollision(DrawInterface, Color, Thickness);
+    }
+
+    void Engine::UPrimitiveComponent::DrawCollision(Engine::FPrimitiveDrawInterface& DrawInterface, const FVector4& CollisionColor, float Thickness) const {
         const PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
 
         if (Setup == nullptr) {
             return;
         }
 
-        const FVector Color{Highlight ? FVector{1.0f, 0.65f, 0.15f} : mBodyInstance.ShouldSimulatePhysics() ? FVector{0.35f, 1.0f, 0.35f} : FVector{0.35f, 0.6f, 1.0f}};
+        const FVector Color{CollisionColor.x, CollisionColor.y, CollisionColor.z};
+        const float Opacity{CollisionColor.w};
         const FTransform& Transform{GetTransform()};
         const PhysicsRuntime::FKAggregateGeom& Geometry{Setup->GetAggGeom()};
 
@@ -517,15 +671,15 @@ namespace Engine {
             const FVector Right{Transform.mRotation.RightVector()};
             const FVector Up{Transform.mRotation.UpVector()};
 
-            DrawInterface.DrawArc(Center, Forward, Right, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Center, Forward, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Center, Right, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Center, Forward, Right, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Center, Forward, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Center, Right, Up, Scaled.mRadius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
         }
 
         for (const PhysicsRuntime::FKBoxElem& Element : Geometry.mBoxElems) {
             const PhysicsRuntime::FKBoxElem Scaled{Element.GetScaled(Transform.mScale)};
 
-            DrawInterface.DrawOrientedBox(ToWorld(Scaled.mCenter), Transform.mRotation * Scaled.mRotation.Quaternion(), Scaled.mHalfExtent, Color, true, Thickness);
+            DrawInterface.DrawOrientedBox(ToWorld(Scaled.mCenter), Transform.mRotation * Scaled.mRotation.Quaternion(), Scaled.mHalfExtent, Color, true, Thickness, Opacity);
         }
 
         for (const PhysicsRuntime::FKSphylElem& Element : Geometry.mSphylElems) {
@@ -535,22 +689,25 @@ namespace Engine {
             const FVector Forward{Rotation.ForwardVector()};
             const FVector Right{Rotation.RightVector()};
             const FVector Up{Rotation.UpVector()};
-            const float Radius{Scaled.mRadius};
+            const Core::FLength Radius{Scaled.mRadius};
 
             // 캡슐 축은 형상 로컬 Z이며 길이는 양 끝 반구 중심 사이의 거리입니다.
-            const FVector Bottom{Center - Up * (Scaled.mLength * 0.5f)};
-            const FVector Top{Center + Up * (Scaled.mLength * 0.5f)};
+            const FVector Bottom{Center - Up * (Scaled.mLength.GetBase() * 0.5f)};
+            const FVector Top{Center + Up * (Scaled.mLength.GetBase() * 0.5f)};
 
-            DrawInterface.DrawArc(Bottom, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Top, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness);
-            DrawInterface.DrawLine(Bottom + Forward * Radius, Top + Forward * Radius, Color, true, Thickness);
-            DrawInterface.DrawLine(Bottom - Forward * Radius, Top - Forward * Radius, Color, true, Thickness);
-            DrawInterface.DrawLine(Bottom + Right * Radius, Top + Right * Radius, Color, true, Thickness);
-            DrawInterface.DrawLine(Bottom - Right * Radius, Top - Right * Radius, Color, true, Thickness);
-            DrawInterface.DrawArc(Top, Forward, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Top, Right, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Bottom, Forward, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
-            DrawInterface.DrawArc(Bottom, Right, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness);
+            DrawInterface.DrawArc(Bottom, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Top, Forward, Right, Radius, 0_rad, 1_turn, Color, true, Thickness, Opacity);
+            const FVector ForwardOffset{Forward * Radius.GetBase()};
+            const FVector RightOffset{Right * Radius.GetBase()};
+
+            DrawInterface.DrawLine(Bottom + ForwardOffset, Top + ForwardOffset, Color, true, Thickness, Opacity);
+            DrawInterface.DrawLine(Bottom - ForwardOffset, Top - ForwardOffset, Color, true, Thickness, Opacity);
+            DrawInterface.DrawLine(Bottom + RightOffset, Top + RightOffset, Color, true, Thickness, Opacity);
+            DrawInterface.DrawLine(Bottom - RightOffset, Top - RightOffset, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Top, Forward, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Top, Right, Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Bottom, Forward, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness, Opacity);
+            DrawInterface.DrawArc(Bottom, Right, -Up, Radius, 0_rad, 0.5_turn, Color, true, Thickness, Opacity);
         }
 
         for (const PhysicsRuntime::FKConvexElem& Element : Geometry.mConvexElems) {
@@ -577,7 +734,7 @@ namespace Engine {
             Edges.erase(std::unique(Edges.begin(), Edges.end()), Edges.end());
 
             for (const auto& [First, Second] : Edges) {
-                DrawInterface.DrawLine(ToWorld(Scaled.mVertices[First]), ToWorld(Scaled.mVertices[Second]), Color, true, Thickness);
+                DrawInterface.DrawLine(ToWorld(Scaled.mVertices[First]), ToWorld(Scaled.mVertices[Second]), Color, true, Thickness, Opacity);
             }
         }
     }
@@ -589,8 +746,8 @@ namespace Engine {
         const PhysicsRuntime::UBodySetup* Setup{GetBodySetup()};
         PhysicsRuntime::FPhysicsScene* Scene{GetWorld() != nullptr ? GetWorld()->GetPhysicsScene() : nullptr};
 
-        if (Setup != nullptr && Scene != nullptr) {
-            mBodyInstance.InitBody(*Setup, GetTransform(), this, *Scene);
+        if (Setup != nullptr && Scene != nullptr && mBodyInstance.InitBody(*Setup, GetTransform(), this, *Scene)) {
+            mOnBodyStateChanged.Broadcast(this, true);
         }
     }
 
@@ -598,6 +755,10 @@ namespace Engine {
      * @brief 바디를 물리 장면에서 해제합니다.
      */
     void Engine::UPrimitiveComponent::OnDestroyPhysicsState() {
+        if (mBodyInstance.IsValidBodyInstance()) {
+            mOnBodyStateChanged.Broadcast(this, false);
+        }
+
         mBodyInstance.TermBody();
     }
 

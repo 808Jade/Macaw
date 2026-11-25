@@ -385,7 +385,7 @@ namespace Engine {
         /**
          * @brief 루트 모션 추출·전달 방식입니다.
          */
-        UPROPERTY(Edit, Serialize, Name = "RootMotionMode", Getter = GetRootMotionMode, Setter = SetRootMotionMode)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Name = "RootMotionMode", Getter = GetRootMotionMode, Setter = SetRootMotionMode)
         Engine::ERootMotionMode mRootMotionMode{Engine::ERootMotionMode::NoRootMotionExtraction};
 
         /**

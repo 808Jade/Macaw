@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Asset/UStaticMesh.h"
 #include "Core/FilePath.h"
 #include "Asset/Import/IMeshImporter.h"
@@ -18,6 +19,8 @@
 #include <string>
 #include <utility>
 
+using namespace Core::Literals;
+
 namespace Asset {
 
     /**
@@ -28,7 +31,7 @@ namespace Asset {
          * @brief 평면처럼 두께가 없는 메시의 충돌 상자가 가질 최소 절반 두께입니다.
          * @note 두께가 0인 상자는 PhysX 형상으로 만들 수 없으므로 얇은 상자로 근사합니다.
          */
-        constexpr float MinimumBoxHalfExtent{0.01f};
+        constexpr float MinimumBoxHalfExtent{(0.01_m).GetBase()};
     }
 
     /**

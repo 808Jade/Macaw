@@ -32,12 +32,12 @@ namespace Engine {
     /**
      * @brief 주어진 좌표와 색상으로 보조 선분을 프레임 목록에 추가합니다.
      */
-    void Engine::FPrimitiveDrawInterface::DrawLine(const FVector& Start, const FVector& End, const FVector& Color, bool DepthTest, float Thickness) {
-        if (!Start.IsFinite() || !End.IsFinite() || !Color.IsFinite() || !std::isfinite(Thickness) || Thickness <= 0.0f || (End - Start).LengthSquared() <= 0.0f) {
+    void Engine::FPrimitiveDrawInterface::DrawLine(const FVector& Start, const FVector& End, const FVector& Color, bool DepthTest, float Thickness, float Opacity) {
+        if (!Start.IsFinite() || !End.IsFinite() || !Color.IsFinite() || !std::isfinite(Thickness) || Thickness <= 0.0f || !std::isfinite(Opacity) || Opacity <= 0.0f || (End - Start).LengthSquared() <= 0.0f) {
             return;
         }
 
-        mLines.push_back(Engine::FDrawLine{Start, End, Color, DepthTest, Thickness});
+        mLines.push_back(Engine::FDrawLine{Start, End, Color, DepthTest, Thickness, std::min(Opacity, 1.0f)});
     }
 
     /**
@@ -65,7 +65,7 @@ namespace Engine {
     /**
      * @brief 회전한 상자의 열두 모서리를 선분으로 수집합니다.
      */
-    void Engine::FPrimitiveDrawInterface::DrawOrientedBox(const FVector& Center, const FQuat& Rotation, const FVector& HalfExtent, const FVector& Color, bool DepthTest, float Thickness) {
+    void Engine::FPrimitiveDrawInterface::DrawOrientedBox(const FVector& Center, const FQuat& Rotation, const FVector& HalfExtent, const FVector& Color, bool DepthTest, float Thickness, float Opacity) {
         const auto Corner{[&Center, &Rotation, &HalfExtent](Index_t Index) {
             const FVector Local{(Index & 1) != 0 ? HalfExtent.x : -HalfExtent.x, (Index & 2) != 0 ? HalfExtent.y : -HalfExtent.y, (Index & 4) != 0 ? HalfExtent.z : -HalfExtent.z};
 
@@ -75,7 +75,7 @@ namespace Engine {
         for (Index_t Index{}; Index < 8; ++Index) {
             for (Index_t Mask{1}; Mask < 8; Mask <<= 1) {
                 if ((Index & Mask) == 0) {
-                    DrawLine(Corner(Index), Corner(Index | Mask), Color, DepthTest, Thickness);
+                    DrawLine(Corner(Index), Corner(Index | Mask), Color, DepthTest, Thickness, Opacity);
                 }
             }
         }
@@ -84,16 +84,16 @@ namespace Engine {
     /**
      * @brief 두 기저 방향이 이루는 평면에서 원호를 선분으로 수집합니다.
      */
-    void Engine::FPrimitiveDrawInterface::DrawArc(const FVector& Center, const FVector& AxisU, const FVector& AxisV, float Radius, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color, bool DepthTest, float Thickness) {
+    void Engine::FPrimitiveDrawInterface::DrawArc(const FVector& Center, const FVector& AxisU, const FVector& AxisV, Core::FLength Radius, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color, bool DepthTest, float Thickness, float Opacity) {
         const Int32 Segments{std::max(1, static_cast<Int32>(ArcSegmentsPerTurn * ((EndAngle - StartAngle) / 1_turn)))};
         const Core::FAngle Step{(EndAngle - StartAngle) / Segments};
-        FVector Previous{Center + AxisU * (Core::Math::Cos(StartAngle) * Radius) + AxisV * (Core::Math::Sin(StartAngle) * Radius)};
+        FVector Previous{Center + AxisU * (Core::Math::Cos(StartAngle) * Radius.GetBase()) + AxisV * (Core::Math::Sin(StartAngle) * Radius.GetBase())};
 
         for (Int32 Index{1}; Index <= Segments; ++Index) {
             const Core::FAngle Angle{StartAngle + Step * Index};
-            const FVector Point{Center + AxisU * (Core::Math::Cos(Angle) * Radius) + AxisV * (Core::Math::Sin(Angle) * Radius)};
+            const FVector Point{Center + AxisU * (Core::Math::Cos(Angle) * Radius.GetBase()) + AxisV * (Core::Math::Sin(Angle) * Radius.GetBase())};
 
-            DrawLine(Previous, Point, Color, DepthTest, Thickness);
+            DrawLine(Previous, Point, Color, DepthTest, Thickness, Opacity);
 
             Previous = Point;
         }

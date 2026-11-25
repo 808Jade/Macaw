@@ -106,7 +106,7 @@ namespace Renderer {
         const Engine::FDepthOfFieldSettings& DepthOfField{Family.mView.mDepthOfFieldSettings};
         constexpr float FullBlurFStop{1.4f};
         const float BlurRadius{DepthOfField.mMaxBlurRadius * (FullBlurFStop / std::max(FullBlurFStop, DepthOfField.mFStop))};
-        Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance, DepthOfField.mFocusWidth * 0.5f, DepthOfField.mTransitionDistance, BlurRadius};
+        Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance.GetBase(), (DepthOfField.mFocusWidth * 0.5f).GetBase(), DepthOfField.mTransitionDistance.GetBase(), BlurRadius};
 
         Asset::UTexture2D* Source{Target.GetSceneColor()};
         Uint32 DrawCalls{};
@@ -114,13 +114,13 @@ namespace Renderer {
 
         if (!Visualization && Family.mShowFlags.mFog) {
             for (const Engine::FHeightFogSceneProxy& Fog : Fogs) {
-                if (!Fog.mVisible || Fog.mDensity <= 0.0f || Fog.mMaxOpacity <= 0.0f) {
+                if (!Fog.mVisible || Fog.mDensity <= Core::FInverseLength{} || Fog.mMaxOpacity <= 0.0f) {
                     continue;
                 }
 
                 Constants.mFogColor = Fog.mInscatteringColor;
-                Constants.mFogParameters = {Fog.mDensity, Fog.mHeightFalloff, Fog.mPosition.z, Fog.mMaxOpacity};
-                Constants.mFogDistances = {Fog.mStartDistance, Fog.mEndDistance, Fog.mCutoffDistance, 0.0f};
+                Constants.mFogParameters = {Fog.mDensity.GetBase(), Fog.mHeightFalloff.GetBase(), Fog.mPosition.z, Fog.mMaxOpacity};
+                Constants.mFogDistances = {Fog.mStartDistance.GetBase(), Fog.mEndDistance.GetBase(), Fog.mCutoffDistance.GetBase(), 0.0f};
                 Constants.mSettings = {1.0f, 0.0f, 0.0f, 0.0f};
 
                 mConstants.Update(Context, Constants);
@@ -224,13 +224,13 @@ namespace Renderer {
         Draw(Context, mPixelShader.Get(), Outputs, Inputs);
     }
 
-    void Renderer::FPostProcessResources::Draw(ID3D11DeviceContext* Context, ID3D11PixelShader* PixelShader, std::span<ID3D11RenderTargetView* const> Outputs, std::span<ID3D11ShaderResourceView* const> Inputs) {
+    void Renderer::FPostProcessResources::Draw(ID3D11DeviceContext* Context, ID3D11PixelShader* PixelShader, std::span<ID3D11RenderTargetView* const> Outputs, std::span<ID3D11ShaderResourceView* const> Inputs, ID3D11BlendState* Blend) {
         const Core::TStaticArray<ID3D11ShaderResourceView*, 4> Empty{};
 
         Context->PSSetShaderResources(0, static_cast<UINT>(Empty.size()), Empty.data());
         Context->OMSetRenderTargets(static_cast<UINT>(Outputs.size()), Outputs.data(), nullptr);
         Context->OMSetDepthStencilState(mDepthDisabled.Get(), 0);
-        Context->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFFu);
+        Context->OMSetBlendState(Blend, nullptr, 0xFFFFFFFFu);
         Context->RSSetState(mRasterizer.Get());
         Context->IASetInputLayout(nullptr);
         Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -246,15 +246,17 @@ namespace Renderer {
         Context->OMSetRenderTargets(0, nullptr, nullptr);
     }
 
-    void FPostProcessResources::RenderTexture(ID3D11DeviceContext* Context, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination) {
+    void FPostProcessResources::RenderTexture(ID3D11DeviceContext* Context, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination, ID3D11BlendState* Blend) {
         Renderer::FPostProcessConstants Constants{};
 
         // sRGB 텍스처는 샘플링할 때 선형으로 디코딩되므로, 그대로 RGBA8 UNORM에 기록하면 원본보다 어둡게 보인다.
         // 텍스처 뷰어와 썸네일이 원본 색을 보이도록 sRGB 텍스처만 다시 인코딩한다. 선형 텍스처(노멀 맵 등)는 값을 그대로 보인다.
         Constants.mSettings = {0.0f, Source.IsSRGB() ? 1.0f : 0.0f, 0.0f, 0.0f};
+        const Core::TStaticArray<ID3D11RenderTargetView*, 1> Outputs{Destination.GetRenderTargetView()};
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 1> Inputs{Source.GetShaderResourceView()};
 
         mConstants.Update(Context, Constants);
-        Draw(Context, &Source, &Destination, nullptr);
+        Draw(Context, mPixelShader.Get(), Outputs, Inputs, Blend);
     }
 
 }

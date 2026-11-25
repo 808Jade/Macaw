@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "CoreUObject/TObjectRef.h"
 
 #include "Core/ReflectionMacros.h"
@@ -14,6 +16,9 @@
 #include "Engine/EWorldPlayState.h"
 #include "Engine/FWorldHandle.h"
 #include "Engine/Tick/FTickTaskManager.h"
+
+#include <utility>
+
 #include "UWorld.generated.h"
 
 namespace Asset {
@@ -21,6 +26,7 @@ namespace Asset {
 }
 
 namespace PhysicsRuntime {
+    class FClothingSystemRuntimeModuleNv;
     class FPhysicsRuntime;
     class FPhysicsScene;
 }
@@ -45,7 +51,6 @@ namespace Engine {
     class AStaticMeshActor;
     class UCameraComponent;
     class UPrimitiveComponent;
-    class UShapeComponent;
     class APlayerCameraManager;
     struct FWorldHit;
 
@@ -156,9 +161,7 @@ namespace Engine {
          * @return 일반 또는 편집 프레임을 처리했거나 일시정지 Tick을 하나 이상 호출했으면 true입니다.
          * @details 편집과 일시정지 Tick은 게임 시간과 일반 프레임 횟수를 유지합니다.
          */
-        bool Tick(float DeltaTime);
-
-        Engine::FHitResult MoveActorSwept(Engine::AActor& Actor, const FVector& Delta);
+        bool Tick(Core::FTime DeltaTime);
 
         /**
          * @brief Playing과 Paused 사이의 상태를 전환합니다.
@@ -172,12 +175,13 @@ namespace Engine {
          * @param[in] DeltaTime 진행할 초 단위 시간이며 유한한 양수여야 합니다.
          * @return 일시정지 상태에서 한 번 갱신하면 true입니다.
          */
-        bool Step(float DeltaTime);
+        bool Step(Core::FTime DeltaTime);
 
         /**
          * @brief 마지막 실행 시작 이후 누적 게임 시간을 반환합니다.
          * @return Tick과 Step이 실제 진행한 초 단위 시간입니다.
          */
+        Core::FTime GetTime() const;
         float GetTimeSeconds() const;
 
         /**
@@ -292,6 +296,18 @@ namespace Engine {
         PhysicsRuntime::FPhysicsRuntime* GetPhysicsRuntime() const;
 
         /**
+         * @brief 컴포넌트가 천 시뮬레이션을 만들 때 쓸 천 시스템 모듈의 비소유 주소를 설정합니다.
+         * @param[in] ClothingSystem 월드보다 오래 유지되는 모듈의 비소유 주소이며, nullptr이면 천을 시뮬레이션하지 않습니다.
+         */
+        void SetClothingSystem(PhysicsRuntime::FClothingSystemRuntimeModuleNv* ClothingSystem);
+
+        /**
+         * @brief 컴포넌트가 천 시뮬레이션을 만들 때 쓸 천 시스템 모듈을 반환합니다.
+         * @return 대상의 비소유 주소이며, 설정되지 않았으면 nullptr입니다.
+         */
+        PhysicsRuntime::FClothingSystemRuntimeModuleNv* GetClothingSystem() const;
+
+        /**
          * @brief 월드가 소유한 물리 장면을 반환합니다.
          * @return 조회한 값의 비소유 주소이며, 장면이 없으면 nullptr입니다.
          */
@@ -316,7 +332,7 @@ namespace Engine {
          * @note 한 프레임의 스텝 수를 제한하며, 제한을 넘는 시간은 버려 느린 프레임이 누적되지 않게 합니다.
          *       스텝마다 움직인 바디의 자세를 컴포넌트에 반영하고 새 접촉을 충돌 이벤트로 전달합니다.
          */
-        void StepPhysics(float DeltaTime);
+        void StepPhysics(Core::FTime DeltaTime);
 
         /**
          * @brief 지정한 액터 클래스의 기본 컴포넌트를 생성하고 영속 레벨에 추가합니다.
@@ -429,11 +445,6 @@ namespace Engine {
         void FinishDispatch();
 
         /**
-         * @brief 충돌 도형의 겹침을 갱신하고 시작과 끝 이벤트를 전달합니다.
-         */
-        void UpdateOverlaps();
-
-        /**
          * @brief 영속 레벨의 모든 액터 컴포넌트에 물리 상태 생성 또는 해제를 요청합니다.
          * @param[in] Create 만들면 true, 해제하면 false입니다.
          */
@@ -444,6 +455,12 @@ namespace Engine {
          * @note 이벤트 처리 중 바디가 다시 만들어질 수 있으므로 PhysX 주소를 먼저 컴포넌트 핸들로 바꾼 뒤 전달합니다.
          */
         void DispatchPhysicsResults();
+
+        /**
+         * @brief 겹침 이벤트를 켠 컴포넌트의 바디 겹침을 장면 쿼리로 갱신하고 시작과 끝 이벤트를 전달합니다.
+         * @note 두 컴포넌트가 모두 겹침 이벤트를 켜고 서로 다른 액터에 속할 때만 이벤트를 보냅니다.
+         */
+        void UpdateOverlaps();
 
         /**
          * @brief 가장 바깥 전달 범위 이후 종료 요청과 액터 삭제 및 월드 종료를 처리합니다.
@@ -475,7 +492,7 @@ namespace Engine {
          * @param[in] PauseTick 일시정지 전용 Tick 목록을 실행할지 지정합니다.
          * @return 일반 또는 편집 프레임을 처리했거나 일시정지 Tick을 하나 이상 호출했으면 true입니다.
          */
-        bool TickActors(float DeltaTime, bool EditorTick, bool PauseTick);
+        bool TickActors(Core::FTime DeltaTime, bool EditorTick, bool PauseTick);
 
         /**
          * @brief 컨테이너 변경에 영향받지 않는 액터 핸들 스냅샷을 만듭니다.
@@ -554,6 +571,12 @@ namespace Engine {
         PhysicsRuntime::FPhysicsRuntime* mPhysicsRuntime{};
 
         /**
+         * @brief 천 시뮬레이션을 만들 때 빌려 쓰는 천 시스템 모듈입니다.
+         * @note 엔진이 월드 컨텍스트를 모두 정리한 뒤 모듈을 종료하므로 월드 수명 동안 유효합니다.
+         */
+        PhysicsRuntime::FClothingSystemRuntimeModuleNv* mClothingSystem{};
+
+        /**
          * @brief 월드가 소유한 물리 장면입니다.
          */
         std::unique_ptr<PhysicsRuntime::FPhysicsScene> mPhysicsScene{};
@@ -561,12 +584,17 @@ namespace Engine {
         /**
          * @brief 아직 고정 스텝으로 진행하지 않은 물리 시간(초)입니다.
          */
-        float mPhysicsTimeAccumulator{};
+        Core::FTime mPhysicsTimeAccumulator{};
 
         /**
          * @brief 프레임 말 갱신을 기다리는 컴포넌트 핸들입니다.
          */
         Core::TArray<CoreUObject::TObjectRef<Engine::UPrimitiveComponent>> mDirtyComponents{};
+
+        /**
+         * @brief 지난 갱신에서 겹쳐 있던 컴포넌트 쌍이며, 주소가 작은 컴포넌트가 앞에 옵니다.
+         */
+        Core::TArray<std::pair<CoreUObject::TObjectRef<Engine::UPrimitiveComponent>, CoreUObject::TObjectRef<Engine::UPrimitiveComponent>>> mOverlaps{};
 
         /**
          * @brief 가장 바깥 콜백 전달 종료 후 제거할 액터 핸들입니다.
@@ -584,11 +612,6 @@ namespace Engine {
         Uint32 mDispatchDepth{};
 
         /**
-         * @brief 지난 갱신에서 겹쳐 있던 충돌 도형 쌍입니다.
-         */
-        Core::TArray<std::pair<CoreUObject::TObjectRef<Engine::UShapeComponent>, CoreUObject::TObjectRef<Engine::UShapeComponent>>> mOverlaps{};
-
-        /**
          * @brief 마지막 BeginPlay 이후 실제 처리한 게임 갱신 횟수입니다.
          */
         Uint64 mTickCount{};
@@ -596,7 +619,7 @@ namespace Engine {
         /**
          * @brief 마지막 BeginPlay 이후 실제 진행한 게임 시간입니다.
          */
-        float mTimeSeconds{};
+        Core::FTime mTime{};
 
         /**
          * @brief 지연된 정리 작업의 재진입을 막는 처리 상태입니다.

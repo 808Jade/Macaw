@@ -49,18 +49,21 @@ void Editor::PhysicsAssetDrawing::DrawBodySetup(Engine::FPrimitiveDrawInterface&
         const FVector Forward{Rotation.ForwardVector()};
         const FVector Right{Rotation.RightVector()};
         const FVector Up{Rotation.UpVector()};
-        const float Radius{Scaled.mRadius};
+        const Core::FLength Radius{Scaled.mRadius};
+        const FVector ForwardOffset{Forward * Radius.GetBase()};
+        const FVector RightOffset{Right * Radius.GetBase()};
 
         // 캡슐 축은 형상 로컬 Z이며 길이는 양 끝 반구 중심 사이의 거리다.
-        const FVector Bottom{Center - Up * (Scaled.mLength * 0.5f)};
-        const FVector Top{Center + Up * (Scaled.mLength * 0.5f)};
+        const FVector HalfLengthOffset{Up * (Scaled.mLength.GetBase() * 0.5f)};
+        const FVector Bottom{Center - HalfLengthOffset};
+        const FVector Top{Center + HalfLengthOffset};
 
         Draw.DrawArc(Bottom, Forward, Right, Radius, 0_rad, 1_turn, Color, false, Thickness);
         Draw.DrawArc(Top, Forward, Right, Radius, 0_rad, 1_turn, Color, false, Thickness);
-        Draw.DrawLine(Bottom + Forward * Radius, Top + Forward * Radius, Color, false, Thickness);
-        Draw.DrawLine(Bottom - Forward * Radius, Top - Forward * Radius, Color, false, Thickness);
-        Draw.DrawLine(Bottom + Right * Radius, Top + Right * Radius, Color, false, Thickness);
-        Draw.DrawLine(Bottom - Right * Radius, Top - Right * Radius, Color, false, Thickness);
+        Draw.DrawLine(Bottom + ForwardOffset, Top + ForwardOffset, Color, false, Thickness);
+        Draw.DrawLine(Bottom - ForwardOffset, Top - ForwardOffset, Color, false, Thickness);
+        Draw.DrawLine(Bottom + RightOffset, Top + RightOffset, Color, false, Thickness);
+        Draw.DrawLine(Bottom - RightOffset, Top - RightOffset, Color, false, Thickness);
         Draw.DrawArc(Top, Forward, Up, Radius, 0_rad, 0.5_turn, Color, false, Thickness);
         Draw.DrawArc(Top, Right, Up, Radius, 0_rad, 0.5_turn, Color, false, Thickness);
         Draw.DrawArc(Bottom, Forward, -Up, Radius, 0_rad, 0.5_turn, Color, false, Thickness);

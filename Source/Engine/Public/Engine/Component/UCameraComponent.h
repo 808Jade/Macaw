@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Engine/Component/USceneComponent.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Engine/FDepthOfFieldSettings.h"
 #include "UCameraComponent.generated.h"
 
@@ -25,18 +26,21 @@ namespace Engine {
         GENERATED_BODY()
 
     public:
+        UCameraComponent();
+
+    public:
         /**
-         * @brief 카메라의 수직 시야각을 도 단위로 반환합니다.
-         * @return 카메라의 시야각이며 도 단위입니다.
+         * @brief 카메라의 수직 시야각을 반환합니다.
+         * @return 카메라의 시야각입니다.
          */
-        float GetFieldOfView() const;
+        Core::FAngle GetFieldOfView() const;
 
         /**
          * @brief 유효한 범위의 시야각을 검사하여 카메라에 설정합니다.
          * @param[in] FieldOfView 설정할 카메라 시야각이며 도 단위입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool SetFieldOfView(float FieldOfView);
+        bool SetFieldOfView(Core::FAngle FieldOfView);
 
         /**
          * @brief 카메라의 피사계 심도 설정을 반환합니다.
@@ -53,7 +57,7 @@ namespace Engine {
          * @brief 피사계 심도의 초점 거리(m)를 변경합니다.
          * @return 0 이상의 유한한 거리를 적용했으면 true입니다.
          */
-        bool SetDepthOfFieldFocalDistance(float Distance);
+        bool SetDepthOfFieldFocalDistance(Core::FLength Distance);
 
         /**
          * @brief 카메라의 현재 월드 변환, 시야각, 피사계 심도 설정으로 시점 값을 만듭니다.
@@ -73,10 +77,10 @@ namespace Engine {
         /**
          * @brief 카메라의 수직 시야각이며 도 단위입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetFieldOfView, Setter = SetFieldOfView)
-        float mFieldOfView{60.0f};
+        UPROPERTY(Edit, Serialize, Category = "Camera", Getter = GetFieldOfView, Setter = SetFieldOfView, Meta = (SerializeUnit = "deg"))
+        Core::FAngle mFieldOfView{};
 
-        UPROPERTY(Edit, Serialize, Name = "DepthOfField", Getter = GetDepthOfFieldSettings, Setter = SetDepthOfFieldSettings)
+        UPROPERTY(Edit, Serialize, Category = "Camera", Name = "DepthOfField", Getter = GetDepthOfFieldSettings, Setter = SetDepthOfFieldSettings)
         Engine::FDepthOfFieldSettings mDepthOfFieldSettings{};
     };
 

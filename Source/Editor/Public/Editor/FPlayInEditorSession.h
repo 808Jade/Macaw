@@ -7,6 +7,7 @@
 #pragma once
 
 #include "CoreUObject/TObjectRef.h"
+#include "Core/Literals/QuantityTypes.h"
 
 #include "Editor/FEditorContext.h"
 #include "Engine/FGameViewportClient.h"
@@ -146,7 +147,7 @@ namespace Editor {
          * @param[in] DeltaTime 이전 갱신 이후의 경과 시간이며 초 단위입니다.
          * @return 요청한 처리를 완료하면 true, 실패하면 false입니다.
          */
-        bool Step(float DeltaTime = 1.0f / 60.0f);
+        bool Step(Core::FTime DeltaTime = mDefaultStep);
 
         /**
          * @brief PIE 월드의 유효성을 검사하고 지연된 종료 요청을 처리합니다.
@@ -207,6 +208,8 @@ namespace Editor {
         CoreUObject::TObjectRef<CoreUObject::UObject> FindEditorObject(CoreUObject::TObjectRef<CoreUObject::UObject> Duplicate) const;
 
     private:
+        static const Core::FTime mDefaultStep;
+
         /**
          * @brief 다음 PIE 실행에 사용할 세션 옵션입니다.
          */

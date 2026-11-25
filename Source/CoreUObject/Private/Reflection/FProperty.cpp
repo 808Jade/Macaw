@@ -58,6 +58,49 @@ namespace CoreUObject {
     }
 
     /**
+     * @brief 키에 해당하는 메타데이터 값을 반환합니다.
+     */
+    const Core::FString& CoreUObject::FProperty::GetMetaData(std::string_view Key) const {
+        static const Core::FString Empty{};
+
+        const auto Found{std::find_if(mMetaData.begin(), mMetaData.end(), [Key](const auto& Entry) {
+            return Entry.first == Key;
+        })};
+
+        return Found != mMetaData.end() ? Found->second : Empty;
+    }
+
+    /**
+     * @brief 키에 해당하는 메타데이터가 있는지 검사합니다.
+     */
+    bool CoreUObject::FProperty::HasMetaData(std::string_view Key) const {
+        return std::any_of(mMetaData.begin(), mMetaData.end(), [Key](const auto& Entry) {
+            return Entry.first == Key;
+        });
+    }
+
+    /**
+     * @brief 메타데이터 목록 전체를 반환합니다.
+     */
+    const Core::FPropertyMetaData& CoreUObject::FProperty::GetMetaDataMap() const {
+        return mMetaData;
+    }
+
+    /**
+     * @brief 메타데이터 목록 전체를 바꿉니다.
+     */
+    void CoreUObject::FProperty::SetMetaData(Core::FPropertyMetaData MetaData) {
+        mMetaData = std::move(MetaData);
+    }
+
+    /**
+     * @brief 에디터 디테일 패널에서 프로퍼티를 묶을 카테고리를 반환합니다.
+     */
+    const Core::FString& CoreUObject::FProperty::GetCategory() const {
+        return GetMetaData("Category");
+    }
+
+    /**
      * @brief 프로퍼티 저장 타입을 반환합니다.
      */
     CoreUObject::EPropertyType CoreUObject::FProperty::GetType() const {
@@ -115,6 +158,59 @@ namespace CoreUObject {
         }
 
         return WriteValue(Container, Value, mWriter);
+    }
+
+    std::optional<Core::FQuantityUnit> CoreUObject::FProperty::GetQuantityDisplayUnit(Core::FDimension Dimension) const {
+        const Core::FString& DisplayUnit{GetMetaData("DisplayUnit")};
+
+        return GetQuantityUnit(DisplayUnit.empty() ? GetMetaData("SerializeUnit") : DisplayUnit, Dimension);
+    }
+
+    std::optional<float> CoreUObject::FProperty::ToNumericValue(const CoreUObject::FPropertyValue& Value) const {
+        if (const auto* Number{std::get_if<float>(&Value)}; mType == CoreUObject::EPropertyType::Float && Number != nullptr) {
+            return *Number;
+        }
+
+        if (const auto* Quantity{std::get_if<CoreUObject::FQuantityPropertyValue>(&Value)}; mType == CoreUObject::EPropertyType::Quantity && Quantity != nullptr) {
+            const auto Unit{GetQuantityUnit(GetMetaData("SerializeUnit"), Quantity->mDimension)};
+
+            return Unit.has_value() ? Core::FromQuantityBase(Quantity->mBaseValue, *Unit) : std::nullopt;
+        }
+
+        return std::nullopt;
+    }
+
+    bool CoreUObject::FProperty::FromNumericValue(float Number, CoreUObject::FPropertyValue& Value) const {
+        if (auto* Scalar{std::get_if<float>(&Value)}; mType == CoreUObject::EPropertyType::Float && Scalar != nullptr) {
+            *Scalar = Number;
+
+            return true;
+        }
+
+        if (auto* Quantity{std::get_if<CoreUObject::FQuantityPropertyValue>(&Value)}; mType == CoreUObject::EPropertyType::Quantity && Quantity != nullptr) {
+            const auto Unit{GetQuantityUnit(GetMetaData("SerializeUnit"), Quantity->mDimension)};
+            const auto Base{Unit.has_value() ? Core::ToQuantityBase(Number, *Unit) : std::nullopt};
+
+            if (Base.has_value()) {
+                Quantity->mBaseValue = *Base;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    std::optional<Core::FQuantityUnit> CoreUObject::FProperty::GetQuantityUnit(std::string_view Symbol, Core::FDimension Dimension) const {
+        if (Symbol.empty()) {
+            return Core::GetBaseQuantityUnit(Dimension);
+        }
+
+        if (const auto* Unit{Core::FindQuantityUnit(Symbol, Dimension)}; Unit != nullptr) {
+            return *Unit;
+        }
+
+        return std::nullopt;
     }
 
     /**
@@ -192,7 +288,17 @@ namespace CoreUObject {
 
         CoreUObject::FPropertyValue Value{ReadValue(Container)};
 
-        if (mStruct != nullptr) {
+        if (auto* Quantity{std::get_if<CoreUObject::FQuantityPropertyValue>(&Value)}; mType == CoreUObject::EPropertyType::Quantity && Quantity != nullptr) {
+            const auto Unit{GetQuantityUnit(GetMetaData("SerializeUnit"), Quantity->mDimension)};
+
+            if (!Unit.has_value()) {
+                Archive.SetError("Invalid quantity unit: " + mName);
+
+                return;
+            }
+
+            Archive.SerializeQuantity(Name, Quantity->mBaseValue, *Unit);
+        } else if (mStruct != nullptr) {
             if (Archive.BeginObject(Name)) {
                 mStruct->SerializeProperties(CoreUObject::GetPropertyData(Value), Archive);
 
@@ -218,7 +324,7 @@ namespace CoreUObject {
                             Typed = CoreUObject::FObjectReference{Guid};
                         }
                     }
-                } else if constexpr (!std::is_same_v<FTyped, const void*>) {
+                } else if constexpr (requires { Archive.Serialize(Name, Typed); }) {
                     Archive.Serialize(Name, Typed);
                 } else {
                     Archive.SetError("Cannot serialize opaque property: " + mName);

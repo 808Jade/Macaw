@@ -5,6 +5,7 @@
  */
 
 #include "Asset/FPhysicsAssetUtils.h"
+#include "Core/Literals/UnitLiterals.h"
 
 #include "Asset/USkeletalMesh.h"
 #include "Asset/USkeleton.h"
@@ -17,14 +18,15 @@
 #include "PhysicsRuntime/UPhysicsAsset.h"
 
 #include <algorithm>
-#include <numbers>
 #include <utility>
+
+using namespace Core::Literals;
 
 namespace {
     /**
      * @brief 충돌 모양 한 변의 최소 절반 길이(m)입니다.
      */
-    constexpr float MinPrimSize{0.005f};
+    constexpr float MinPrimSize{(0.005_m).GetBase()};
 
     /**
      * @brief 그래픽과 겹쳐 보이지 않도록 모양을 키우는 비율입니다.
@@ -312,27 +314,27 @@ namespace Asset::FPhysicsAssetUtils {
             case EPhysAssetFitGeomType::Sphere: {
                 PhysicsRuntime::FKSphereElem SphereElem{};
                 SphereElem.mCenter = BoxCenter;
-                SphereElem.mRadius = std::max({BoxExtent.x, BoxExtent.y, BoxExtent.z}) * PrimSizeScale;
+                SphereElem.mRadius = Core::FLength::FromBase(std::max({BoxExtent.x, BoxExtent.y, BoxExtent.z})) * PrimSizeScale;
                 BodySetup.GetAggGeom().mSphereElems.push_back(SphereElem);
                 break;
             }
             case EPhysAssetFitGeomType::Sphyl: {
                 // 캡슐은 Z축 방향이므로 가장 긴 축을 Z축으로 돌립니다.
-                constexpr float HalfPi{std::numbers::pi_v<float> * 0.5f};
+                constexpr Core::FAngle QuarterTurn{90_deg};
                 PhysicsRuntime::FKSphylElem SphylElem{};
                 SphylElem.mCenter = BoxCenter;
 
                 if (BoxExtent.x > BoxExtent.z && BoxExtent.x > BoxExtent.y) {
-                    SphylElem.mRotation = FRotator{FQuat{FVector{0.0f, 1.0f, 0.0f}, -HalfPi}};
-                    SphylElem.mRadius = std::max(BoxExtent.y, BoxExtent.z) * PrimSizeScale;
-                    SphylElem.mLength = BoxExtent.x * PrimSizeScale;
+                    SphylElem.mRotation = FRotator{FQuat{FVector{0.0f, 1.0f, 0.0f}, -QuarterTurn}};
+                    SphylElem.mRadius = Core::FLength::FromBase(std::max(BoxExtent.y, BoxExtent.z)) * PrimSizeScale;
+                    SphylElem.mLength = Core::FLength::FromBase(BoxExtent.x) * PrimSizeScale;
                 } else if (BoxExtent.y > BoxExtent.z && BoxExtent.y > BoxExtent.x) {
-                    SphylElem.mRotation = FRotator{FQuat{FVector{1.0f, 0.0f, 0.0f}, HalfPi}};
-                    SphylElem.mRadius = std::max(BoxExtent.x, BoxExtent.z) * PrimSizeScale;
-                    SphylElem.mLength = BoxExtent.y * PrimSizeScale;
+                    SphylElem.mRotation = FRotator{FQuat{FVector{1.0f, 0.0f, 0.0f}, QuarterTurn}};
+                    SphylElem.mRadius = Core::FLength::FromBase(std::max(BoxExtent.x, BoxExtent.z)) * PrimSizeScale;
+                    SphylElem.mLength = Core::FLength::FromBase(BoxExtent.y) * PrimSizeScale;
                 } else {
-                    SphylElem.mRadius = std::max(BoxExtent.x, BoxExtent.y) * PrimSizeScale;
-                    SphylElem.mLength = BoxExtent.z * PrimSizeScale;
+                    SphylElem.mRadius = Core::FLength::FromBase(std::max(BoxExtent.x, BoxExtent.y)) * PrimSizeScale;
+                    SphylElem.mLength = Core::FLength::FromBase(BoxExtent.z) * PrimSizeScale;
                 }
 
                 BodySetup.GetAggGeom().mSphylElems.push_back(SphylElem);

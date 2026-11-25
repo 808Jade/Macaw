@@ -146,6 +146,9 @@ namespace Engine {
         Engine::UWorld::FDispatchScope SourceScope{SourceWorld};
         auto Context{std::make_unique<Engine::FWorldContext>(Type)};
         Engine::UWorld* World{Context->GetWorld()};
+
+        World->SetAssets(SourceWorld->GetAssets());
+
         Engine::UWorld::FDispatchScope DuplicateScope{World};
         const auto Originals{CollectObjects(SourceWorld)};
         Core::TMap<Core::FGuid, Core::FGuid, Core::FGuidHash> Remapping{};

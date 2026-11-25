@@ -90,6 +90,12 @@ namespace Engine {
             return false;
         }
 
+        if (!mClothingSystem.StartupModule()) {
+            mPhysicsRuntime.Shutdown();
+
+            return false;
+        }
+
         mInitialized = true;
         mShutdownRequested = false;
         mCurrentWorld = CreateWorld(Engine::EWorldType::Editor);
@@ -172,6 +178,7 @@ namespace Engine {
             Assets->SetPhysicsRuntime(nullptr);
         }
 
+        mClothingSystem.ShutdownModule();
         mPhysicsRuntime.Shutdown();
 
         mUpdating = false;
@@ -182,8 +189,8 @@ namespace Engine {
     /**
      * @brief 등록된 월드의 핸들 스냅샷을 순회하여 실행을 갱신합니다.
      */
-    void Engine::UEngine::Tick(float DeltaTime, bool TickEditorWorlds) {
-        if (!mInitialized || IsDispatching() || !std::isfinite(DeltaTime) || DeltaTime < 0.0f) {
+    void Engine::UEngine::Tick(Core::FTime DeltaTime, bool TickEditorWorlds) {
+        if (!mInitialized || IsDispatching() || !DeltaTime.IsFinite() || DeltaTime < Core::FTime{}) {
             return;
         }
 
@@ -285,6 +292,8 @@ namespace Engine {
             Assets->SetPhysicsRuntime(&mPhysicsRuntime);
         }
 
+        // 에셋을 연결하면 스켈레탈 메시가 메시를 해석하며 천을 만들므로 천 시스템을 먼저 연결합니다.
+        Context->GetWorld()->SetClothingSystem(&mClothingSystem);
         Context->GetWorld()->SetAssets(Assets);
         Context->GetWorld()->SetPhysicsRuntime(&mPhysicsRuntime);
 
@@ -485,6 +494,13 @@ namespace Engine {
      */
     PhysicsRuntime::FPhysicsRuntime& Engine::UEngine::GetPhysicsRuntime() {
         return mPhysicsRuntime;
+    }
+
+    /**
+     * @brief 엔진이 소유한 천 시스템 모듈을 반환합니다.
+     */
+    PhysicsRuntime::FClothingSystemRuntimeModuleNv& Engine::UEngine::GetClothingSystem() {
+        return mClothingSystem;
     }
 
     /**

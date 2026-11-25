@@ -12,7 +12,7 @@ namespace PhysicsRuntime {
 
     /**
      * @brief 물리 시뮬레이션 처리 시간과 바디·접촉 개수를 측정하는 통계 항목의 모음입니다.
-     * @details 모두 physics 그룹에 속하므로 콘솔의 stat physics로 표시합니다.
+     * @details 강체 항목은 stat physics, 천 항목은 stat cloth로 표시합니다.
      */
     namespace PhysicsStats {
         /**
@@ -49,6 +49,26 @@ namespace PhysicsRuntime {
          * @brief 마지막으로 진행한 장면의 정적 바디 수입니다.
          */
         extern Core::FStat StaticBodies;
+
+        /**
+         * @brief 천 솔버 한 프레임의 처리 시간을 측정하는 통계 항목이며 cloth 그룹에 속합니다.
+         */
+        extern Core::FStat ClothSimulate;
+
+        /**
+         * @brief 천 시뮬레이션 메시를 현재 포즈로 스키닝하는 처리 시간을 측정하는 통계 항목이며 cloth 그룹에 속합니다.
+         */
+        extern Core::FStat ClothSkinPhysMesh;
+
+        /**
+         * @brief 천 충돌체를 이번 프레임 뼈 위치로 옮겨 넣는 처리 시간을 측정하는 통계 항목이며 cloth 그룹에 속합니다.
+         */
+        extern Core::FStat ClothUpdateCollisions;
+
+        /**
+         * @brief 마지막으로 진행한 천 입자 수이며 cloth 그룹에 속합니다.
+         */
+        extern Core::FStat ClothParticles;
     }
 
 }

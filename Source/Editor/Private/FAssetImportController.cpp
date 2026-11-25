@@ -5,6 +5,7 @@
  */
 
 #include "FAssetImportController.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/FilePath.h"
 #include "Editor/FEditorContext.h"
 #include "Engine/FProject.h"
@@ -16,6 +17,8 @@
 #include <imgui_internal.h>
 #include <algorithm>
 #include <utility>
+
+using namespace Core::Literals;
 
 using namespace Editor;
 
@@ -51,6 +54,14 @@ void FAssetImportController::BeginFrame() {
 }
 
 void FAssetImportController::ImportAsset() {
+    const auto Directory{mGetDirectory ? mGetDirectory() : std::filesystem::path{}};
+
+    if (Core::FilePath::GetContentMount(Directory) == Core::FilePath::EContentMount::Engine) {
+        mContext->AddLog("Engine content is read-only");
+
+        return;
+    }
+
     Core::TStaticArray<wchar_t, 32768> Buffer{};
     OPENFILENAMEW Dialog{};
     Dialog.lStructSize = sizeof(Dialog);
@@ -62,12 +73,18 @@ void FAssetImportController::ImportAsset() {
     Dialog.Flags = OFN_EXPLORER | OFN_NOCHANGEDIR | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 
     if (GetOpenFileNameW(&Dialog)) {
-        RequestImport({std::filesystem::path{Buffer.data()}}, (mGetDirectory ? mGetDirectory() : std::filesystem::path{}));
+        RequestImport({std::filesystem::path{Buffer.data()}}, Directory);
     }
 }
 
 void FAssetImportController::RequestImport(Core::TArray<std::filesystem::path> Sources, const std::filesystem::path& Directory) {
     if (!mContext->CanEditWorld() || Sources.empty()) {
+        return;
+    }
+
+    if (Core::FilePath::GetContentMount(Directory) == Core::FilePath::EContentMount::Engine) {
+        mContext->AddLog("Engine content is read-only");
+
         return;
     }
 
@@ -140,7 +157,7 @@ void FAssetImportController::DrawImportOptions() {
     }
 
     if (ImGui::DragFloat3("Import Rotation", Rotation.data(), 0.5f, -360.0f, 360.0f, "%.1f deg")) {
-        mImportOption.mImportRotation = {Rotation[0], Rotation[1], Rotation[2]};
+        mImportOption.mImportRotation = {Rotation[0] * 1_deg, Rotation[1] * 1_deg, Rotation[2] * 1_deg};
     }
 
     ImGui::SetItemTooltip("Pitch, Yaw, Roll 순서의 각도(도)입니다.");
@@ -197,7 +214,7 @@ void FAssetImportController::DrawImportOptions() {
         }
     }
 
-    ImGui::DragInt("Custom Sample Rate", &mImportOption.mCustomSampleRate, 1.0f, 0, 1000, mImportOption.mCustomSampleRate == 0 ? "Source" : "%d fps");
+    ImGui::DragInt("Custom Sample Rate", &mImportOption.mCustomSampleRate, (1_Hz).GetBase(), 0, static_cast<Int32>((1000_Hz).GetBase()), mImportOption.mCustomSampleRate == 0 ? "Source" : "%d fps");
     ImGui::SetItemTooltip("0이면 원본 장면의 프레임 레이트를 사용합니다(없으면 30 fps).");
     ImGui::Checkbox("Snap To Closest Frame Boundary", &mImportOption.mSnapToClosestFrameBoundary);
     ImGui::SetItemTooltip("시작과 끝 시간을 가장 가까운 프레임 경계에 맞춥니다.");

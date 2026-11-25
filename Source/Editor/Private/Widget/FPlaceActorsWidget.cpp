@@ -67,7 +67,7 @@ namespace Editor {
             return;
         }
 
-        static constexpr Core::TStaticArray<const char*, static_cast<std::size_t>(Editor::EPlaceActorIcon::Count)> Paths{nullptr, "Editor/Icon/Pawn_64x.png", "Editor/Icon/SkyLight_64x.png", "Editor/Icon/DirectionalLight_64x.png", "Editor/Icon/PointLight_64x.png", "Editor/Icon/SpotLight_64x.png", "Editor/Icon/ExponentialHeightFog_64x.png", "Editor/Icon/EmptyActor_64x.png", "Editor/Icon/DecalActor_64x.png", "Editor/Icon/LevelSequenceActor_64x.png"};
+        static constexpr Core::TStaticArray<const char*, static_cast<std::size_t>(Editor::EPlaceActorIcon::Count)> Paths{nullptr, "/Engine/Editor/Icon/Pawn_64x.png", "/Engine/Editor/Icon/SkyLight_64x.png", "/Engine/Editor/Icon/DirectionalLight_64x.png", "/Engine/Editor/Icon/PointLight_64x.png", "/Engine/Editor/Icon/SpotLight_64x.png", "/Engine/Editor/Icon/ExponentialHeightFog_64x.png", "/Engine/Editor/Icon/EmptyActor_64x.png", "/Engine/Editor/Icon/DecalActor_64x.png", "/Engine/Editor/Icon/LevelSequenceActor_64x.png", "/Engine/Editor/Icon/Emitter_64x.png", "/Engine/Editor/Icon/Pawn_64x.png", "/Engine/Editor/Icon/SkyAtmosphere_64x.png"};
 
         mIcons = {};
 
@@ -115,9 +115,32 @@ namespace Editor {
             const Core::FString& Name{Class->GetName()};
             const bool Light{Name.find("Light") != Core::FString::npos};
             const bool Fog{Name.find("Fog") != Core::FString::npos};
+            const bool Atmosphere{Name == "ASkyAtmosphereActor"};
+            const bool SkyDome{Name == "ASkyDomeActor"};
             const bool Decal{Name == "ADecalActor"};
+            const bool Particle{Name == "AParticleSystemActor"};
 
-            if ((mCategory == 1 && !Light) || (mCategory == 2 && (Light || Fog || Decal)) || (mCategory == 3 && !(Fog || Decal))) {
+            const bool VisualEffect{Fog || Decal || Particle || Atmosphere || SkyDome};
+
+            if ((mCategory == 1 && !Light) || (mCategory == 2 && (Light || VisualEffect)) || (mCategory == 3 && !VisualEffect)) {
+                continue;
+            }
+
+            if (SkyDome) {
+                DrawEntry(Name, "Sky Dome", "SkyDomeComponent", Editor::EPlaceActorIcon::None);
+
+                continue;
+            }
+
+            if (Atmosphere) {
+                DrawEntry(Name, "Sky Atmosphere", "SkyAtmosphereComponent", Editor::EPlaceActorIcon::SkyAtmosphere);
+
+                continue;
+            }
+
+            if (Particle) {
+                DrawEntry(Name, "Particle System", "ParticleSystemComponent", Editor::EPlaceActorIcon::ParticleSystem);
+
                 continue;
             }
 
@@ -129,6 +152,12 @@ namespace Editor {
 
             if (Name == "ALevelSequenceActor") {
                 DrawEntry(Name, "Level Sequence Actor", "SceneComponent", Editor::EPlaceActorIcon::LevelSequence);
+
+                continue;
+            }
+
+            if (Name == "APawn") {
+                DrawEntry(Name, "Pawn", "SceneComponent", Editor::EPlaceActorIcon::Pawn);
 
                 continue;
             }

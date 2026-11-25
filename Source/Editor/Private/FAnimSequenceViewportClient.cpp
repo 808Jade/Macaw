@@ -5,6 +5,7 @@
  */
 
 #include "FAnimSequenceViewportClient.h"
+#include "Core/Literals/UnitLiterals.h"
 
 #include "Viewer/FAnimationViewerContent.h"
 #include "Viewer/FBonePreview.h"
@@ -15,6 +16,8 @@
 #include <algorithm>
 #include <cmath>
 #include <imgui.h>
+
+using namespace Core::Literals;
 
 using namespace Editor;
 
@@ -27,7 +30,7 @@ FAnimSequenceViewportClient::FAnimSequenceViewportClient(RenderCore::IRendererMo
 FAnimSequenceViewportClient::~FAnimSequenceViewportClient() = default;
 
 void FAnimSequenceViewportClient::FrameMesh() {
-    mViewer.GetCamera().SetRotation({-20.0f, 45.0f, 0.0f});
+    mViewer.GetCamera().SetRotation({-20_deg, 45_deg, 0_deg});
     mViewer.Fit();
     mNeedsFit = true;
 }
@@ -120,6 +123,6 @@ void FAnimSequenceViewportClient::Render() {
     }
 
     mViewer.SetViewMode(mWireframe ? Engine::EViewMode::Wireframe : Engine::EViewMode::Lit);
-    mViewer.SetGridSpacing(mShowGrid ? std::max(std::pow(10.0f, std::floor(std::log10(Radius)) - 1.0f), 0.001f) : 0.0f);
+    mViewer.SetGridSpacing(mShowGrid ? std::max(std::pow(10.0f, std::floor(std::log10(Radius)) - 1.0f), (0.001_m).GetBase()) : 0.0f);
     mViewer.Render(nullptr, mShowBones ? &Bones : nullptr);
 }

@@ -20,10 +20,14 @@
 #include "Engine/MeshPicking.h"
 #include "Engine/PrimitiveMesh.h"
 #include "Engine/Component/UShapeComponent.h"
+#include "Engine/Component/USkeletalMeshComponent.h"
 #include "Engine/ULevel.h"
 #include "Engine/AActor.h"
 #include "Engine/ADecalActor.h"
 #include "Engine/ALevelSequenceActor.h"
+#include "Engine/AParticleSystemActor.h"
+#include "Engine/APawn.h"
+#include "Engine/ASkyAtmosphereActor.h"
 #include "Engine/UWorld.h"
 #include "Engine/FWorldHit.h"
 #include "Core/Math/FVector2.h"
@@ -62,7 +66,10 @@ namespace Editor {
      */
     Editor::FEditorViewportClient::FEditorViewportClient(Editor::FEditorContext* Context)
 		: mContext{Context},
+		  mCameraSensitivity{Core::Math::ToDegrees(0.2_deg)},
+		  mGridSpacing{(1_m).GetBase()},
 		  mGizmo{Context, this} {
+        ResetCamera();
     }
 
     /**
@@ -257,7 +264,7 @@ namespace Editor {
         }
 
         if (Input.mDelete && Input.mFocused) {
-            mContext->DestroySelectedActor();
+            mContext->DestroySelection();
 
             return;
         }
@@ -300,7 +307,7 @@ namespace Editor {
             if (Input.mWheel != 0.0f && Input.mHovered) {
                 const float PreviousWidth{mOrthographicWidth};
 
-                mOrthographicWidth = std::clamp(mOrthographicWidth * std::pow(0.85f, Input.mWheel), 0.1f, 10000.0f);
+                mOrthographicWidth = std::clamp(mOrthographicWidth * std::pow(0.85f, Input.mWheel), (0.1_m).GetBase(), (10000_m).GetBase());
 
                 const float PixelScale{(PreviousWidth - mOrthographicWidth) / std::max(Size.x, 1.0f)};
                 const FVector Offset{Rotation.RightVector() * ((Input.mMouse.x - Size.x * 0.5f) * PixelScale) + Rotation.UpVector() * ((Size.y * 0.5f - Input.mMouse.y) * PixelScale)};
@@ -324,14 +331,14 @@ namespace Editor {
 
         if (Input.mWheel != 0.0f && Input.mHovered) {
             if (Input.mRightDown && !Input.mAlt) {
-                SetCameraSpeed(std::clamp(mCameraSpeed * std::pow(1.25f, Input.mWheel), 0.1f, 128.0f));
+                SetCameraSpeed(std::clamp(mCameraSpeed * std::pow(1.25f, Input.mWheel), 0.1_mps, 128_mps));
             } else {
-                mCameraLocation += Rotation.ForwardVector() * Input.mWheel * mCameraSpeed * 0.5f;
+                mCameraLocation += Rotation.ForwardVector() * (mCameraSpeed * 0.5_s * Input.mWheel).GetBase();
             }
         }
 
         if (Input.mMiddleDown || (Input.mLeftDown && Input.mRightDown && !Input.mAlt)) {
-            const float Distance{std::max(mCameraLocation.Distance(mOrbitPivot), 1.0f)};
+            const float Distance{std::max(mCameraLocation.Distance(mOrbitPivot), (1_m).GetBase())};
             const float PixelScale{2.0f * Distance * Core::Math::Tan(30_deg) / std::max(Size.y, 1.0f)};
             const FVector Pan{Rotation * FVector{0.0f, -Input.mDelta.x, Input.mDelta.y} * PixelScale};
 
@@ -342,21 +349,21 @@ namespace Editor {
         }
 
         if (Input.mAlt && (Input.mLeftDown || Input.mRightDown)) {
-            float Distance{std::max(mCameraLocation.Distance(mOrbitPivot), 0.1f)};
+            float Distance{std::max(mCameraLocation.Distance(mOrbitPivot), (0.1_m).GetBase())};
             FVector Forward{mOrbitPivot - mCameraLocation};
 
             if (Forward.Normalize()) {
                 const FRotator Facing{Forward.Rotation()};
 
                 mCameraRotation.yaw = Facing.yaw;
-                mCameraRotation.pitch = std::clamp(Facing.pitch, -89.0f, 89.0f);
+                mCameraRotation.pitch = std::clamp(Facing.pitch, Core::Math::ToDegrees(-89_deg), Core::Math::ToDegrees(89_deg));
             }
 
             if (Input.mLeftDown) {
                 mCameraRotation.yaw += Input.mDelta.x * mCameraSensitivity;
-                mCameraRotation.pitch = std::clamp(mCameraRotation.pitch - Input.mDelta.y * mCameraSensitivity, -89.0f, 89.0f);
+                mCameraRotation.pitch = std::clamp(mCameraRotation.pitch - Input.mDelta.y * mCameraSensitivity, Core::Math::ToDegrees(-89_deg), Core::Math::ToDegrees(89_deg));
             } else {
-                Distance = std::clamp(Distance * std::exp((Input.mDelta.y - Input.mDelta.x) * 0.01f), 0.1f, 100000.0f);
+                Distance = std::clamp(Distance * std::exp((Input.mDelta.y - Input.mDelta.x) * 0.01f), (0.1_m).GetBase(), (100000_m).GetBase());
             }
 
             mCameraLocation = mOrbitPivot - mCameraRotation.Vector() * Distance;
@@ -369,18 +376,18 @@ namespace Editor {
         const bool Moving{Input.mFocused && (LocalMovement.LengthSquared() > 0.0f || VerticalMovement != 0.0f)};
 
         if (Input.mRightDown || Moving) {
-            const float OrbitDistance{std::max(mCameraLocation.Distance(mOrbitPivot), 0.1f)};
+            const float OrbitDistance{std::max(mCameraLocation.Distance(mOrbitPivot), (0.1_m).GetBase())};
 
             if (Input.mRightDown) {
                 mCameraRotation.yaw += Input.mDelta.x * mCameraSensitivity;
-                mCameraRotation.pitch = std::clamp(mCameraRotation.pitch - Input.mDelta.y * mCameraSensitivity, -89.0f, 89.0f);
+                mCameraRotation.pitch = std::clamp(mCameraRotation.pitch - Input.mDelta.y * mCameraSensitivity, Core::Math::ToDegrees(-89_deg), Core::Math::ToDegrees(89_deg));
             }
 
             const FQuat FlightRotation{mCameraRotation.Quaternion()};
             FVector Movement{FlightRotation * LocalMovement};
             Movement.z += VerticalMovement;
 
-            mCameraLocation += Movement.Normalized() * std::max(DeltaTime, 0.0f) * mCameraSpeed * (Input.mFast ? 3.0f : 1.0f);
+            mCameraLocation += Movement.Normalized() * (mCameraSpeed * std::max(Core::FTime::FromBase(DeltaTime), 0_s) * (Input.mFast ? 3.0f : 1.0f)).GetBase();
             mOrbitPivot = mCameraLocation + FlightRotation.ForwardVector() * OrbitDistance;
         }
 
@@ -397,7 +404,7 @@ namespace Editor {
 
         const Engine::FSceneView View{CalcSceneView(Size)};
         const FVector Location{Actor->GetRootComponent() != nullptr ? Actor->GetRootComponent()->GetTransform().mLocation : FVector{}};
-        FBox Bounds{Location - FVector{0.5f, 0.5f, 0.5f}, Location + FVector{0.5f, 0.5f, 0.5f}};
+        FBox Bounds{Location - FVector{(0.5_m).GetBase(), (0.5_m).GetBase(), (0.5_m).GetBase()}, Location + FVector{(0.5_m).GetBase(), (0.5_m).GetBase(), (0.5_m).GetBase()}};
         bool HasBounds{};
 
         for (const auto& Component : Actor->GetComponents()) {
@@ -421,7 +428,7 @@ namespace Editor {
             return;
         }
 
-        const float Radius{std::max(Bounds.mMinimum.Distance(Bounds.mMaximum) * 0.5f, 0.25f)};
+        const float Radius{std::max(Bounds.mMinimum.Distance(Bounds.mMaximum) * 0.5f, (0.25_m).GetBase())};
         const float Aspect{std::max(Size.x, 1.0f) / std::max(Size.y, 1.0f)};
 
         mFocusStartLocation = mCameraLocation;
@@ -431,11 +438,11 @@ namespace Editor {
         mFocusTargetWidth = mOrthographicWidth;
 
         if (mViewType != Editor::EEditorViewportType::Perspective) {
-            mFocusTargetWidth = std::clamp(Radius * 2.4f * std::max(Aspect, 1.0f), 0.1f, 10000.0f);
-            mFocusTargetLocation = mFocusTargetPivot - mCameraRotation.Vector() * 5000.0f;
+            mFocusTargetWidth = std::clamp(Radius * 2.4f * std::max(Aspect, 1.0f), (0.1_m).GetBase(), (10000_m).GetBase());
+            mFocusTargetLocation = mFocusTargetPivot - mCameraRotation.Vector() * (5000_m).GetBase();
         } else {
-            const Core::FAngle HalfFieldOfView{Core::Math::Atan2(Core::Math::Tan(mFieldOfView * 0.5_deg) * std::min(Aspect, 1.0f), 1.0f)};
-            const float Distance{std::max(Radius / Core::Math::Sin(HalfFieldOfView) * 1.2f, Radius + mNearClip * 1.2f)};
+            const Core::FAngle HalfFieldOfView{Core::Math::Atan2(Core::Math::Tan(mFieldOfView * 0.5f) * std::min(Aspect, 1.0f), 1.0f)};
+            const float Distance{std::max(Radius / Core::Math::Sin(HalfFieldOfView) * 1.2f, Radius + mNearClip.GetBase() * 1.2f)};
 
             mFocusTargetLocation = mFocusTargetPivot - mCameraRotation.Vector() * Distance;
         }
@@ -449,7 +456,7 @@ namespace Editor {
             return;
         }
 
-        constexpr float Duration{0.35f};
+        constexpr float Duration{(0.35_s).GetBase()};
 
         mFocusElapsed = std::min(mFocusElapsed + DeltaTime, Duration);
 
@@ -477,11 +484,26 @@ namespace Editor {
         mDrawInterface.Clear();
 
         if (mShowFlags.mAxes) {
-            constexpr float AxisLength{1000.0f};
+            constexpr float AxisLength{(1000_m).GetBase()};
 
             mDrawInterface.DrawLine({-AxisLength, 0.0f, 0.0f}, {AxisLength, 0.0f, 0.0f}, {1.0f, 0.25f, 0.2f}, true, mLineThickness);
             mDrawInterface.DrawLine({0.0f, -AxisLength, 0.0f}, {0.0f, AxisLength, 0.0f}, {0.3f, 0.9f, 0.4f}, true, mLineThickness);
             mDrawInterface.DrawLine({0.0f, 0.0f, -AxisLength}, {0.0f, 0.0f, AxisLength}, {0.3f, 0.55f, 1.0f}, true, mLineThickness);
+        }
+
+        mContext->DrawClothGridTest(mDrawInterface, mLineThickness);
+        mContext->DrawClothAssetTest(mDrawInterface, mLineThickness);
+        mContext->DrawClothSimTest(mDrawInterface, mLineThickness);
+
+        // 켜져 있으면 월드의 스켈레탈 메시 컴포넌트마다 마지막 천 결과를 그립니다.
+        if (mContext->IsClothDebugDrawEnabled() && World->GetPersistentLevel() != nullptr) {
+            for (const auto& Actor : World->GetPersistentLevel()->GetActors()) {
+                for (const auto& Component : Actor->GetComponents()) {
+                    if (const auto* SkeletalMeshComponent{CoreUObject::Cast<Engine::USkeletalMeshComponent>(Component.get())}) {
+                        SkeletalMeshComponent->DebugDrawClothing(mDrawInterface, mLineThickness);
+                    }
+                }
+            }
         }
 
         if (World->GetPersistentLevel() != nullptr) {
@@ -546,7 +568,15 @@ namespace Editor {
                         mDrawInterface.DrawBox(CalcComponentBounds(Primitive, View), Highlight ? FVector{1.0f, 0.65f, 0.15f} : FVector{0.25f, 0.8f, 0.95f}, DepthTest, mLineThickness);
                     }
 
-                    if (Primitive != nullptr && mShowFlags.mCollision) {
+                    const auto* Shape{CoreUObject::Cast<Engine::UShapeComponent>(Component.get())};
+
+                    if (Shape != nullptr) {
+                        if (mShowFlags.mCollision) {
+                            Shape->DrawCollision(mDrawInterface, Shape->GetShapeColor(), mLineThickness);
+                        } else if (!Shape->ShouldDrawOnlyIfSelected() || Highlight) {
+                            Shape->DrawDebug(mDrawInterface);
+                        }
+                    } else if (Primitive != nullptr && mShowFlags.mCollision) {
                         Primitive->DrawCollision(mDrawInterface, Highlight, mLineThickness);
                     }
 
@@ -557,7 +587,7 @@ namespace Editor {
                     if (auto* Fog{CoreUObject::Cast<Engine::UHeightFogComponent>(Component.get())}; Fog != nullptr && Highlight) {
                         const FVector Location{Fog->GetTransform().mLocation};
 
-                        mDrawInterface.DrawBox(FBox{Location - FVector{0.5f, 0.5f, 0.5f}, Location + FVector{0.5f, 0.5f, 0.5f}}, {1.0f, 0.65f, 0.15f}, true, mLineThickness);
+                        mDrawInterface.DrawBox(FBox{Location - FVector{(0.5_m).GetBase(), (0.5_m).GetBase(), (0.5_m).GetBase()}, Location + FVector{(0.5_m).GetBase(), (0.5_m).GetBase(), (0.5_m).GetBase()}}, {1.0f, 0.65f, 0.15f}, true, mLineThickness);
                     }
 
                     if (const auto* Decal{CoreUObject::Cast<Engine::UDecalComponent>(Component.get())}; Decal != nullptr && Highlight) {
@@ -576,12 +606,6 @@ namespace Editor {
                                 }
                             }
                         }
-                    }
-
-                    const auto* Shape{CoreUObject::Cast<Engine::UShapeComponent>(Component.get())};
-
-                    if (Shape != nullptr && (!Shape->ShouldDrawOnlyIfSelected() || Highlight)) {
-                        Shape->DrawDebug(mDrawInterface, Highlight);
                     }
                 }
             }
@@ -607,6 +631,12 @@ namespace Editor {
             Icon = EActorIcon::Decal;
         } else if (Actor.IsA<Engine::ALevelSequenceActor>()) {
             Icon = EActorIcon::LevelSequence;
+        } else if (Actor.IsA<Engine::AParticleSystemActor>()) {
+            Icon = EActorIcon::ParticleSystem;
+        } else if (Actor.IsA<Engine::APawn>()) {
+            Icon = EActorIcon::Pawn;
+        } else if (Actor.IsA<Engine::ASkyAtmosphereActor>()) {
+            Icon = EActorIcon::SkyAtmosphere;
         } else if (Actor.GetClass() == Engine::AActor::StaticClass() && Root->GetClass() == Engine::USceneComponent::StaticClass()) {
             for (const auto& Component : Actor.GetComponents()) {
                 if (Component->IsA<Engine::UPrimitiveComponent>()) {
@@ -619,7 +649,7 @@ namespace Editor {
             return false;
         }
 
-        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"Editor/Icon/EmptyActor.png", "Editor/Icon/S_DecalActorIcon.png", "Editor/Icon/S_LevelSequence.png"};
+        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"/Engine/Editor/Icon/EmptyActor.png", "/Engine/Editor/Icon/S_DecalActorIcon.png", "/Engine/Editor/Icon/S_LevelSequence.png", "/Engine/Editor/Icon/S_Emitter.png", "/Engine/Editor/Icon/S_Pawn.png", "/Engine/Editor/Icon/S_SkyAtmosphere.png"};
         const Index_t Index{static_cast<Index_t>(Icon)};
         CoreUObject::TObjectRef<Asset::UTexture2D>& Texture{mActorIconTextures[Index]};
 
@@ -672,7 +702,7 @@ namespace Editor {
 
         const float Aspect{std::max(Size.x, 1.0f) / std::max(Size.y, 1.0f)};
 
-        View.mProjection = View.mOrthographic ? FMatrix::Orthographic(mOrthographicWidth, mOrthographicWidth / Aspect, 0.05f, 10000.0f) : FMatrix::Perspective(mFieldOfView, Aspect, mNearClip, mFarClip);
+        View.mProjection = View.mOrthographic ? FMatrix::Orthographic(mOrthographicWidth, mOrthographicWidth / Aspect, (0.05_m).GetBase(), (10000_m).GetBase()) : FMatrix::Perspective(mFieldOfView, Aspect, mNearClip, mFarClip);
         View.mViewProjection = View.mView * View.mProjection;
 
         const Engine::UWorld* World{mContext != nullptr ? mContext->GetWorld() : nullptr};
@@ -694,18 +724,19 @@ namespace Editor {
      */
     void Editor::FEditorViewportClient::ResetCamera() {
         mFocusActive = false;
-        mCameraLocation = {-7.0f, -9.0f, 6.0f};
-        mCameraRotation = {-26.0f, 50.0f, 0.0f};
+        const Engine::FEditorCameraState DefaultCamera{};
+        mCameraLocation = DefaultCamera.GetLocation();
+        mCameraRotation = DefaultCamera.GetRotation();
 
         mOrbitPivot = {};
-        mCameraSpeed = 4.0f;
+        mCameraSpeed = 4_mps;
         mPerspectiveLocation = mCameraLocation;
         mPerspectiveRotation = mCameraRotation;
         mPerspectivePivot = {};
-        mOrthographicWidth = 20.0f;
-        mFieldOfView = 60.0f;
-        mNearClip = 0.05f;
-        mFarClip = 10000.0f;
+        mOrthographicWidth = (20_m).GetBase();
+        mFieldOfView = DefaultCamera.GetFieldOfView();
+        mNearClip = DefaultCamera.GetNearClip();
+        mFarClip = DefaultCamera.GetFarClip();
 
         if (mViewType != Editor::EEditorViewportType::Perspective) {
             const Editor::EEditorViewportType Type{mViewType};
@@ -725,7 +756,7 @@ namespace Editor {
 
         mCameraLocation = Location;
         mCameraRotation = Rotation;
-        mOrbitPivot = Location + Rotation.Vector() * 10.0f;
+        mOrbitPivot = Location + Rotation.Vector() * (10_m).GetBase();
     }
 
     /**
@@ -756,15 +787,15 @@ namespace Editor {
 
         switch (Type) {
         case Editor::EEditorViewportType::Top:
-            mCameraRotation = {-90.0f, 0.0f, 0.0f};
+            mCameraRotation = FRotator{-90_deg, 0_deg, 0_deg};
 
             break;
         case Editor::EEditorViewportType::Bottom:
-            mCameraRotation = {90.0f, 0.0f, 0.0f};
+            mCameraRotation = FRotator{90_deg, 0_deg, 0_deg};
 
             break;
         case Editor::EEditorViewportType::Front:
-            mCameraRotation = {0.0f, 180.0f, 0.0f};
+            mCameraRotation = FRotator{0_deg, 180_deg, 0_deg};
 
             break;
         case Editor::EEditorViewportType::Back:
@@ -772,18 +803,18 @@ namespace Editor {
 
             break;
         case Editor::EEditorViewportType::Left:
-            mCameraRotation = {0.0f, -90.0f, 0.0f};
+            mCameraRotation = FRotator{0_deg, -90_deg, 0_deg};
 
             break;
         case Editor::EEditorViewportType::Right:
-            mCameraRotation = {0.0f, 90.0f, 0.0f};
+            mCameraRotation = FRotator{0_deg, 90_deg, 0_deg};
 
             break;
         default:
             break;
         }
 
-        mCameraLocation = mOrbitPivot - mCameraRotation.Vector() * 5000.0f;
+        mCameraLocation = mOrbitPivot - mCameraRotation.Vector() * (5000_m).GetBase();
     }
 
     /**
@@ -822,10 +853,10 @@ namespace Editor {
         if (const Engine::UCameraComponent* Camera{GetPreviewCamera()}) {
             const FTransform& Transform{Camera->GetTransform()};
 
-            return Transform.mLocation + Transform.mRotation.ForwardVector() * 6.0f;
+            return Transform.mLocation + Transform.mRotation.ForwardVector() * (6_m).GetBase();
         }
 
-        return mViewType == Editor::EEditorViewportType::Perspective ? mCameraLocation + mCameraRotation.Vector() * 6.0f : mOrbitPivot;
+        return mViewType == Editor::EEditorViewportType::Perspective ? mCameraLocation + mCameraRotation.Vector() * (6_m).GetBase() : mOrbitPivot;
     }
 
     /**
@@ -863,7 +894,7 @@ namespace Editor {
         mFocusActive = false;
         mPerspectiveLocation = State.GetLocation();
         mPerspectiveRotation = State.GetRotation();
-        mPerspectivePivot = mPerspectiveLocation + mPerspectiveRotation.Vector() * 10.0f;
+        mPerspectivePivot = mPerspectiveLocation + mPerspectiveRotation.Vector() * (10_m).GetBase();
         mFieldOfView = State.GetFieldOfView();
         mNearClip = State.GetNearClip();
         mFarClip = State.GetFarClip();
@@ -902,6 +933,14 @@ namespace Editor {
      * @brief 편집 가능 여부와 값의 범위를 검증하여 기즈모 수치 설정을 변경합니다.
      */
     bool Editor::FEditorViewportClient::SetGizmoSetting(Editor::EGizmoSetting Setting, float Value) {
+        if (Setting == Editor::EGizmoSetting::TranslationStep) {
+            return SetTranslationSnapStep(Core::FLength::FromBase(Value));
+        }
+
+        if (Setting == Editor::EGizmoSetting::RotationStep) {
+            return SetRotationSnapStep(Value * 1_deg);
+        }
+
         if (!CanEditGizmoSettings() || !std::isfinite(Value)) {
             return false;
         }
@@ -909,20 +948,12 @@ namespace Editor {
         Editor::FGizmoSettings Settings{*mGizmo.GetSettings()};
 
         switch (Setting) {
-        case Editor::EGizmoSetting::TranslationStep:
-        case Editor::EGizmoSetting::RotationStep:
         case Editor::EGizmoSetting::ScaleStep:
             if (Value <= 0.0f) {
                 return false;
             }
 
-            if (Setting == Editor::EGizmoSetting::TranslationStep) {
-                Settings.mTranslationStep = Value;
-            } else if (Setting == Editor::EGizmoSetting::RotationStep) {
-                Settings.mRotationStep = Value;
-            } else {
-                Settings.mScaleStep = Value;
-            }
+            Settings.mScaleStep = Value;
 
             break;
         case Editor::EGizmoSetting::Size:
@@ -933,6 +964,47 @@ namespace Editor {
             return false;
         }
 
+        mGizmo.SetSettings(Settings);
+
+        return true;
+    }
+
+    float Editor::FEditorViewportClient::GetGizmoSettingValue(Editor::EGizmoSetting Setting) const {
+        const Editor::FGizmoSettings& Settings{*mGizmo.GetSettings()};
+
+        switch (Setting) {
+        case Editor::EGizmoSetting::TranslationStep:
+            return Settings.mTranslationStep.GetBase();
+        case Editor::EGizmoSetting::RotationStep:
+            return Core::Math::ToDegrees(Settings.mRotationStep);
+        case Editor::EGizmoSetting::ScaleStep:
+            return Settings.mScaleStep;
+        case Editor::EGizmoSetting::Size:
+            return Settings.mSize;
+        default:
+            return 0.0f;
+        }
+    }
+
+    bool Editor::FEditorViewportClient::SetTranslationSnapStep(Core::FLength Step) {
+        if (!CanEditGizmoSettings() || !Step.IsFinite() || Step <= 0_m) {
+            return false;
+        }
+
+        Editor::FGizmoSettings Settings{*mGizmo.GetSettings()};
+        Settings.mTranslationStep = Step;
+        mGizmo.SetSettings(Settings);
+
+        return true;
+    }
+
+    bool Editor::FEditorViewportClient::SetRotationSnapStep(Core::FAngle Step) {
+        if (!CanEditGizmoSettings() || !Step.IsFinite() || Step <= 0_deg) {
+            return false;
+        }
+
+        Editor::FGizmoSettings Settings{*mGizmo.GetSettings()};
+        Settings.mRotationStep = Step;
         mGizmo.SetSettings(Settings);
 
         return true;
@@ -1124,7 +1196,7 @@ namespace Editor {
         if (auto* Sprite{CoreUObject::Cast<Engine::UBillboardComponent>(Component)}) {
             const Engine::FPrimitiveSceneProxy Proxy{Sprite->CreateSceneProxy()};
 
-            return FBox{{-0.5f, -0.5f, -0.001f}, {0.5f, 0.5f, 0.001f}}.Transformed(Engine::MakeSpriteWorld(Proxy.mWorld, *Proxy.mSprite, View));
+            return FBox{{-(0.5_m).GetBase(), -(0.5_m).GetBase(), -(0.001_m).GetBase()}, {(0.5_m).GetBase(), (0.5_m).GetBase(), (0.001_m).GetBase()}}.Transformed(Engine::MakeSpriteWorld(Proxy.mWorld, *Proxy.mSprite, View));
         }
 
         auto* Text{CoreUObject::Cast<Engine::UBillboardTextComponent>(Component)};
@@ -1167,7 +1239,7 @@ namespace Editor {
         }
 
         Engine::FWorldHit Hit{};
-        FVector Location{mViewType == Editor::EEditorViewportType::Perspective ? Ray.mOrigin + Ray.mDirection * 6.0f : mOrbitPivot};
+        FVector Location{mViewType == Editor::EEditorViewportType::Perspective ? Ray.mOrigin + Ray.mDirection * (6_m).GetBase() : mOrbitPivot};
         const bool OnSurface{World->Raycast(Ray, Hit)};
         const bool OnGround{!OnSurface && Core::Math::IntersectPlane(Ray, mViewType == Editor::EEditorViewportType::Perspective ? FVector{} : mOrbitPivot, mViewType == Editor::EEditorViewportType::Perspective ? FVector{0.0f, 0.0f, 1.0f} : View.mForward, Location)};
 
@@ -1288,7 +1360,7 @@ namespace Editor {
      * @brief 그리드 선 사이의 월드 거리를 설정합니다.
      */
     bool Editor::FEditorViewportClient::SetGridSpacing(float Spacing) {
-        if (!std::isfinite(Spacing) || Spacing < 0.01f || Spacing > 1000.0f) {
+        if (!std::isfinite(Spacing) || Spacing < (0.01_m).GetBase() || Spacing > (1000_m).GetBase()) {
             return false;
         }
 
@@ -1308,7 +1380,7 @@ namespace Editor {
      * @brief 마우스 이동 1픽셀당 카메라 회전 각도를 설정합니다.
      */
     bool Editor::FEditorViewportClient::SetCameraSensitivity(float Sensitivity) {
-        if (!std::isfinite(Sensitivity) || Sensitivity < 0.01f || Sensitivity > 2.0f) {
+        if (!std::isfinite(Sensitivity) || Sensitivity < Core::Math::ToDegrees(0.01_deg) || Sensitivity > Core::Math::ToDegrees(2_deg)) {
             return false;
         }
 
@@ -1320,15 +1392,15 @@ namespace Editor {
     /**
      * @brief 자유 시점 카메라의 기본 이동 속도를 반환합니다.
      */
-    float Editor::FEditorViewportClient::GetCameraSpeed() const {
+    Core::FSpeed Editor::FEditorViewportClient::GetCameraSpeed() const {
         return mCameraSpeed;
     }
 
     /**
      * @brief 자유 시점 카메라의 기본 이동 속도를 설정합니다.
      */
-    bool Editor::FEditorViewportClient::SetCameraSpeed(float Speed) {
-        if (!std::isfinite(Speed) || Speed < 0.1f || Speed > 128.0f) {
+    bool Editor::FEditorViewportClient::SetCameraSpeed(Core::FSpeed Speed) {
+        if (!Speed.IsFinite() || Speed < 0.1_mps || Speed > 128_mps) {
             return false;
         }
 
@@ -1348,7 +1420,7 @@ namespace Editor {
      * @brief 0.01~100000 범위의 유한한 정사영 가로 폭을 적용합니다.
      */
     bool Editor::FEditorViewportClient::SetOrthographicWidth(float Width) {
-        if (!std::isfinite(Width) || Width < 0.01f || Width > 100000.0f) {
+        if (!std::isfinite(Width) || Width < (0.01_m).GetBase() || Width > (100000_m).GetBase()) {
             return false;
         }
 
@@ -1375,7 +1447,7 @@ namespace Editor {
             return false;
         }
 
-        FVector Location{mViewType == Editor::EEditorViewportType::Perspective ? Ray.mOrigin + Ray.mDirection * 6.0f : mOrbitPivot};
+        FVector Location{mViewType == Editor::EEditorViewportType::Perspective ? Ray.mOrigin + Ray.mDirection * (6_m).GetBase() : mOrbitPivot};
         Engine::FWorldHit Hit{};
 
         if (World->Raycast(Ray, Hit)) {
@@ -1389,8 +1461,8 @@ namespace Editor {
         }
 
         const bool Light{Preset.find("Light") != Core::FString::npos};
-        const FRotator Rotation{Preset.find("Directional") != Core::FString::npos || Preset.find("Spot") != Core::FString::npos ? FRotator{-45.0f, 0.0f, 0.0f} : FRotator{}};
-        const FVector Offset{0.0f, 0.0f, Light ? 1.0f : Preset == "Cube" || Preset == "Sphere" || Preset == "AStaticMeshActor" ? 0.5f : 0.0f};
+        const FRotator Rotation{Preset.find("Directional") != Core::FString::npos || Preset.find("Spot") != Core::FString::npos ? FRotator{-45_deg, 0_deg, 0_deg} : FRotator{}};
+        const FVector Offset{0.0f, 0.0f, Light ? (1_m).GetBase() : Preset == "Cube" || Preset == "Sphere" || Preset == "AStaticMeshActor" ? (0.5_m).GetBase() : 0.0f};
 
         return mContext->SpawnActorPreset(Preset, FTransform{Location + Offset, Rotation.Quaternion(), {1.0f, 1.0f, 1.0f}}) != nullptr;
     }

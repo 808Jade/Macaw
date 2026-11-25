@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "FSplashCanvas.h"
 #include "Platform/WindowResources.h"
 
@@ -12,6 +13,8 @@
 #include <wrl/client.h>
 #include <algorithm>
 #include <cmath>
+
+using namespace Core::Literals;
 
 #pragma comment(lib, "windowscodecs.lib")
 
@@ -195,7 +198,7 @@ namespace Platform {
          * @return 논리 픽셀 기준 능선 Y 좌표입니다.
          */
         float FarRidge(float X) {
-            return HorizonY + 6.0f - 16.0f * std::sin(X * 0.011f + 1.3f) - 8.0f * std::sin(X * 0.029f + 0.4f) - 3.0f * std::sin(X * 0.083f + 2.2f);
+            return HorizonY + 6.0f - 16.0f * Core::Math::Sin(X * 0.011_rad + 1.3_rad) - 8.0f * Core::Math::Sin(X * 0.029_rad + 0.4_rad) - 3.0f * Core::Math::Sin(X * 0.083_rad + 2.2_rad);
         }
 
         /**
@@ -204,7 +207,7 @@ namespace Platform {
          * @return 논리 픽셀 기준 능선 Y 좌표입니다.
          */
         float NearRidge(float X) {
-            return HorizonY + 40.0f - 24.0f * std::sin(X * 0.0072f + 2.1f) - 11.0f * std::sin(X * 0.024f + 0.7f) - 5.0f * std::sin(X * 0.061f + 1.9f) - 2.0f * std::sin(X * 0.19f);
+            return HorizonY + 40.0f - 24.0f * Core::Math::Sin(X * 0.0072_rad + 2.1_rad) - 11.0f * Core::Math::Sin(X * 0.024_rad + 0.7_rad) - 5.0f * Core::Math::Sin(X * 0.061_rad + 1.9_rad) - 2.0f * Core::Math::Sin(X * 0.19_rad);
         }
 
         /**

@@ -53,7 +53,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 바디가 연결될 본 이름입니다.
          */
-        UPROPERTY(Edit, Serialize, Getter = GetBoneName, Setter = SetBoneName)
+        UPROPERTY(Edit, Serialize, Category = "Settings", Getter = GetBoneName, Setter = SetBoneName)
         Core::FString mBoneName{};
     };
 

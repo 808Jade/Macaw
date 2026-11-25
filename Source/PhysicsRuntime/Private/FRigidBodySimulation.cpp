@@ -12,7 +12,6 @@
 #include "PhysicsRuntime/UPhysicsAsset.h"
 
 #include <algorithm>
-#include <cmath>
 
 namespace PhysicsRuntime {
 
@@ -141,7 +140,7 @@ namespace PhysicsRuntime {
 
         mEntries.clear();
         mScene.reset();
-        mAccumulator = 0.0f;
+        mAccumulator = {};
     }
 
     bool FRigidBodySimulation::IsInitialized() const {
@@ -182,28 +181,28 @@ namespace PhysicsRuntime {
         Entry.mTarget = World;
     }
 
-    void FRigidBodySimulation::Advance(float DeltaSeconds) {
-        if (!IsInitialized() || !std::isfinite(DeltaSeconds)) {
+    void FRigidBodySimulation::Advance(Core::FTime DeltaTime) {
+        if (!IsInitialized() || !DeltaTime.IsFinite()) {
             return;
         }
 
         const PhysicsRuntime::FPhysicsSettings& Settings{mScene->GetRuntime()->GetSettings()};
-        const float StepSeconds{Settings.mFixedStepSeconds};
+        const Core::FTime FixedStep{Settings.mFixedStep};
 
-        if (StepSeconds <= 0.0f) {
+        if (FixedStep <= Core::FTime{}) {
             return;
         }
 
         // 긴 프레임을 따라잡느라 스텝이 폭주하지 않게 누적 시간의 상한을 둔다.
-        mAccumulator = std::min(mAccumulator + std::max(DeltaSeconds, 0.0f), StepSeconds * static_cast<float>(Settings.mMaxStepsPerFrame));
+        mAccumulator = std::min(mAccumulator + std::max(DeltaTime, Core::FTime{}), FixedStep * static_cast<float>(Settings.mMaxStepsPerFrame));
 
-        const Uint32 Steps{static_cast<Uint32>(mAccumulator / StepSeconds)};
+        const Uint32 Steps{static_cast<Uint32>(mAccumulator / FixedStep)};
 
         if (Steps == 0) {
             return;
         }
 
-        mAccumulator -= StepSeconds * static_cast<float>(Steps);
+        mAccumulator -= FixedStep * static_cast<float>(Steps);
 
         for (Uint32 Step{1}; Step <= Steps; ++Step) {
             // 스텝마다 이전 목표에서 현재 목표까지 나눠 주어, 한 프레임 안에서 Kinematic 바디가 일정한 속도로 움직이게 한다.
@@ -222,7 +221,7 @@ namespace PhysicsRuntime {
                 Entry.mBody->SetBodyTransform(Interpolated);
             }
 
-            mScene->Simulate(StepSeconds);
+            mScene->Simulate(FixedStep);
         }
 
         for (FEntry& Entry : mEntries) {

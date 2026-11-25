@@ -331,7 +331,7 @@ void FMaterialEditorToolkit::DrawDetails() {
 
     int BlendMode{static_cast<int>(mEditingMaterial->GetBlendMode())};
 
-    if (ImGui::Combo("Blend Mode", &BlendMode, "Opaque\0Translucent\0") && mEditingMaterial->SetBlendMode(static_cast<Asset::EBlendMode>(BlendMode))) {
+    if (ImGui::Combo("Blend Mode", &BlendMode, "Opaque\0Translucent\0Additive\0") && mEditingMaterial->SetBlendMode(static_cast<Asset::EBlendMode>(BlendMode))) {
         mMaterialDirty = true;
     }
 

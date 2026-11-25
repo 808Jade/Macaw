@@ -6,7 +6,11 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "Core/Types.h"
+#include "Core/Math/FVector.h"
+#include "PhysicsRuntime/FBodyInstance.h"
 #include "PhysicsRuntime/FPhysicsContact.h"
 #include "PhysicsRuntime/FPhysXRelease.h"
 
@@ -20,6 +24,7 @@
 namespace PhysicsRuntime {
 
     class FPhysicsRuntime;
+    class FVehicleManager;
 
     /**
      * @brief 월드 하나의 PhysX 장면과 시뮬레이션 결과를 관리합니다.
@@ -78,13 +83,16 @@ namespace PhysicsRuntime {
          */
         PhysicsRuntime::FPhysicsRuntime* GetRuntime() const;
 
+        /** @brief 이 장면의 차량 관리자이며, 초기화 전에는 nullptr입니다. */
+        PhysicsRuntime::FVehicleManager* GetVehicleManager() const;
+
         /**
          * @brief 장면을 한 스텝 진행하고 결과를 받을 때까지 기다립니다.
          * @param[in] StepSeconds 진행할 시간(초)이며 양의 유한값이어야 합니다.
          * @return 시뮬레이션을 진행했으면 true, 장면이 없거나 시간이 유효하지 않으면 false입니다.
          * @note 이전 스텝의 접촉 정보는 지우고 이번 스텝의 결과로 바꿉니다.
          */
-        bool Simulate(float StepSeconds);
+        bool Simulate(Core::FTime Step);
 
         /**
          * @brief PhysX 장면의 비소유 주소를 반환합니다.
@@ -117,6 +125,18 @@ namespace PhysicsRuntime {
          * @return 이 객체가 보관하는 값의 참조이며 다음 시뮬레이션 전까지 유효합니다.
          */
         const Core::TArray<PhysicsRuntime::FPhysicsContact>& GetContacts() const;
+
+        /**
+         * @brief 구를 이동 경로로 쓸어 Block 응답 형상 중 처음 막힌 지점을 찾습니다.
+         * @details 시작부터 겹친 형상은 법선을 믿을 수 없으므로 결과에서 뺍니다.
+         * @param[in] Start 구 중심의 시작 위치(m)입니다.
+         * @param[in] Delta 이동 벡터(m)입니다.
+         * @param[in] Radius 구 반지름(m)이며 0이면 광선으로 쏩니다.
+         * @param[out] OutHit 처음 막힌 지점의 정보입니다.
+         * @param[in] ShouldIgnore true를 반환한 바디를 제외하며, 비어 있으면 쓰지 않습니다.
+         * @return 막힌 지점이 있으면 true입니다.
+         */
+        bool SweepSphere(const FVector& Start, const FVector& Delta, Core::FLength Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore = {}) const;
 
     private:
 
@@ -174,6 +194,8 @@ namespace PhysicsRuntime {
          * @brief 이 객체가 단독 소유하는 PhysX 장면입니다.
          */
         std::unique_ptr<physx::PxScene, PhysicsRuntime::FPhysXRelease> mScene{};
+
+        std::unique_ptr<PhysicsRuntime::FVehicleManager> mVehicleManager{};
 
         /**
          * @brief 장면과 바디가 SDK 객체를 빌리는 PhysX 런타임이며, 장면보다 오래 유지됩니다.

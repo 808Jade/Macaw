@@ -13,9 +13,16 @@
 #include "Core/Log/Log.h"
 #include "CoreUObject/Reflection/NewObject.h"
 
+#include <vehicle/PxVehicleSDK.h>
+
 using namespace Core::Literals;
 
 namespace PhysicsRuntime {
+
+    constinit const Core::FSpeed PhysicsRuntime::FPhysicsSettings::mDefaultTypicalSpeed{9.81_mps};
+    constinit const Core::FDensity PhysicsRuntime::FPhysicsSettings::mDefaultMassDensity{1000_kg / (1_m * 1_m * 1_m)};
+    constinit const float PhysicsRuntime::FPhysicsSettings::mDefaultGravityZ{-(9.81_mps2).GetBase()};
+    constinit const Core::FTime PhysicsRuntime::FPhysicsSettings::mDefaultFixedStep{1.0f / 60_Hz};
 
     /**
      * @brief PhysX 런타임의 단위 규약, 볼록 메시 쿠킹 보조 함수와 로그 범주입니다.
@@ -77,7 +84,7 @@ namespace PhysicsRuntime {
         }
 
         mTolerancesScale.length = UnitLength / 1_m;
-        mTolerancesScale.speed = mSettings.mTypicalSpeed;
+        mTolerancesScale.speed = mSettings.mTypicalSpeed.GetBase();
 
         mFoundation.reset(PxCreateFoundation(PX_PHYSICS_VERSION, mAllocator, mErrorCallback));
 
@@ -108,6 +115,18 @@ namespace PhysicsRuntime {
 
             return false;
         }
+
+        // 차량 SDK는 기존 PxPhysics의 1유닛 = 1m 허용 오차 기준을 사용합니다.
+        mVehicleSdkInitialized = physx::PxInitVehicleSDK(*mPhysics);
+
+        if (!mVehicleSdkInitialized) {
+            MACAW_LOG(LogPhysics, Error, "Cannot initialize the PhysX Vehicle SDK.");
+            Shutdown();
+
+            return false;
+        }
+
+        physx::PxVehicleSetBasisVectors(physx::PxVec3{0.0f, 0.0f, 1.0f}, physx::PxVec3{1.0f, 0.0f, 0.0f});
 
         mCooking.reset(PxCreateCooking(PX_PHYSICS_VERSION, *mFoundation, physx::PxCookingParams{mTolerancesScale}));
 
@@ -148,6 +167,11 @@ namespace PhysicsRuntime {
         mDispatcher.reset();
         mDefaultMaterial.reset();
         mCooking.reset();
+
+        if (mVehicleSdkInitialized) {
+            physx::PxCloseVehicleSDK();
+            mVehicleSdkInitialized = false;
+        }
 
         if (mExtensionsInitialized) {
             PxCloseExtensions();

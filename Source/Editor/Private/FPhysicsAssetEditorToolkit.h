@@ -35,7 +35,7 @@ namespace Engine {
 }
 
 namespace PhysicsRuntime {
-    class FBodyInstance;
+    struct FBodyInstance;
     struct FConstraintInstance;
     class UBodySetup;
     class UPhysicsAsset;

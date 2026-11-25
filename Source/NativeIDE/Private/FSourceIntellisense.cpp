@@ -10,6 +10,8 @@
 #include <string_view>
 #include <utility>
 
+using namespace std::chrono_literals;
+
 using namespace NativeIDE;
 
 namespace {
@@ -141,7 +143,9 @@ bool FSourceIntellisense::StartServer(const std::filesystem::path& Workspace) {
 std::string FSourceIntellisense::GetShaderSettings() const {
     const auto ProjectShaders{Core::FilePath::ToGenericUtf8(mWorkspace / L"Shaders")};
 
-    return R"({"validate":false,"includes":[)" + QuoteJson(ProjectShaders) + "]}";
+    const auto EngineShaders{Core::FilePath::ToGenericUtf8(Core::FilePath::GetEngineShaderRoot())};
+
+    return R"({"validate":false,"includes":[)" + QuoteJson(ProjectShaders) + "," + QuoteJson(EngineShaders) + "]}";
 }
 
 void FSourceIntellisense::Close() {
@@ -163,7 +167,7 @@ void FSourceIntellisense::Edit(std::string Source) {
     CancelCompletion();
     mSource = std::move(Source);
     ++mVersion;
-    mCheckAt = std::chrono::steady_clock::now() + std::chrono::milliseconds{200};
+    mCheckAt = std::chrono::steady_clock::now() + 200ms;
 }
 
 void FSourceIntellisense::Save() {
@@ -227,7 +231,7 @@ void FSourceIntellisense::Update() {
 
 void FSourceIntellisense::UpdateValidation() {
     if (mValidation.valid()) {
-        if (mValidation.wait_for(std::chrono::seconds{0}) != std::future_status::ready) {
+        if (mValidation.wait_for(0s) != std::future_status::ready) {
             return;
         }
 

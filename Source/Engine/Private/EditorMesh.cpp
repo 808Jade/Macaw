@@ -133,7 +133,9 @@ namespace Engine {
             Maximum = Maximum.Max(Position);
         }
 
-        Mesh.SetBounds({Minimum - FVector{0.001f, 0.001f, 0.001f}, Maximum + FVector{0.001f, 0.001f, 0.001f}});
+        constexpr float BoundsPadding{(0.001_m).GetBase()};
+        const FVector Padding{BoundsPadding, BoundsPadding, BoundsPadding};
+        Mesh.SetBounds({Minimum - Padding, Maximum + Padding});
 
         return Mesh;
     }

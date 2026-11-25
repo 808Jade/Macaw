@@ -5,6 +5,7 @@
  */
 
 #include "Core/Types.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "FAnimGraphEditor.h"
 #include "FAnimGraphNodeBuilder.h"
 #include "Asset/Animation/UAnimGraph.h"
@@ -17,6 +18,8 @@
 #include <cmath>
 #include <format>
 #include <utility>
+
+using namespace Core::Literals;
 
 namespace Editor {
 
@@ -501,7 +504,13 @@ namespace Editor {
             const auto* From{Machine->FindState(Transition->mFromState)};
             const auto* To{Machine->FindState(Transition->mToState)};
             ImGui::Text("%s -> %s", From != nullptr ? From->mName.c_str() : "?", To != nullptr ? To->mName.c_str() : "?");
-            mDirty |= ImGui::DragFloat("Blend Duration", &Transition->mDuration, 0.01f, 0.0f, 10.0f, "%.3f s", ImGuiSliderFlags_AlwaysClamp);
+            float Duration{Transition->mDuration.GetBase()};
+
+            if (ImGui::DragFloat("Blend Duration", &Duration, (0.01_s).GetBase(), (0_s).GetBase(), (10_s).GetBase(), "%.3f s", ImGuiSliderFlags_AlwaysClamp)) {
+                Transition->mDuration = Core::FTime::FromBase(Duration);
+                mDirty = true;
+            }
+
             mDirty |= ImGui::InputInt("Priority", &Transition->mPriority);
             ImGui::TextDisabled("Lower priority values are checked first");
         }

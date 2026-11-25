@@ -1,5 +1,6 @@
 #include "FLuaRuntime.h"
 
+#include "Core/Literals/UnitLiterals.h"
 #include "Core/Math/FRotator.h"
 #include "Core/Math/FQuat.h"
 #include "Core/Math/FTransform.h"
@@ -7,16 +8,25 @@
 #include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "Engine/AActor.h"
 #include "Engine/Component/UActorComponent.h"
+#include "Engine/Component/UBillboardTextComponent.h"
 #include "Engine/Component/UCameraComponent.h"
+#include "Engine/Component/UPrimitiveComponent.h"
 #include "Engine/Component/UProjectileMovementComponent.h"
+#include "Engine/Component/USimpleVehicleMovementComponent.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
+#include "Engine/Component/UStaticMeshComponent.h"
+#include "Engine/Component/UVehicleMovementComponent.h"
 #include "Engine/FWorldHit.h"
 #include "Engine/UWorld.h"
+#include "PhysicsRuntime/FVehicleManager.h"
+
+#include <PxRigidActor.h>
 
 #include <iostream>
 #include <tuple>
 
 using namespace Engine;
+using namespace Core::Literals;
 
 namespace {
 
@@ -109,11 +119,31 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         {"Hexagon", Engine::EDepthOfFieldApertureShape::Hexagon}
     });
 
+    // 액터·컴포넌트에 지정할 수 있는 그룹만 노출합니다. 내부 경계 그룹은 SetTickGroup이 거부합니다.
+    Lua.new_enum<Engine::ETickingGroup>("TickGroup", {
+        {"PrePhysics", Engine::ETickingGroup::PrePhysics},
+        {"DuringPhysics", Engine::ETickingGroup::DuringPhysics},
+        {"PostPhysics", Engine::ETickingGroup::PostPhysics},
+        {"PostUpdateWork", Engine::ETickingGroup::PostUpdateWork}
+    });
+
     auto DepthOfField{Lua.new_usertype<Engine::FDepthOfFieldSettings>("DepthOfFieldSettings", sol::constructors<Engine::FDepthOfFieldSettings()>())};
     DepthOfField["Enabled"] = &Engine::FDepthOfFieldSettings::mEnabled;
-    DepthOfField["FocalDistance"] = &Engine::FDepthOfFieldSettings::mFocalDistance;
-    DepthOfField["FocusWidth"] = &Engine::FDepthOfFieldSettings::mFocusWidth;
-    DepthOfField["TransitionDistance"] = &Engine::FDepthOfFieldSettings::mTransitionDistance;
+    DepthOfField["FocalDistance"] = sol::property([](const Engine::FDepthOfFieldSettings& Settings) {
+        return Settings.mFocalDistance.GetBase();
+    }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
+        Settings.mFocalDistance = Core::FLength::FromBase(Meters);
+    });
+    DepthOfField["FocusWidth"] = sol::property([](const Engine::FDepthOfFieldSettings& Settings) {
+        return Settings.mFocusWidth.GetBase();
+    }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
+        Settings.mFocusWidth = Core::FLength::FromBase(Meters);
+    });
+    DepthOfField["TransitionDistance"] = sol::property([](const Engine::FDepthOfFieldSettings& Settings) {
+        return Settings.mTransitionDistance.GetBase();
+    }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
+        Settings.mTransitionDistance = Core::FLength::FromBase(Meters);
+    });
     DepthOfField["MaxBlurRadius"] = &Engine::FDepthOfFieldSettings::mMaxBlurRadius;
     DepthOfField["FStop"] = &Engine::FDepthOfFieldSettings::mFStop;
     DepthOfField["ApertureShape"] = &Engine::FDepthOfFieldSettings::mApertureShape;
@@ -125,13 +155,24 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Hit["ImpactPoint"] = sol::readonly(&Engine::FHitResult::mImpactPoint);
     Hit["Normal"] = sol::readonly(&Engine::FHitResult::mNormal);
     Hit["Time"] = sol::readonly(&Engine::FHitResult::mTime);
+    Hit["Distance"] = sol::property([](const Engine::FHitResult& Value) {
+        return Value.mDistance.GetBase();
+    });
+    Hit["Location"] = sol::readonly(&Engine::FHitResult::mLocation);
+    Hit["ImpactNormal"] = sol::readonly(&Engine::FHitResult::mImpactNormal);
+    Hit["StartPenetrating"] = sol::readonly(&Engine::FHitResult::mStartPenetrating);
+    Hit["PenetrationDepth"] = sol::property([](const Engine::FHitResult& Value) {
+        return Value.mPenetrationDepth.GetBase();
+    });
 
     auto RaycastHit{Lua.new_usertype<Engine::FWorldHit>("RaycastHit", sol::no_constructor)};
     RaycastHit["IsHit"] = sol::property([](const Engine::FWorldHit& Value) {
         return Value.mActor.Get() != nullptr;
     });
     RaycastHit["Position"] = sol::readonly(&Engine::FWorldHit::mPosition);
-    RaycastHit["Distance"] = sol::readonly(&Engine::FWorldHit::mDistance);
+    RaycastHit["Distance"] = sol::property([](const Engine::FWorldHit& Value) {
+        return Value.mDistance.GetBase();
+    });
 
     auto Component{Lua.new_usertype<FLuaComponentRef>("Component", sol::no_constructor)};
     Component["IsValid"] = [](const FLuaComponentRef& Ref) {
@@ -143,7 +184,14 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Component["Owner"] = sol::property([](const FLuaComponentRef& Ref) {
         return FActorRef{CoreUObject::MakeObjectRef(Ref.Resolve().GetOwner())};
     });
-    Component["SetAnimGraphFloat"] = [](const FLuaComponentRef& Ref, const Core::FString& Name, float Value) {
+    Component["GetTickGroup"] = [](const FLuaComponentRef& Ref) {
+        return Ref.Resolve().GetTickGroup();
+    };
+    // 변경은 다음 프레임 배치부터 적용됩니다.
+    Component["SetTickGroup"] = [](const FLuaComponentRef& Ref, Engine::ETickingGroup Group) {
+        return Ref.Resolve().SetTickGroup(Group);
+    };
+    Component["SetAnimGraphFloat"] =[](const FLuaComponentRef& Ref, const Core::FString& Name, float Value) {
         auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
         return Mesh != nullptr && Mesh->SetAnimGraphFloat(Name, Value);
     };
@@ -172,7 +220,127 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     };
     Component["SetDepthOfFieldFocalDistance"] = [](const FLuaComponentRef& Ref, float Distance) {
         auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
-        return Camera != nullptr && Camera->SetDepthOfFieldFocalDistance(Distance);
+        return Camera != nullptr && Camera->SetDepthOfFieldFocalDistance(Core::FLength::FromBase(Distance));
+    };
+    Component["SetDriveTorque"] = [](const FLuaComponentRef& Ref, float Torque, Uint32 WheelIndex) {
+        auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->SetDriveTorque(Torque * 1_Nm, WheelIndex);
+    };
+    Component["SetBrakeTorque"] = [](const FLuaComponentRef& Ref, float Torque, Uint32 WheelIndex) {
+        auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->SetBrakeTorque(Torque * 1_Nm, WheelIndex);
+    };
+    Component["SetSteerAngle"] = [](const FLuaComponentRef& Ref, float AngleDegrees, Uint32 WheelIndex) {
+        auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->SetSteerAngle(AngleDegrees * 1_deg, WheelIndex);
+    };
+    Component["SetDriveInput"] = [](const FLuaComponentRef& Ref, float Throttle, float Brake, float Steering) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->SetDriveInput(Throttle, Brake, Steering);
+    };
+    Component["ResetDrive"] = [](const FLuaComponentRef& Ref) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr && Movement->ResetDrive();
+    };
+    Component["SetWheelMesh"] = [](const FLuaComponentRef& Ref, Uint32 WheelIndex, sol::optional<FLuaComponentRef> MeshRef) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        auto* Mesh{MeshRef ? CoreUObject::Cast<Engine::UStaticMeshComponent>(&MeshRef->Resolve()) : nullptr};
+
+        // nil은 연결 해제이고, 스태틱 메시가 아닌 컴포넌트는 거부합니다.
+        return Movement != nullptr && (!MeshRef || Mesh != nullptr) && Movement->SetWheelMesh(WheelIndex, Mesh);
+    };
+    Component["SetWheelSkeletalMesh"] = [](const FLuaComponentRef& Ref, sol::optional<FLuaComponentRef> MeshRef) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        auto* Mesh{MeshRef ? CoreUObject::Cast<Engine::USkeletalMeshComponent>(&MeshRef->Resolve()) : nullptr};
+
+        return Movement != nullptr && (!MeshRef || Mesh != nullptr) && Movement->SetWheelSkeletalMesh(Mesh);
+    };
+    Component["SetWheelBone"] = [](const FLuaComponentRef& Ref, Uint32 WheelIndex, sol::optional<Core::FString> BoneName) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+
+        return Movement != nullptr && Movement->SetWheelBone(WheelIndex, BoneName.value_or(Core::FString{}));
+    };
+    // 차종 교체용입니다. 바퀴 수와 서스펜션 값은 유지하고 위치·반지름·폭만 바꾸며, 값이 바뀌면 차량을 다시 등록합니다.
+    Component["SetWheelGeometry"] = [](const FLuaComponentRef& Ref, const sol::table& Wheels) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        if (Movement == nullptr || Wheels.size() != Movement->GetWheelSettings().size()) {
+            return false;
+        }
+
+        auto Settings{Movement->GetWheelSettings()};
+        for (Index_t Index{}; Index < Settings.size(); ++Index) {
+            const auto Wheel{Wheels.get<sol::optional<sol::table>>(Index + 1)};
+            if (!Wheel) {
+                return false;
+            }
+
+            const auto Offset{Wheel->get<sol::optional<FVector>>("Offset")};
+            const auto Radius{Wheel->get<sol::optional<float>>("Radius")};
+            const auto Width{Wheel->get<sol::optional<float>>("Width")};
+            if (!Offset || !Radius || !Width || !Offset->IsFinite()) {
+                return false;
+            }
+
+            Settings[Index].mCenterOffset = *Offset;
+            Settings[Index].mRadius = Core::FLength::FromBase(*Radius);
+            Settings[Index].mWidth = Core::FLength::FromBase(*Width);
+        }
+
+        return Movement->SetWheelSettings(Settings);
+    };
+    // 스켈레톤을 먼저 바꿔 새 메시가 이전 스켈레톤과 짝지어진 포즈를 거치지 않게 합니다.
+    Component["SetSkeletalMesh"] = [](const FLuaComponentRef& Ref, const Core::FString& MeshPath, const Core::FString& SkeletonPath) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+
+        return Mesh != nullptr && Mesh->SetSkeletonPath(SkeletonPath) && Mesh->SetMeshPath(MeshPath) && Mesh->GetSkeletalMesh() != nullptr && Mesh->GetSkeleton() != nullptr;
+    };
+    Component["GetDriveState"] = [](const FLuaComponentRef& Ref) {
+        const auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        return Movement != nullptr ? std::tuple{Movement->GetCurrentGear(), Movement->GetForwardSpeed().GetBase()} : std::tuple{Int32{}, 0.0f};
+    };
+    Component["SetText"] = [](const FLuaComponentRef& Ref, const Core::FString& Text) {
+        auto* Billboard{CoreUObject::Cast<Engine::UBillboardTextComponent>(&Ref.Resolve())};
+        return Billboard != nullptr && Billboard->SetText(Text);
+    };
+    Component["SetVehicleDrivable"] = [](const FLuaComponentRef& Ref, bool Drivable) {
+        const auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
+        auto* Body{Primitive != nullptr ? Primitive->GetBodyInstance().GetPxRigidActor() : nullptr};
+        const auto Count{Body != nullptr ? Body->getNbShapes() : 0u};
+
+        for (physx::PxU32 Index{}; Index < Count; ++Index) {
+            physx::PxShape* Shape{};
+            if (Body->getShapes(&Shape, 1, Index) == 1) {
+                PhysicsRuntime::FVehicleManager::SetDrivableSurface(*Shape, Drivable);
+            }
+        }
+
+        return Count != 0;
+    };
+    Component["SetPhysicsVelocity"] = [](const FLuaComponentRef& Ref, const FVector& Linear, const FVector& Angular) {
+        auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
+        return Primitive != nullptr && Linear.IsFinite() && Angular.IsFinite() &&
+               Primitive->SetPhysicsLinearVelocity(Linear) && Primitive->SetPhysicsAngularVelocity(Angular);
+    };
+    Component["SetHiddenInGame"] = [](const FLuaComponentRef& Ref, bool Hidden) {
+        auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
+        if (Primitive == nullptr) {
+            return false;
+        }
+
+        Primitive->SetHiddenInGame(Hidden);
+        return true;
+    };
+    // 이 컴포넌트의 스케일만 바꿉니다. Actor:SetActorTransform과 달리 다른 컴포넌트에 비율을 전파하지 않으며,
+    // 물리 바디가 있으면 새 크기로 다시 만듭니다(차량이면 바디 재생성 이벤트로 다시 등록됩니다).
+    Component["SetComponentScale"] = [](const FLuaComponentRef& Ref, const FVector& Scale) {
+        auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(&Ref.Resolve())};
+        if (Scene == nullptr || !Scale.IsFinite() || Scale.x <= 0.0f || Scale.y <= 0.0f || Scale.z <= 0.0f) {
+            return false;
+        }
+
+        FTransform Transform{Scene->GetTransform()};
+        Transform.mScale = Scale;
+        return Scene->SetTransform(Transform);
     };
     Lua["SkeletalMeshComponent"] = Lua.get<sol::table>("Component");
     Lua["CameraComponent"] = Lua.get<sol::table>("Component");
@@ -188,11 +356,40 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Actor["UUID"] = sol::property([](const FActorRef& Ref) {
         return Ref.mActor.GetGuid().ToString();
     });
-    Actor["GetActorTransform"] = [](const FActorRef& Ref) {
+    Actor["GetTickGroup"] = [](const FActorRef& Ref) {
+        return Ref.Resolve().GetTickGroup();
+    };
+    Actor["SetTickGroup"] = [](const FActorRef& Ref, Engine::ETickingGroup Group) {
+        return Ref.Resolve().SetTickGroup(Group);
+    };
+    Actor["GetActorTransform"] =[](const FActorRef& Ref) {
         return Ref.Resolve().GetActorTransform();
     };
     Actor["SetActorTransform"] = [](const FActorRef& Ref, const FTransform& Value) {
         return Ref.Resolve().SetActorTransform(Value);
+    };
+    Actor["GetActorLocation"] = [](const FActorRef& Ref) {
+        return Ref.Resolve().GetActorLocation();
+    };
+    Actor["SetActorLocation"] = [](const FActorRef& Ref, const FVector& NewLocation, sol::optional<bool> Sweep) {
+        if (!NewLocation.IsFinite()) {
+            throw sol::error{"Invalid actor location"};
+        }
+
+        Engine::FHitResult Hit{};
+        const bool Moved{Ref.Resolve().SetActorLocation(NewLocation, Sweep.value_or(false), &Hit)};
+
+        return std::make_tuple(Moved, Hit);
+    };
+    Actor["AddActorWorldOffset"] = [](const FActorRef& Ref, const FVector& DeltaLocation, sol::optional<bool> Sweep) {
+        if (!DeltaLocation.IsFinite()) {
+            throw sol::error{"Invalid actor offset"};
+        }
+
+        Engine::FHitResult Hit{};
+        const bool Moved{Ref.Resolve().AddActorWorldOffset(DeltaLocation, Sweep.value_or(false), &Hit)};
+
+        return std::make_tuple(Moved, Hit);
     };
     Actor["GetComponentByClass"] = [](const FActorRef& Ref, const Core::FString& ClassName) -> sol::optional<FLuaComponentRef> {
         const auto* Class{CoreUObject::FReflectionRegistry::FindClass(ClassName)};
@@ -204,7 +401,15 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         }
         return sol::nullopt;
     };
-    Actor["GetSkeletalMeshComponent"] = [](const FActorRef& Ref) -> sol::optional<FLuaComponentRef> {
+    Actor["GetComponentByName"] = [](const FActorRef& Ref, const Core::FString& Name) -> sol::optional<FLuaComponentRef> {
+        for (const auto& Component : Ref.Resolve().GetComponents()) {
+            if (Component->GetName() == Name) {
+                return FLuaComponentRef{Component.get()};
+            }
+        }
+        return sol::nullopt;
+    };
+    Actor["GetSkeletalMeshComponent"] =[](const FActorRef& Ref) -> sol::optional<FLuaComponentRef> {
         if (auto* Found{FindComponent(Ref.Resolve(), Engine::USkeletalMeshComponent::StaticClass())}) {
             return FLuaComponentRef{Found};
         }
@@ -233,17 +438,13 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
             throw sol::error{"Invalid movement velocity"};
         }
     });
+    Actor["StopMovement"] = [](const FActorRef& Ref) {
+        ResolveMovement(Ref.Resolve()).StopMovement();
+    };
     Actor["PrintLocation"] = [](const FActorRef& Ref) {
         const auto& Target{Ref.Resolve()};
         const auto Location{Target.GetActorTransform().mLocation};
         std::clog << Target.GetName() << " Location " << Location.x << ' ' << Location.y << ' ' << Location.z << '\n';
-    };
-    Actor["MoveSwept"] = [](const FActorRef& Ref, const FVector& Delta) {
-        auto& Target{Ref.Resolve()};
-        if (Target.GetWorld() == nullptr || !Delta.IsFinite()) {
-            throw sol::error{"Invalid sweep movement"};
-        }
-        return Target.GetWorld()->MoveActorSwept(Target, Delta);
     };
 
     auto World{Lua.create_named_table("World")};

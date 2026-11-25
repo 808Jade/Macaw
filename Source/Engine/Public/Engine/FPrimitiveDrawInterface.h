@@ -32,7 +32,7 @@ namespace Engine {
          * @param[in] DepthTest 깊이 검사를 적용할지 지정합니다.
          * @param[in] Thickness 유한한 양수인 픽셀 단위 선 두께입니다.
          */
-        void DrawLine(const FVector& Start, const FVector& End, const FVector& Color, bool DepthTest = false, float Thickness = 1.0f);
+        void DrawLine(const FVector& Start, const FVector& End, const FVector& Color, bool DepthTest = false, float Thickness = 1.0f, float Opacity = 1.0f);
 
         /**
          * @brief AABB의 열두 모서리를 지정한 픽셀 두께의 선분으로 수집합니다.
@@ -52,7 +52,7 @@ namespace Engine {
          * @param[in] DepthTest 장면 깊이 검사를 적용할지 지정합니다.
          * @param[in] Thickness 픽셀 단위 선 두께입니다.
          */
-        void DrawOrientedBox(const FVector& Center, const FQuat& Rotation, const FVector& HalfExtent, const FVector& Color, bool DepthTest = true, float Thickness = 1.0f);
+        void DrawOrientedBox(const FVector& Center, const FQuat& Rotation, const FVector& HalfExtent, const FVector& Color, bool DepthTest = true, float Thickness = 1.0f, float Opacity = 1.0f);
 
         /**
          * @brief 두 기저 방향이 이루는 평면에서 원호를 선분으로 수집합니다.
@@ -67,7 +67,7 @@ namespace Engine {
          * @param[in] Thickness 픽셀 단위 선 두께입니다.
          * @note 한 바퀴를 32개 선분으로 나누는 밀도로 분할합니다.
          */
-        void DrawArc(const FVector& Center, const FVector& AxisU, const FVector& AxisV, float Radius, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color, bool DepthTest = true, float Thickness = 1.0f);
+        void DrawArc(const FVector& Center, const FVector& AxisU, const FVector& AxisV, Core::FLength Radius, Core::FAngle StartAngle, Core::FAngle EndAngle, const FVector& Color, bool DepthTest = true, float Thickness = 1.0f, float Opacity = 1.0f);
 
         /**
          * @brief 현재 프레임의 보조 선분과 메시 목록을 비웁니다.

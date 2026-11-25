@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/ReflectionMacros.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Core/Math/FVector2.h"
 #include "Core/Math/FMatrix.h"
 #include "Engine/FDepthOfFieldSettings.h"
@@ -63,7 +64,7 @@ namespace Engine {
         /**
          * @brief 수직 시야각입니다.
          */
-        float mFieldOfView{60.0f};
+        Core::FAngle mFieldOfView{mDefaultFieldOfView};
 
         /**
          * @brief 정사영 카메라 여부입니다.
@@ -73,9 +74,13 @@ namespace Engine {
         /**
          * @brief 정사영 가로 가시 범위의 월드 길이입니다.
          */
-        float mOrthographicWidth{20.0f};
+        float mOrthographicWidth{mDefaultOrthographicWidth};
 
         Engine::FDepthOfFieldSettings mDepthOfFieldSettings{};
+
+    private:
+        static const Core::FAngle mDefaultFieldOfView;
+        static const float mDefaultOrthographicWidth;
     };
 
 }

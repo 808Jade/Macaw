@@ -14,6 +14,7 @@
 #include "Asset/USkeletalMesh.h"
 #include "Asset/USkeleton.h"
 #include "Core/FilePath.h"
+#include "Core/Literals.h"
 #include "Core/Math/FQuat.h"
 #include "Core/Math/FRay.h"
 #include "Editor/EEditorIcon.h"
@@ -37,6 +38,7 @@
 #include <string>
 #include <utility>
 
+using namespace Core::Literals;
 using namespace Editor;
 
 namespace {
@@ -234,7 +236,7 @@ namespace {
     }
 
     /**
-     * @brief 항목 여러 개의 같은 실수 멤버를 한 필드로 편집합니다.
+     * @brief 항목 여러 개의 같은 길이 멤버를 미터 단위로 편집합니다.
      * @tparam TElem 항목 형식입니다.
      * @param[in] Label 필드 이름입니다.
      * @param[in] Elems 편집할 항목들이며 비어 있으면 안 됩니다.
@@ -245,12 +247,13 @@ namespace {
      * @return 값이 바뀌었으면 true입니다.
      */
     template <typename TElem>
-    bool EditFloatMember(const char* Label, const Core::TArray<TElem*>& Elems, const Core::TArray<TElem>& Defaults, float TElem::* Member, float Speed, float Min, float Max) {
-        float Value{Elems.front()->*Member};
+    bool EditLengthMember(const char* Label, const Core::TArray<TElem*>& Elems, const Core::TArray<TElem>& Defaults, Core::FLength TElem::* Member, float Speed, float Min, float Max) {
+        const Core::FLength InitialValue{Elems.front()->*Member};
+        float Value{InitialValue.GetBase()};
         bool Mixed{};
 
         for (const TElem* Elem : Elems) {
-            Mixed |= Elem->*Member != Value;
+            Mixed |= Elem->*Member != InitialValue;
         }
 
         const bool Dragged{DragComponents(Label, 1, &Value, &Mixed, Speed, Min, Max, "%.4f") != 0};
@@ -275,7 +278,7 @@ namespace {
         }
 
         for (TElem* Elem : Elems) {
-            Elem->*Member = Value;
+            Elem->*Member = Value * 1_m;
         }
 
         return true;
@@ -365,7 +368,7 @@ FPhysicsAssetEditorToolkit::FPhysicsAssetEditorToolkit(FEditorContext* Context, 
     // 바디 형상은 수 cm 단위이므로 이동 스냅의 기본 간격을 1cm로 둔다.
     Editor::FGizmoSettings GizmoSettings{};
 
-    GizmoSettings.mTranslationStep = 0.01f;
+    GizmoSettings.mTranslationStep = 1_cm;
     mGizmo.SetSettings(GizmoSettings);
 
     FEditorToolkitHost& Host{GetToolkitHost()};
@@ -1375,7 +1378,7 @@ void FPhysicsAssetEditorToolkit::DrawViewport() {
 
     // 물리는 보이는 탭에서만 고정 스텝 누적기를 통해 진행한다. 긴 프레임은 잘라 낸다. 불안정해져 멈춘 뒤에는 진행하지 않는다.
     if (mSimulating && mContent->GetWorld() != nullptr && !mSimulationHalted) {
-        mContent->GetWorld()->StepPhysics(std::min(Input.DeltaTime, 0.1f));
+        mContent->GetWorld()->StepPhysics(std::min(Input.DeltaTime * 1_s, 100_ms));
 
         // 월드 Tick이 돌지 않으므로 스텝 결과를 직접 뼈 포즈에 써서 메시가 바디를 따라가게 한다.
         if (Engine::USkeletalMeshComponent* Component{mContent->GetComponent()}) {
@@ -1618,7 +1621,7 @@ void FPhysicsAssetEditorToolkit::DrawConstraintEditor() {
     const PhysicsRuntime::FConstraintInstance& Defaults{Baseline != nullptr ? *Baseline : TypeDefaults};
 
     // 회전 축마다 Free/Limited/Locked를 고르고 Limited일 때만 한계 각도를 보여 준다. 값마다 기준으로 되돌리는 화살표가 있다.
-    const auto EditAngular{[&Changed](const char* Label, PhysicsRuntime::EAngularConstraintMotion& Motion, float& Limit, PhysicsRuntime::EAngularConstraintMotion DefaultMotion, float DefaultLimit) {
+    const auto EditAngular{[&Changed](const char* Label, PhysicsRuntime::EAngularConstraintMotion& Motion, Core::FAngle& Limit, PhysicsRuntime::EAngularConstraintMotion DefaultMotion, Core::FAngle DefaultLimit) {
         int Mode{static_cast<int>(Motion)};
 
         ImGui::PushID(Label);
@@ -1634,7 +1637,10 @@ void FPhysicsAssetEditorToolkit::DrawConstraintEditor() {
         }
 
         if (Motion == PhysicsRuntime::EAngularConstraintMotion::Limited) {
-            if (ImGui::DragFloat("Limit (deg)", &Limit, 0.5f, 0.0f, 180.0f, "%.1f")) {
+            float LimitDegrees{Core::Math::ToDegrees(Limit)};
+
+            if (ImGui::DragFloat("Limit (deg)", &LimitDegrees, 0.5f, 0.0f, 180.0f, "%.1f")) {
+                Limit = LimitDegrees * 1_deg;
                 Changed = true;
             }
 
@@ -1708,9 +1714,9 @@ void FPhysicsAssetEditorToolkit::DrawConstraintEditor() {
     }};
 
     ImGui::TextUnformatted("Angular");
-    EditAngular("Swing 1", Constraint.mSwing1Motion, Constraint.mSwing1LimitDegrees, Defaults.mSwing1Motion, Defaults.mSwing1LimitDegrees);
-    EditAngular("Swing 2", Constraint.mSwing2Motion, Constraint.mSwing2LimitDegrees, Defaults.mSwing2Motion, Defaults.mSwing2LimitDegrees);
-    EditAngular("Twist", Constraint.mTwistMotion, Constraint.mTwistLimitDegrees, Defaults.mTwistMotion, Defaults.mTwistLimitDegrees);
+    EditAngular("Swing 1", Constraint.mSwing1Motion, Constraint.mSwing1Limit, Defaults.mSwing1Motion, Defaults.mSwing1Limit);
+    EditAngular("Swing 2", Constraint.mSwing2Motion, Constraint.mSwing2Limit, Defaults.mSwing2Motion, Defaults.mSwing2Limit);
+    EditAngular("Twist", Constraint.mTwistMotion, Constraint.mTwistLimit, Defaults.mTwistMotion, Defaults.mTwistLimit);
 
     ImGui::TextUnformatted("Linear");
     EditLinear("Linear X", Constraint.mLinearXMotion, Defaults.mLinearXMotion);
@@ -1742,8 +1748,8 @@ void FPhysicsAssetEditorToolkit::BuildConstraintLines(Engine::FPrimitiveDrawInte
         return;
     }
 
-    constexpr float Pi{3.14159265358979f};
-    constexpr float DegToRad{Pi / 180.0f};
+    constexpr float MaxLimitRadians{(179_deg).GetBase()};
+    constexpr float FullTurnRadians{(1_turn).GetBase()};
 
     // 뼈의 월드 변환에 프레임(위치, 주 축, 보조 축)을 얹어 원점과 X, Y, Z축을 구한다.
     struct FWorldFrame {
@@ -1814,14 +1820,14 @@ void FPhysicsAssetEditorToolkit::BuildConstraintLines(Engine::FPrimitiveDrawInte
     DrawFrame(Parent, 0.08f, 0.55f, 3.0f);
 
     // 한계 각도는 부모 쪽 프레임(Frame 2) 기준이다. Locked는 0도, Free는 거의 180도로 그린다.
-    const auto LimitRadians{[&](PhysicsRuntime::EAngularConstraintMotion Motion, float LimitDegrees) {
+    const auto LimitRadians{[MaxLimitRadians](PhysicsRuntime::EAngularConstraintMotion Motion, Core::FAngle Limit) {
         switch (Motion) {
             case PhysicsRuntime::EAngularConstraintMotion::Locked:
                 return 0.0f;
             case PhysicsRuntime::EAngularConstraintMotion::Free:
-                return 179.0f * DegToRad;
+                return MaxLimitRadians;
             default:
-                return std::clamp(LimitDegrees, 0.0f, 179.0f) * DegToRad;
+                return std::clamp(Limit.GetBase(), 0.0f, MaxLimitRadians);
         }
     }};
 
@@ -1830,8 +1836,8 @@ void FPhysicsAssetEditorToolkit::BuildConstraintLines(Engine::FPrimitiveDrawInte
     const FVector TwistColor{0.15f, 0.9f, 0.15f};
 
     // Swing 1, 2: 프레임 X축이 움직일 수 있는 범위를 빨간 원뿔로 그린다. Swing 2는 Y 방향, Swing 1은 Z 방향의 한계이다.
-    const float SwingY{LimitRadians(Constraint.mSwing2Motion, Constraint.mSwing2LimitDegrees)};
-    const float SwingZ{LimitRadians(Constraint.mSwing1Motion, Constraint.mSwing1LimitDegrees)};
+    const float SwingY{LimitRadians(Constraint.mSwing2Motion, Constraint.mSwing2Limit)};
+    const float SwingZ{LimitRadians(Constraint.mSwing1Motion, Constraint.mSwing1Limit)};
 
     if (SwingY > 0.0f || SwingZ > 0.0f) {
         constexpr float ConeLength{0.12f};
@@ -1840,11 +1846,11 @@ void FPhysicsAssetEditorToolkit::BuildConstraintLines(Engine::FPrimitiveDrawInte
         FVector Previous{};
 
         for (int Step{}; Step <= Segments; ++Step) {
-            const float Phi{2.0f * Pi * static_cast<float>(Step) / static_cast<float>(Segments)};
+            const float Phi{FullTurnRadians * static_cast<float>(Step) / static_cast<float>(Segments)};
             const float Cos{std::cos(Phi)};
             const float Sin{std::sin(Phi)};
             // 방향마다 타원 경계까지의 각도를 구한다.
-            const float Theta{std::min(1.0f / std::sqrt((Cos / SafeY) * (Cos / SafeY) + (Sin / SafeZ) * (Sin / SafeZ)), 179.0f * DegToRad)};
+            const float Theta{std::min(1.0f / std::sqrt((Cos / SafeY) * (Cos / SafeY) + (Sin / SafeZ) * (Sin / SafeZ)), MaxLimitRadians)};
             const FVector Direction{Parent.mAxisX * std::cos(Theta) + (Parent.mAxisY * Cos + Parent.mAxisZ * Sin) * std::sin(Theta)};
             const FVector Point{Parent.mOrigin + Direction * ConeLength};
 
@@ -1861,7 +1867,7 @@ void FPhysicsAssetEditorToolkit::BuildConstraintLines(Engine::FPrimitiveDrawInte
     }
 
     // Twist: X축 둘레로 Y축이 돌 수 있는 범위(-한계 ~ +한계)를 초록 부채꼴로 그린다.
-    const float Twist{LimitRadians(Constraint.mTwistMotion, Constraint.mTwistLimitDegrees)};
+    const float Twist{LimitRadians(Constraint.mTwistMotion, Constraint.mTwistLimit)};
 
     if (Twist > 0.0f) {
         constexpr float TwistRadius{0.09f};
@@ -1997,7 +2003,7 @@ bool FPhysicsAssetEditorToolkit::DrawShapeFields(const Core::TArray<PhysicsRunti
         case PhysicsAssetEditing::EShapeType::Sphere:
             if (!Spheres.empty()) {
                 Changed |= EditVectorMember("Center", Spheres, SphereDefaults, &PhysicsRuntime::FKSphereElem::mCenter, 0.001f, -MaxValue, MaxValue, "%.4f");
-                Changed |= EditFloatMember("Radius", Spheres, SphereDefaults, &PhysicsRuntime::FKSphereElem::mRadius, 0.001f, MinSize, MaxValue);
+                Changed |= EditLengthMember("Radius", Spheres, SphereDefaults, &PhysicsRuntime::FKSphereElem::mRadius, 0.001f, MinSize, MaxValue);
             }
 
             break;
@@ -2013,8 +2019,8 @@ bool FPhysicsAssetEditorToolkit::DrawShapeFields(const Core::TArray<PhysicsRunti
             if (!Sphyls.empty()) {
                 Changed |= EditVectorMember("Center", Sphyls, SphylDefaults, &PhysicsRuntime::FKSphylElem::mCenter, 0.001f, -MaxValue, MaxValue, "%.4f");
                 Changed |= EditVectorMember("Rotation (P/Y/R)", Sphyls, SphylDefaults, &PhysicsRuntime::FKSphylElem::mRotation, 0.5f, -360.0f, 360.0f, "%.1f");
-                Changed |= EditFloatMember("Radius", Sphyls, SphylDefaults, &PhysicsRuntime::FKSphylElem::mRadius, 0.001f, MinSize, MaxValue);
-                Changed |= EditFloatMember("Length", Sphyls, SphylDefaults, &PhysicsRuntime::FKSphylElem::mLength, 0.001f, MinSize, MaxValue);
+                Changed |= EditLengthMember("Radius", Sphyls, SphylDefaults, &PhysicsRuntime::FKSphylElem::mRadius, 0.001f, MinSize, MaxValue);
+                Changed |= EditLengthMember("Length", Sphyls, SphylDefaults, &PhysicsRuntime::FKSphylElem::mLength, 0.001f, MinSize, MaxValue);
             }
 
             break;
@@ -2991,12 +2997,24 @@ void FPhysicsAssetEditorToolkit::DrawViewportToolbar() {
 
     if (ImGui::BeginPopup("##GizmoSettings")) {
         Editor::FGizmoSettings Settings{*mGizmo.GetSettings()};
+        float TranslationStep{Settings.mTranslationStep.GetBase()};
+        float RotationStep{Core::Math::ToDegrees(Settings.mRotationStep)};
         bool Changed{};
 
         Changed |= ImGui::Checkbox("Translation Snap", &Settings.mTranslationSnap);
-        Changed |= ImGui::DragFloat("Step (m)", &Settings.mTranslationStep, 0.001f, 0.001f, 10.0f, "%.3f");
+
+        if (ImGui::DragFloat("Step (m)", &TranslationStep, 0.001f, 0.001f, 10.0f, "%.3f")) {
+            Settings.mTranslationStep = TranslationStep * 1_m;
+            Changed = true;
+        }
+
         Changed |= ImGui::Checkbox("Rotation Snap", &Settings.mRotationSnap);
-        Changed |= ImGui::DragFloat("Step (deg)", &Settings.mRotationStep, 0.5f, 0.5f, 90.0f, "%.1f");
+
+        if (ImGui::DragFloat("Step (deg)", &RotationStep, 0.5f, 0.5f, 90.0f, "%.1f")) {
+            Settings.mRotationStep = RotationStep * 1_deg;
+            Changed = true;
+        }
+
         Changed |= ImGui::SliderFloat("Size", &Settings.mSize, 0.5f, 2.0f, "%.2f");
 
         if (Changed) {

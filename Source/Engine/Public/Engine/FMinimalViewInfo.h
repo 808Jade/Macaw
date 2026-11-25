@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Math/FQuat.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FVector2.h"
 #include "Engine/FDepthOfFieldSettings.h"
@@ -51,9 +52,12 @@ namespace Engine {
         /**
          * @brief 수직 시야각이며 도 단위입니다.
          */
-        float mFieldOfView{60.0f};
+        Core::FAngle mFieldOfView{mDefaultFieldOfView};
 
         Engine::FDepthOfFieldSettings mDepthOfFieldSettings{};
+
+    private:
+        static const Core::FAngle mDefaultFieldOfView;
     };
 
 }
