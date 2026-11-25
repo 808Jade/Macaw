@@ -12,6 +12,7 @@
 #include "CoreUObject/UObject.h"
 #include "Engine/EWorldType.h"
 #include "Engine/FWorldHandle.h"
+#include "PhysicsRuntime/FClothingSystemRuntimeModuleNv.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "Engine.generated.h"
 
@@ -180,6 +181,12 @@ namespace Engine {
         PhysicsRuntime::FPhysicsRuntime& GetPhysicsRuntime();
 
         /**
+         * @brief 엔진이 소유한 천 시스템 모듈을 반환합니다.
+         * @return 엔진 수명 동안 유효한 천 시스템 모듈의 참조입니다.
+         */
+        PhysicsRuntime::FClothingSystemRuntimeModuleNv& GetClothingSystem();
+
+        /**
          * @brief 새 월드 컨텍스트를 검증하고 장면을 연결한 뒤 현재 월드를 교체합니다.
          * @param[in] Context 새 현재 월드로 등록할 월드 컨텍스트입니다.
          * @return 조건을 만족하거나 작업이 성공하면 true, 그렇지 않으면 false입니다.
@@ -247,6 +254,12 @@ namespace Engine {
          * @note 월드 컨텍스트를 모두 정리한 뒤 종료합니다.
          */
         PhysicsRuntime::FPhysicsRuntime mPhysicsRuntime{};
+
+        /**
+         * @brief 모든 천 시뮬레이션이 공유하는 NvCloth 팩토리입니다.
+         * @note 월드 컨텍스트를 모두 정리한 뒤 종료합니다.
+         */
+        PhysicsRuntime::FClothingSystemRuntimeModuleNv mClothingSystem{};
 
         /**
          * @brief 월드를 각각 소유하는 컨텍스트 슬롯입니다.

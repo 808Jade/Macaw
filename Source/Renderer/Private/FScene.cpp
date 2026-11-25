@@ -292,6 +292,8 @@ namespace Renderer {
             return;
         }
 
+        UploadCloth(Primitive);
+
         Renderer::FObjectConstants& Constants{Primitive.mObjectConstants};
         Constants.mWorld = Primitive.mProxy.mWorld;
         Constants.mUVTransform = {Primitive.mProxy.mUVScale.x, Primitive.mProxy.mUVScale.y, Primitive.mProxy.mUVOffset.x, Primitive.mProxy.mUVOffset.y};
@@ -354,6 +356,66 @@ namespace Renderer {
         Primitive.mUploadedPoseRevision = Primitive.mProxy.mPoseRevision;
 
         return true;
+    }
+
+    /**
+     * @brief 천 에셋마다 입자 위치와 법선, 천 상수를 GPU에 반영합니다.
+     */
+    void Renderer::FScene::UploadCloth(Renderer::FScenePrimitive& Primitive) {
+        if (Primitive.mProxy.mSkeletalMesh == nullptr || Primitive.mProxy.mClothSimData.empty()) {
+            Primitive.mClothResources.clear();
+            Primitive.mUploadedClothRevision = {};
+
+            return;
+        }
+
+        // 프록시가 다시 만들어져도 천 결과가 그대로이면 다시 올리지 않습니다.
+        if (Primitive.mProxy.mClothRevision.IsValid() && Primitive.mUploadedClothRevision == Primitive.mProxy.mClothRevision) {
+            return;
+        }
+
+        // 결과에 없는 천 에셋의 자원은 버립니다.
+        std::erase_if(Primitive.mClothResources, [&Primitive](const auto& Entry) {
+            return !Primitive.mProxy.mClothSimData.contains(Entry.first);
+        });
+
+        Core::TArray<Renderer::FClothParticleGpu> Particles{};
+
+        for (const auto& [AssetIndex, SimData] : Primitive.mProxy.mClothSimData) {
+            if (SimData.mPositions.empty() || SimData.mPositions.size() != SimData.mNormals.size()) {
+                Primitive.mClothResources.erase(AssetIndex);
+
+                continue;
+            }
+
+            Particles.resize(SimData.mPositions.size());
+
+            for (Index_t ParticleIndex{}; ParticleIndex < Particles.size(); ++ParticleIndex) {
+                const FVector& Position{SimData.mPositions[ParticleIndex]};
+                const FVector& Normal{SimData.mNormals[ParticleIndex]};
+
+                Particles[ParticleIndex].mPosition = {Position.x, Position.y, Position.z};
+                Particles[ParticleIndex].mNormal = {Normal.x, Normal.y, Normal.z};
+            }
+
+            Renderer::FScenePrimitive::FClothResources& Resources{Primitive.mClothResources[AssetIndex]};
+            Core::FString Error{};
+
+            if (!Resources.mParticles.Upload(mContext, Particles, Error) || (!Resources.mConstants.IsCreated() && !Resources.mConstants.Create(mDevice, Error))) {
+                Core::ErrorHandler::Report("Cloth", "Cannot upload cloth particles: " + Error, Core::ErrorHandler::EErrorLevel::Warning);
+                Primitive.mClothResources.erase(AssetIndex);
+
+                continue;
+            }
+
+            Renderer::FClothConstants Constants{};
+            Constants.mClothLocalToComponent = SimData.mComponentRelativeTransform.ToMatrix();
+            Constants.mClothBlendWeight = Primitive.mProxy.mClothBlendWeight;
+
+            Resources.mConstants.Update(mContext, Constants);
+        }
+
+        Primitive.mUploadedClothRevision = Primitive.mProxy.mClothRevision;
     }
 
     /**

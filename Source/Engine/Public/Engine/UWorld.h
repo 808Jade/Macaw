@@ -21,6 +21,7 @@ namespace Asset {
 }
 
 namespace PhysicsRuntime {
+    class FClothingSystemRuntimeModuleNv;
     class FPhysicsRuntime;
     class FPhysicsScene;
 }
@@ -292,6 +293,18 @@ namespace Engine {
         PhysicsRuntime::FPhysicsRuntime* GetPhysicsRuntime() const;
 
         /**
+         * @brief 컴포넌트가 천 시뮬레이션을 만들 때 쓸 천 시스템 모듈의 비소유 주소를 설정합니다.
+         * @param[in] ClothingSystem 월드보다 오래 유지되는 모듈의 비소유 주소이며, nullptr이면 천을 시뮬레이션하지 않습니다.
+         */
+        void SetClothingSystem(PhysicsRuntime::FClothingSystemRuntimeModuleNv* ClothingSystem);
+
+        /**
+         * @brief 컴포넌트가 천 시뮬레이션을 만들 때 쓸 천 시스템 모듈을 반환합니다.
+         * @return 대상의 비소유 주소이며, 설정되지 않았으면 nullptr입니다.
+         */
+        PhysicsRuntime::FClothingSystemRuntimeModuleNv* GetClothingSystem() const;
+
+        /**
          * @brief 월드가 소유한 물리 장면을 반환합니다.
          * @return 조회한 값의 비소유 주소이며, 장면이 없으면 nullptr입니다.
          */
@@ -552,6 +565,12 @@ namespace Engine {
          * @note 엔진이 월드 컨텍스트를 모두 정리한 뒤 런타임을 종료하므로 월드 수명 동안 유효합니다.
          */
         PhysicsRuntime::FPhysicsRuntime* mPhysicsRuntime{};
+
+        /**
+         * @brief 천 시뮬레이션을 만들 때 빌려 쓰는 천 시스템 모듈입니다.
+         * @note 엔진이 월드 컨텍스트를 모두 정리한 뒤 모듈을 종료하므로 월드 수명 동안 유효합니다.
+         */
+        PhysicsRuntime::FClothingSystemRuntimeModuleNv* mClothingSystem{};
 
         /**
          * @brief 월드가 소유한 물리 장면입니다.

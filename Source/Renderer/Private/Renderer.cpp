@@ -1264,7 +1264,9 @@ namespace Renderer {
     /**
      * @brief 머티리얼별 GPU 파이프라인을 반환합니다.
      */
-    Renderer::FMaterialPipeline* Renderer::FRenderer::GetMaterialPipeline(const Asset::UMaterial& Material, Engine::EViewMode Mode, bool Skinned, bool ReceiveShadows) {
+    Renderer::FMaterialPipeline* Renderer::FRenderer::GetMaterialPipeline(const Asset::UMaterial& Material, Engine::EViewMode Mode, bool Skinned, bool ReceiveShadows, bool Cloth) {
+        Cloth = Cloth && Skinned;
+
         if (Engine::IsBufferVisualization(Mode) && Mode != Engine::EViewMode::WorldNormal && Mode != Engine::EViewMode::SceneDepth) {
             Mode = Engine::EViewMode::Lit_Phong;
         }
@@ -1289,7 +1291,7 @@ namespace Renderer {
         const Renderer::EMeshPass Pass{Translucent ? Renderer::EMeshPass::TranslucencyMeshPass : Renderer::EMeshPass::OpaqueMeshPass};
         const bool Instanced{!Skinned};
         const auto ShaderHandle{Shader->GetHandle()};
-        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : "|Static") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
+        const Core::FString Key{Shader->GetGuid().ToString() + "|" + std::to_string(ShaderHandle.mIndex) + ":" + std::to_string(ShaderHandle.mGeneration) + "|" + ShaderPath + "|" + Shader->GetEntryPoint() + (Shader->WritesGBuffer() ? "|GBuffer" : "|Forward") + (Material.IsTwoSided() ? "|TwoSided" : "|OneSided") + "|" + std::to_string(static_cast<Uint32>(PixelMode)) + (NormalMap ? "|NormalMap" : "|VertexNormal") + (Skinned ? "|Skinned" : "|Static") + (Cloth ? "|Cloth" : "") + (Shadowed ? "|Shadowed" : "|Unshadowed") + (Translucent ? "|Translucent" : "|Opaque")};
         const auto Existing{mMaterialPipelines.find(Key)};
 
         if (Existing != mMaterialPipelines.end()) {
@@ -1309,6 +1311,11 @@ namespace Renderer {
         VertexDescription.mIncludeDirectories = {VertexSource.parent_path(), mShaderDirectory};
         VertexDescription.mEntryPoint = "VertexMain";
         VertexDescription.mTargetProfile = "vs_5_0";
+
+        // 천 섹션은 스키닝한 정점을 천 입자 위치로 옮기는 코드를 함께 컴파일합니다.
+        if (Cloth) {
+            VertexDescription.mMacros.push_back({"MacawCloth", "1"});
+        }
 
         if (PixelMode == Engine::EViewMode::Lit_Gouraud) {
             VertexDescription.mMacros.push_back({"LIGHTING_MODEL_GOURAUD", "1"});
@@ -1386,8 +1393,10 @@ namespace Renderer {
     /**
      * @brief 그림자 아틀라스 깊이 패스에 사용할 깊이 전용 파이프라인을 반환합니다.
      */
-    Renderer::FMaterialPipeline* Renderer::FRenderer::GetDepthPipeline(bool Skinned) {
-        const Core::FString Key{Skinned ? "shaders/depth.hlsl|depth|skinned" : "shaders/depth.hlsl|depth"};
+    Renderer::FMaterialPipeline* Renderer::FRenderer::GetDepthPipeline(bool Skinned, bool Cloth) {
+        Cloth = Cloth && Skinned;
+
+        const Core::FString Key{Skinned ? (Cloth ? "shaders/depth.hlsl|depth|skinned|cloth" : "shaders/depth.hlsl|depth|skinned") : "shaders/depth.hlsl|depth"};
         const auto Existing{mMaterialPipelines.find(Key)};
 
         if (Existing != mMaterialPipelines.end()) {
@@ -1402,6 +1411,10 @@ namespace Renderer {
         Description.mSourcePath = mShaderDirectory / "Depth.hlsl";
         Description.mIncludeDirectories = {Description.mSourcePath.parent_path(), mShaderDirectory};
         Description.mMacros.push_back({Skinned ? "MacawSkinned" : "MacawInstanced", "1"});
+
+        if (Cloth) {
+            Description.mMacros.push_back({"MacawCloth", "1"});
+        }
         Description.mEntryPoint = "VertexMain";
         Description.mTargetProfile = "vs_5_0";
 
@@ -1640,6 +1653,17 @@ namespace Renderer {
                 Command.mPrimitive->mSkinBuffer.Bind(mContext.Get(), RenderCore::EShaderStage::Vertex, 10);
             }
 
+            // 천 섹션은 정점별 입자 삼각형 정보(t11), 입자 위치와 법선(t12), 천 상수(b5)를 Cloth.hlsl에 연결합니다.
+            if (Command.mClothAssetIndex != InvalidIndex) {
+                const auto Resources{Command.mPrimitive->mClothResources.find(Command.mClothAssetIndex)};
+
+                if (Resources != Command.mPrimitive->mClothResources.end()) {
+                    Command.mPrimitive->mProxy.mSkeletalMesh->BindClothVertices(mContext.Get(), 11);
+                    Resources->second.mParticles.Bind(mContext.Get(), RenderCore::EShaderStage::Vertex, 12);
+                    Resources->second.mConstants.Bind(mContext.Get(), RenderCore::EShaderStage::Vertex, 5);
+                }
+            }
+
             if (LastPipeline != Command.mPipeline) {
                 if (SurfacePass) {
                     Renderer::RendererStats::PipelineBinds.Add();
@@ -1709,6 +1733,9 @@ namespace Renderer {
         mMeshInstanceBuffer.Unbind(mContext.Get(), 4);
         Asset::USkeletalMesh::UnbindSkinWeights(mContext.Get(), 5);
         Renderer::FScenePrimitive::FSkinBuffer::Unbind(mContext.Get(), RenderCore::EShaderStage::Vertex, 10);
+        Asset::USkeletalMesh::UnbindClothVertices(mContext.Get(), 11);
+        Renderer::FScenePrimitive::FClothParticleBuffer::Unbind(mContext.Get(), RenderCore::EShaderStage::Vertex, 12);
+        RenderCore::TConstantBuffer<Renderer::FClothConstants>::Unbind(mContext.Get(), RenderCore::EShaderStage::Vertex, 5);
 
 
         if (SurfacePass) {

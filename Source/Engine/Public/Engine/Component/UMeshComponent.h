@@ -119,12 +119,13 @@ namespace Engine {
          */
         void UnregisterComponent() override;
 
-    private:
+    protected:
         /**
          * @brief 월드에 등록된 컴포넌트가 참조하는 에셋과 렌더 상태를 준비합니다.
          */
         void OnRegister() override;
 
+    private:
         /**
          * @brief 월드의 에셋 관리자에서 지정한 머티리얼을 조회합니다.
          * @param[in] Path 작업에 사용할 파일 또는 프로젝트 상대 에셋 경로입니다.

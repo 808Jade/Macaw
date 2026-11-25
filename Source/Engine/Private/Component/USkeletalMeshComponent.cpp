@@ -26,12 +26,17 @@
 #include "CoreUObject/Reflection/FProperty.h"
 #include "CoreUObject/Reflection/FReflectionRegistry.h"
 #include "CoreUObject/Reflection/UClass.h"
+#include "Engine/FPrimitiveDrawInterface.h"
+#include "PhysicsRuntime/FClothingSystemRuntimeModuleNv.h"
 #include "PhysicsRuntime/FConstraintInstance.h"
+#include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "PhysicsRuntime/UPhysicsAsset.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <utility>
 
 namespace Engine {
@@ -201,6 +206,9 @@ namespace Engine {
         MarkRenderStateDirty();
         RecreatePhysicsState();
 
+        // 메시가 바뀌었으므로 새 메시의 천 에셋으로 천을 다시 만듭니다.
+        RecreateClothingActors();
+
         return true;
     }
 
@@ -246,6 +254,9 @@ namespace Engine {
 
             // 뼈 번호와 위치가 바뀌었으므로 뼈별 바디를 다시 만듭니다.
             RecreatePhysicsState();
+
+            // 천 에셋도 메시에 붙어 있으므로 새 메시의 천 에셋으로 천을 다시 만듭니다.
+            RecreateClothingActors();
         }
 
         return (mMeshPath.empty() || mSkeletalMesh != nullptr) && (mSkeletonPath.empty() || mSkeleton != nullptr);
@@ -348,11 +359,21 @@ namespace Engine {
 
         if (Scene != nullptr && GetPhysicsAsset() != nullptr) {
             InitArticulated(*Scene);
-
-            return;
+        } else {
+            Engine::UMeshComponent::OnCreatePhysicsState();
         }
+    }
 
-        Engine::UMeshComponent::OnCreatePhysicsState();
+    /**
+     * @brief 메시와 머티리얼을 해석하고 천 에셋마다 천을 만듭니다.
+     */
+    void USkeletalMeshComponent::OnRegister() {
+        Engine::UMeshComponent::OnRegister();
+
+        // 메시 해석에서 메시가 바뀌었으면 이미 천을 만들었으므로, 아직 없을 때만 만듭니다.
+        if (mClothingSimulation == nullptr) {
+            RecreateClothingActors();
+        }
     }
 
     /**
@@ -638,12 +659,344 @@ namespace Engine {
     }
 
     /**
+     * @brief 천 시뮬레이션을 준비하고 섹션에 연결된 천 에셋마다 천을 다시 만듭니다.
+     */
+    void USkeletalMeshComponent::RecreateClothingActors() {
+        ReleaseAllClothingResources();
+
+        if (mSkeletalMesh == nullptr || !IsRegistered()) {
+            return;
+        }
+
+        const auto& MeshClothingAssets{mSkeletalMesh->GetMeshClothingAssets()};
+
+        // 천 에셋이 없으면 가지고 있던 시뮬레이션도 해제합니다.
+        if (MeshClothingAssets.empty()) {
+            if (mClothingSimulation != nullptr) {
+                mClothingSimulation->Shutdown();
+                mClothingSimulation.reset();
+            }
+
+            return;
+        }
+
+        Engine::UWorld* const World{GetWorld()};
+
+        if (mClothingSimulation == nullptr && World != nullptr && World->GetClothingSystem() != nullptr) {
+            mClothingSimulation = World->GetClothingSystem()->CreateSimulation();
+        }
+
+        if (mClothingSimulation == nullptr) {
+            return;
+        }
+
+        // 불러온 천 에셋의 사용 뼈를 이 스켈레톤의 뼈 번호로 다시 찾습니다.
+        if (mSkeleton != nullptr) {
+            Core::TArray<Core::FString> SkeletonBoneNames{};
+            SkeletonBoneNames.reserve(mSkeleton->GetBones().size());
+
+            for (const Asset::FMeshImportBone& Bone : mSkeleton->GetBones()) {
+                SkeletonBoneNames.push_back(Bone.GetName());
+            }
+
+            for (const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset : MeshClothingAssets) {
+                ClothingAsset->RefreshBoneMapping(SkeletonBoneNames);
+            }
+        }
+
+        // 섹션에 연결된 천 에셋만 천으로 만듭니다.
+        Core::TArray<const PhysicsRuntime::UClothingAssetCommon*> AssetsInUse{};
+        mSkeletalMesh->GetClothingAssetsInUse(AssetsInUse);
+
+        // 첫 진행에서 순간 이동으로 보지 않도록 지금 기준 뼈 위치를 지난 위치로 둡니다.
+        mPrevRootBoneMatrix = GetClothRootBoneWorldMatrix();
+        mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
+
+        UpdateClothSimulationContext(0.0f);
+
+        for (Index_t AssetIndex{}; AssetIndex < MeshClothingAssets.size(); ++AssetIndex) {
+            const PhysicsRuntime::UClothingAssetCommon* const ClothingAsset{MeshClothingAssets[AssetIndex].get()};
+
+            if (ClothingAsset != nullptr && std::find(AssetsInUse.begin(), AssetsInUse.end(), ClothingAsset) != AssetsInUse.end()) {
+                mClothingSimulation->CreateActor(*ClothingAsset, AssetIndex, mClothingSimulationContext);
+            }
+        }
+
+        WritebackClothingSimulationData();
+    }
+
+    /**
+     * @brief 만든 천과 마지막 결과를 모두 해제합니다.
+     */
+    void USkeletalMeshComponent::ReleaseAllClothingResources() {
+        RemoveAllClothingActors();
+        mCurrentSimulationData.clear();
+    }
+
+    /**
+     * @brief 만든 천을 모두 해제합니다.
+     */
+    void USkeletalMeshComponent::RemoveAllClothingActors() {
+        if (mClothingSimulation != nullptr) {
+            mClothingSimulation->DestroyActors();
+        }
+    }
+
+    /**
+     * @brief 천 시뮬레이션이 있으면 이번 프레임의 입력을 채워 천을 진행합니다.
+     */
+    void USkeletalMeshComponent::TickClothing(float DeltaTime) {
+        if (mSkeletalMesh == nullptr || mClothingSimulation == nullptr) {
+            return;
+        }
+
+        UpdateClothStateAndSimulate(DeltaTime);
+    }
+
+    /**
+     * @brief 이번 프레임의 입력을 채워 천을 진행하고 결과를 저장합니다.
+     */
+    void USkeletalMeshComponent::UpdateClothStateAndSimulate(float DeltaTime) {
+        // 시간이 0이면 솔버가 속도를 구할 수 없으므로 진행하지 않습니다.
+        if (DeltaTime == 0.0f || mClothingSimulation == nullptr) {
+            return;
+        }
+
+        UpdateClothSimulationContext(DeltaTime);
+        mClothingSimulation->Simulate(mClothingSimulationContext);
+        WritebackClothingSimulationData();
+
+        // 렌더러가 새 입자 위치로 천 섹션을 그리도록 프록시를 다시 만듭니다.
+        MarkRenderStateDirty();
+    }
+
+    /**
+     * @brief 현재 포즈, 변환, 시간, 중력으로 천 시뮬레이션 입력을 채웁니다.
+     */
+    void USkeletalMeshComponent::UpdateClothSimulationContext(float DeltaTime) {
+        // 한 프레임이 너무 길면 천이 튀므로 물리 한 번에 진행할 최대 시간으로 자릅니다.
+        constexpr float MaxPhysicsDelta{1.0f / 30.0f};
+
+        // 프레임이 최대 시간의 이 배수보다 길면 관성 대신 순간 이동으로 처리합니다.
+        constexpr float MaxDeltaTimeTeleportMultiplier{1.5f};
+
+        // 진행할 때만 순간 이동을 검사합니다. 처음 천을 만들 때는 이미 지금 위치에 놓습니다.
+        if (DeltaTime > 0.0f) {
+            CheckClothTeleport();
+        }
+
+        const Engine::UWorld* const World{GetWorld()};
+        const PhysicsRuntime::FPhysicsRuntime* const Runtime{World != nullptr ? World->GetPhysicsRuntime() : nullptr};
+
+        mClothingSimulationContext.mBoneTransforms = mPose.GetGlobalTransforms();
+        mClothingSimulationContext.mRefToLocals = mPose.GetSkinMatrices();
+        mClothingSimulationContext.mComponentToWorld = GetWorldMatrix();
+        mClothingSimulationContext.mWorldGravity = Runtime != nullptr ? Runtime->GetSettings().mGravity : FVector{0.0f, 0.0f, -9.81f};
+        mClothingSimulationContext.mDeltaSeconds = std::min(DeltaTime, MaxPhysicsDelta);
+        mClothingSimulationContext.mPredictedLod = 0;
+        mClothingSimulationContext.mMaxDistanceScale = mClothMaxDistanceScale;
+
+        // 바람이 불면 바람에 맞추는 정도를 매 프레임 조금씩 흔들어 돌풍처럼 보이게 합니다.
+        mClothingSimulationContext.mWindVelocity = mClothWindVelocity;
+        mClothingSimulationContext.mWindAdaption = mClothWindVelocity.LengthSquared() > 0.0f ? static_cast<float>(std::rand() % 20) * 0.1f : 2.0f;
+
+        mClothingSimulationContext.mTeleportMode = DeltaTime > MaxPhysicsDelta * MaxDeltaTimeTeleportMultiplier ? PhysicsRuntime::EClothingTeleportMode::Teleport : mClothTeleportMode;
+
+        // 요청한 순간 이동은 이번 진행 한 번에만 씁니다.
+        if (DeltaTime > 0.0f) {
+            mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
+        }
+    }
+
+    /**
+     * @brief 기준 뼈의 지금 월드 행렬을 구합니다.
+     */
+    FMatrix USkeletalMeshComponent::GetClothRootBoneWorldMatrix() const {
+        const Core::TArray<FMatrix>& BoneTransforms{mPose.GetGlobalTransforms()};
+
+        return BoneTransforms.empty() ? GetWorldMatrix() : BoneTransforms[0] * GetWorldMatrix();
+    }
+
+    /**
+     * @brief 기준 뼈가 한 프레임에 너무 멀리 움직이거나 많이 돌았으면 천 순간 이동을 요청합니다.
+     */
+    void USkeletalMeshComponent::CheckClothTeleport() {
+        const FMatrix CurRootBoneMatrix{GetClothRootBoneWorldMatrix()};
+        const PhysicsRuntime::EClothingTeleportMode RequestedMode{mResetAfterTeleport ? PhysicsRuntime::EClothingTeleportMode::TeleportAndReset : PhysicsRuntime::EClothingTeleportMode::Teleport};
+        FTransform CurRoot{};
+        FTransform PrevRoot{};
+        const bool HasTransforms{CurRootBoneMatrix.TryGetTransform(CurRoot) && mPrevRootBoneMatrix.TryGetTransform(PrevRoot)};
+
+        // 거리 검사입니다.
+        if (HasTransforms && mTeleportDistanceThreshold > 0.0f && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
+            if ((CurRoot.mLocation - PrevRoot.mLocation).LengthSquared() > mTeleportDistanceThreshold * mTeleportDistanceThreshold) {
+                mClothTeleportMode = RequestedMode;
+            }
+        }
+
+        // 회전 검사입니다. 두 회전 사이 각도의 코사인을 사원수 내적으로 구합니다.
+        if (HasTransforms && mTeleportRotationThreshold > 0.0f && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
+            const FQuat& A{CurRoot.mRotation};
+            const FQuat& B{PrevRoot.mRotation};
+            const float Dot{A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w};
+            const float CosineTheta{2.0f * Dot * Dot - 1.0f};
+            const float CosineThreshold{std::cos(mTeleportRotationThreshold * 3.14159265f / 180.0f)};
+
+            if (CosineTheta < CosineThreshold) {
+                mClothTeleportMode = RequestedMode;
+            }
+        }
+
+        mPrevRootBoneMatrix = CurRootBoneMatrix;
+    }
+
+    /**
+     * @brief 천에 부는 월드 좌표 바람 속도를 반환합니다.
+     */
+    const FVector& USkeletalMeshComponent::GetClothWindVelocity() const {
+        return mClothWindVelocity;
+    }
+
+    /**
+     * @brief 천에 부는 월드 좌표 바람 속도를 설정합니다.
+     */
+    bool USkeletalMeshComponent::SetClothWindVelocity(const FVector& Velocity) {
+        mClothWindVelocity = Velocity;
+
+        return true;
+    }
+
+    /**
+     * @brief 다음 천 진행에서 천을 새 위치로 옮기되 속도는 유지하게 합니다.
+     */
+    void USkeletalMeshComponent::ForceClothNextUpdateTeleport() {
+        mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::Teleport;
+    }
+
+    /**
+     * @brief 다음 천 진행에서 천을 새 위치로 옮기고 입자를 스키닝 위치에 다시 놓게 합니다.
+     */
+    void USkeletalMeshComponent::ForceClothNextUpdateTeleportAndReset() {
+        mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::TeleportAndReset;
+    }
+
+    /**
+     * @brief 요청한 천 순간 이동을 취소합니다.
+     */
+    void USkeletalMeshComponent::ResetClothTeleportMode() {
+        mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
+    }
+
+    /**
+     * @brief 천 입자의 최대 거리에 곱할 배율을 반환합니다.
+     */
+    float USkeletalMeshComponent::GetClothMaxDistanceScale() const {
+        return mClothMaxDistanceScale;
+    }
+
+    /**
+     * @brief 천 입자의 최대 거리에 곱할 배율을 설정합니다.
+     */
+    void USkeletalMeshComponent::SetClothMaxDistanceScale(float Scale) {
+        mClothMaxDistanceScale = Scale;
+    }
+
+    /**
+     * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율을 반환합니다.
+     */
+    float USkeletalMeshComponent::GetClothBlendWeight() const {
+        return mClothBlendWeight;
+    }
+
+    /**
+     * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율을 설정합니다.
+     */
+    void USkeletalMeshComponent::SetClothBlendWeight(float BlendWeight) {
+        mClothBlendWeight = std::clamp(BlendWeight, 0.0f, 1.0f);
+        MarkRenderStateDirty();
+    }
+
+    /**
+     * @brief 천 시뮬레이션 결과를 컴포넌트에 저장합니다.
+     */
+    void USkeletalMeshComponent::WritebackClothingSimulationData() {
+        if (mClothingSimulation != nullptr) {
+            mClothingSimulation->GetSimulationData(mCurrentSimulationData, mClothingSimulationContext);
+        }
+
+        mClothRevision = Core::FRevision::Next();
+    }
+
+    /**
+     * @brief 천마다 시뮬레이션 결과를 새로 꺼냅니다.
+     */
+    void USkeletalMeshComponent::GetUpdateClothSimulationData(Core::TMap<Index_t, PhysicsRuntime::FClothSimulData>& OutClothSimData) const {
+        if (mClothingSimulation != nullptr) {
+            mClothingSimulation->GetSimulationData(OutClothSimData, mClothingSimulationContext);
+        }
+    }
+
+    /**
+     * @brief 마지막 프레임에 저장한 천 시뮬레이션 결과를 반환합니다.
+     */
+    const Core::TMap<Index_t, PhysicsRuntime::FClothSimulData>& USkeletalMeshComponent::GetCurrentClothingData() const {
+        return mCurrentSimulationData;
+    }
+
+    /**
+     * @brief 마지막 천 시뮬레이션 결과의 삼각형 변을 선분으로 그립니다.
+     */
+    void USkeletalMeshComponent::DebugDrawClothing(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const {
+        if (mSkeletalMesh == nullptr) {
+            return;
+        }
+
+        const auto& MeshClothingAssets{mSkeletalMesh->GetMeshClothingAssets()};
+        const FVector FixedColor{0.95f, 0.2f, 0.2f};
+        const FVector MovableColor{0.3f, 0.9f, 0.3f};
+
+        for (const auto& [AssetIndex, ClothData] : mCurrentSimulationData) {
+            if (AssetIndex >= MeshClothingAssets.size() || MeshClothingAssets[AssetIndex] == nullptr) {
+                continue;
+            }
+
+            // 메시 상세 단계 0에 연결된 천 상세 단계의 삼각형으로 그립니다.
+            const PhysicsRuntime::UClothingAssetCommon& ClothingAsset{*MeshClothingAssets[AssetIndex]};
+            const Index_t LodIndex{ClothingAsset.mLodMap.empty() ? 0 : ClothingAsset.mLodMap[0]};
+
+            if (!ClothingAsset.IsValidLod(LodIndex)) {
+                continue;
+            }
+
+            const PhysicsRuntime::FClothPhysicalMeshData& PhysMesh{ClothingAsset.mLodData[LodIndex].mPhysicalMeshData};
+
+            if (ClothData.mPositions.size() != PhysMesh.mVertices.size()) {
+                continue;
+            }
+
+            for (Index_t TriangleBaseIndex{}; TriangleBaseIndex + 2 < PhysMesh.mIndices.size(); TriangleBaseIndex += 3) {
+                for (Index_t Corner{}; Corner < 3; ++Corner) {
+                    const Uint32 Start{PhysMesh.mIndices[TriangleBaseIndex + Corner]};
+                    const Uint32 End{PhysMesh.mIndices[TriangleBaseIndex + (Corner + 1) % 3]};
+                    const bool Fixed{PhysMesh.mInverseMasses[Start] == 0.0f && PhysMesh.mInverseMasses[End] == 0.0f};
+
+                    DrawInterface.DrawLine(ClothData.mTransform.TransformPosition(ClothData.mPositions[Start]), ClothData.mTransform.TransformPosition(ClothData.mPositions[End]), Fixed ? FixedColor : MovableColor, true, Thickness);
+                }
+            }
+        }
+    }
+
+    /**
      * @brief 재등록 때 재해석하도록 에셋 참조를 해제합니다.
      */
     void USkeletalMeshComponent::UnregisterComponent() {
         Engine::UWorld::FDispatchScope Scope{GetWorld()};
 
         Engine::UMeshComponent::UnregisterComponent();
+
+        // 시뮬레이션은 천 시스템 모듈이 만들었으므로 월드와 모듈이 정리되기 전에 해제합니다.
+        ReleaseAllClothingResources();
+        mClothingSimulation.reset();
 
         mPreviewAssets = false;
         mSkeletalMesh = nullptr;
@@ -669,6 +1022,9 @@ namespace Engine {
             TickAnimation(DeltaTime);
             UpdateKinematicBonesToAnim();
         }
+
+        // 이번 프레임의 포즈가 정해진 뒤에 천을 진행합니다.
+        TickClothing(DeltaTime);
     }
 
     void USkeletalMeshComponent::BeginPlay() {
@@ -1048,6 +1404,13 @@ namespace Engine {
             Proxy.mSkeletalMesh = mSkeletalMesh;
             Proxy.mSkinMatrices = mPose.GetSkinMatrices();
             Proxy.mPoseRevision = mPose.GetRevision();
+
+            // 천 섹션은 렌더러가 이 결과의 입자 위치로 정점을 옮겨 그립니다.
+            if (mClothingSimulation != nullptr && !mCurrentSimulationData.empty()) {
+                Proxy.mClothSimData = mCurrentSimulationData;
+                Proxy.mClothBlendWeight = mClothBlendWeight;
+                Proxy.mClothRevision = mClothRevision;
+            }
         }
 
         return Proxy;

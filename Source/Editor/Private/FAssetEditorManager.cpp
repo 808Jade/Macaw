@@ -23,6 +23,7 @@
 #include "Engine/FProject.h"
 #include "Engine/AActor.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
+#include "Engine/UWorld.h"
 #include "CoreUObject/Reflection/Cast.h"
 #include "Asset/UMaterial.h"
 #include "Asset/UTexture2D.h"
@@ -635,6 +636,12 @@ void FAssetEditorManager::OpenContentAsset(const std::filesystem::path& Path, As
     } else if (Type == Asset::EAssetType::Mesh || Type == Asset::EAssetType::SkeletalMesh) {
         auto Content{std::make_unique<FMeshViewer>(mContext->GetRenderer(), Assets)};
         Content->SetWindowId("###Mesh Viewer:" + Key);
+
+        // 미리 보기에서 천을 움직이도록 엔진의 천 시스템을 넘깁니다.
+        if (Engine::UWorld* World{mContext->GetWorld()}) {
+            Content->SetClothingSystem(World->GetClothingSystem());
+        }
+
         if (Content->Open(Path, Error)) {
             const Core::FString Name{Content->GetWindowId()};
             Toolkit = std::make_unique<FHostedAssetEditorToolkit>(mContext, mPlatform, Path, Type, Name, std::move(Content), mMessages);

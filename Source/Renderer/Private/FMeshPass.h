@@ -113,6 +113,14 @@ namespace Renderer {
          */
         virtual void AddCommands(const Renderer::FScenePrimitive& Primitive, Asset::UStaticMesh& Mesh, const Engine::FSceneViewFamily& Family, Core::TArray<Renderer::FMeshDrawCommand>& Commands) = 0;
 
+        /**
+         * @brief SubMesh가 이번 프레임에 천 결과로 그려야 하는 천 섹션인지 검사합니다.
+         * @param[in] Primitive 천 입자 버퍼를 가진 렌더 프리미티브입니다.
+         * @param[in] SubMeshIndex 검사할 SubMesh 번호입니다.
+         * @return 천 섹션이고 메시의 천 정점 버퍼와 입자 버퍼가 준비되어 있으면 그 천 에셋 번호, 아니면 InvalidIndex입니다.
+         */
+        static Index_t GetClothAssetIndex(const Renderer::FScenePrimitive& Primitive, Index_t SubMeshIndex);
+
     protected:
         /**
          * @brief 파이프라인과 기본 머티리얼을 조회할 렌더러의 비소유 주소입니다.

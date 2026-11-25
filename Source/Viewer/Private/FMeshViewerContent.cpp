@@ -221,6 +221,13 @@ void FMeshViewerContent::Synchronize() {
         Proxy.mSkeletalMesh = mSkeletalMesh;
         Proxy.mSkinMatrices = mPose.GetSkinMatrices();
         Proxy.mPoseRevision = mPose.GetRevision();
+
+        // 천 섹션은 렌더러가 이 결과의 입자 위치로 정점을 옮겨 그립니다.
+        if (!mClothSimData.empty()) {
+            Proxy.mClothSimData = mClothSimData;
+            Proxy.mClothBlendWeight = 1.0f;
+            Proxy.mClothRevision = mClothRevision;
+        }
     }
 
     mBounds = Proxy.mBounds;
@@ -275,4 +282,31 @@ bool FMeshViewerContent::SetSkeleton(Asset::USkeleton* Skeleton) {
 void FMeshViewerContent::Refresh() {
     mDirty = true;
     Synchronize();
+}
+
+/**
+ * @brief 천 섹션을 그릴 천 시뮬레이션 결과를 넣고 미리 보기 프록시를 다시 만듭니다.
+ */
+void FMeshViewerContent::SetClothSimulationData(Core::TMap<Index_t, PhysicsRuntime::FClothSimulData> Data) {
+    // 천을 새로 만들면 섹션 연결이 바뀌어 천 정점 버퍼가 비워지므로 다시 준비합니다.
+    if (mSkeletalMesh != nullptr && mRenderer != nullptr && !Data.empty()) {
+        mSkeletalMesh->CreateResources(static_cast<ID3D11Device*>(mRenderer->GetNativeDevice()));
+    }
+
+    mClothSimData = std::move(Data);
+    mClothRevision = Core::FRevision::Next();
+    Refresh();
+}
+
+/**
+ * @brief 천 시뮬레이션 결과를 비워 천 섹션을 스키닝 위치로 그리게 합니다.
+ */
+void FMeshViewerContent::ClearClothSimulationData() {
+    if (mClothSimData.empty()) {
+        return;
+    }
+
+    mClothSimData.clear();
+    mClothRevision = Core::FRevision::Next();
+    Refresh();
 }

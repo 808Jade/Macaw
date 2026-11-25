@@ -13,7 +13,9 @@
 #include "Viewer/FBonePreview.h"
 #include "Asset/FAssetFile.h"
 #include "Core/Guid.h"
+#include "Core/FRevision.h"
 #include "Engine/FSkeletalMeshPose.h"
+#include "PhysicsRuntime/FClothSimulData.h"
 
 namespace CoreUObject {
     class UObject;
@@ -153,6 +155,18 @@ namespace Viewer {
          */
         void Refresh();
 
+        /**
+         * @brief 천 섹션을 그릴 천 시뮬레이션 결과를 넣고 미리 보기 프록시를 다시 만듭니다.
+         * @details 섹션 천 연결이 바뀌었을 수 있으므로 메시의 천 정점 버퍼도 함께 준비합니다.
+         * @param[in] Data 메시 천 에셋 번호를 키로 한 천 시뮬레이션 결과입니다.
+         */
+        void SetClothSimulationData(Core::TMap<Index_t, PhysicsRuntime::FClothSimulData> Data);
+
+        /**
+         * @brief 천 시뮬레이션 결과를 비워 천 섹션을 스키닝 위치로 그리게 합니다.
+         */
+        void ClearClothSimulationData();
+
     private:
 
         /**
@@ -232,5 +246,15 @@ namespace Viewer {
          * @brief 저장 또는 장면 동기화가 필요한 변경이 있는지 여부입니다.
          */
         bool mDirty{true};
+
+        /**
+         * @brief 천 섹션을 그릴 마지막 천 시뮬레이션 결과입니다.
+         */
+        Core::TMap<Index_t, PhysicsRuntime::FClothSimulData> mClothSimData{};
+
+        /**
+         * @brief 천 시뮬레이션 결과를 넣을 때마다 바뀌는 개정 번호입니다.
+         */
+        Core::FRevision mClothRevision{};
     };
 }

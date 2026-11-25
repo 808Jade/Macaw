@@ -12,6 +12,9 @@
 #include "Engine/Component/UMeshComponent.h"
 #include "Engine/Animation/UAnimInstance.h"
 #include "Engine/FSkeletalMeshPose.h"
+#include "PhysicsRuntime/FClothSimulData.h"
+#include "PhysicsRuntime/FClothingSimulationContextCommon.h"
+#include "PhysicsRuntime/IClothingSimulation.h"
 
 #include <memory>
 #include "USkeletalMeshComponent.generated.h"
@@ -30,6 +33,7 @@ namespace PhysicsRuntime {
 
 namespace Engine {
 
+    class FPrimitiveDrawInterface;
     class UAnimInstance;
     class UAnimSingleNodeInstance;
 
@@ -169,6 +173,96 @@ namespace Engine {
          * @return 컴포넌트가 소유한 포즈입니다.
          */
         const Engine::FSkeletalMeshPose& GetPose() const;
+
+        /**
+         * @brief 천 시뮬레이션을 준비하고 섹션에 연결된 천 에셋마다 천을 다시 만듭니다.
+         * @details 물리 장면이 있는 월드에서만 천을 만들고, 메시에 천 에셋이 없으면 시뮬레이션을 해제합니다.
+         */
+        void RecreateClothingActors();
+
+        /**
+         * @brief 만든 천과 마지막 결과를 모두 해제합니다.
+         */
+        void ReleaseAllClothingResources();
+
+        /**
+         * @brief 천 시뮬레이션이 있으면 이번 프레임의 입력을 채워 천을 진행합니다.
+         * @param[in] DeltaTime 초 단위 프레임 시간입니다.
+         */
+        void TickClothing(float DeltaTime);
+
+        /**
+         * @brief 천마다 시뮬레이션 결과를 새로 꺼냅니다.
+         * @param[out] OutClothSimData 메시 천 에셋 번호를 키로 한 결과입니다.
+         */
+        void GetUpdateClothSimulationData(Core::TMap<Index_t, PhysicsRuntime::FClothSimulData>& OutClothSimData) const;
+
+        /**
+         * @brief 마지막 프레임에 저장한 천 시뮬레이션 결과를 반환합니다.
+         * @return 메시 천 에셋 번호를 키로 한 결과의 읽기 전용 참조입니다.
+         */
+        const Core::TMap<Index_t, PhysicsRuntime::FClothSimulData>& GetCurrentClothingData() const;
+
+        /**
+         * @brief 마지막 천 시뮬레이션 결과의 삼각형 변을 선분으로 그립니다.
+         * @details 두 끝 입자가 모두 고정된 변은 빨강, 나머지는 초록으로 그립니다.
+         * @param[in,out] DrawInterface 선분을 수집할 그리기 인터페이스입니다.
+         * @param[in] Thickness 선분 두께입니다.
+         */
+        void DebugDrawClothing(Engine::FPrimitiveDrawInterface& DrawInterface, float Thickness) const;
+
+        /**
+         * @brief 천 입자의 최대 거리에 곱할 배율을 반환합니다.
+         * @return 1이면 천 에셋의 최대 거리를 그대로 씁니다.
+         */
+        float GetClothMaxDistanceScale() const;
+
+        /**
+         * @brief 천 입자의 최대 거리에 곱할 배율을 설정합니다.
+         * @details 0이면 모든 입자가 스키닝 위치에 붙어 애니메이션만 따라갑니다.
+         * @param[in] Scale 최대 거리 배율입니다.
+         */
+        void SetClothMaxDistanceScale(float Scale);
+
+        /**
+         * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율을 반환합니다.
+         * @return 0이면 스키닝 위치, 1이면 시뮬레이션 위치입니다.
+         */
+        float GetClothBlendWeight() const;
+
+        /**
+         * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율을 설정합니다.
+         * @param[in] BlendWeight 0에서 1 사이 값이며 범위를 벗어나면 잘라 냅니다.
+         */
+        void SetClothBlendWeight(float BlendWeight);
+
+        /**
+         * @brief 천에 부는 월드 좌표 바람 속도를 반환합니다.
+         * @return 바람 속도(m/s)입니다.
+         */
+        const FVector& GetClothWindVelocity() const;
+
+        /**
+         * @brief 천에 부는 월드 좌표 바람 속도를 설정합니다.
+         * @param[in] Velocity 바람 속도(m/s)입니다.
+         * @return 항상 true입니다.
+         */
+        bool SetClothWindVelocity(const FVector& Velocity);
+
+        /**
+         * @brief 다음 천 진행에서 천을 새 위치로 옮기되 속도는 유지하게 합니다.
+         */
+        void ForceClothNextUpdateTeleport();
+
+        /**
+         * @brief 다음 천 진행에서 천을 새 위치로 옮기고 입자를 스키닝 위치에 다시 놓게 합니다.
+         */
+        void ForceClothNextUpdateTeleportAndReset();
+
+        /**
+         * @brief 요청한 천 순간 이동을 취소합니다.
+         */
+        void ResetClothTeleportMode();
 
         /**
          * @brief 본 하나의 부모 기준 변환을 변경합니다.
@@ -419,6 +513,11 @@ namespace Engine {
 
     protected:
         /**
+         * @brief 메시와 머티리얼을 해석하고 천 에셋마다 천을 만듭니다.
+         */
+        void OnRegister() override;
+
+        /**
          * @brief 물리 에셋이 있으면 뼈마다 바디를 만들고 관절로 잇고, 없으면 메시 전체 바디 하나를 만듭니다.
          */
         void OnCreatePhysicsState() override;
@@ -452,6 +551,39 @@ namespace Engine {
          * @brief 키네마틱 바디를 현재 애니메이션 포즈의 뼈 위치로 옮깁니다.
          */
         void UpdateKinematicBonesToAnim();
+
+        /**
+         * @brief 만든 천을 모두 해제합니다.
+         */
+        void RemoveAllClothingActors();
+
+        /**
+         * @brief 이번 프레임의 입력을 채워 천을 진행하고 결과를 저장합니다.
+         * @param[in] DeltaTime 초 단위 프레임 시간이며 0이면 진행하지 않습니다.
+         */
+        void UpdateClothStateAndSimulate(float DeltaTime);
+
+        /**
+         * @brief 현재 포즈, 변환, 시간, 중력으로 천 시뮬레이션 입력을 채웁니다.
+         * @param[in] DeltaTime 초 단위 프레임 시간입니다.
+         */
+        void UpdateClothSimulationContext(float DeltaTime);
+
+        /**
+         * @brief 기준 뼈가 한 프레임에 너무 멀리 움직이거나 많이 돌았으면 천 순간 이동을 요청합니다.
+         */
+        void CheckClothTeleport();
+
+        /**
+         * @brief 기준 뼈의 지금 월드 행렬을 구합니다.
+         * @return 기준 뼈의 월드 행렬이며 포즈가 없으면 컴포넌트의 월드 행렬입니다.
+         */
+        FMatrix GetClothRootBoneWorldMatrix() const;
+
+        /**
+         * @brief 천 시뮬레이션 결과를 컴포넌트에 저장합니다.
+         */
+        void WritebackClothingSimulationData();
 
         /**
          * @brief 메시 경로를 에셋 관리자에서 해석합니다.
@@ -598,6 +730,70 @@ namespace Engine {
          * @note 관절은 userData가 주소를 가리키므로 포인터로 보관합니다.
          */
         Core::TArray<std::unique_ptr<PhysicsRuntime::FConstraintInstance>> mConstraints{};
+
+        /**
+         * @brief 이 컴포넌트의 천을 진행하는 시뮬레이션이며 천 에셋이 없으면 비어 있습니다.
+         * @note 천 시스템 모듈이 만들었으므로 모듈보다 먼저 해제해야 합니다.
+         */
+        std::unique_ptr<PhysicsRuntime::IClothingSimulation> mClothingSimulation{};
+
+        /**
+         * @brief 천 시뮬레이션에 넘기는 이번 프레임의 입력입니다.
+         */
+        PhysicsRuntime::FClothingSimulationContextCommon mClothingSimulationContext{};
+
+        /**
+         * @brief 천 입자의 최대 거리에 곱할 배율이며 매 프레임 천 시뮬레이션 입력에 넣습니다.
+         */
+        UPROPERTY(Edit, Serialize, Name = "ClothMaxDistanceScale", Getter = GetClothMaxDistanceScale, Setter = SetClothMaxDistanceScale)
+        float mClothMaxDistanceScale{1.0f};
+
+        /**
+         * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율입니다.
+         */
+        UPROPERTY(Edit, Serialize, Name = "ClothBlendWeight", Getter = GetClothBlendWeight, Setter = SetClothBlendWeight)
+        float mClothBlendWeight{1.0f};
+
+        /**
+         * @brief 천 결과를 마지막으로 저장할 때 받은 개정이며 렌더러가 입자 버퍼를 다시 올릴지 판단합니다.
+         */
+        Core::FRevision mClothRevision{};
+
+        /**
+         * @brief 천에 부는 월드 좌표 바람 속도(m/s)입니다.
+         */
+        UPROPERTY(Edit, Serialize, Name = "ClothWindVelocity", Getter = GetClothWindVelocity, Setter = SetClothWindVelocity)
+        FVector mClothWindVelocity{};
+
+        /**
+         * @brief 기준 뼈가 한 프레임에 이 거리(m)보다 멀리 움직이면 천을 순간 이동시키며 0이면 검사하지 않습니다.
+         */
+        float mTeleportDistanceThreshold{3.0f};
+
+        /**
+         * @brief 기준 뼈가 한 프레임에 이 각도(도)보다 많이 돌면 천을 순간 이동시키며 0이면 검사하지 않습니다.
+         */
+        float mTeleportRotationThreshold{};
+
+        /**
+         * @brief 순간 이동할 때 입자를 스키닝 위치에 다시 놓을지 나타냅니다.
+         */
+        bool mResetAfterTeleport{true};
+
+        /**
+         * @brief 다음 천 진행에 쓸 순간 이동 방식입니다.
+         */
+        PhysicsRuntime::EClothingTeleportMode mClothTeleportMode{PhysicsRuntime::EClothingTeleportMode::None};
+
+        /**
+         * @brief 지난 천 진행 때 기준 뼈의 월드 행렬이며 순간 이동을 판단할 때 씁니다.
+         */
+        FMatrix mPrevRootBoneMatrix{};
+
+        /**
+         * @brief 메시 천 에셋 번호를 키로 한 마지막 천 시뮬레이션 결과입니다.
+         */
+        Core::TMap<Index_t, PhysicsRuntime::FClothSimulData> mCurrentSimulationData{};
 
         // 메시 setter가 포즈를 초기화하므로 메시 경로를 복원한 뒤에 로드합니다.
     };

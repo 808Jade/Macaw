@@ -522,12 +522,17 @@ namespace Asset {
          * @param PhysicsAssetPath 메시가 참조하는 물리 에셋 경로입니다.
          * @param LegacyBones 구형 파일의 본 데이터를 받을 선택 출력 배열입니다.
          */
-        void SerializeSkeletalMesh(Serialization::FMemoryArchive& Archive, Asset::FMeshData& Mesh, Core::TArray<Asset::FMeshImportSkinWeight>& SkinWeights, Core::FString& PhysicsAssetPath, Core::TArray<Asset::FMeshImportBone>* LegacyBones = nullptr) {
-            Uint32 Version{3};
+        void SerializeSkeletalMesh(Serialization::FMemoryArchive& Archive, Asset::FMeshData& Mesh, Core::TArray<Asset::FMeshImportSkinWeight>& SkinWeights, Core::FString& PhysicsAssetPath, Core::TArray<Asset::FMeshImportBone>* LegacyBones = nullptr, Uint32* OutVersion = nullptr) {
+            // 4: 물리 에셋 경로 뒤에 천 에셋과 섹션 연결 데이터가 이어집니다. 그 부분은 메시 객체가 직접 읽고 씁니다.
+            Uint32 Version{4};
 
             Archive.Serialize("SkeletalMeshVersion", Version);
 
-            if (Archive.HasError() || (Version != 3 && Version != 2 && (Version != 1 || LegacyBones == nullptr))) {
+            if (OutVersion != nullptr) {
+                *OutVersion = Version;
+            }
+
+            if (Archive.HasError() || (Version != 4 && Version != 3 && Version != 2 && (Version != 1 || LegacyBones == nullptr))) {
                 Archive.SetError("Unsupported skeletal mesh version");
 
                 return;
@@ -992,17 +997,45 @@ namespace Asset {
         Core::TArray<Asset::FMeshImportSkinWeight> SkinWeights{};
         Core::FString PhysicsAssetPath{};
 
-        SerializeSkeletalMesh(Archive, Data, SkinWeights, PhysicsAssetPath, &LegacyBones);
+        Uint32 SkeletalMeshVersion{};
+
+        SerializeSkeletalMesh(Archive, Data, SkinWeights, PhysicsAssetPath, &LegacyBones, &SkeletalMeshVersion);
 
         auto Mesh{CoreUObject::NewObject<Asset::USkeletalMesh>()};
 
-        if (Archive.HasError() || Archive.GetRemainingBytes() != 0 || !Mesh->SetMeshData(std::move(Data), std::move(SkinWeights))) {
+        if (Archive.HasError() || !Mesh->SetMeshData(std::move(Data), std::move(SkinWeights))) {
+            Error = Archive.HasError() ? Archive.GetError() : "Invalid skeletal mesh asset data";
+
+            return nullptr;
+        }
+
+        // 버전 4부터 천 데이터가 이어지며, 섹션 수를 검사하려고 형상을 넣은 뒤에 읽습니다.
+        if (SkeletalMeshVersion >= 4) {
+            Mesh->SerializeClothingData(Archive);
+        }
+
+        if (Archive.HasError() || Archive.GetRemainingBytes() != 0) {
             Error = Archive.HasError() ? Archive.GetError() : "Invalid skeletal mesh asset data";
 
             return nullptr;
         }
 
         Mesh->SetPhysicsAssetPath(std::move(PhysicsAssetPath));
+
+        // 천 에셋은 물리 에셋을 경로로만 저장하므로 여기서 찾아 연결합니다.
+        for (const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset : Mesh->GetMeshClothingAssets()) {
+            if (ClothingAsset->mPhysicsAssetPath.empty()) {
+                continue;
+            }
+
+            Core::FString PhysicsAssetError{};
+
+            if (PhysicsRuntime::UPhysicsAsset* ClothPhysicsAsset{LoadPhysicsAsset(Core::FilePath::FromUtf8(ClothingAsset->mPhysicsAssetPath), PhysicsAssetError)}) {
+                ClothingAsset->mPhysicsAsset = CoreUObject::MakeObjectRef(ClothPhysicsAsset);
+            } else {
+                Core::ErrorHandler::Report("Cloth", "Cannot load the cloth physics asset '" + ClothingAsset->mPhysicsAssetPath + "': " + PhysicsAssetError, Core::ErrorHandler::EErrorLevel::Warning);
+            }
+        }
 
         if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Mesh, Error)) {
             return nullptr;
@@ -1332,6 +1365,9 @@ namespace Asset {
         Core::FString PhysicsAssetPath{Mesh.GetPhysicsAssetPath()};
 
         SerializeSkeletalMesh(Archive, Data, SkinWeights, PhysicsAssetPath);
+
+        // 저장은 메시를 바꾸지 않지만 직렬화 함수가 읽기와 쓰기를 함께 하므로 const를 풉니다.
+        const_cast<Asset::USkeletalMesh&>(Mesh).SerializeClothingData(Archive);
 
         if (Archive.HasError()) {
             Error = Archive.GetError();
