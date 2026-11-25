@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 
 #include <memory>
 
@@ -374,7 +375,7 @@ namespace Asset {
         /**
          * @brief 상태 전이 블렌드 시간(초)입니다.
          */
-        float mDuration{mDefaultDuration};
+        Core::FTime mDuration{mDefaultDuration};
 
         /**
          * @brief 동시에 성립한 전이 사이에서 사용할 우선순위 값입니다.
@@ -387,7 +388,7 @@ namespace Asset {
         Asset::FAnimTransitionGraph mRule{};
 
     private:
-        static const float mDefaultDuration;
+        static const Core::FTime mDefaultDuration;
     };
 
     /**

@@ -167,7 +167,7 @@ namespace Engine {
         const float MaximumScale{std::max({Scale.x, Scale.y, Scale.z})};
         // 노이즈 점은 축에서 (Right, Up) 두 방향으로 최대 NoiseRange씩 벗어납니다.
         const Engine::UParticleModuleBeamNoise* Noise{FindNoiseModule()};
-        const float NoiseExtent{Noise != nullptr ? Noise->GetNoiseRange() * 1.4143f : 0.0f};
+        const float NoiseExtent{Noise != nullptr ? Noise->GetNoiseRange().GetBase() * 1.4143f : 0.0f};
         FVector Minimum{FLT_MAX, FLT_MAX, FLT_MAX};
         FVector Maximum{-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
@@ -198,7 +198,7 @@ namespace Engine {
         Payload.mSourcePoint = World.TransformPosition({});
 
         if (mBeamTypeData->GetBeamMethod() == Engine::EBeamMethod::Distance) {
-            Payload.mTargetPoint = Payload.mSourcePoint + World.TransformVector({1.0f, 0.0f, 0.0f}).Normalized() * mBeamTypeData->GetDistance();
+            Payload.mTargetPoint = Payload.mSourcePoint + World.TransformVector({1.0f, 0.0f, 0.0f}).Normalized() * mBeamTypeData->GetDistance().GetBase();
         } else {
             // 에미터 기준 위치라 액터를 옮기거나 돌려도 시작점과의 관계가 유지됩니다.
             Payload.mTargetPoint = World.TransformPosition(mBeamTypeData->GetTargetPoint());

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "Core/Types.h"
 #include "CoreUObject/Reflection/TNativeEnum.h"
 #include "Engine/Particles/UParticleModule.h"
@@ -135,13 +137,13 @@ namespace Engine {
          * @brief 튕긴 뒤 법선 방향 속력이 이보다 작으면 0으로 만들어 바닥에서 떨지 않게 합니다(m/s).
          */
         UPROPERTY(Edit, Serialize, Category = "Collision")
-        float mMinBounceSpeed{0.2f};
+        Core::FSpeed mMinBounceSpeed{Core::FSpeed::FromBase(0.2f)};
 
         /**
          * @brief 충돌 지점에서 법선 방향으로 띄우는 거리(m)이며 다음 프레임에 시작부터 겹치지 않게 합니다.
          */
-        UPROPERTY(Edit, Serialize, Category = "Collision", Meta = (DisplayUnit = "m"))
-        float mSurfaceOffset{0.001f};
+        UPROPERTY(Edit, Serialize, Category = "Collision")
+        Core::FLength mSurfaceOffset{Core::FLength::FromBase(0.001f)};
 
         /**
          * @brief true면 이펙트를 낸 액터와는 충돌하지 않습니다(총구 화염과 총).

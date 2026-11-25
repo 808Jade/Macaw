@@ -29,9 +29,9 @@ namespace Engine {
 
         if (Alpha > 0.0f && Alpha < 1.0f) {
             if (From.mEnabled && To.mEnabled) {
-                DepthOfField.mFocalDistance = std::lerp(From.mFocalDistance, To.mFocalDistance, Alpha);
-                DepthOfField.mFocusWidth = std::lerp(From.mFocusWidth, To.mFocusWidth, Alpha);
-                DepthOfField.mTransitionDistance = std::lerp(From.mTransitionDistance, To.mTransitionDistance, Alpha);
+                DepthOfField.mFocalDistance = Core::Math::Lerp(From.mFocalDistance, To.mFocalDistance, Alpha);
+                DepthOfField.mFocusWidth = Core::Math::Lerp(From.mFocusWidth, To.mFocusWidth, Alpha);
+                DepthOfField.mTransitionDistance = Core::Math::Lerp(From.mTransitionDistance, To.mTransitionDistance, Alpha);
                 DepthOfField.mMaxBlurRadius = std::lerp(From.mMaxBlurRadius, To.mMaxBlurRadius, Alpha);
                 DepthOfField.mFStop = std::lerp(From.mFStop, To.mFStop, Alpha);
             } else if (From.mEnabled != To.mEnabled) {

@@ -30,13 +30,13 @@ namespace Engine {
      */
     void Engine::URotationMovementComponent::Tick(float DeltaTime) {
         const Engine::UWorld* World{GetWorld()};
+        const Core::FTime StepTime{Core::FTime::FromBase(DeltaTime)};
 
-        if (World == nullptr || (World->GetWorldType() != Engine::EWorldType::Game && World->GetWorldType() != Engine::EWorldType::PIE) || !HasBegunPlay() || ShouldSkipUpdate(DeltaTime)) {
+        if (World == nullptr || (World->GetWorldType() != Engine::EWorldType::Game && World->GetWorldType() != Engine::EWorldType::PIE) || !HasBegunPlay() || ShouldSkipUpdate(StepTime)) {
             return;
         }
 
         const FQuat OldRotation{GetUpdatedComponent()->GetTransform().mRotation};
-        const auto StepTime{Core::FTime::FromBase(DeltaTime)};
         const auto Pitch{(mRotationRate.pitch * 1_degps) * StepTime};
         const auto Yaw{(mRotationRate.yaw * 1_degps) * StepTime};
         const auto Roll{(mRotationRate.roll * 1_degps) * StepTime};

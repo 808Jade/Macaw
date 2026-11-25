@@ -42,6 +42,9 @@ namespace Editor {
             EmptyActor,
             Decal,
             LevelSequence,
+            ParticleSystem,
+            Pawn,
+            SkyAtmosphere,
             Count
         };
 
@@ -326,14 +329,14 @@ namespace Editor {
          * @brief 자유 시점 카메라의 기본 이동 속도를 반환합니다.
          * @return 초당 이동할 월드 단위 수이며 빠른 이동 시에는 3배를 적용합니다.
          */
-        float GetCameraSpeed() const;
+        Core::FSpeed GetCameraSpeed() const;
 
         /**
          * @brief 자유 시점 카메라의 기본 이동 속도를 설정합니다.
          * @param[in] Speed 0.1에서 128 사이의 유한한 초당 월드 이동 거리입니다.
          * @return 유효한 속도를 적용하면 true, 범위를 벗어나거나 유한하지 않으면 false입니다.
          */
-        bool SetCameraSpeed(float Speed);
+        bool SetCameraSpeed(Core::FSpeed Speed);
 
         /**
          * @brief 정사영 뷰의 가로 가시 범위를 반환합니다.
@@ -438,7 +441,7 @@ namespace Editor {
         /**
          * @brief 카메라 이동 속도입니다.
          */
-        float mCameraSpeed{};
+        Core::FSpeed mCameraSpeed{};
 
         /**
          * @brief 마우스 이동 1픽셀당 카메라 회전 각도입니다.

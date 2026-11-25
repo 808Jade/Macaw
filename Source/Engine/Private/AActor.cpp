@@ -289,7 +289,7 @@ namespace Engine {
     /**
      * @brief 기본 액터 Tick 함수가 실행 차례에 호출하는 갱신 확장 지점입니다.
      */
-    void Engine::AActor::Tick(float DeltaTime) {
+    void Engine::AActor::Tick(float) {
     }
 
     /**

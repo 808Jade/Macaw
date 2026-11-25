@@ -1,4 +1,5 @@
 #include "Engine/Particles/Module/UParticleModuleCollision.h"
+#include "Core/Literals/UnitLiterals.h"
 #include "Engine/Particles/FBaseParticle.h"
 #include "Engine/Particles/FParticleEmitterInstance.h"
 #include "Engine/Particles/ParticleHelper.h"
@@ -11,6 +12,8 @@
 
 #include <algorithm>
 #include <cmath>
+
+using namespace Core::Literals;
 
 namespace Engine {
 
@@ -71,13 +74,13 @@ namespace Engine {
             const FVector DeltaSimulation{Particle.mVelocity * DeltaTime};
             const FVector StartWorld{Owner.SimulationToWorld(StartSimulation)};
             const FVector Segment{Owner.SimulationToWorld(StartSimulation + DeltaSimulation) - StartWorld};
-            const float Length{Segment.Length()};
+            const Core::FLength Length{Core::FLength::FromBase(Segment.Length())};
 
-            if (Length <= 0.0001f) {
+            if (Length <= 0.1_mm) {
                 return;
             }
 
-            const float Radius{std::max(Particle.mSize.x, Particle.mSize.y) * mRadiusScale};
+            const Core::FLength Radius{Core::FLength::FromBase(std::max(Particle.mSize.x, Particle.mSize.y)) * mRadiusScale};
             PhysicsRuntime::FBodySweepHit Hit{};
 
             if (!Scene->SweepSphere(StartWorld, Segment, Radius, Hit, ShouldIgnore)) {
@@ -85,9 +88,9 @@ namespace Engine {
             }
 
             // 경로상 비율은 아핀 변환에 상관없이 같으므로 응답은 시뮬레이션 공간에서 계산합니다.
-            const float T{std::clamp(Hit.mDistance / Length, 0.0f, 1.0f)};
+            const float T{std::clamp(static_cast<float>(Hit.mDistance / Length), 0.0f, 1.0f)};
             const FVector Normal{Owner.WorldToSimulationVector(Hit.mImpactNormal).Normalized()};
-            const FVector HitPoint{StartSimulation + DeltaSimulation * T + Normal * mSurfaceOffset};
+            const FVector HitPoint{StartSimulation + DeltaSimulation * T + Normal * mSurfaceOffset.GetBase()};
             // 첫 충돌은 아직 충돌 표시가 없는 경우, 마지막 충돌은 이번에 남은 횟수가 0이 되는 경우입니다.
             const bool FirstHit{(Particle.mFlags & Engine::EParticleState::CollisionHasOccurred) == 0};
             const bool LastHit{mMaxCollisions > 0 && Payload.mRemainingCollisions == 1};
@@ -100,11 +103,11 @@ namespace Engine {
             const FVector NormalVelocity{Normal * Particle.mVelocity.Dot(Normal)};
             const FVector TangentVelocity{Particle.mVelocity - NormalVelocity};
             FVector NewVelocity{TangentVelocity * (1.0f - Payload.mFriction) - NormalVelocity * Payload.mRestitution};
-            const float NormalSpeed{NewVelocity.Dot(Normal)};
+            const Core::FSpeed NormalSpeed{Core::FSpeed::FromBase(NewVelocity.Dot(Normal))};
 
             // 튕기는 힘이 작으면 법선 성분을 없애 바닥에서 떨지 않게 합니다.
-            if (std::abs(NormalSpeed) < mMinBounceSpeed) {
-                NewVelocity -= Normal * NormalSpeed;
+            if (Core::Math::Abs(NormalSpeed) < mMinBounceSpeed) {
+                NewVelocity -= Normal * NormalSpeed.GetBase();
             }
 
             // 충돌은 운동 상태 자체를 바꾸므로 기준 속도에도 기록해 매 프레임 되돌림에서 사라지지 않게 합니다.

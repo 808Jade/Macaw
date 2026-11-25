@@ -43,11 +43,7 @@ namespace Engine {
     }
 
     bool Engine::UCameraComponent::SetDepthOfFieldSettings(const Engine::FDepthOfFieldSettings& Settings) {
-        if (!std::isfinite(Settings.mFocalDistance) || Settings.mFocalDistance < 0.0f ||
-            !std::isfinite(Settings.mFocusWidth) || Settings.mFocusWidth < 0.0f ||
-            !std::isfinite(Settings.mTransitionDistance) || Settings.mTransitionDistance < 0.0f ||
-            !std::isfinite(Settings.mMaxBlurRadius) || Settings.mMaxBlurRadius < 0.0f ||
-            !std::isfinite(Settings.mFStop) || Settings.mFStop <= 0.0f) {
+        if (!Settings.mFocalDistance.IsFinite() || Settings.mFocalDistance < 0_m || !Settings.mFocusWidth.IsFinite() || Settings.mFocusWidth < 0_m || !Settings.mTransitionDistance.IsFinite() || Settings.mTransitionDistance < 0_m || !std::isfinite(Settings.mMaxBlurRadius) || Settings.mMaxBlurRadius < 0.0f || !std::isfinite(Settings.mFStop) || Settings.mFStop <= 0.0f) {
             return false;
         }
 
@@ -62,7 +58,7 @@ namespace Engine {
         return true;
     }
 
-    bool Engine::UCameraComponent::SetDepthOfFieldFocalDistance(float Distance) {
+    bool Engine::UCameraComponent::SetDepthOfFieldFocalDistance(Core::FLength Distance) {
         Engine::FDepthOfFieldSettings Settings{mDepthOfFieldSettings};
         Settings.mFocalDistance = Distance;
 

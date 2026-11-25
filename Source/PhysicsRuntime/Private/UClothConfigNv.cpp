@@ -23,14 +23,14 @@ namespace PhysicsRuntime {
      * @brief 천끼리 부딪히는 기능을 쓰는지 검사합니다.
      */
     bool UClothConfigNv::UseSelfCollisions() const {
-        return mSelfCollisionRadius > 0.0f && mSelfCollisionStiffness > 0.0f;
+        return mSelfCollisionRadius > Core::FLength{} && mSelfCollisionStiffness > 0.0f;
     }
 
     /**
      * @brief 천끼리 부딪힐 입자를 고를 때 쓰는 거리를 구합니다.
      */
-    float UClothConfigNv::NeedsSelfCollisionIndices() const {
-        return UseSelfCollisions() ? mSelfCollisionRadius * mSelfCollisionCullScale : 0.0f;
+    Core::FLength UClothConfigNv::NeedsSelfCollisionIndices() const {
+        return UseSelfCollisions() ? mSelfCollisionRadius * mSelfCollisionCullScale : Core::FLength{};
     }
 
     /**

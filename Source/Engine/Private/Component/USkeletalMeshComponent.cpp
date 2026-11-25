@@ -11,6 +11,7 @@
 #include "Asset/FAssetManager.h"
 #include "Core/Archive.h"
 #include "Core/FilePath.h"
+#include "Core/Literals/AngleFunctions.h"
 #include "Core/Base/ErrorHandler.h"
 #include "Engine/EPrimitiveType.h"
 #include "Engine/FPrimitiveSceneProxy.h"
@@ -774,7 +775,7 @@ namespace Engine {
         mPrevRootBoneMatrix = GetClothRootBoneWorldMatrix();
         mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
 
-        UpdateClothSimulationContext(0.0f);
+        UpdateClothSimulationContext({});
 
         for (Index_t AssetIndex{}; AssetIndex < MeshClothingAssets.size(); ++AssetIndex) {
             const PhysicsRuntime::UClothingAssetCommon* const ClothingAsset{MeshClothingAssets[AssetIndex].get()};
@@ -824,7 +825,7 @@ namespace Engine {
             return;
         }
 
-        UpdateClothSimulationContext(DeltaTime);
+        UpdateClothSimulationContext(Core::FTime::FromBase(DeltaTime));
         mClothingSimulation->Simulate(mClothingSimulationContext);
         WritebackClothingSimulationData();
 
@@ -835,15 +836,15 @@ namespace Engine {
     /**
      * @brief 현재 포즈, 변환, 시간, 중력으로 천 시뮬레이션 입력을 채웁니다.
      */
-    void USkeletalMeshComponent::UpdateClothSimulationContext(float DeltaTime) {
+    void USkeletalMeshComponent::UpdateClothSimulationContext(Core::FTime DeltaTime) {
         // 한 프레임이 너무 길면 천이 튀므로 물리 한 번에 진행할 최대 시간으로 자릅니다.
-        constexpr float MaxPhysicsDelta{1.0f / 30.0f};
+        constexpr Core::FTime MaxPhysicsDelta{1.0f / Core::FFrequency::FromBase(30.0f)};
 
         // 프레임이 최대 시간의 이 배수보다 길면 관성 대신 순간 이동으로 처리합니다.
         constexpr float MaxDeltaTimeTeleportMultiplier{1.5f};
 
         // 진행할 때만 순간 이동을 검사합니다. 처음 천을 만들 때는 이미 지금 위치에 놓습니다.
-        if (DeltaTime > 0.0f) {
+        if (DeltaTime > Core::FTime{}) {
             CheckClothTeleport();
         }
 
@@ -854,7 +855,7 @@ namespace Engine {
         mClothingSimulationContext.mRefToLocals = mPose.GetSkinMatrices();
         mClothingSimulationContext.mComponentToWorld = GetWorldMatrix();
         mClothingSimulationContext.mWorldGravity = Runtime != nullptr ? Runtime->GetSettings().mGravity : FVector{0.0f, 0.0f, -9.81f};
-        mClothingSimulationContext.mDeltaSeconds = std::min(DeltaTime, MaxPhysicsDelta);
+        mClothingSimulationContext.mDeltaTime = std::min(DeltaTime, MaxPhysicsDelta);
         mClothingSimulationContext.mPredictedLod = 0;
         mClothingSimulationContext.mMaxDistanceScale = mClothMaxDistanceScale;
 
@@ -865,7 +866,7 @@ namespace Engine {
         mClothingSimulationContext.mTeleportMode = DeltaTime > MaxPhysicsDelta * MaxDeltaTimeTeleportMultiplier ? PhysicsRuntime::EClothingTeleportMode::Teleport : mClothTeleportMode;
 
         // 요청한 순간 이동은 이번 진행 한 번에만 씁니다.
-        if (DeltaTime > 0.0f) {
+        if (DeltaTime > Core::FTime{}) {
             mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
         }
     }
@@ -890,19 +891,19 @@ namespace Engine {
         const bool HasTransforms{CurRootBoneMatrix.TryGetTransform(CurRoot) && mPrevRootBoneMatrix.TryGetTransform(PrevRoot)};
 
         // 거리 검사입니다.
-        if (HasTransforms && mTeleportDistanceThreshold > 0.0f && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
-            if ((CurRoot.mLocation - PrevRoot.mLocation).LengthSquared() > mTeleportDistanceThreshold * mTeleportDistanceThreshold) {
+        if (HasTransforms && mTeleportDistanceThreshold > Core::FLength{} && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
+            if (Core::FArea::FromBase((CurRoot.mLocation - PrevRoot.mLocation).LengthSquared()) > mTeleportDistanceThreshold * mTeleportDistanceThreshold) {
                 mClothTeleportMode = RequestedMode;
             }
         }
 
         // 회전 검사입니다. 두 회전 사이 각도의 코사인을 사원수 내적으로 구합니다.
-        if (HasTransforms && mTeleportRotationThreshold > 0.0f && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
+        if (HasTransforms && mTeleportRotationThreshold > Core::FAngle{} && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
             const FQuat& A{CurRoot.mRotation};
             const FQuat& B{PrevRoot.mRotation};
             const float Dot{A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w};
             const float CosineTheta{2.0f * Dot * Dot - 1.0f};
-            const float CosineThreshold{std::cos(mTeleportRotationThreshold * 3.14159265f / 180.0f)};
+            const float CosineThreshold{Core::Math::Cos(mTeleportRotationThreshold)};
 
             if (CosineTheta < CosineThreshold) {
                 mClothTeleportMode = RequestedMode;

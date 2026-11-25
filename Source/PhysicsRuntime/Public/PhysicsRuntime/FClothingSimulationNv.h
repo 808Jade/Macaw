@@ -218,7 +218,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 천 두께를 흉내 내려고 충돌체 반지름에 더하는 값(m)입니다.
          */
-        float mCollisionThickness{0.01f};
+        Core::FLength mCollisionThickness{Core::FLength::FromBase(0.01f)};
 
         /**
          * @brief 시뮬레이션 중에 쓰는 임시 배열입니다.
@@ -253,7 +253,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 지난 시뮬레이션에 진행한 시간(초)이며 입자 속도를 구할 때 씁니다.
          */
-        float mPreviousTimestep{};
+        Core::FTime mPreviousTimestep{};
 
         /**
          * @brief 지난 프레임 기준 뼈의 월드 속도(m/s)입니다.

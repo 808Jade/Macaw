@@ -317,8 +317,8 @@ namespace PhysicsRuntime {
 
     }
 
-    bool PhysicsRuntime::FPhysicsScene::SweepSphere(const FVector& Start, const FVector& Delta, float Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore) const {
-        if (mScene == nullptr || !Start.IsFinite() || !Delta.IsFinite() || !std::isfinite(Radius)) {
+    bool PhysicsRuntime::FPhysicsScene::SweepSphere(const FVector& Start, const FVector& Delta, Core::FLength Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore) const {
+        if (mScene == nullptr || !Start.IsFinite() || !Delta.IsFinite() || !Radius.IsFinite()) {
             return false;
         }
 
@@ -336,7 +336,7 @@ namespace PhysicsRuntime {
         physx::PxSweepBuffer Buffer{Touches.data(), static_cast<physx::PxU32>(Touches.size())};
 
         // 반지름이 0인 구는 PhysX가 받지 않으므로 아주 작은 값으로 올립니다.
-        const physx::PxSphereGeometry Sphere{std::max(Radius, 0.0001f)};
+        const physx::PxSphereGeometry Sphere{std::max(Radius, Core::FLength::FromBase(0.0001f)).GetBase()};
 
         if (!mScene->sweep(Sphere, Pose, Direction, Length, Buffer, physx::PxHitFlag::eDEFAULT, Filter, &Callback)) {
             return false;
@@ -347,16 +347,18 @@ namespace PhysicsRuntime {
         for (physx::PxU32 Index{}; Index < Buffer.getNbTouches(); ++Index) {
             const physx::PxSweepHit& Touch{Buffer.getTouch(Index)};
 
-            if (Touch.hadInitialOverlap() || (Found && Touch.distance >= OutHit.mDistance)) {
+            const Core::FLength Distance{Core::FLength::FromBase(Touch.distance)};
+
+            if (Touch.hadInitialOverlap() || (Found && Distance >= OutHit.mDistance)) {
                 continue;
             }
 
             Found = true;
             OutHit.mBody = Touch.actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Touch.actor) : nullptr;
-            OutHit.mDistance = Touch.distance;
+            OutHit.mDistance = Distance;
             OutHit.mImpactPoint = PhysicsRuntime::ToFVector(Touch.position);
             OutHit.mImpactNormal = PhysicsRuntime::ToFVector(Touch.normal);
-            OutHit.mPenetrationDepth = 0.0f;
+            OutHit.mPenetrationDepth = {};
             OutHit.mStartPenetrating = false;
         }
 

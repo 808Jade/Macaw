@@ -12,10 +12,13 @@
 #include "Core/Math/FMatrix.h"
 #include "CoreUObject/Reflection/Cast.h"
 
+#include "Core/Literals/UnitLiterals.h"
 #include "ParticleCurveMath.h"
 
 #include <algorithm>
 #include <cmath>
+
+using namespace Core::Literals;
 
 namespace Engine {
 
@@ -24,12 +27,12 @@ namespace Engine {
         /**
          * @brief 겹친 점을 넘기면 접선이 0이 되어 띠가 뒤틀리므로 이보다 가까운 점은 뺍니다.
          */
-        constexpr float MinimumPointDistance{0.001f};
+        constexpr Core::FLength MinimumPointDistance{1_mm};
 
         /**
          * @brief 점 사이를 Catmull-Rom 곡선 점으로 채웁니다.
          */
-        void Tessellate(const Core::TArray<Engine::FParticleTrailPoint>& Points, float StepSize, Uint32 MaxSteps, Core::TArray<Engine::FParticleTrailPoint>& Out) {
+        void Tessellate(const Core::TArray<Engine::FParticleTrailPoint>& Points, Core::FLength StepSize, Uint32 MaxSteps, Core::TArray<Engine::FParticleTrailPoint>& Out) {
             const Index_t Count{Points.size()};
 
             for (Index_t Index{}; Index + 1 < Count; ++Index) {
@@ -38,7 +41,8 @@ namespace Engine {
 
                 Out.push_back(A);
 
-                const Uint32 Extra{std::min(static_cast<Uint32>((B.mPosition - A.mPosition).Length() / StepSize), MaxSteps)};
+                const Core::FLength SegmentLength{Core::FLength::FromBase(A.mPosition.Distance(B.mPosition))};
+                const Uint32 Extra{std::min(static_cast<Uint32>(SegmentLength / StepSize), MaxSteps)};
 
                 if (Extra == 0) {
                     continue;
@@ -72,8 +76,8 @@ namespace Engine {
         mHasLastSource = false;
         mTrailHasPoints = false;
         mTrailId = 0;
-        mTiledDistance = 0.0f;
-        mDistanceAccumulated = 0.0f;
+        mTiledDistance = {};
+        mDistanceAccumulated = {};
     }
 
     void Engine::FParticleRibbonEmitterInstance::SetCurrentLODIndex(Int32 LODIndex) {
@@ -88,9 +92,9 @@ namespace Engine {
 
         const Engine::UParticleModuleRequired& Required{*mCurrentLODLevel->GetRequiredModule()};
         const float Scale{GetComponentScale().x};
-        const float TilingDistance{mRibbonTypeData->GetTilingDistance()};
-        const bool Tiling{TilingDistance > 0.0f};
-        const float StepSize{mRibbonTypeData->GetDistanceTessellationStepSize()};
+        const Core::FLength TilingDistance{mRibbonTypeData->GetTilingDistance()};
+        const bool Tiling{TilingDistance > 0_m};
+        const Core::FLength StepSize{mRibbonTypeData->GetDistanceTessellationStepSize()};
         const Uint32 MaxSteps{mRibbonTypeData->GetMaxTessellationBetweenParticles()};
         const FVector HeadPosition{mComponent->GetWorldMatrix().TransformPosition({})};
         const bool HeadValid{mRibbonTypeData->IsRenderHead() && mHasLastSource && mTrailHasPoints};
@@ -139,9 +143,10 @@ namespace Engine {
             if (HeadValid && TrailId == mTrailId) {
                 const FVector NewestPosition{SimulationToWorld(Newest.mLocation)};
 
-                if ((HeadPosition - NewestPosition).Length() > MinimumPointDistance) {
+                if (Core::FLength::FromBase((HeadPosition - NewestPosition).Length()) > MinimumPointDistance) {
                     // 가장 새 점의 U에 거기서 머리까지 거리를 더해야 머리 구간 텍스처가 이어집니다.
-                    const float HeadU{Tiling ? (mTiledDistance + (HeadPosition - SimulationToWorld(mLastSpawnPosition)).Length()) / TilingDistance : 0.0f};
+                    const Core::FLength HeadDistance{Core::FLength::FromBase(HeadPosition.Distance(SimulationToWorld(mLastSpawnPosition)))};
+                    const float HeadU{Tiling ? static_cast<float>((mTiledDistance + HeadDistance) / TilingDistance) : 0.0f};
 
                     Points.push_back({HeadPosition, Newest.mColor, std::abs(Newest.mSize.x * Scale) * 0.5f, HeadU});
                 }
@@ -151,7 +156,7 @@ namespace Engine {
                 const Engine::FBaseParticle& Particle{*Entries[Index].mParticle};
                 const FVector Position{SimulationToWorld(Particle.mLocation)};
 
-                if (!Points.empty() && (Position - Points.back().mPosition).Length() < MinimumPointDistance) {
+                if (!Points.empty() && Core::FLength::FromBase((Position - Points.back().mPosition).Length()) < MinimumPointDistance) {
                     continue;
                 }
 
@@ -173,7 +178,7 @@ namespace Engine {
                 }
             }
 
-            if (StepSize > 0.0f && MaxSteps > 0) {
+            if (StepSize > 0_m && MaxSteps > 0) {
                 Tessellate(Points, StepSize, MaxSteps, Batch.mPoints);
             } else {
                 Batch.mPoints.insert(Batch.mPoints.end(), Points.begin(), Points.end());
@@ -196,7 +201,7 @@ namespace Engine {
     }
 
     void Engine::FParticleRibbonEmitterInstance::Spawn(float DeltaTime) {
-        if (mRibbonTypeData == nullptr || mRibbonTypeData->GetSpawnDistance() <= 0.0f) {
+        if (mRibbonTypeData == nullptr || mRibbonTypeData->GetSpawnDistance() <= 0_m) {
             Engine::FParticleEmitterInstance::Spawn(DeltaTime);
 
             return;
@@ -219,15 +224,15 @@ namespace Engine {
         }
 
         const FVector Delta{Current - mLastSourcePosition};
-        const float Step{Delta.Length()};
+        const Core::FLength Step{Core::FLength::FromBase(Delta.Length())};
 
-        if (Step < 0.0001f) {
+        if (Step < 0.1_mm) {
             return;
         }
 
-        const float MaxSpawnDistance{mRibbonTypeData->GetMaxSpawnDistance()};
+        const Core::FLength MaxSpawnDistance{mRibbonTypeData->GetMaxSpawnDistance()};
 
-        if (MaxSpawnDistance > 0.0f && Step > MaxSpawnDistance) {
+        if (MaxSpawnDistance > 0_m && Step > MaxSpawnDistance) {
             BreakTrail();
             mLastSourcePosition = Current;
 
@@ -235,7 +240,7 @@ namespace Engine {
         }
 
         const Int32 MaxCount{static_cast<Int32>(mRibbonTypeData->GetMaxParticleInTrailCount())};
-        const float SpawnDistance{mRibbonTypeData->GetSpawnDistance()};
+        const Core::FLength SpawnDistance{mRibbonTypeData->GetSpawnDistance()};
 
         if (!mTrailHasPoints && mRibbonTypeData->IsSpawnInitialParticle()) {
             KillOldest(mActiveParticles + 1 - MaxCount);
@@ -243,9 +248,9 @@ namespace Engine {
         }
 
         // 이번 프레임 이동 구간에서 SpawnDistance 간격으로 점이 놓일 자리를 찾습니다.
-        const float OldAccumulated{mDistanceAccumulated};
-        const float Total{OldAccumulated + Step};
-        const Int32 Number{static_cast<Int32>(std::floor(Total / SpawnDistance))};
+        const Core::FLength OldAccumulated{mDistanceAccumulated};
+        const Core::FLength Total{OldAccumulated + Step};
+        const Int32 Number{static_cast<Int32>(std::floor(static_cast<float>(Total / SpawnDistance)))};
 
         mDistanceAccumulated = Total - static_cast<float>(Number) * SpawnDistance;
 
@@ -256,7 +261,7 @@ namespace Engine {
             KillOldest(mActiveParticles + SpawnCount - MaxCount);
 
             for (Int32 Index{First}; Index <= Number; ++Index) {
-                const float T{std::clamp((static_cast<float>(Index) * SpawnDistance - OldAccumulated) / Step, 0.0f, 1.0f)};
+                const float T{std::clamp(static_cast<float>((static_cast<float>(Index) * SpawnDistance - OldAccumulated) / Step), 0.0f, 1.0f)};
 
                 SpawnRibbonParticle(mLastSourcePosition + Delta * T, DeltaTime * (1.0f - T));
             }
@@ -322,9 +327,9 @@ namespace Engine {
         if (!mTrailHasPoints) {
             mTrailOneOverLifetime = Particle.mOneOverMaxLifetime;
             mTrailBaseSize = Particle.mBaseSize;
-            mTiledDistance = 0.0f;
+            mTiledDistance = {};
         } else {
-            mTiledDistance += (Position - mLastSpawnPosition).Length();
+            mTiledDistance += Core::FLength::FromBase((Position - mLastSpawnPosition).Length());
         }
 
         Particle.mOneOverMaxLifetime = mTrailOneOverLifetime;
@@ -334,9 +339,9 @@ namespace Engine {
         PostSpawn(Particle, SpawnTime);
 
         Engine::FRibbonPayloadData& Payload{GetRibbonPayload(Particle)};
-        const float TilingDistance{mRibbonTypeData->GetTilingDistance()};
+        const Core::FLength TilingDistance{mRibbonTypeData->GetTilingDistance()};
 
-        Payload.mTiledU = TilingDistance > 0.0f ? mTiledDistance / TilingDistance : 0.0f;
+        Payload.mTiledU = TilingDistance > 0_m ? static_cast<float>(mTiledDistance / TilingDistance) : 0.0f;
         Payload.mTrailId = mTrailId;
         mLastSpawnPosition = Position;
         mTrailHasPoints = true;
@@ -373,7 +378,7 @@ namespace Engine {
     void Engine::FParticleRibbonEmitterInstance::BreakTrail() {
         ++mTrailId;
         mTrailHasPoints = false;
-        mDistanceAccumulated = 0.0f;
+        mDistanceAccumulated = {};
     }
 
 }

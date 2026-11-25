@@ -22,7 +22,7 @@ namespace Asset {
 struct FRay;
 
 namespace PhysicsRuntime {
-    class FBodyInstance;
+    struct FBodyInstance;
     class FPhysicsScene;
     class UBodySetup;
     class UPhysicsAsset;

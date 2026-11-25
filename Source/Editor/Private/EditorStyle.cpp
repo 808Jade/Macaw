@@ -425,6 +425,15 @@ namespace Editor {
             Line(2.0f, 14.0f, 14.0f, 14.0f);
 
             break;
+        case EIcon::SkyDome:
+            DrawList->PathLineTo(Point(2.5f, 14.0f));
+            DrawList->PathBezierCubicCurveTo(Point(2.5f, 3.0f), Point(17.5f, 3.0f), Point(17.5f, 14.0f));
+            DrawList->PathStroke(Color, ImDrawFlags_Closed, Thickness);
+            DrawList->PathLineTo(Point(7.0f, 14.0f));
+            DrawList->PathBezierQuadraticCurveTo(Point(7.0f, 8.0f), Point(10.0f, 5.75f));
+            DrawList->PathStroke(Color, ImDrawFlags_None, Thickness);
+
+            break;
         case EIcon::Sequence:
             DrawList->AddRect(Point(2.0f, 4.0f), Point(18.0f, 16.0f), Color, Scale, ImDrawFlags_None, Thickness);
             Line(7.0f, 4.0f, 7.0f, 16.0f);

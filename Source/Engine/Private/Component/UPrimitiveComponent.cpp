@@ -471,11 +471,11 @@ namespace Engine {
             return ApplyTransform(Delta);
         }
 
-        constexpr float PullBackDistance{(0.01_m).GetBase()};
+        constexpr Core::FLength PullBackDistance{1_cm};
         FVector Adjustment{};
 
-        if (PenetrationMode == EInitialPenetrationMode::Resolve && SweepHit.mStartPenetrating && SweepHit.mImpactNormal.IsNormalized() && std::isfinite(SweepHit.mPenetrationDepth) && SweepHit.mPenetrationDepth > 0.0f) {
-            const FVector Candidate{SweepHit.mImpactNormal * (SweepHit.mPenetrationDepth + PullBackDistance)};
+        if (PenetrationMode == EInitialPenetrationMode::Resolve && SweepHit.mStartPenetrating && SweepHit.mImpactNormal.IsNormalized() && SweepHit.mPenetrationDepth.IsFinite() && SweepHit.mPenetrationDepth > 0_m) {
+            const FVector Candidate{SweepHit.mImpactNormal * (SweepHit.mPenetrationDepth + PullBackDistance).GetBase()};
             const FVector AdjustedStart{OutHit.mTraceStart + Candidate};
             const FVector AdjustedEnd{AdjustedStart + Delta};
             PhysicsRuntime::FBodySweepHit AdjustmentHit{};
@@ -498,17 +498,17 @@ namespace Engine {
         }
 
         Engine::UPrimitiveComponent* const OtherComponent{SweepHit.mBody != nullptr ? SweepHit.mBody->GetOwnerComponent() : nullptr};
-        const float Length{Delta.Length()};
+        const Core::FLength Length{Core::FLength::FromBase(Delta.Length())};
 
         OutHit.mBlockingHit = true;
         OutHit.mStartPenetrating = SweepHit.mStartPenetrating;
         OutHit.mTime = SweepHit.mDistance / Length;
-        OutHit.mDistance = Core::FLength::FromBase(SweepHit.mDistance);
+        OutHit.mDistance = SweepHit.mDistance;
         OutHit.mLocation = OutHit.mTraceStart + Delta * OutHit.mTime;
         OutHit.mImpactPoint = SweepHit.mImpactPoint;
         OutHit.mNormal = SweepHit.mImpactNormal;
         OutHit.mImpactNormal = SweepHit.mImpactNormal;
-        OutHit.mPenetrationDepth = Core::FLength::FromBase(SweepHit.mPenetrationDepth);
+        OutHit.mPenetrationDepth = SweepHit.mPenetrationDepth;
         OutHit.SetComponent(OtherComponent);
         OutHit.SetActor(OtherComponent != nullptr ? OtherComponent->GetOwner() : nullptr);
 
@@ -517,7 +517,7 @@ namespace Engine {
         }
 
         // 막은 표면에 붙어 다음 이동이 시작부터 겹치지 않도록 1 cm 물러난 위치까지만 옮깁니다.
-        const float MoveDistance{std::max(0.0f, SweepHit.mDistance - PullBackDistance)};
+        const Core::FLength MoveDistance{std::max(0_m, SweepHit.mDistance - PullBackDistance)};
 
         if (!ApplyTransform(Adjustment + Delta * (MoveDistance / Length))) {
             return false;

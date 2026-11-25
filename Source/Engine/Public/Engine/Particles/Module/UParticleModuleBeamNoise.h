@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "Core/Types.h"
 #include "Engine/Particles/UParticleModule.h"
 #include "UParticleModuleBeamNoise.generated.h"
@@ -20,7 +22,7 @@ namespace Engine {
         /**
          * @brief 0 이하가 되면 새 목표를 뽑습니다.
          */
-        float mLockTimer{};
+        Core::FTime mLockTimer{};
 
         float mPadding[3]{};
     };
@@ -84,7 +86,7 @@ namespace Engine {
         /**
          * @brief 빔 옆으로 벗어나는 최대 거리(m)입니다.
          */
-        float GetNoiseRange() const;
+        Core::FLength GetNoiseRange() const;
 
         static Engine::FBeamNoiseHeader& GetHeader(Uint8* ParticleBase, Int32 Offset);
 
@@ -99,20 +101,20 @@ namespace Engine {
         UPROPERTY(Edit, Serialize, Category = "Noise")
         Uint32 mFrequency{8};
 
-        UPROPERTY(Edit, Serialize, Category = "Noise", Meta = (DisplayUnit = "m"))
-        float mNoiseRange{0.2f};
+        UPROPERTY(Edit, Serialize, Category = "Noise")
+        Core::FLength mNoiseRange{Core::FLength::FromBase(0.2f)};
 
         /**
          * @brief 새 목표를 뽑는 간격(초)이며 0이면 매 프레임입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Noise")
-        float mNoiseLockTime{0.08f};
+        Core::FTime mNoiseLockTime{Core::FTime::FromBase(0.08f)};
 
         /**
          * @brief 목표로 가는 속도(m/s)이며 0이면 바로 이동합니다.
          */
         UPROPERTY(Edit, Serialize, Category = "Noise")
-        float mNoiseSpeed{};
+        Core::FSpeed mNoiseSpeed{};
 
         /**
          * @brief true면 노이즈 점 사이를 곡선으로 잇습니다.

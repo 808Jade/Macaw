@@ -13,7 +13,6 @@
 #include "Engine/UWorld.h"
 
 #include <algorithm>
-#include <cmath>
 
 namespace Engine {
 
@@ -86,8 +85,8 @@ namespace Engine {
         return true;
     }
 
-    bool UMovementComponent::ShouldSkipUpdate(float DeltaTime) const {
-        return !std::isfinite(DeltaTime) || DeltaTime <= 0.0f || GetUpdatedComponent() == nullptr;
+    bool UMovementComponent::ShouldSkipUpdate(Core::FTime DeltaTime) const {
+        return !DeltaTime.IsFinite() || DeltaTime <= Core::FTime{} || GetUpdatedComponent() == nullptr;
     }
 
     bool UMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool Sweep, Engine::FHitResult* OutHit) {

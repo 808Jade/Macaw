@@ -160,7 +160,15 @@ namespace Editor {
                 }
 
                 if (ImGui::MenuItem("Pawn Icon")) {
-                    Context->SpawnBillboard("/Engine/Editor/Icon/Pawn_64x.png");
+                    Context->SpawnBillboard("/Engine/Editor/Icon/S_Pawn.png");
+                }
+
+                if (ImGui::MenuItem("Particle System Icon")) {
+                    Context->SpawnBillboard("/Engine/Editor/Icon/S_Emitter.png");
+                }
+
+                if (ImGui::MenuItem("Sky Atmosphere Icon")) {
+                    Context->SpawnBillboard("/Engine/Editor/Icon/S_SkyAtmosphere.png");
                 }
 
                 ImGui::EndMenu();
@@ -228,7 +236,7 @@ namespace Editor {
                 const float RowAlpha{ImGui::GetStyle().Alpha * (Actor->IsVisible() ? 1.0f : 0.5f)};
 
                 ImGui::PushStyleVar(ImGuiStyleVar_Alpha, RowAlpha);
-                ObjectRow::DrawLabel(Actor, Selected, Indent);
+                ObjectRow::DrawLabel(*Context, Actor, Selected, Indent);
                 ImGui::PopStyleVar();
 
                 if (ImGui::IsItemClicked()) {

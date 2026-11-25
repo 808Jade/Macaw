@@ -25,6 +25,9 @@
 #include "Engine/AActor.h"
 #include "Engine/ADecalActor.h"
 #include "Engine/ALevelSequenceActor.h"
+#include "Engine/AParticleSystemActor.h"
+#include "Engine/APawn.h"
+#include "Engine/ASkyAtmosphereActor.h"
 #include "Engine/UWorld.h"
 #include "Engine/FWorldHit.h"
 #include "Core/Math/FVector2.h"
@@ -328,9 +331,9 @@ namespace Editor {
 
         if (Input.mWheel != 0.0f && Input.mHovered) {
             if (Input.mRightDown && !Input.mAlt) {
-                SetCameraSpeed(std::clamp(mCameraSpeed * std::pow(1.25f, Input.mWheel), (0.1_mps).GetBase(), (128_mps).GetBase()));
+                SetCameraSpeed(std::clamp(mCameraSpeed * std::pow(1.25f, Input.mWheel), 0.1_mps, 128_mps));
             } else {
-                mCameraLocation += Rotation.ForwardVector() * Input.mWheel * mCameraSpeed * 0.5f;
+                mCameraLocation += Rotation.ForwardVector() * (mCameraSpeed * 0.5_s * Input.mWheel).GetBase();
             }
         }
 
@@ -384,7 +387,7 @@ namespace Editor {
             FVector Movement{FlightRotation * LocalMovement};
             Movement.z += VerticalMovement;
 
-            mCameraLocation += Movement.Normalized() * std::max(DeltaTime, 0.0f) * mCameraSpeed * (Input.mFast ? 3.0f : 1.0f);
+            mCameraLocation += Movement.Normalized() * (mCameraSpeed * std::max(Core::FTime::FromBase(DeltaTime), 0_s) * (Input.mFast ? 3.0f : 1.0f)).GetBase();
             mOrbitPivot = mCameraLocation + FlightRotation.ForwardVector() * OrbitDistance;
         }
 
@@ -628,6 +631,12 @@ namespace Editor {
             Icon = EActorIcon::Decal;
         } else if (Actor.IsA<Engine::ALevelSequenceActor>()) {
             Icon = EActorIcon::LevelSequence;
+        } else if (Actor.IsA<Engine::AParticleSystemActor>()) {
+            Icon = EActorIcon::ParticleSystem;
+        } else if (Actor.IsA<Engine::APawn>()) {
+            Icon = EActorIcon::Pawn;
+        } else if (Actor.IsA<Engine::ASkyAtmosphereActor>()) {
+            Icon = EActorIcon::SkyAtmosphere;
         } else if (Actor.GetClass() == Engine::AActor::StaticClass() && Root->GetClass() == Engine::USceneComponent::StaticClass()) {
             for (const auto& Component : Actor.GetComponents()) {
                 if (Component->IsA<Engine::UPrimitiveComponent>()) {
@@ -640,7 +649,7 @@ namespace Editor {
             return false;
         }
 
-        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"/Engine/Editor/Icon/EmptyActor.png", "/Engine/Editor/Icon/S_DecalActorIcon.png", "/Engine/Editor/Icon/S_LevelSequence.png"};
+        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"/Engine/Editor/Icon/EmptyActor.png", "/Engine/Editor/Icon/S_DecalActorIcon.png", "/Engine/Editor/Icon/S_LevelSequence.png", "/Engine/Editor/Icon/S_Emitter.png", "/Engine/Editor/Icon/S_Pawn.png", "/Engine/Editor/Icon/S_SkyAtmosphere.png"};
         const Index_t Index{static_cast<Index_t>(Icon)};
         CoreUObject::TObjectRef<Asset::UTexture2D>& Texture{mActorIconTextures[Index]};
 
@@ -720,7 +729,7 @@ namespace Editor {
         mCameraRotation = DefaultCamera.GetRotation();
 
         mOrbitPivot = {};
-        mCameraSpeed = (4_mps).GetBase();
+        mCameraSpeed = 4_mps;
         mPerspectiveLocation = mCameraLocation;
         mPerspectiveRotation = mCameraRotation;
         mPerspectivePivot = {};
@@ -1383,15 +1392,15 @@ namespace Editor {
     /**
      * @brief 자유 시점 카메라의 기본 이동 속도를 반환합니다.
      */
-    float Editor::FEditorViewportClient::GetCameraSpeed() const {
+    Core::FSpeed Editor::FEditorViewportClient::GetCameraSpeed() const {
         return mCameraSpeed;
     }
 
     /**
      * @brief 자유 시점 카메라의 기본 이동 속도를 설정합니다.
      */
-    bool Editor::FEditorViewportClient::SetCameraSpeed(float Speed) {
-        if (!std::isfinite(Speed) || Speed < (0.1_mps).GetBase() || Speed > (128_mps).GetBase()) {
+    bool Editor::FEditorViewportClient::SetCameraSpeed(Core::FSpeed Speed) {
+        if (!Speed.IsFinite() || Speed < 0.1_mps || Speed > 128_mps) {
             return false;
         }
 

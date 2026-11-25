@@ -122,7 +122,7 @@ namespace Engine {
         }
 
         mWasCompleted = false;
-        mLODCheckTimer = 0.0f;
+        mLODCheckTimer = {};
         mPendingActivateLOD = false;
 
         // 멀리서 터진 이펙트가 LOD 0 Burst로 시작하지 않도록 첫 Tick 전에 거리로 정합니다.
@@ -186,7 +186,7 @@ namespace Engine {
             ApplyLODLevel(mPreviewLODOverride);
         } else if (mTemplate != nullptr) {
             // 미리보기를 끄면 다음 Tick에서 바로 거리로 다시 고르게 합니다.
-            mLODCheckTimer = mTemplate->GetLODDistanceCheckTime().GetBase();
+            mLODCheckTimer = mTemplate->GetLODDistanceCheckTime();
         }
     }
 
@@ -213,7 +213,7 @@ namespace Engine {
         }
 
         // 인스턴스가 이번 Tick을 새 LOD의 모듈로 돌도록 먼저 고릅니다.
-        UpdateLODLevel(DeltaTime);
+        UpdateLODLevel(Core::FTime::FromBase(DeltaTime));
 
         bool AllComplete{true};
 
@@ -323,7 +323,7 @@ namespace Engine {
         }
     }
 
-    void Engine::UParticleSystemComponent::UpdateLODLevel(float DeltaTime) {
+    void Engine::UParticleSystemComponent::UpdateLODLevel(Core::FTime DeltaTime) {
         if (mTemplate == nullptr || IsPreviewLODActive()) {
             return;
         }
@@ -334,7 +334,7 @@ namespace Engine {
             if (Desired >= 0) {
                 ApplyLODLevel(Desired);
                 mPendingActivateLOD = false;
-                mLODCheckTimer = 0.0f;
+                mLODCheckTimer = {};
             }
 
             return;
@@ -347,11 +347,11 @@ namespace Engine {
 
         mLODCheckTimer += DeltaTime;
 
-        if (mLODCheckTimer < mTemplate->GetLODDistanceCheckTime().GetBase()) {
+        if (mLODCheckTimer < mTemplate->GetLODDistanceCheckTime()) {
             return;
         }
 
-        mLODCheckTimer = 0.0f;
+        mLODCheckTimer = {};
 
         const Int32 Desired{ComputeDesiredLOD()};
 
@@ -380,7 +380,7 @@ namespace Engine {
         }
 
         const FVector ViewLocation{Camera->GetWorldMatrix().TransformPosition({})};
-        const float DistanceSquared{ViewLocation.DistanceSquared(GetWorldMatrix().TransformPosition({}))};
+        const Core::FArea DistanceSquared{Core::FArea::FromBase(ViewLocation.DistanceSquared(GetWorldMatrix().TransformPosition({})))};
         const auto& Distances{mTemplate->GetLODDistances()};
 
         for (Index_t Index{Distances.size()}; Index-- > 1;) {

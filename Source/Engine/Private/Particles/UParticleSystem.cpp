@@ -19,7 +19,7 @@ namespace Engine {
         /**
          * @brief 새 LOD를 맨 뒤에 붙일 때 이전 거리에 더하는 간격(m)입니다.
          */
-        constexpr float DefaultLODDistanceStep{10.0f};
+        constexpr Core::FLength DefaultLODDistanceStep{10_m};
 
         /**
          * @brief 에셋 본문 형식 버전입니다.
@@ -88,15 +88,15 @@ namespace Engine {
         return mLODDistances.size();
     }
 
-    const Core::TArray<float>& Engine::UParticleSystem::GetLODDistances() const {
+    const Core::TArray<Core::FLength>& Engine::UParticleSystem::GetLODDistances() const {
         return mLODDistances;
     }
 
-    float Engine::UParticleSystem::GetLODDistance(Index_t Index) const {
-        return Index < mLODDistances.size() ? mLODDistances[Index] : 0.0f;
+    Core::FLength Engine::UParticleSystem::GetLODDistance(Index_t Index) const {
+        return Index < mLODDistances.size() ? mLODDistances[Index] : 0_m;
     }
 
-    void Engine::UParticleSystem::SetLODDistance(Index_t Index, float Distance) {
+    void Engine::UParticleSystem::SetLODDistance(Index_t Index, Core::FLength Distance) {
         if (Index > 0 && Index < mLODDistances.size()) {
             mLODDistances[Index] = Distance;
         }
@@ -145,8 +145,8 @@ namespace Engine {
         }
 
         // 사이에 넣으면 양옆의 중간, 맨 뒤면 이전 거리에 간격을 더합니다.
-        const float Previous{mLODDistances[Index - 1]};
-        const float Distance{Index < Count ? (Previous + mLODDistances[Index]) * 0.5f : Previous + DefaultLODDistanceStep};
+        const Core::FLength Previous{mLODDistances[Index - 1]};
+        const Core::FLength Distance{Index < Count ? (Previous + mLODDistances[Index]) * 0.5f : Previous + DefaultLODDistanceStep};
 
         mLODDistances.insert(mLODDistances.begin() + static_cast<std::ptrdiff_t>(Index), Distance);
         BuildEmitters();
@@ -304,15 +304,15 @@ namespace Engine {
         const Index_t Count{std::max<Index_t>(MaximumLevels, 1)};
 
         while (mLODDistances.size() < Count) {
-            mLODDistances.push_back(mLODDistances.empty() ? 0.0f : mLODDistances.back() + DefaultLODDistanceStep);
+            mLODDistances.push_back(mLODDistances.empty() ? 0_m : mLODDistances.back() + DefaultLODDistanceStep);
         }
 
         mLODDistances.resize(Count);
-        mLODDistances[0] = 0.0f;
+        mLODDistances[0] = 0_m;
 
         for (Index_t Index{1}; Index < mLODDistances.size(); ++Index) {
             if (mLODDistances[Index] <= mLODDistances[Index - 1]) {
-                MACAW_LOG(LogParticles, Warning, "Particle LOD {} distance {} is not greater than LOD {}", Index, mLODDistances[Index], Index - 1);
+                MACAW_LOG(LogParticles, Warning, "Particle LOD {} distance {} is not greater than LOD {}", Index, mLODDistances[Index].GetBase(), Index - 1);
             }
         }
     }

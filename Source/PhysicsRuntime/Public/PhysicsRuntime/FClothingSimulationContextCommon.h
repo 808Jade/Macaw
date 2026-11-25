@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "Core/Types.h"
 #include "Core/Math/FMatrix.h"
 #include "Core/Math/FVector.h"
@@ -62,7 +64,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 이번 프레임에 진행할 시간(초)이며 최대 물리 시간으로 잘라 둔 값입니다.
          */
-        float mDeltaSeconds{};
+        Core::FTime mDeltaTime{};
 
         /**
          * @brief 메시의 상세 단계 번호입니다.

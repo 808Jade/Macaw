@@ -55,8 +55,8 @@ namespace Editor {
         bool IsChangedFromDefault(const ClothEditing::FClothConfigField& Field, PhysicsRuntime::UClothConfigNv& Config) {
             constexpr float Tolerance{1.e-6f};
 
-            if (Field.mGetFloat != nullptr) {
-                return std::abs(*Field.mGetFloat(Config) - Field.mDefault.x) > Tolerance;
+            if (Field.HasScalarValue()) {
+                return std::abs(Field.GetScalarValue(Config) - Field.mDefault.x) > Tolerance;
             }
 
             const FVector& Value{*Field.mGetVector(Config)};
@@ -70,8 +70,8 @@ namespace Editor {
          * @param[in,out] Config 값을 바꿀 설정입니다.
          */
         void ResetToDefault(const ClothEditing::FClothConfigField& Field, PhysicsRuntime::UClothConfigNv& Config) {
-            if (Field.mGetFloat != nullptr) {
-                *Field.mGetFloat(Config) = Field.mDefault.x;
+            if (Field.HasScalarValue()) {
+                Field.SetScalarValue(Config, Field.mDefault.x);
             } else {
                 *Field.mGetVector(Config) = Field.mDefault;
             }
@@ -94,7 +94,7 @@ namespace Editor {
             // 기본값과 범위는 표의 값에서 자동으로 만들어 설명 문장을 짧게 둡니다.
             const float Scale{Field.mDisplayScale};
 
-            if (Field.mGetFloat != nullptr) {
+            if (Field.HasScalarValue()) {
                 ImGui::TextDisabled("기본 %g  |  범위 %g ~ %g", Field.mDefault.x * Scale, Field.mMin * Scale, Field.mMax * Scale);
             } else {
                 ImGui::TextDisabled("기본 (%g, %g, %g)  |  범위 %g ~ %g", Field.mDefault.x * Scale, Field.mDefault.y * Scale, Field.mDefault.z * Scale, Field.mMin * Scale, Field.mMax * Scale);
@@ -159,13 +159,12 @@ namespace Editor {
             ImGui::PushID(Field.mKey);
             ImGui::SetNextItemWidth(-FLT_MIN);
 
-            if (Field.mGetFloat != nullptr) {
-                float* const Value{Field.mGetFloat(Config)};
-                float Display{*Value * Scale};
+            if (Field.HasScalarValue()) {
+                float Display{Field.GetScalarValue(Config) * Scale};
                 const bool Edited{UseSlider ? ImGui::SliderFloat("##Value", &Display, Min, Max, Field.mFormat, Flags) : ImGui::DragFloat("##Value", &Display, Field.mSpeed, Min, Max, Field.mFormat, Flags)};
 
                 if (Edited) {
-                    *Value = std::clamp(Display / Scale, Field.mMin, Field.mMax);
+                    Field.SetScalarValue(Config, std::clamp(Display / Scale, Field.mMin, Field.mMax));
                 }
             } else {
                 FVector* const Value{Field.mGetVector(Config)};
@@ -770,7 +769,11 @@ namespace Editor {
             ImGui::DragFloat("Threshold", &mClothFillThreshold, Info.mSpeed, 0.0f, Info.mMax, Info.mFormat, ImGuiSliderFlags_AlwaysClamp);
             ShowTextTooltip("시작 값과 이만큼 차이 나는 입자까지 채움");
         } else {
-            ImGui::SliderFloat("Brush Radius", &mClothPaintRadius, 0.001f, 0.5f, "%.3f m", ImGuiSliderFlags_Logarithmic);
+            float Radius{mClothPaintRadius.GetBase()};
+
+            if (ImGui::SliderFloat("Brush Radius", &Radius, 0.001f, 0.5f, "%.3f m", ImGuiSliderFlags_Logarithmic)) {
+                mClothPaintRadius = Core::FLength::FromBase(Radius);
+            }
             ShowTextTooltip("붓 반지름(m). 가리킨 표면 둘레만 칠함\n아주 작아도 가장 가까운 입자 하나는 칠함");
         }
 
@@ -930,7 +933,7 @@ namespace Editor {
 
         // 맞은 점에서 3D 반지름 안의 입자를 붓 안으로 보고, 그중 맞은 점에 가장 가까운 입자를 마우스 아래 입자로 둡니다.
         Core::TArray<Index_t> InBrush{};
-        const float RadiusSquared{mClothPaintRadius * mClothPaintRadius};
+        const float RadiusSquared{(mClothPaintRadius * mClothPaintRadius).GetBase()};
         float ClosestParticle{std::numeric_limits<float>::max()};
 
         for (Index_t Particle{}; HasHit && Particle < NumParticles; ++Particle) {
@@ -1047,8 +1050,8 @@ namespace Editor {
             for (Index_t Segment{}; Segment < NumSegments; ++Segment) {
                 const float AngleA{TwoPi * static_cast<float>(Segment) / static_cast<float>(NumSegments)};
                 const float AngleB{TwoPi * static_cast<float>(Segment + 1) / static_cast<float>(NumSegments)};
-                const FVector PointA{HitPoint + (AxisU * std::cos(AngleA) + AxisV * std::sin(AngleA)) * mClothPaintRadius};
-                const FVector PointB{HitPoint + (AxisU * std::cos(AngleB) + AxisV * std::sin(AngleB)) * mClothPaintRadius};
+                const FVector PointA{HitPoint + (AxisU * std::cos(AngleA) + AxisV * std::sin(AngleA)) * mClothPaintRadius.GetBase()};
+                const FVector PointB{HitPoint + (AxisU * std::cos(AngleB) + AxisV * std::sin(AngleB)) * mClothPaintRadius.GetBase()};
 
                 DrawInterface.DrawLine(PointA, PointB, BrushColor, false, 2.0f);
             }
@@ -1082,7 +1085,7 @@ namespace Editor {
      */
     void Editor::FMeshViewer::UpdateClothPreviewContext(float DeltaTime) {
         // 한 프레임이 너무 길면 천이 튀므로 물리 한 번에 진행할 최대 시간으로 자릅니다.
-        constexpr float MaxPhysicsDelta{1.0f / 30.0f};
+        constexpr Core::FTime MaxPhysicsDelta{1.0f / Core::FFrequency::FromBase(30.0f)};
         const Engine::FSkeletalMeshPose& Pose{mContent->GetPose()};
 
         // 미리 보기 메시는 원점에 놓이므로 컴포넌트 변환은 단위 행렬입니다.
@@ -1090,7 +1093,7 @@ namespace Editor {
         mClothPreviewContext.mRefToLocals = Pose.GetSkinMatrices();
         mClothPreviewContext.mComponentToWorld = FMatrix::Identity();
         mClothPreviewContext.mWorldGravity = FVector{0.0f, 0.0f, -9.81f};
-        mClothPreviewContext.mDeltaSeconds = std::min(DeltaTime, MaxPhysicsDelta);
+        mClothPreviewContext.mDeltaTime = std::min(Core::FTime::FromBase(DeltaTime), MaxPhysicsDelta);
         mClothPreviewContext.mPredictedLod = 0;
         mClothPreviewContext.mMaxDistanceScale = 1.0f;
         // 미리 보기에는 컴포넌트 바람이 없으므로, 게임에서 컴포넌트 바람이 0일 때처럼 천 에셋의 기본 바람을 씁니다.

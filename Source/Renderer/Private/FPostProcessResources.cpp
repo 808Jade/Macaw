@@ -106,7 +106,7 @@ namespace Renderer {
         const Engine::FDepthOfFieldSettings& DepthOfField{Family.mView.mDepthOfFieldSettings};
         constexpr float FullBlurFStop{1.4f};
         const float BlurRadius{DepthOfField.mMaxBlurRadius * (FullBlurFStop / std::max(FullBlurFStop, DepthOfField.mFStop))};
-        Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance, DepthOfField.mFocusWidth * 0.5f, DepthOfField.mTransitionDistance, BlurRadius};
+        Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance.GetBase(), (DepthOfField.mFocusWidth * 0.5f).GetBase(), DepthOfField.mTransitionDistance.GetBase(), BlurRadius};
 
         Asset::UTexture2D* Source{Target.GetSceneColor()};
         Uint32 DrawCalls{};

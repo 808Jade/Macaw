@@ -188,7 +188,7 @@ namespace Engine {
     /**
      * @brief 기본 컴포넌트 Tick 함수가 실행 차례에 호출하는 갱신 확장 지점입니다.
      */
-    void Engine::UActorComponent::Tick(float DeltaTime) {
+    void Engine::UActorComponent::Tick(float) {
     }
 
     /**

@@ -194,7 +194,8 @@ namespace Editor {
          */
         CameraSpeed,
         Reset,
-        ParticleSystem
+        ParticleSystem,
+        SkyDome
     };
 
 }

@@ -52,13 +52,13 @@ namespace Engine {
      */
     void Engine::UProjectileMovementComponent::Tick(float DeltaTime) {
         Engine::UWorld* World{GetWorld()};
+        const Core::FTime FrameTime{Core::FTime::FromBase(DeltaTime)};
 
-        if (World == nullptr || (World->GetWorldType() != Engine::EWorldType::Game && World->GetWorldType() != Engine::EWorldType::PIE) || !HasBegunPlay() || mStopped || ShouldSkipUpdate(DeltaTime)) {
+        if (World == nullptr || (World->GetWorldType() != Engine::EWorldType::Game && World->GetWorldType() != Engine::EWorldType::PIE) || !HasBegunPlay() || mStopped || ShouldSkipUpdate(FrameTime)) {
             return;
         }
 
         constexpr Core::FTime MaxStepTime{1.0f / 120_Hz};
-        const auto FrameTime{Core::FTime::FromBase(DeltaTime)};
         const float StepCount{FrameTime / MaxStepTime};
         const auto StepTime{FrameTime / std::clamp(std::ceil(StepCount), 1.0f, 128.0f)};
         const FTransform Start{GetUpdatedComponent()->GetTransform()};

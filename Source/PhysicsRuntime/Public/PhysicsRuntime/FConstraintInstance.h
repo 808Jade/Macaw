@@ -16,7 +16,7 @@ namespace physx {
 }
 
 namespace PhysicsRuntime {
-    class FBodyInstance;
+    struct FBodyInstance;
 
     /**
      * @brief 관절이 두 바디 중 어느 쪽 기준인지 나타냅니다.

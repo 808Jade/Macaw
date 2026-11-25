@@ -80,7 +80,7 @@ namespace {
      * @param[in,out] Statistics 저장하거나 복원할 뷰포트 통계 그룹 설정입니다.
      */
     void SerializeViewport(Serialization::FJsonArchive& Archive, Editor::FEditorViewportClient& Client, Editor::FViewportStatistics& Statistics) {
-        float Speed{Client.GetCameraSpeed()};
+        Core::FSpeed Speed{Client.GetCameraSpeed()};
         float Sensitivity{Client.GetCameraSensitivity()};
         float Spacing{Client.GetGridSpacing()};
         float Thickness{Client.GetLineThickness()};
@@ -239,7 +239,12 @@ void FEditorSettings::InitializeViewportWidgets() {
     RegisterSlider("Horizontal Split", 0.1f, 0.9f, &FEditorSettings::GetHorizontalSplit, &FEditorSettings::SetHorizontalSplit, "%.2f");
     RegisterSlider("Vertical Split", 0.1f, 0.9f, &FEditorSettings::GetVerticalSplit, &FEditorSettings::SetVerticalSplit, "%.2f");
 
-    RegisterViewportSlider("Movement Speed", (0.1_mps).GetBase(), (128_mps).GetBase(), &FEditorViewportClient::GetCameraSpeed, &FEditorViewportClient::SetCameraSpeed, "%.2f", 0.01f);
+    RegisterSlider("Movement Speed", (0.1_mps).GetBase(), (128_mps).GetBase(), [this]() {
+        return GetSettingsClient().GetCameraSpeed().GetBase();
+    }, [this](float Value) {
+        GetSettingsClient().SetCameraSpeed(Core::FSpeed::FromBase(Value));
+    }, "%.2f m/s", 0.01f);
+
     RegisterViewportSlider("Mouse Sensitivity", Core::Math::ToDegrees(0.01_deg), Core::Math::ToDegrees(2_deg), &FEditorViewportClient::GetCameraSensitivity, &FEditorViewportClient::SetCameraSensitivity, "%.3f", 0.001f);
     RegisterViewportSlider("Orthographic Width", (0.01_m).GetBase(), (100000_m).GetBase(), &FEditorViewportClient::GetOrthographicWidth, &FEditorViewportClient::SetOrthographicWidth, "%.2f", 0.001f);
 
@@ -1271,7 +1276,7 @@ void FEditorSettings::ResetSettings() {
     for (Index_t Index{}; Index < 4; ++Index) {
         Editor::FEditorViewport* Viewport{mViewportLayout.GetViewport(Index)};
         Editor::FEditorViewportClient& Client{*Viewport->GetClient()};
-        Client.SetCameraSpeed((4_mps).GetBase());
+        Client.SetCameraSpeed(4_mps);
         Client.SetCameraSensitivity(Core::Math::ToDegrees(0.2_deg));
         Client.SetGridSpacing((1_m).GetBase());
         Client.SetLineThickness(1.5f);

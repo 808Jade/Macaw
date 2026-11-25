@@ -19,7 +19,7 @@ using namespace Core::Literals;
 
 namespace Asset {
 
-    constinit const float Asset::FAnimTransitionData::mDefaultDuration{(0.2_s).GetBase()};
+    constinit const Core::FTime Asset::FAnimTransitionData::mDefaultDuration{0.2_s};
 
     const Core::TArray<Asset::FAnimRuleNode>& FAnimTransitionGraph::GetNodes() const {
         return mNodes;
@@ -473,7 +473,7 @@ namespace Asset {
 
             Archive.EndObject();
 
-            if (Transition.mId < 0 || Transition.mId == std::numeric_limits<Int32>::max() || FindState(Transition.mFromState) == nullptr || FindState(Transition.mToState) == nullptr || !std::isfinite(Transition.mDuration) || Transition.mDuration < 0.0f || std::any_of(mTransitions.begin(), mTransitions.begin() + Index, [&Transition](const auto& Other) {
+            if (Transition.mId < 0 || Transition.mId == std::numeric_limits<Int32>::max() || FindState(Transition.mFromState) == nullptr || FindState(Transition.mToState) == nullptr || !Transition.mDuration.IsFinite() || Transition.mDuration < 0_s || std::any_of(mTransitions.begin(), mTransitions.begin() + Index, [&Transition](const auto& Other) {
                 return Other.mId == Transition.mId;
             })) {
                 Archive.SetError("Invalid animation transition");

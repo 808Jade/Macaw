@@ -821,7 +821,7 @@ namespace Editor {
 
                 ImGui::PushID(Object);
                 ImGui::TableNextRow();
-                ObjectRow::DrawLabel(Object, Handle == Selected, Indent);
+                ObjectRow::DrawLabel(*Context, Object, Handle == Selected, Indent);
 
                 if (ImGui::IsItemClicked()) {
                     if (mLockedContext != nullptr) {

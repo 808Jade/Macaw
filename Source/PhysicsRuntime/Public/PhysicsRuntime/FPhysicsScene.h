@@ -119,7 +119,7 @@ namespace PhysicsRuntime {
          * @param[in] ShouldIgnore true를 반환한 바디를 제외하며, 비어 있으면 쓰지 않습니다.
          * @return 막힌 지점이 있으면 true입니다.
          */
-        bool SweepSphere(const FVector& Start, const FVector& Delta, float Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore = {}) const;
+        bool SweepSphere(const FVector& Start, const FVector& Delta, Core::FLength Radius, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore = {}) const;
 
     private:
 

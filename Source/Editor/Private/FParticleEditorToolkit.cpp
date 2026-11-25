@@ -720,14 +720,14 @@ void FParticleEditorToolkit::DrawLODControls() {
 }
 
 void FParticleEditorToolkit::DrawLODDistance() {
-    float Distance{mWorkingCopy->GetLODDistance(mLOD)};
+    float Distance{mWorkingCopy->GetLODDistance(mLOD).GetBase()};
     ImGui::BeginDisabled(mLOD == 0);
     if (FEditorQuantityInputWidget::EditValue("##LOD Distance", Distance, Core::QuantityUnits::Meter)) {
-        const float Minimum{std::nextafter(mWorkingCopy->GetLODDistance(mLOD - 1), std::numeric_limits<float>::infinity())};
-        const float Maximum{mLOD + 1 < mWorkingCopy->GetNumLODs() ? std::nextafter(mWorkingCopy->GetLODDistance(mLOD + 1), 0.0f) : std::numeric_limits<float>::max()};
+        const float Minimum{std::nextafter(mWorkingCopy->GetLODDistance(mLOD - 1).GetBase(), std::numeric_limits<float>::infinity())};
+        const float Maximum{mLOD + 1 < mWorkingCopy->GetNumLODs() ? std::nextafter(mWorkingCopy->GetLODDistance(mLOD + 1).GetBase(), 0.0f) : std::numeric_limits<float>::max()};
 
         if (Minimum <= Maximum) {
-            mWorkingCopy->SetLODDistance(mLOD, std::clamp(Distance, Minimum, Maximum));
+            mWorkingCopy->SetLODDistance(mLOD, Core::FLength::FromBase(std::clamp(Distance, Minimum, Maximum)));
             MarkDirty();
         }
     }

@@ -67,7 +67,7 @@ namespace Editor {
             return;
         }
 
-        static constexpr Core::TStaticArray<const char*, static_cast<std::size_t>(Editor::EPlaceActorIcon::Count)> Paths{nullptr, "/Engine/Editor/Icon/Pawn_64x.png", "/Engine/Editor/Icon/SkyLight_64x.png", "/Engine/Editor/Icon/DirectionalLight_64x.png", "/Engine/Editor/Icon/PointLight_64x.png", "/Engine/Editor/Icon/SpotLight_64x.png", "/Engine/Editor/Icon/ExponentialHeightFog_64x.png", "/Engine/Editor/Icon/EmptyActor_64x.png", "/Engine/Editor/Icon/DecalActor_64x.png", "/Engine/Editor/Icon/LevelSequenceActor_64x.png"};
+        static constexpr Core::TStaticArray<const char*, static_cast<std::size_t>(Editor::EPlaceActorIcon::Count)> Paths{nullptr, "/Engine/Editor/Icon/Pawn_64x.png", "/Engine/Editor/Icon/SkyLight_64x.png", "/Engine/Editor/Icon/DirectionalLight_64x.png", "/Engine/Editor/Icon/PointLight_64x.png", "/Engine/Editor/Icon/SpotLight_64x.png", "/Engine/Editor/Icon/ExponentialHeightFog_64x.png", "/Engine/Editor/Icon/EmptyActor_64x.png", "/Engine/Editor/Icon/DecalActor_64x.png", "/Engine/Editor/Icon/LevelSequenceActor_64x.png", "/Engine/Editor/Icon/Emitter_64x.png", "/Engine/Editor/Icon/Pawn_64x.png", "/Engine/Editor/Icon/SkyAtmosphere_64x.png"};
 
         mIcons = {};
 
@@ -133,13 +133,13 @@ namespace Editor {
             }
 
             if (Atmosphere) {
-                DrawEntry(Name, "Sky Atmosphere", "SkyAtmosphereComponent", Editor::EPlaceActorIcon::None);
+                DrawEntry(Name, "Sky Atmosphere", "SkyAtmosphereComponent", Editor::EPlaceActorIcon::SkyAtmosphere);
 
                 continue;
             }
 
             if (Particle) {
-                DrawEntry(Name, "Particle System", "ParticleSystemComponent", Editor::EPlaceActorIcon::None);
+                DrawEntry(Name, "Particle System", "ParticleSystemComponent", Editor::EPlaceActorIcon::ParticleSystem);
 
                 continue;
             }
@@ -152,6 +152,12 @@ namespace Editor {
 
             if (Name == "ALevelSequenceActor") {
                 DrawEntry(Name, "Level Sequence Actor", "SceneComponent", Editor::EPlaceActorIcon::LevelSequence);
+
+                continue;
+            }
+
+            if (Name == "APawn") {
+                DrawEntry(Name, "Pawn", "SceneComponent", Editor::EPlaceActorIcon::Pawn);
 
                 continue;
             }

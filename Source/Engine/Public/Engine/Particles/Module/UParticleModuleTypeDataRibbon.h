@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "Core/Types.h"
 #include "Engine/Particles/Module/UParticleModuleTypeDataBase.h"
 #include "UParticleModuleTypeDataRibbon.generated.h"
@@ -35,17 +37,17 @@ namespace Engine {
         /**
          * @brief 이 거리만큼 움직일 때마다 점을 놓습니다. 0이면 거리 기준 생성을 끄고 Spawn 모듈을 따릅니다.
          */
-        float GetSpawnDistance() const;
+        Core::FLength GetSpawnDistance() const;
 
         /**
          * @brief 텍스처 한 번이 덮는 길이입니다. 0이면 띠 전체에 늘입니다.
          */
-        float GetTilingDistance() const;
+        Core::FLength GetTilingDistance() const;
 
         /**
          * @brief 한 프레임에 이보다 멀리 가면 순간 이동으로 보고 잇지 않습니다. 0이면 검사하지 않습니다.
          */
-        float GetMaxSpawnDistance() const;
+        Core::FLength GetMaxSpawnDistance() const;
 
         Uint32 GetSheets() const;
 
@@ -62,7 +64,7 @@ namespace Engine {
         /**
          * @brief 점 사이를 이 간격으로 곡선 점을 채웁니다. 0이면 채우지 않습니다.
          */
-        float GetDistanceTessellationStepSize() const;
+        Core::FLength GetDistanceTessellationStepSize() const;
 
         Uint32 GetMaxTessellationBetweenParticles() const;
 
@@ -70,14 +72,14 @@ namespace Engine {
         UPROPERTY(Edit, Serialize, Category = "Trail")
         Uint32 mMaxParticleInTrailCount{64};
 
-        UPROPERTY(Edit, Serialize, Category = "Trail", Meta = (DisplayUnit = "m"))
-        float mSpawnDistance{0.1f};
+        UPROPERTY(Edit, Serialize, Category = "Trail")
+        Core::FLength mSpawnDistance{Core::FLength::FromBase(0.1f)};
 
-        UPROPERTY(Edit, Serialize, Category = "Rendering", Meta = (DisplayUnit = "m"))
-        float mTilingDistance{};
+        UPROPERTY(Edit, Serialize, Category = "Rendering")
+        Core::FLength mTilingDistance{};
 
-        UPROPERTY(Edit, Serialize, Category = "Trail", Meta = (DisplayUnit = "m"))
-        float mMaxSpawnDistance{5.0f};
+        UPROPERTY(Edit, Serialize, Category = "Trail")
+        Core::FLength mMaxSpawnDistance{Core::FLength::FromBase(5.0f)};
 
         UPROPERTY(Edit, Serialize, Category = "Rendering")
         Uint32 mSheets{1};
@@ -88,8 +90,8 @@ namespace Engine {
         UPROPERTY(Edit, Serialize, Category = "Trail")
         bool mSpawnInitialParticle{true};
 
-        UPROPERTY(Edit, Serialize, Category = "Rendering", Meta = (DisplayUnit = "m"))
-        float mDistanceTessellationStepSize{};
+        UPROPERTY(Edit, Serialize, Category = "Rendering")
+        Core::FLength mDistanceTessellationStepSize{};
 
         UPROPERTY(Edit, Serialize, Category = "Rendering")
         Uint32 mMaxTessellationBetweenParticles{8};

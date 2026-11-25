@@ -65,7 +65,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 이동 시작점에서 막힌 지점까지 이동한 거리(m)입니다.
          */
-        float mDistance{};
+        Core::FLength mDistance{};
 
         /**
          * @brief 두 형상이 닿은 월드 위치입니다.
@@ -80,7 +80,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 시작부터 겹쳐 있었을 때의 침투 깊이(m)입니다.
          */
-        float mPenetrationDepth{};
+        Core::FLength mPenetrationDepth{};
 
         /**
          * @brief 이동을 시작할 때 이미 겹쳐 있었는지 여부입니다.

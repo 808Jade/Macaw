@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FVector4.h"
 
@@ -25,7 +26,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 구의 반지름(m)입니다.
          */
-        float mRadius{};
+        Core::FLength mRadius{};
 
         /**
          * @brief 뼈 좌표의 구 중심입니다.

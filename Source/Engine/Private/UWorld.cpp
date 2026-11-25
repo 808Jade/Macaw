@@ -577,7 +577,7 @@ namespace Engine {
                 auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(Component.get())};
 
                 if (Primitive != nullptr && Engine::RaycastMesh(&Primitive->GetMeshData(), Primitive->GetWorldMatrix(), NormalizedRay, Closest)) {
-                    Hit = {CoreUObject::MakeObjectRef(Actor), CoreUObject::MakeObjectRef(Primitive), NormalizedRay.mOrigin + NormalizedRay.mDirection * Closest, Closest};
+                    Hit = {CoreUObject::MakeObjectRef(Actor), CoreUObject::MakeObjectRef(Primitive), NormalizedRay.mOrigin + NormalizedRay.mDirection * Closest, Core::FLength::FromBase(Closest)};
                     Found = true;
                 }
             }

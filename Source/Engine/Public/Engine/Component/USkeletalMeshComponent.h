@@ -584,7 +584,7 @@ namespace Engine {
          * @brief 현재 포즈, 변환, 시간, 중력으로 천 시뮬레이션 입력을 채웁니다.
          * @param[in] DeltaTime 초 단위 프레임 시간입니다.
          */
-        void UpdateClothSimulationContext(float DeltaTime);
+        void UpdateClothSimulationContext(Core::FTime DeltaTime);
 
         /**
          * @brief 기준 뼈가 한 프레임에 너무 멀리 움직이거나 많이 돌았으면 천 순간 이동을 요청합니다.
@@ -791,12 +791,12 @@ namespace Engine {
         /**
          * @brief 기준 뼈가 한 프레임에 이 거리(m)보다 멀리 움직이면 천을 순간 이동시키며 0이면 검사하지 않습니다.
          */
-        float mTeleportDistanceThreshold{3.0f};
+        Core::FLength mTeleportDistanceThreshold{Core::FLength::FromBase(3.0f)};
 
         /**
          * @brief 기준 뼈가 한 프레임에 이 각도(도)보다 많이 돌면 천을 순간 이동시키며 0이면 검사하지 않습니다.
          */
-        float mTeleportRotationThreshold{};
+        Core::FAngle mTeleportRotationThreshold{};
 
         /**
          * @brief 순간 이동할 때 입자를 스키닝 위치에 다시 놓을지 나타냅니다.

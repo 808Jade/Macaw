@@ -23,15 +23,15 @@ namespace Engine {
         return std::max<Uint32>(mMaxParticleInTrailCount, 2);
     }
 
-    float Engine::UParticleModuleTypeDataRibbon::GetSpawnDistance() const {
+    Core::FLength Engine::UParticleModuleTypeDataRibbon::GetSpawnDistance() const {
         return mSpawnDistance;
     }
 
-    float Engine::UParticleModuleTypeDataRibbon::GetTilingDistance() const {
+    Core::FLength Engine::UParticleModuleTypeDataRibbon::GetTilingDistance() const {
         return mTilingDistance;
     }
 
-    float Engine::UParticleModuleTypeDataRibbon::GetMaxSpawnDistance() const {
+    Core::FLength Engine::UParticleModuleTypeDataRibbon::GetMaxSpawnDistance() const {
         return mMaxSpawnDistance;
     }
 
@@ -47,7 +47,7 @@ namespace Engine {
         return mSpawnInitialParticle;
     }
 
-    float Engine::UParticleModuleTypeDataRibbon::GetDistanceTessellationStepSize() const {
+    Core::FLength Engine::UParticleModuleTypeDataRibbon::GetDistanceTessellationStepSize() const {
         return mDistanceTessellationStepSize;
     }
 

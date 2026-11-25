@@ -33,15 +33,16 @@ namespace Engine {
 
     void Engine::UParticleModuleBeamNoise::Update(Engine::FParticleEmitterInstance& Owner, Int32 Offset, float DeltaTime) const {
         const Uint32 Frequency{GetFrequency()};
-        const float MaxStep{mNoiseSpeed * DeltaTime};
+        const Core::FTime FrameTime{Core::FTime::FromBase(DeltaTime)};
+        const Core::FLength MaxStep{mNoiseSpeed * FrameTime};
 
         Engine::ParticleHelper::ForEachParticle(Owner, [&](Engine::FBaseParticle&, Uint8* Base) {
             Engine::FBeamNoiseHeader& Header{GetHeader(Base, Offset)};
             Engine::FBeamNoisePoint* Points{GetPoints(Base, Offset)};
 
-            Header.mLockTimer -= DeltaTime;
+            Header.mLockTimer -= FrameTime;
 
-            if (Header.mLockTimer <= 0.0f) {
+            if (Header.mLockTimer <= Core::FTime{}) {
                 PickTargets(Owner, Points);
                 Header.mLockTimer = mNoiseLockTime;
             }
@@ -50,10 +51,10 @@ namespace Engine {
                 Engine::FBeamNoisePoint& Point{Points[Index]};
                 const float DeltaX{Point.mTarget[0] - Point.mCurrent[0]};
                 const float DeltaY{Point.mTarget[1] - Point.mCurrent[1]};
-                const float Distance{std::sqrt(DeltaX * DeltaX + DeltaY * DeltaY)};
+                const Core::FLength Distance{Core::FLength::FromBase(std::sqrt(DeltaX * DeltaX + DeltaY * DeltaY))};
 
                 // 속도가 0이거나 이번 프레임에 닿으면 바로 목표로, 아니면 목표를 넘지 않게 MaxStep만큼 갑니다.
-                if (mNoiseSpeed <= 0.0f || Distance <= MaxStep || Distance < 0.000001f) {
+                if (mNoiseSpeed <= Core::FSpeed{} || Distance <= MaxStep || Distance < Core::FLength::FromBase(0.000001f)) {
                     Point.mCurrent[0] = Point.mTarget[0];
                     Point.mCurrent[1] = Point.mTarget[1];
                 } else {
@@ -86,8 +87,8 @@ namespace Engine {
         return std::clamp<Uint32>(mNoiseTessellation, 1, 16);
     }
 
-    float Engine::UParticleModuleBeamNoise::GetNoiseRange() const {
-        return std::abs(mNoiseRange);
+    Core::FLength Engine::UParticleModuleBeamNoise::GetNoiseRange() const {
+        return Core::Math::Abs(mNoiseRange);
     }
 
     Engine::FBeamNoiseHeader& Engine::UParticleModuleBeamNoise::GetHeader(Uint8* ParticleBase, Int32 Offset) {
@@ -104,7 +105,7 @@ namespace Engine {
 
     void Engine::UParticleModuleBeamNoise::PickTargets(Engine::FParticleEmitterInstance& Owner, Engine::FBeamNoisePoint* Points) const {
         const Uint32 Frequency{GetFrequency()};
-        const float Range{GetNoiseRange()};
+        const float Range{GetNoiseRange().GetBase()};
 
         // 양 끝은 시작점과 끝점에 붙어 있어야 합니다.
         Points[0].mTarget[0] = 0.0f;

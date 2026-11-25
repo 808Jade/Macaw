@@ -397,7 +397,7 @@ namespace PhysicsRuntime {
             return;
         }
 
-        const float SelfCollisionRadius{mClothConfig->NeedsSelfCollisionIndices()};
+        const Core::FLength SelfCollisionRadius{mClothConfig->NeedsSelfCollisionIndices()};
 
         for (FClothLODDataCommon& Lod : mLodData) {
             Lod.mPhysicalMeshData.BuildSelfCollisionData(SelfCollisionRadius);

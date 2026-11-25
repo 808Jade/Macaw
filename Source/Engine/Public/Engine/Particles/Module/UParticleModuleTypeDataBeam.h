@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "Core/Types.h"
 #include "Core/Math/FVector.h"
 #include "CoreUObject/Reflection/TNativeEnum.h"
@@ -71,7 +73,7 @@ namespace Engine {
         /**
          * @brief Distance 방식의 빔 길이(m)입니다.
          */
-        float GetDistance() const;
+        Core::FLength GetDistance() const;
 
         /**
          * @brief Target 방식의 에미터 기준 끝점(m)입니다.
@@ -94,8 +96,8 @@ namespace Engine {
         UPROPERTY(Edit, Serialize, Category = "Rendering")
         float mTextureTile{1.0f};
 
-        UPROPERTY(Edit, Serialize, Category = "Beam", Meta = (DisplayUnit = "m"))
-        float mDistance{1.0f};
+        UPROPERTY(Edit, Serialize, Category = "Beam")
+        Core::FLength mDistance{Core::FLength::FromBase(1.0f)};
 
         UPROPERTY(Edit, Serialize, Category = "Beam")
         FVector mTargetPoint{1.0f, 0.0f, 0.0f};

@@ -78,14 +78,14 @@ namespace Engine {
         /**
          * @brief LOD i를 쓰기 시작하는 카메라 거리(m)입니다. [0]은 항상 0입니다.
          */
-        const Core::TArray<float>& GetLODDistances() const;
+        const Core::TArray<Core::FLength>& GetLODDistances() const;
 
-        float GetLODDistance(Index_t Index) const;
+        Core::FLength GetLODDistance(Index_t Index) const;
 
         /**
          * @brief LOD 0의 거리는 바꿀 수 없습니다.
          */
-        void SetLODDistance(Index_t Index, float Distance);
+        void SetLODDistance(Index_t Index, Core::FLength Distance);
 
         Engine::EParticleSystemLODMethod GetLODMethod() const;
 
@@ -154,7 +154,7 @@ namespace Engine {
          * @brief LOD i는 카메라 거리가 mLODDistances[i](m) 이상일 때 씁니다. [0]은 항상 0입니다.
          */
         UPROPERTY(Edit, Serialize, Category = "LOD")
-        Core::TArray<float> mLODDistances{};
+        Core::TArray<Core::FLength> mLODDistances{};
 
         UPROPERTY(Edit, Serialize, Category = "LOD", Name = "LODMethod", Getter = GetLODMethod, Setter = SetLODMethod)
         Engine::EParticleSystemLODMethod mLODMethod{Engine::EParticleSystemLODMethod::Automatic};

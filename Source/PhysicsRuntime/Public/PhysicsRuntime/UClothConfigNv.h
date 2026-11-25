@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FVector.h"
 #include "CoreUObject/UObject.h"
 
@@ -93,7 +94,7 @@ namespace PhysicsRuntime {
          * @brief 천끼리 부딪힐 입자를 고를 때 쓰는 거리를 구합니다.
          * @return 천끼리 부딪히지 않으면 0이고, 아니면 반지름에 컬링 배율을 곱한 값(m)입니다.
          */
-        float NeedsSelfCollisionIndices() const;
+        Core::FLength NeedsSelfCollisionIndices() const;
 
         /**
          * @brief 모든 설정 값을 저장하거나 불러옵니다.
@@ -131,7 +132,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 천끼리 부딪힐 때 입자 사이에 둘 거리(m)이며 0이면 천끼리 부딪히지 않습니다.
          */
-        float mSelfCollisionRadius{};
+        Core::FLength mSelfCollisionRadius{};
 
         /**
          * @brief 천끼리 부딪힐 때 밀어내는 세기이며 0이면 천끼리 부딪히지 않습니다.
@@ -197,12 +198,12 @@ namespace PhysicsRuntime {
         /**
          * @brief 1초에 제약을 푸는 횟수(Hz)입니다.
          */
-        float mSolverFrequency{120.0f};
+        Core::FFrequency mSolverFrequency{Core::FFrequency::FromBase(120.0f)};
 
         /**
          * @brief 세기와 감쇠 값이 기준으로 삼는 횟수(Hz)입니다.
          */
-        float mStiffnessFrequency{100.0f};
+        Core::FFrequency mStiffnessFrequency{Core::FFrequency::FromBase(100.0f)};
 
         /**
          * @brief 월드 중력에 곱하는 배율입니다.
@@ -232,7 +233,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 천 두께를 흉내 내려고 충돌체 반지름에 더하는 값(m)입니다.
          */
-        float mCollisionThickness{0.01f};
+        Core::FLength mCollisionThickness{Core::FLength::FromBase(0.01f)};
 
         /**
          * @brief 입자를 스키닝 위치 쪽으로 당기는 스프링 세기입니다.

@@ -57,7 +57,7 @@ namespace Engine {
          * @brief 피사계 심도의 초점 거리(m)를 변경합니다.
          * @return 0 이상의 유한한 거리를 적용했으면 true입니다.
          */
-        bool SetDepthOfFieldFocalDistance(float Distance);
+        bool SetDepthOfFieldFocalDistance(Core::FLength Distance);
 
         /**
          * @brief 카메라의 현재 월드 변환, 시야각, 피사계 심도 설정으로 시점 값을 만듭니다.

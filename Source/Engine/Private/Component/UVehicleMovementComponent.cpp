@@ -250,7 +250,7 @@ namespace Engine {
     }
 
     void UVehicleMovementComponent::Tick(float DeltaTime) {
-        if (!HasBegunPlay() || ShouldSkipUpdate(DeltaTime)) {
+        if (!HasBegunPlay() || ShouldSkipUpdate(Core::FTime::FromBase(DeltaTime))) {
             return;
         }
 

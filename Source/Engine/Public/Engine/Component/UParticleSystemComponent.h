@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "CoreUObject/TDelegate.h"
 #include "CoreUObject/TObjectRef.h"
 #include "Engine/Component/UPrimitiveComponent.h"
@@ -190,7 +191,7 @@ namespace Engine {
         /**
          * @brief 에셋의 LOD 방식에 따라 주기적으로 LOD를 다시 고릅니다.
          */
-        void UpdateLODLevel(float DeltaTime);
+        void UpdateLODLevel(Core::FTime DeltaTime);
 
         /**
          * @brief 범위를 맞춰 저장하고 모든 인스턴스에 전달합니다.
@@ -242,7 +243,7 @@ namespace Engine {
 
         Int32 mLODLevel{};
 
-        float mLODCheckTimer{};
+        Core::FTime mLODCheckTimer{};
 
         Int32 mPreviewLODOverride{-1};
 

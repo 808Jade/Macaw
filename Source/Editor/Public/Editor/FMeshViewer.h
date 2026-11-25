@@ -15,6 +15,7 @@
 
 #include "Core/Types.h"
 #include "Core/Guid.h"
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FRotator.h"
 #include "Core/Math/FVector.h"
 #include "Core/Math/FVector2.h"
@@ -536,7 +537,7 @@ namespace Editor {
         /**
          * @brief 붓의 3D 반지름(m)이며 천 표면에 맞은 점에서 이 거리 안의 입자를 칠합니다.
          */
-        float mClothPaintRadius{0.05f};
+        Core::FLength mClothPaintRadius{Core::FLength::FromBase(0.05f)};
 
         /**
          * @brief 카메라 반대쪽을 향한 삼각형의 와이어프레임을 그리지 않을지 나타냅니다.

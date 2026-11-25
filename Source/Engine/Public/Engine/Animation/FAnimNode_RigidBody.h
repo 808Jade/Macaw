@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FMatrix.h"
 #include "Engine/Animation/FAnimNode_Base.h"
 
@@ -110,7 +111,7 @@ namespace Engine {
         /**
          * @brief 아직 시뮬레이션에 넘기지 않은 경과 시간(초)입니다.
          */
-        float mPendingDeltaTime{};
+        Core::FTime mPendingDeltaTime{};
     };
 
 }

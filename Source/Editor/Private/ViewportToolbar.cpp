@@ -312,10 +312,10 @@ namespace Editor {
         }
 
         void DrawCameraSpeed(Editor::FEditorViewportClient* Client) {
-            float Speed{Client->GetCameraSpeed()};
+            float Speed{Client->GetCameraSpeed().GetBase()};
 
-            if (ImGui::SliderFloat("Movement Speed", &Speed, (0.1_mps).GetBase(), (128_mps).GetBase(), "%.2f", ImGuiSliderFlags_Logarithmic)) {
-                Client->SetCameraSpeed(Speed);
+            if (ImGui::SliderFloat("Movement Speed", &Speed, (0.1_mps).GetBase(), (128_mps).GetBase(), "%.2f m/s", ImGuiSliderFlags_Logarithmic)) {
+                Client->SetCameraSpeed(Core::FSpeed::FromBase(Speed));
             }
         }
 
@@ -488,7 +488,7 @@ namespace Editor {
             const float LayoutWidth{DrawLayout ? SplitWidth + Spacing : 0.0f};
             const Core::FString ViewTypeLabel{Core::FString{Client->GetViewTypeName()} + "###ViewType"};
             const Core::FString ViewModeLabel{Core::FString{GetViewModeName(Client)} + "###ViewMode"};
-            const Core::FString SpeedLabel{std::format("{:.3g}###CameraSpeed", Client->GetCameraSpeed())};
+            const Core::FString SpeedLabel{std::format("{:.3g}###CameraSpeed", Client->GetCameraSpeed().GetBase())};
             Core::TStaticArray<Core::FString, SnapControls.size()> SnapLabels{};
             const float ModesWidth{4.0f * (IconWidth + Spacing)};
             const float TransformPlaceholderWidth{2.0f * (DropdownWidth + Spacing)};

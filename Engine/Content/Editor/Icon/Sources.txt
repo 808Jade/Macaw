@@ -38,8 +38,14 @@ Unreal Engine 5.8 Place Actors icons rasterized from Engine/Content/Editor/Slate
 EmptyActor_64x.png: EmptyActor_64.svg
 DecalActor_64x.png: DecalActor_64.svg
 LevelSequenceActor_64x.png: LevelSequenceActor_64.svg
+Emitter_16x.png and Emitter_64x.png: Emitter_16.svg and Emitter_64.svg
+Pawn_16x.png: Pawn_16.svg
+SkyAtmosphere_16x.png and SkyAtmosphere_64x.png: SkyAtmosphere_16.svg and SkyAtmosphere_64.svg
 
 Unreal Engine 5.8 viewport sprites exported from Texture2D assets
 EmptyActor.png: Engine/Content/EditorResources/EmptyActor.uasset
 S_DecalActorIcon.png: Engine/Content/EditorResources/S_DecalActorIcon.uasset
 S_LevelSequence.png: Engine/Content/EditorResources/S_LevelSequence.uasset
+S_Emitter.png: Engine/Content/EditorResources/S_Emitter.uasset
+S_Pawn.png: Engine/Content/EditorResources/S_Pawn.uasset
+S_SkyAtmosphere.png: Engine/Content/EditorResources/S_SkyAtmosphere.uasset

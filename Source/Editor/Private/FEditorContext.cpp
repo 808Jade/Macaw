@@ -1609,9 +1609,7 @@ namespace Editor {
         }
 
         // 설정 이름과 값의 위치를 한곳에 모아 보여 주기와 바꾸기에 함께 씁니다.
-        const auto GetFloats{[](PhysicsRuntime::UClothConfigNv& Config) {
-            return Editor::ClothEditing::GetConfigFloats(Config);
-        }};
+        const auto& Fields{Editor::ClothEditing::GetConfigFields()};
         const auto GetVectors{[](PhysicsRuntime::UClothConfigNv& Config) {
             return Editor::ClothEditing::GetConfigVectors(Config);
         }};
@@ -1624,8 +1622,10 @@ namespace Editor {
                 return false;
             }
 
-            for (const auto& [EntryName, Value] : GetFloats(*Config)) {
-                AddLog(EntryName + " = " + std::to_string(*Value));
+            for (const auto& Field : Fields) {
+                if (Field.HasScalarValue()) {
+                    AddLog(Core::FString{Field.mKey} + " = " + std::to_string(Field.GetScalarValue(*Config)));
+                }
             }
 
             for (const auto& [EntryName, Value] : GetVectors(*Config)) {
@@ -1653,9 +1653,9 @@ namespace Editor {
                 continue;
             }
 
-            for (const auto& [EntryName, Value] : GetFloats(*Config)) {
-                if (EntryName == Name) {
-                    *Value = Values[0];
+            for (const auto& Field : Fields) {
+                if (Field.HasScalarValue() && Name == Field.mKey) {
+                    Field.SetScalarValue(*Config, Values[0]);
                     Found = true;
                 }
             }

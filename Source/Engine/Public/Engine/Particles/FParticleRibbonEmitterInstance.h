@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
+
 #include "Core/Math/FVector.h"
 #include "Engine/Particles/FParticleEmitterInstance.h"
 
@@ -77,12 +79,12 @@ namespace Engine {
         /**
          * @brief 아직 점 하나 분량이 안 된 이동 거리입니다.
          */
-        float mDistanceAccumulated{};
+        Core::FLength mDistanceAccumulated{};
 
         /**
          * @brief 현재 트레일의 누적 이동 거리입니다.
          */
-        float mTiledDistance{};
+        Core::FLength mTiledDistance{};
 
         float mTrailOneOverLifetime{};
 

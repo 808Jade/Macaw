@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FVector.h"
 #include "CoreUObject/TObjectRef.h"
 #include "Engine/Component/UActorComponent.h"
@@ -38,7 +39,7 @@ namespace Engine {
         virtual bool SetVelocity(const FVector& Velocity);
 
         /** @brief 유효한 시간 간격과 이동 대상이 있는지 확인합니다. */
-        bool ShouldSkipUpdate(float DeltaTime) const;
+        bool ShouldSkipUpdate(Core::FTime DeltaTime) const;
 
         /**
          * @brief 월드 위치 변화량과 새 회전을 적용합니다.

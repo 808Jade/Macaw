@@ -547,7 +547,7 @@ namespace PhysicsRuntime {
                     continue;
                 }
 
-                const float Distance{StartPenetrating ? 0.0f : Touch.distance};
+                const Core::FLength Distance{StartPenetrating ? Core::FLength{} : Core::FLength::FromBase(Touch.distance)};
 
                 if (Found && Distance >= OutHit.mDistance) {
                     continue;
@@ -558,7 +558,7 @@ namespace PhysicsRuntime {
                 OutHit.mDistance = Distance;
                 OutHit.mImpactPoint = PhysicsRuntime::ToFVector(Touch.position);
                 OutHit.mImpactNormal = Normal;
-                OutHit.mPenetrationDepth = StartPenetrating ? std::max(0.0f, -Touch.distance) : 0.0f;
+                OutHit.mPenetrationDepth = StartPenetrating ? Core::FLength::FromBase(std::max(0.0f, -Touch.distance)) : Core::FLength{};
                 OutHit.mStartPenetrating = StartPenetrating;
             }
         }

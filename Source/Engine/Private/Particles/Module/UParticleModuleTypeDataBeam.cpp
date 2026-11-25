@@ -43,7 +43,7 @@ namespace Engine {
         return mTextureTile;
     }
 
-    float Engine::UParticleModuleTypeDataBeam::GetDistance() const {
+    Core::FLength Engine::UParticleModuleTypeDataBeam::GetDistance() const {
         return mDistance;
     }
 
