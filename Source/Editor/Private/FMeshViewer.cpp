@@ -31,9 +31,7 @@
 #include "RenderCore/IRendererModule.h"
 
 #include "EditorStyle.h"
-#include "ClothEditing.h"
-#include "PhysicsRuntime/UClothConfigNv.h"
-#include "PhysicsRuntime/UClothingAssetCommon.h"
+#include "PhysicsRuntime/IClothingSimulation.h"
 
 #include <imgui.h>
 #include <algorithm>
@@ -54,13 +52,19 @@ namespace Editor {
     /**
      * @brief 미리보기 장면과 렌더 타깃을 해제합니다.
      */
-    Editor::FMeshViewer::~FMeshViewer() = default;
+    Editor::FMeshViewer::~FMeshViewer() {
+        // 천 시뮬레이션은 미리 보기 장면보다 먼저 해제합니다.
+        ReleaseClothPreview();
+    }
 
     /**
      * @brief 에셋을 독립 미리보기 장면에 엽니다.
      */
     bool Editor::FMeshViewer::Open(const std::filesystem::path& Path, Core::FString& Error) {
         Error.clear();
+
+        // 이전 메시의 천 에셋을 가리키는 미리 보기 천을 먼저 해제합니다.
+        ReleaseClothPreview();
         Asset::EAssetType Type{};
 
         if (mAssets == nullptr || !Asset::FAssetFile::GetType(mAssets->ResolvePath(Path, Error), Type, Error) || (Type != Asset::EAssetType::Mesh && Type != Asset::EAssetType::SkeletalMesh)) {
@@ -105,6 +109,10 @@ namespace Editor {
         mMaterialPaths.assign(mContent->GetMaterials().size(), Core::FString{});
         mPath = MeshPath;
         mError.clear();
+        mClothSelectedAsset = 0;
+        mClothUnsaved = false;
+        mClothPaintEnabled = false;
+        mClothPreviewStale = true;
         mOpen = true;
         mMouseCaptured = false;
         FrameMesh();
@@ -337,6 +345,10 @@ namespace Editor {
         mGizmo.EndDrag();
         mError.clear();
 
+        // 스켈레톤이 바뀌면 천이 따라갈 뼈도 바뀌므로 미리 보기 천을 다시 만듭니다.
+        ReleaseClothPreview();
+        mClothPreviewStale = true;
+
         UpdateScene();
     }
 
@@ -446,236 +458,14 @@ namespace Editor {
 
             if (ImGui::CollapsingHeader("Clothing")) {
                 DrawClothing();
+            } else {
+                // 천 칸을 닫으면 칠하기도 끝내 왼쪽 버튼을 카메라와 뼈 선택에 돌려줍니다.
+                mClothPaintEnabled = false;
             }
         }
 
         if (!mError.empty()) {
             ImGui::TextWrapped("%s", mError.c_str());
-        }
-    }
-
-    /**
-     * @brief 섹션마다 천 상태와 천 만들기, 천 에셋마다 물리 에셋과 설정, 메시 저장을 그립니다.
-     */
-    void Editor::FMeshViewer::DrawClothing() {
-        Asset::USkeletalMesh& Mesh{*mSkeletalMesh.Get()};
-        const auto& SubMeshes{Mesh.GetMeshData().GetSubMeshes()};
-
-        // 섹션마다 천이 연결되어 있는지 보여 주고, 없으면 만들 수 있게 합니다.
-        for (Index_t SubMeshIndex{}; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
-            const Asset::FClothingSectionData* SectionData{Mesh.GetSectionClothingData(SubMeshIndex)};
-            ImGui::PushID(static_cast<int>(SubMeshIndex));
-
-            if (SectionData != nullptr && SectionData->IsValid()) {
-                ImGui::Text("Section %zu: cloth asset %zu (%zu render verts)", SubMeshIndex, SectionData->mCorrespondClothAssetIndex, SectionData->mClothMappingData.size());
-            } else {
-                ImGui::Text("Section %zu: no cloth", SubMeshIndex);
-                ImGui::SameLine();
-
-                if (ImGui::SmallButton("Create Cloth")) {
-                    if (mSkeleton == nullptr) {
-                        mClothMessage = "Pick a skeleton first.";
-                    } else {
-                        // 메시가 쓰는 물리 에셋과 부딪히게 만들고, 저장한 물리 에셋이면 경로도 남깁니다.
-                        Core::FString Error{};
-                        PhysicsRuntime::UPhysicsAsset* PhysicsAsset{Mesh.GetPhysicsAssetPath().empty() ? Mesh.GetGeneratedPhysicsAsset(*mSkeleton.Get()) : mAssets->LoadPhysicsAsset(Core::FilePath::FromUtf8(Mesh.GetPhysicsAssetPath()), Error)};
-                        mClothMessage = Editor::ClothEditing::CreateClothFromSection(Mesh, *mSkeleton.Get(), SubMeshIndex, PhysicsAsset, Mesh.GetPhysicsAssetPath(), Error) != nullptr ? "Created cloth on section " + std::to_string(SubMeshIndex) + ". Save the mesh to keep it." : Error;
-                    }
-                }
-            }
-
-            ImGui::PopID();
-        }
-
-        const auto& ClothingAssets{Mesh.GetMeshClothingAssets()};
-
-        for (Index_t AssetIndex{}; AssetIndex < ClothingAssets.size(); ++AssetIndex) {
-            PhysicsRuntime::UClothingAssetCommon& ClothingAsset{*ClothingAssets[AssetIndex]};
-            PhysicsRuntime::UClothConfigNv* Config{ClothingAsset.GetClothConfig()};
-            ImGui::PushID(static_cast<int>(1000 + AssetIndex));
-
-            if (ImGui::TreeNode("ClothingAsset", "Clothing Asset %zu", AssetIndex)) {
-                // 천 전용 물리 에셋을 고릅니다. 메시가 쓰는 물리 에셋과 따로 정할 수 있습니다.
-                const Core::FString Current{ClothingAsset.mPhysicsAssetPath};
-
-                if (ImGui::BeginCombo("Cloth Physics Asset", Current.empty() ? "None" : Current.c_str())) {
-                    Core::FString ListError{};
-
-                    if (ImGui::Selectable("None", Current.empty()) && mSkeleton != nullptr) {
-                        ClothingAsset.SetPhysicsAsset(nullptr, Editor::ClothEditing::GetSkeletonBoneNames(*mSkeleton.Get()));
-                        ClothingAsset.mPhysicsAssetPath.clear();
-                    }
-
-                    for (const auto& Candidate : mAssets->GetAssetPaths(ListError)) {
-                        Asset::EAssetType Type{};
-
-                        if (!Asset::FAssetFile::GetType(mAssets->ResolvePath(Candidate, ListError), Type, ListError) || Type != Asset::EAssetType::PhysicsAsset) {
-                            continue;
-                        }
-
-                        const Core::FString Relative{Core::FilePath::ToGenericUtf8(Candidate)};
-
-                        if (ImGui::Selectable(Relative.c_str(), Relative == Current) && mSkeleton != nullptr) {
-                            Core::FString LoadError{};
-                            PhysicsRuntime::UPhysicsAsset* PhysicsAsset{mAssets->LoadPhysicsAsset(Candidate, LoadError)};
-
-                            if (PhysicsAsset != nullptr) {
-                                ClothingAsset.SetPhysicsAsset(PhysicsAsset, Editor::ClothEditing::GetSkeletonBoneNames(*mSkeleton.Get()));
-                                ClothingAsset.mPhysicsAssetPath = Relative;
-                            } else {
-                                mClothMessage = LoadError;
-                            }
-                        }
-                    }
-
-                    ImGui::EndCombo();
-                }
-
-                if (Config != nullptr && ImGui::TreeNode("Config")) {
-                    bool Changed{};
-
-                    for (const auto& [Name, Value] : Editor::ClothEditing::GetConfigFloats(*Config)) {
-                        Changed = ImGui::DragFloat(Name.c_str(), Value, 0.01f) || Changed;
-                    }
-
-                    for (const auto& [Name, Value] : Editor::ClothEditing::GetConfigVectors(*Config)) {
-                        Changed = ImGui::DragFloat3(Name.c_str(), &Value->x, 0.01f) || Changed;
-                    }
-
-                    Changed = ImGui::Checkbox("usegravityoverride", &Config->mUseGravityOverride) || Changed;
-
-                    bool Accurate{Config->mClothingWindMethod == PhysicsRuntime::EClothingWindMethodNv::Accurate};
-
-                    if (ImGui::Checkbox("accurate wind", &Accurate)) {
-                        Config->mClothingWindMethod = Accurate ? PhysicsRuntime::EClothingWindMethodNv::Accurate : PhysicsRuntime::EClothingWindMethodNv::Legacy;
-                        Changed = true;
-                    }
-
-                    // 천끼리 충돌 거리가 바뀌었을 수 있으므로 부딪힐 입자를 다시 고릅니다.
-                    if (Changed) {
-                        ClothingAsset.BuildSelfCollisionData();
-                    }
-
-                    ImGui::TreePop();
-                }
-
-                ImGui::TreePop();
-            }
-
-            ImGui::PopID();
-        }
-
-        if (!ClothingAssets.empty()) {
-            ImGui::SeparatorText("Paint");
-            ImGui::Checkbox("Paint Weights", &mClothPaintEnabled);
-            ImGui::SliderInt("Paint Asset", &mClothPaintAsset, 0, static_cast<int>(ClothingAssets.size()) - 1);
-
-            if (ImGui::BeginCombo("Paint Target", Editor::ClothEditing::GetPaintTargetName(mClothPaintTarget))) {
-                for (int TargetIndex{}; TargetIndex < Editor::ClothEditing::NumPaintTargets; ++TargetIndex) {
-                    if (ImGui::Selectable(Editor::ClothEditing::GetPaintTargetName(TargetIndex), TargetIndex == mClothPaintTarget)) {
-                        mClothPaintTarget = TargetIndex;
-                    }
-                }
-
-                ImGui::EndCombo();
-            }
-
-            ImGui::DragFloat("Paint Value", &mClothPaintValue, 0.005f, 0.0f, 100.0f, "%.3f");
-            ImGui::DragFloat("Brush Radius (px)", &mClothPaintRadius, 1.0f, 2.0f, 300.0f, "%.0f");
-            ImGui::TextDisabled("Left drag: paint | Shift + left drag: paint 0 | Right drag: orbit");
-            ImGui::TextDisabled("Points show the bind pose. Red is 0, green is the largest value.");
-        }
-
-        ImGui::TextDisabled("Changes apply to cloth created after this. Re-place or replay the level to see them.");
-
-        if (ImGui::Button("Save Mesh")) {
-            Core::FString Error{};
-
-            // 뼈를 파일 안에 넣은 예전 메시는 새 형식으로 저장하면 뼈가 사라지므로 막습니다.
-            if (mAssets->FindLegacySkeleton(Core::FilePath::FromUtf8(mPath)) != nullptr) {
-                mClothMessage = "This mesh uses an embedded skeleton, so its file cannot be saved safely.";
-            } else if (mAssets->SaveSkeletalMesh(Core::FilePath::FromUtf8(mPath), Mesh, Error)) {
-                mClothMessage = "Saved " + mPath + ".";
-            } else {
-                mClothMessage = "Cannot save the skeletal mesh. " + Error;
-            }
-        }
-
-        if (!mClothMessage.empty()) {
-            ImGui::TextWrapped("%s", mClothMessage.c_str());
-        }
-    }
-
-    /**
-     * @brief 천 칠하기를 쓸 수 있는 상태인지 검사합니다.
-     */
-    bool Editor::FMeshViewer::IsClothPainting() const {
-        return mClothPaintEnabled && mSkeletalMesh != nullptr && mClothPaintAsset >= 0 && static_cast<Index_t>(mClothPaintAsset) < mSkeletalMesh->GetMeshClothingAssets().size();
-    }
-
-    /**
-     * @brief 칠하기 대상 천 입자를 가중치 색으로 그리고, 왼쪽 버튼으로 붓 안의 입자에 값을 칠합니다.
-     */
-    void Editor::FMeshViewer::DrawClothPaint(const Engine::FSceneView& View, const FVector2& Origin, const FVector2& Mouse, bool Hovered, const Core::FInput& Input) {
-        using Core::EKey;
-
-        PhysicsRuntime::UClothingAssetCommon& ClothingAsset{*mSkeletalMesh->GetMeshClothingAssets()[static_cast<Index_t>(mClothPaintAsset)]};
-
-        if (ClothingAsset.mLodData.empty()) {
-            return;
-        }
-
-        PhysicsRuntime::FClothPhysicalMeshData& PhysMesh{ClothingAsset.mLodData[0].mPhysicalMeshData};
-        PhysicsRuntime::FPointWeightMap& Map{PhysMesh.AddWeightMap(Editor::ClothEditing::GetPaintTarget(mClothPaintTarget))};
-
-        // 처음 칠하는 맵은 입자 수만큼 0으로 채웁니다.
-        if (Map.mValues.size() != PhysMesh.mVertices.size()) {
-            Map.mValues.resize(PhysMesh.mVertices.size(), 0.0f);
-        }
-
-        float MaxValue{1.e-4f};
-
-        for (const float Value : Map.mValues) {
-            MaxValue = std::max(MaxValue, Value);
-        }
-
-        const bool Stroke{Hovered && Input.IsDown(EKey::MouseLeft) && !Input.IsDown(EKey::MouseRight) && !Input.IsDown(EKey::MouseMiddle)};
-        const float PaintValue{Input.IsDown(EKey::Shift) ? 0.0f : mClothPaintValue};
-        const float RadiusSquared{mClothPaintRadius * mClothPaintRadius};
-        ImDrawList* const DrawList{ImGui::GetWindowDrawList()};
-
-        for (Index_t VertIndex{}; VertIndex < PhysMesh.mVertices.size(); ++VertIndex) {
-            // 입자를 화면 좌표로 투영합니다. 카메라 뒤의 입자는 건너뜁니다.
-            const FVector4 Clip{FVector4{PhysMesh.mVertices[VertIndex], 1.0f} * View.mViewProjection};
-
-            if (Clip.w <= 1.e-6f) {
-                continue;
-            }
-
-            const FVector2 Screen{(Clip.x / Clip.w * 0.5f + 0.5f) * View.mSize.x, (0.5f - Clip.y / Clip.w * 0.5f) * View.mSize.y};
-            const float DistanceSquared{(Screen.x - Mouse.x) * (Screen.x - Mouse.x) + (Screen.y - Mouse.y) * (Screen.y - Mouse.y)};
-
-            if (Stroke && DistanceSquared <= RadiusSquared) {
-                Map.mValues[VertIndex] = PaintValue;
-                mClothPaintDirty = true;
-            }
-
-            // 0은 빨강, 가장 큰 값은 초록으로 그립니다.
-            const float Ratio{std::clamp(Map.mValues[VertIndex] / MaxValue, 0.0f, 1.0f)};
-            const ImU32 Color{IM_COL32(static_cast<int>(255.0f * (1.0f - Ratio)), static_cast<int>(255.0f * Ratio), 60, 255)};
-
-            DrawList->AddCircleFilled(ImVec2{Origin.x + Screen.x, Origin.y + Screen.y}, 2.5f, Color);
-        }
-
-        if (Hovered) {
-            DrawList->AddCircle(ImVec2{Origin.x + Mouse.x, Origin.y + Mouse.y}, mClothPaintRadius, IM_COL32(255, 255, 255, 200), 0, 1.5f);
-        }
-
-        // 고정 입자와 역질량 계산은 무거우므로 버튼을 놓을 때 한 번 반영합니다.
-        if (mClothPaintDirty && !Input.IsDown(EKey::MouseLeft)) {
-            Editor::ClothEditing::ApplyPaintedWeights(*mSkeletalMesh.Get(), ClothingAsset);
-            mClothPaintDirty = false;
-            mClothMessage = "Painted weights applied. Save the mesh to keep them.";
         }
     }
 
@@ -697,6 +487,9 @@ namespace Editor {
         if (!mViewer.Resize(Width, Height)) {
             return;
         }
+
+        // 미리 보기 천을 이번 프레임 포즈로 한 번 진행한 뒤 그립니다.
+        TickClothPreview(ImGui::GetIO().DeltaTime);
 
         if (mNeedsFit) {
             mNeedsFit = !mViewer.Fit();

@@ -24,8 +24,10 @@
 #include "Engine/FSceneView.h"
 #include "Engine/EViewMode.h"
 #include "Engine/FSkeletalMeshPose.h"
+#include "PhysicsRuntime/FClothingSimulationContextCommon.h"
 
 #include <filesystem>
+#include <memory>
 #include <optional>
 
 namespace Asset {
@@ -48,6 +50,13 @@ namespace Engine {
 namespace Viewer {
     class FBoneShape;
     class FMeshViewerContent;
+}
+
+namespace PhysicsRuntime {
+    class FClothingSystemRuntimeModuleNv;
+    class IClothingSimulation;
+    class UClothConfigNv;
+    class UClothingAssetCommon;
 }
 
 namespace Editor {
@@ -146,6 +155,13 @@ namespace Editor {
          */
         void FrameMesh();
 
+        /**
+         * @brief 미리 보기에서 천을 움직일 천 시스템을 연결합니다.
+         * @details 연결하지 않으면 천 칸에서 천을 만들고 칠할 수는 있지만 미리 보기에서 천이 움직이지 않습니다.
+         * @param[in] ClothingSystem 엔진이 소유하는 천 시스템이며 nullptr이면 미리 보기 시뮬레이션을 끕니다.
+         */
+        void SetClothingSystem(PhysicsRuntime::FClothingSystemRuntimeModuleNv* ClothingSystem);
+
     private:
 
         /**
@@ -175,12 +191,35 @@ namespace Editor {
         void DrawProperties();
 
         /**
-         * @brief 섹션마다 천 상태와 천 만들기, 천 에셋마다 물리 에셋과 설정, 메시 저장을 그립니다.
+         * @brief 천 칸 전체를 그립니다. 섹션 표, 미리 보기 조작, 고른 천의 탭, 저장 순서입니다.
          */
         void DrawClothing();
 
         /**
-         * @brief 칠하기 대상 천 입자를 가중치 색으로 그리고, 왼쪽 버튼으로 붓 안의 입자에 값을 칠합니다.
+         * @brief 섹션마다 머티리얼, 천 상태, 천 만들기 버튼을 표로 그리고 천을 고르게 합니다.
+         */
+        void DrawClothSections();
+
+        /**
+         * @brief 고른 천 에셋의 설정을 묶음별 표로 그리고 바꾼 값을 미리 보기에 반영합니다.
+         * @param[in,out] Config 고른 천 에셋의 설정입니다.
+         */
+        void DrawClothSettings(PhysicsRuntime::UClothConfigNv& Config);
+
+        /**
+         * @brief 칠하기 켜기, 대상, 도구, 값, 붓 크기, 색 범례를 그립니다.
+         * @param[in,out] ClothingAsset 칠할 천 에셋입니다.
+         */
+        void DrawClothPaintSettings(PhysicsRuntime::UClothingAssetCommon& ClothingAsset);
+
+        /**
+         * @brief 천이 부딪힐 물리 에셋을 고르는 칸과 충돌체 수를 그립니다.
+         * @param[in,out] ClothingAsset 물리 에셋을 바꿀 천 에셋입니다.
+         */
+        void DrawClothCollision(PhysicsRuntime::UClothingAssetCommon& ClothingAsset);
+
+        /**
+         * @brief 칠하기 대상 천 입자를 가중치 색으로 그리고, 왼쪽 버튼으로 고른 도구를 적용합니다.
          * @details 입자는 바인드 포즈 위치에 그리며, 버튼을 놓으면 칠한 값을 천 에셋에 반영합니다.
          * @param[in] View 미리 보기의 뷰입니다.
          * @param[in] Origin 미리 보기 이미지 왼쪽 위의 화면 위치입니다.
@@ -192,9 +231,49 @@ namespace Editor {
 
         /**
          * @brief 천 칠하기를 쓸 수 있는 상태인지 검사합니다.
-         * @return 칠하기를 켰고 칠할 천 에셋이 있으면 true입니다.
+         * @return 칠하기를 켰고 고른 천 에셋이 있으면 true입니다.
          */
         bool IsClothPainting() const;
+
+        /**
+         * @brief 고른 천 에셋을 반환합니다.
+         * @return 고른 천 에셋이며 없으면 nullptr입니다.
+         */
+        PhysicsRuntime::UClothingAssetCommon* GetSelectedClothingAsset() const;
+
+        /**
+         * @brief 천 에셋이 바뀌었음을 기록하고 미리 보기 천을 다시 만들게 합니다.
+         * @param[in] Message 천 칸 아래에 잠시 보여 줄 결과 문장입니다.
+         */
+        void MarkClothChanged(const Core::FString& Message);
+
+        /**
+         * @brief 천 칸 아래에 결과 문장을 잠시 보여 줍니다.
+         * @param[in] Message 보여 줄 문장입니다.
+         */
+        void ShowClothMessage(const Core::FString& Message);
+
+        /**
+         * @brief 미리 보기 천 시뮬레이션을 지금 천 에셋과 포즈로 다시 만듭니다.
+         */
+        void RecreateClothPreview();
+
+        /**
+         * @brief 미리 보기 천 시뮬레이션을 해제하고 천 섹션을 스키닝 위치로 그리게 합니다.
+         */
+        void ReleaseClothPreview();
+
+        /**
+         * @brief 미리 보기 천을 한 프레임 진행하고 결과를 미리 보기 장면에 넣습니다.
+         * @param[in] DeltaTime 지난 프레임부터 지난 시간(초)입니다.
+         */
+        void TickClothPreview(float DeltaTime);
+
+        /**
+         * @brief 미리 보기 포즈로 천 시뮬레이션 입력을 채웁니다.
+         * @param[in] DeltaTime 이번에 진행할 시간(초)이며 처음 만들 때는 0입니다.
+         */
+        void UpdateClothPreviewContext(float DeltaTime);
 
         /**
          * @brief 본 하나와 그 자손을 계층 트리 노드로 표시하고 클릭하면 조작 대상으로 선택합니다.
@@ -357,14 +436,79 @@ namespace Editor {
         Core::FString mClothMessage{};
 
         /**
+         * @brief 결과 문장을 보여 주기 시작한 ImGui 시각(초)입니다.
+         */
+        double mClothMessageTime{};
+
+        /**
+         * @brief 천 에셋을 바꾼 뒤 아직 메시 파일에 저장하지 않았는지 나타냅니다.
+         */
+        bool mClothUnsaved{};
+
+        /**
+         * @brief 천 칸에서 고른 천 에셋 번호입니다.
+         */
+        Index_t mClothSelectedAsset{};
+
+        /**
+         * @brief 엔진이 소유하는 천 시스템이며 없으면 미리 보기에서 천이 움직이지 않습니다.
+         */
+        PhysicsRuntime::FClothingSystemRuntimeModuleNv* mClothingSystem{};
+
+        /**
+         * @brief 미리 보기에서 천을 움직이는 시뮬레이션입니다.
+         */
+        std::unique_ptr<PhysicsRuntime::IClothingSimulation> mClothPreview{};
+
+        /**
+         * @brief 미리 보기 천 시뮬레이션에 매 프레임 넣는 입력입니다.
+         */
+        PhysicsRuntime::FClothingSimulationContextCommon mClothPreviewContext{};
+
+        /**
+         * @brief 미리 보기에서 천을 움직일지 나타냅니다.
+         */
+        bool mClothSimulate{true};
+
+        /**
+         * @brief 다음 프레임에 미리 보기 천을 다시 만들어야 하는지 나타냅니다.
+         */
+        bool mClothPreviewStale{true};
+
+        /**
          * @brief 미리 보기에서 천 가중치를 칠하는지 나타냅니다.
          */
         bool mClothPaintEnabled{};
 
         /**
-         * @brief 칠할 천 에셋 번호입니다.
+         * @brief 고른 칠하기 도구입니다.
          */
-        int mClothPaintAsset{};
+        int mClothPaintTool{};
+
+        /**
+         * @brief 다듬기 도구가 한 프레임에 이웃 평균 쪽으로 옮기는 비율입니다.
+         */
+        float mClothSmoothStrength{0.2f};
+
+        /**
+         * @brief 채우기 도구가 시작 값과 이만큼까지 다른 입자를 채우는 기준입니다.
+         */
+        float mClothFillThreshold{0.01f};
+
+        /**
+         * @brief 마우스 아래 입자 번호이며 없으면 InvalidIndex입니다.
+         */
+        Index_t mClothHoveredParticle{InvalidIndex};
+
+        /**
+         * @brief 마우스 아래 입자의 칠한 값입니다.
+         */
+        float mClothHoveredValue{};
+
+        /**
+         * @brief 색 범례의 가장 큰 값이며 칠한 값 중 최댓값입니다.
+         */
+        float mClothPaintMaxValue{};
 
         /**
          * @brief 칠할 가중치 맵 대상 번호입니다.
