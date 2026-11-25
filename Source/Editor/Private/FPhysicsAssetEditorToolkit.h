@@ -289,6 +289,11 @@ namespace Editor {
         void ApplyEdit();
 
         /**
+         * @brief 충돌을 끌 바디 쌍을 편집하는 UI를 표시합니다. 선택한 바디의 비활성 상대 목록과 추가, 선택한 여러 바디 사이 일괄 설정, 겹치는 쌍 자동 설정이 있습니다.
+         */
+        void DrawCollisionPairs();
+
+        /**
          * @brief 선택한 바디의 추가·삭제 버튼과 선택한 항목의 편집 필드를 표시합니다.
          */
         void DrawBodyEditor();
@@ -509,9 +514,17 @@ namespace Editor {
         Editor::EGizmoMode mGizmoMode{Editor::EGizmoMode::Translate};
 
         /**
-         * @brief 기즈모 축의 기준 좌표계입니다. Local은 선택한 항목이나 프레임의 축을 씁니다.
+         * @brief 기즈모 축의 기준 좌표계입니다.
+         * @details World는 월드 축, Bone은 바디가 붙은 뼈의 축(Details의 Center, Rotation, Position 값이 정의된 좌표계라서 필드의 X, Y, Z와 기즈모 축이 일치),
+         *          Local은 선택한 항목(형상의 회전을 반영한 축)이나 관절 프레임의 축입니다.
          */
-        Editor::EGizmoSpace mGizmoSpace{Editor::EGizmoSpace::Local};
+        enum class EGizmoAxes {
+            World,
+            Bone,
+            Local
+        };
+
+        EGizmoAxes mGizmoAxes{EGizmoAxes::Bone};
 
         /**
          * @brief 관절을 골랐을 때 기즈모가 편집할 프레임입니다. 0은 Frame 1(자식 뼈), 1은 Frame 2(부모 뼈)입니다.
@@ -542,6 +555,26 @@ namespace Editor {
          * @brief 시뮬레이션 중 Ctrl + 우클릭으로 잡고 끄는 바디입니다. 물리 상태를 내리기 전에 반드시 놓아야 합니다.
          */
         PhysicsAssetEditing::FBodyGrab mGrab{};
+
+        /**
+         * @brief 시뮬레이션이 불안정해져 멈춘 상태인지 나타냅니다. true이면 스텝을 진행하지 않고 마지막 자세를 보여 줘 원인을 볼 수 있습니다.
+         */
+        bool mSimulationHalted{};
+
+        /**
+         * @brief 시뮬레이션을 멈춘 이유와 문제가 된 바디의 설명입니다.
+         */
+        Core::FString mSimulationWarning{};
+
+        /**
+         * @brief 시뮬레이션을 시작한 직후 각 바디의 월드 위치입니다. 바디 번호로 찾으며, 얼마나 움직였는지 표시하는 기준입니다.
+         */
+        Core::TMap<Index_t, FVector> mSimulationStartPositions{};
+
+        /**
+         * @brief 충돌 쌍 편집의 마지막 결과 안내(예: 자동 설정으로 끈 쌍의 개수)입니다.
+         */
+        Core::FString mCollisionMessage{};
 
         /**
          * @brief 뷰포트의 화면 채우기 방식입니다.

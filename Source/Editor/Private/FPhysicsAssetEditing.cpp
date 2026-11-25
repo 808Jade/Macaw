@@ -309,7 +309,70 @@ void Editor::PhysicsAssetEditing::CollectBoneBodyPoses(PhysicsRuntime::FPhysicsS
         Pose.mBodyIndex = Body->mInstanceBodyIndex;
         Pose.mWorld = Body->GetBodyTransform();
         Pose.mWorld.mScale = Body->GetBodyScale();
+        Pose.mLinearVelocity = Body->GetLinearVelocity();
         OutPoses.push_back(Pose);
+    }
+}
+
+void Editor::PhysicsAssetEditing::FindOverlappingBodyPairs(PhysicsRuntime::FPhysicsScene& Scene, Core::TArray<std::pair<Index_t, Index_t>>& OutPairs) {
+    OutPairs.clear();
+
+    physx::PxScene* PxSceneHandle{Scene.GetScene()};
+
+    if (PxSceneHandle == nullptr) {
+        return;
+    }
+
+    const physx::PxU32 Count{PxSceneHandle->getNbActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC)};
+    Core::TArray<physx::PxActor*> Actors(Count);
+
+    PxSceneHandle->getActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC, Actors.data(), Count);
+
+    // 뼈 바디의 액터를 바디 번호와 함께 모은다. 바닥 같은 바디 번호가 없는 액터는 제외한다.
+    Core::TArray<std::pair<Index_t, const physx::PxRigidActor*>> Bodies{};
+
+    for (const physx::PxActor* Actor : Actors) {
+        const PhysicsRuntime::FBodyInstance* Body{Actor != nullptr ? PhysicsRuntime::FBodyInstance::FromPxActor(*Actor) : nullptr};
+
+        if (Body != nullptr && Body->mInstanceBodyIndex != InvalidIndex) {
+            Bodies.emplace_back(Body->mInstanceBodyIndex, Actor->is<physx::PxRigidActor>());
+        }
+    }
+
+    // 모든 형상 쌍을 PhysX 기하 질의로 검사한다. 한 쌍이라도 겹치면 그 바디 쌍은 겹치는 것이다.
+    const auto ShapesOf{[](const physx::PxRigidActor& Actor) {
+        Core::TArray<physx::PxShape*> Shapes(Actor.getNbShapes());
+
+        Actor.getShapes(Shapes.data(), static_cast<physx::PxU32>(Shapes.size()));
+
+        return Shapes;
+    }};
+
+    for (Index_t First{}; First < Bodies.size(); ++First) {
+        const Core::TArray<physx::PxShape*> FirstShapes{ShapesOf(*Bodies[First].second)};
+
+        for (Index_t Second{First + 1}; Second < Bodies.size(); ++Second) {
+            const Core::TArray<physx::PxShape*> SecondShapes{ShapesOf(*Bodies[Second].second)};
+            bool Overlaps{};
+
+            for (const physx::PxShape* A : FirstShapes) {
+                for (const physx::PxShape* B : SecondShapes) {
+                    if (physx::PxGeometryQuery::overlap(A->getGeometry().any(), physx::PxShapeExt::getGlobalPose(*A, *Bodies[First].second), B->getGeometry().any(), physx::PxShapeExt::getGlobalPose(*B, *Bodies[Second].second))) {
+                        Overlaps = true;
+
+                        break;
+                    }
+                }
+
+                if (Overlaps) {
+                    break;
+                }
+            }
+
+            if (Overlaps) {
+                OutPairs.emplace_back(std::min(Bodies[First].first, Bodies[Second].first), std::max(Bodies[First].first, Bodies[Second].first));
+            }
+        }
     }
 }
 

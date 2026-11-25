@@ -199,6 +199,11 @@ namespace Editor::PhysicsAssetEditing {
          * @brief 바디의 현재 월드 변환이며 스케일은 바디를 만들 때 쓴 값입니다.
          */
         FTransform mWorld{};
+
+        /**
+         * @brief 바디의 현재 선속도(m/s)입니다.
+         */
+        FVector mLinearVelocity{};
     };
 
     /**
@@ -234,6 +239,14 @@ namespace Editor::PhysicsAssetEditing {
      * @return 뼈 바디를 맞혔으면 true입니다.
      */
     bool PickBody(PhysicsRuntime::FPhysicsScene& Scene, const FRay& Ray, float MaxDistance, Index_t& OutBodyIndex, Index_t& OutShapeOrdinal);
+
+    /**
+     * @brief 물리 장면의 뼈 바디 중 현재 자세에서 모양이 서로 겹치는 바디 쌍을 모두 찾습니다.
+     * @param[in] Scene 조회할 물리 장면입니다.
+     * @param[out] OutPairs 겹치는 바디 번호의 쌍이며 각 쌍은 (작은 번호, 큰 번호)입니다.
+     * @note 관절로 이어진 쌍도 겹치면 포함하므로 호출자가 걸러야 합니다.
+     */
+    void FindOverlappingBodyPairs(PhysicsRuntime::FPhysicsScene& Scene, Core::TArray<std::pair<Index_t, Index_t>>& OutPairs);
 
     /**
      * @brief 시뮬레이션 중인 바디를 마우스로 잡고 끄는 동작입니다.
