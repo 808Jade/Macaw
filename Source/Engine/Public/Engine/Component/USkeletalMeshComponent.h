@@ -237,6 +237,34 @@ namespace Engine {
         void SetClothBlendWeight(float BlendWeight);
 
         /**
+         * @brief 천에 부는 월드 좌표 바람 속도를 반환합니다.
+         * @return 바람 속도(m/s)입니다.
+         */
+        const FVector& GetClothWindVelocity() const;
+
+        /**
+         * @brief 천에 부는 월드 좌표 바람 속도를 설정합니다.
+         * @param[in] Velocity 바람 속도(m/s)입니다.
+         * @return 항상 true입니다.
+         */
+        bool SetClothWindVelocity(const FVector& Velocity);
+
+        /**
+         * @brief 다음 천 진행에서 천을 새 위치로 옮기되 속도는 유지하게 합니다.
+         */
+        void ForceClothNextUpdateTeleport();
+
+        /**
+         * @brief 다음 천 진행에서 천을 새 위치로 옮기고 입자를 스키닝 위치에 다시 놓게 합니다.
+         */
+        void ForceClothNextUpdateTeleportAndReset();
+
+        /**
+         * @brief 요청한 천 순간 이동을 취소합니다.
+         */
+        void ResetClothTeleportMode();
+
+        /**
          * @brief 본 하나의 부모 기준 변환을 변경합니다.
          * @param Bone 본 인덱스입니다.
          * @param Transform 부모 기준 아핀 행렬입니다.
@@ -534,6 +562,17 @@ namespace Engine {
         void UpdateClothSimulationContext(float DeltaTime);
 
         /**
+         * @brief 기준 뼈가 한 프레임에 너무 멀리 움직이거나 많이 돌았으면 천 순간 이동을 요청합니다.
+         */
+        void CheckClothTeleport();
+
+        /**
+         * @brief 기준 뼈의 지금 월드 행렬을 구합니다.
+         * @return 기준 뼈의 월드 행렬이며 포즈가 없으면 컴포넌트의 월드 행렬입니다.
+         */
+        FMatrix GetClothRootBoneWorldMatrix() const;
+
+        /**
          * @brief 천 시뮬레이션 결과를 컴포넌트에 저장합니다.
          */
         void WritebackClothingSimulationData();
@@ -711,6 +750,37 @@ namespace Engine {
          * @brief 천 결과를 마지막으로 저장할 때 받은 개정이며 렌더러가 입자 버퍼를 다시 올릴지 판단합니다.
          */
         Core::FRevision mClothRevision{};
+
+        /**
+         * @brief 천에 부는 월드 좌표 바람 속도(m/s)입니다.
+         */
+        UPROPERTY(Edit, Serialize, Name = "ClothWindVelocity", Getter = GetClothWindVelocity, Setter = SetClothWindVelocity)
+        FVector mClothWindVelocity{};
+
+        /**
+         * @brief 기준 뼈가 한 프레임에 이 거리(m)보다 멀리 움직이면 천을 순간 이동시키며 0이면 검사하지 않습니다.
+         */
+        float mTeleportDistanceThreshold{3.0f};
+
+        /**
+         * @brief 기준 뼈가 한 프레임에 이 각도(도)보다 많이 돌면 천을 순간 이동시키며 0이면 검사하지 않습니다.
+         */
+        float mTeleportRotationThreshold{};
+
+        /**
+         * @brief 순간 이동할 때 입자를 스키닝 위치에 다시 놓을지 나타냅니다.
+         */
+        bool mResetAfterTeleport{true};
+
+        /**
+         * @brief 다음 천 진행에 쓸 순간 이동 방식입니다.
+         */
+        PhysicsRuntime::EClothingTeleportMode mClothTeleportMode{PhysicsRuntime::EClothingTeleportMode::None};
+
+        /**
+         * @brief 지난 천 진행 때 기준 뼈의 월드 행렬이며 순간 이동을 판단할 때 씁니다.
+         */
+        FMatrix mPrevRootBoneMatrix{};
 
         /**
          * @brief 메시 천 에셋 번호를 키로 한 마지막 천 시뮬레이션 결과입니다.

@@ -13,6 +13,27 @@
 namespace PhysicsRuntime {
 
     /**
+     * @brief 이번 프레임에 천을 순간 이동시킬지 나타냅니다.
+     * @ingroup PhysicsRuntime
+     */
+    enum class EClothingTeleportMode : Uint8 {
+        /**
+         * @brief 순간 이동하지 않고 기준 뼈의 움직임을 관성으로 전합니다.
+         */
+        None,
+
+        /**
+         * @brief 천을 새 위치로 옮기되 지금 속도는 유지합니다.
+         */
+        Teleport,
+
+        /**
+         * @brief 천을 새 위치로 옮기고 입자를 스키닝 위치에 다시 놓아 속도를 없앱니다.
+         */
+        TeleportAndReset
+    };
+
+    /**
      * @brief 천 시뮬레이션 한 프레임의 입력입니다.
      * @details 천을 소유한 컴포넌트가 애니메이션 포즈를 정한 뒤 채워서 넘깁니다.
      * @ingroup PhysicsRuntime
@@ -52,5 +73,20 @@ namespace PhysicsRuntime {
          * @brief 입자마다의 최대 거리에 곱할 배율이며 1이면 천 에셋 값을 그대로 씁니다.
          */
         float mMaxDistanceScale{1.0f};
+
+        /**
+         * @brief 월드 좌표의 바람 속도(m/s)입니다.
+         */
+        FVector mWindVelocity{};
+
+        /**
+         * @brief 단순한 바람 방식에서 바람 쪽으로 속도를 맞추는 정도이며 클수록 빨리 바람을 따라갑니다.
+         */
+        float mWindAdaption{2.0f};
+
+        /**
+         * @brief 이번 프레임에 천을 순간 이동시킬지 나타냅니다.
+         */
+        EClothingTeleportMode mTeleportMode{EClothingTeleportMode::None};
     };
 }

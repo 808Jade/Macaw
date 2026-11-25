@@ -76,6 +76,24 @@ namespace PhysicsRuntime {
         }
 
         /**
+         * @brief 기준 뼈의 월드 변환을 구합니다.
+         * @param[in] ComponentToWorld 컴포넌트의 월드 행렬입니다.
+         * @param[in] ComponentSpaceTransforms 스켈레톤 뼈 순서의 컴포넌트 좌표 뼈 행렬입니다.
+         * @param[in] ReferenceBoneIndex 기준 뼈 번호입니다.
+         * @return 기준 뼈의 월드 변환이며 변환으로 바꿀 수 없으면 단위 변환입니다.
+         */
+        FTransform GetSimRootWorldTransform(const FMatrix& ComponentToWorld, const Core::TArray<FMatrix>& ComponentSpaceTransforms, Index_t ReferenceBoneIndex) {
+            const FMatrix SimRootMatrix{ReferenceBoneIndex < ComponentSpaceTransforms.size() ? ComponentSpaceTransforms[ReferenceBoneIndex] * ComponentToWorld : ComponentToWorld};
+            FTransform SimRootTransform{};
+
+            if (!SimRootMatrix.TryGetTransform(SimRootTransform)) {
+                return FTransform{};
+            }
+
+            return SimRootTransform;
+        }
+
+        /**
          * @brief 기준 뼈의 월드 변환을 천의 위치와 회전으로 넣습니다.
          * @param[in,out] Cloth 변환을 넣을 천입니다.
          * @param[in] ComponentToWorld 컴포넌트의 월드 행렬입니다.
@@ -219,6 +237,134 @@ namespace PhysicsRuntime {
         mCapsuleSphereIndices.clear();
         mPlaneData.clear();
         mConvexMasks.clear();
+    }
+
+    /**
+     * @brief 바람을 천에 넣습니다.
+     */
+    void FClothingActorNv::UpdateWind(const FClothingSimulationContextCommon& Context, const FVector& WindVelocity) {
+        if (mAssetCreatedFrom == nullptr || mCurrentLodIndex >= mLodData.size() || mCurrentLodIndex >= mAssetCreatedFrom->mLodData.size() || mLodData[mCurrentLodIndex].mCloth == nullptr) {
+            return;
+        }
+
+        nv::cloth::Cloth& CurrentCloth{*mLodData[mCurrentLodIndex].mCloth};
+
+        switch (mWindMethod) {
+            case EClothingWindMethodNv::Legacy: {
+                // 바람을 천 좌표로 바꾸고, 입자마다 바람 속도와의 차이를 면 방향에 맞춰 가속도로 넣습니다.
+                const FTransform RootBoneWorldTransform{GetSimRootWorldTransform(Context.mComponentToWorld, Context.mBoneTransforms, mAssetCreatedFrom->mReferenceBoneIndex)};
+                const FVector TransformedWindVelocity{RootBoneWorldTransform.InverseTransformVectorNoScale(WindVelocity)};
+                Core::TArray<FVector>& ParticleVelocities{mScratch.mParticleVelocities};
+
+                CalculateParticleVelocities(ParticleVelocities);
+
+                const Core::TArray<float>& InverseMasses{mAssetCreatedFrom->mLodData[mCurrentLodIndex].mPhysicalMeshData.mInverseMasses};
+                nv::cloth::Range<physx::PxVec4> ParticleAccelerations{CurrentCloth.getParticleAccelerations()};
+                const Index_t NumAccelerations{static_cast<Index_t>(ParticleAccelerations.size())};
+
+                // 전체 범위를 써야 하므로 바람을 받지 않는 입자도 0으로 채웁니다.
+                for (Index_t AccelerationIndex{}; AccelerationIndex < NumAccelerations; ++AccelerationIndex) {
+                    const bool Valid{AccelerationIndex < ParticleVelocities.size() && AccelerationIndex < InverseMasses.size() && AccelerationIndex < mCurrentNormals.size()};
+                    FVector VelocityDelta{Valid ? TransformedWindVelocity - ParticleVelocities[AccelerationIndex] : FVector{}};
+                    const float DeltaLengthSquared{VelocityDelta.LengthSquared()};
+
+                    if (Valid && InverseMasses[AccelerationIndex] > 0.0f && DeltaLengthSquared > 1.e-12f) {
+                        // 바람이 면에 수직일수록 세게 받고, 면을 스치듯 지나가면 약하게 받습니다.
+                        const float DirectionDot{(VelocityDelta * (1.0f / std::sqrt(DeltaLengthSquared))).Dot(mCurrentNormals[AccelerationIndex])};
+                        VelocityDelta *= std::min(1.0f, std::abs(DirectionDot) * Context.mWindAdaption);
+                        ParticleAccelerations[static_cast<Uint32>(AccelerationIndex)] = physx::PxVec4{VelocityDelta.x, VelocityDelta.y, VelocityDelta.z, 0.0f};
+                    } else {
+                        ParticleAccelerations[static_cast<Uint32>(AccelerationIndex)] = physx::PxVec4{0.0f, 0.0f, 0.0f, 0.0f};
+                    }
+                }
+
+                break;
+            }
+            case EClothingWindMethodNv::Accurate:
+                // NvCloth가 삼각형마다 항력과 양력을 계산합니다.
+                CurrentCloth.setWindVelocity(ToPxVec3(WindVelocity));
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * @brief 입자를 스키닝 위치 쪽으로 당기는 스프링 가속도를 더합니다.
+     */
+    void FClothingActorNv::UpdateAnimDrive(const FClothingSimulationContextCommon&) {
+        if (mAssetCreatedFrom == nullptr || mCurrentLodIndex >= mLodData.size() || mCurrentLodIndex >= mAssetCreatedFrom->mLodData.size() || mLodData[mCurrentLodIndex].mCloth == nullptr) {
+            return;
+        }
+
+        const FClothPhysicalMeshData& PhysMesh{mAssetCreatedFrom->mLodData[mCurrentLodIndex].mPhysicalMeshData};
+        const FPointWeightMap* const AnimDriveMultipliers{PhysMesh.FindWeightMap(EWeightMapTargetCommon::AnimDriveMultiplier)};
+
+        if (AnimDriveMultipliers == nullptr || AnimDriveMultipliers->Num() == 0) {
+            return;
+        }
+
+        nv::cloth::Cloth& CurrentCloth{*mLodData[mCurrentLodIndex].mCloth};
+        const Core::TArray<FVector>& CurrentSkinPositions{GetCurrentSkinnedPositions()};
+        const Core::TArray<FVector>& PreviousSkinPositions{GetPreviousSkinnedPositions()};
+        nv::cloth::Range<physx::PxVec4> Accelerations{CurrentCloth.getParticleAccelerations()};
+        const Index_t NumAccelerations{static_cast<Index_t>(Accelerations.size())};
+
+        // 정확한 바람 방식은 가속도를 매 프레임 덮어쓰지 않으므로, 더하기 전에 비워 지난 프레임 값이 쌓이지 않게 합니다.
+        if (mWindMethod != EClothingWindMethodNv::Legacy) {
+            for (Index_t AccelerationIndex{}; AccelerationIndex < NumAccelerations; ++AccelerationIndex) {
+                Accelerations[static_cast<Uint32>(AccelerationIndex)] = physx::PxVec4{0.0f, 0.0f, 0.0f, 0.0f};
+            }
+        }
+
+        nv::cloth::MappedRange<physx::PxVec4> Locations{CurrentCloth.getCurrentParticles()};
+        nv::cloth::MappedRange<physx::PxVec4> PrevLocations{CurrentCloth.getPreviousParticles()};
+        const Index_t NumParticles{std::min({NumAccelerations, static_cast<Index_t>(Locations.size()), static_cast<Index_t>(PrevLocations.size()), AnimDriveMultipliers->Num(), CurrentSkinPositions.size(), PreviousSkinPositions.size()})};
+
+        for (Index_t ParticleIndex{}; ParticleIndex < NumParticles; ++ParticleIndex) {
+            const physx::PxVec4& Location{Locations[static_cast<Uint32>(ParticleIndex)]};
+            const physx::PxVec4& PrevLocation{PrevLocations[static_cast<Uint32>(ParticleIndex)]};
+
+            // W는 역질량이며 0이면 고정 입자라 당기지 않습니다.
+            if (Location.w == 0.0f) {
+                continue;
+            }
+
+            const FVector ToSkinned{CurrentSkinPositions[ParticleIndex] - FVector{Location.x, Location.y, Location.z}};
+            const FVector ParticleVelocity{Location.x - PrevLocation.x, Location.y - PrevLocation.y, Location.z - PrevLocation.z};
+            const FVector SkinnedVelocity{CurrentSkinPositions[ParticleIndex] - PreviousSkinPositions[ParticleIndex]};
+
+            // 가속도 = (스프링 힘 - 감쇠 힘) / 질량이며, 질량의 역수가 W입니다.
+            const FVector AddedAcceleration{(ToSkinned * (mCurrentAnimDriveSpringStiffness * (*AnimDriveMultipliers)[ParticleIndex]) - (ParticleVelocity - SkinnedVelocity) * mCurrentAnimDriveDamperStiffness) * Location.w};
+
+            Accelerations[static_cast<Uint32>(ParticleIndex)] += physx::PxVec4{AddedAcceleration.x, AddedAcceleration.y, AddedAcceleration.z, 0.0f};
+        }
+    }
+
+    /**
+     * @brief 지난 시뮬레이션의 입자 위치 차이와 시간으로 입자 속도를 구합니다.
+     */
+    void FClothingActorNv::CalculateParticleVelocities(Core::TArray<FVector>& OutVelocities) {
+        if (mCurrentLodIndex >= mLodData.size() || mLodData[mCurrentLodIndex].mCloth == nullptr) {
+            OutVelocities.clear();
+
+            return;
+        }
+
+        nv::cloth::Cloth& CurrentCloth{*mLodData[mCurrentLodIndex].mCloth};
+        const float InverseTimestep{mPreviousTimestep != 0.0f ? 1.0f / mPreviousTimestep : 0.0f};
+        nv::cloth::MappedRange<physx::PxVec4> PreviousPositions{CurrentCloth.getPreviousParticles()};
+        nv::cloth::MappedRange<physx::PxVec4> CurrentPositions{CurrentCloth.getCurrentParticles()};
+        const Index_t NumParticles{static_cast<Index_t>(std::min(PreviousPositions.size(), CurrentPositions.size()))};
+
+        OutVelocities.resize(NumParticles);
+
+        for (Index_t ParticleIndex{}; ParticleIndex < NumParticles; ++ParticleIndex) {
+            const physx::PxVec4& OldPosition{PreviousPositions[static_cast<Uint32>(ParticleIndex)]};
+            const physx::PxVec4& NewPosition{CurrentPositions[static_cast<Uint32>(ParticleIndex)]};
+
+            OutVelocities[ParticleIndex] = FVector{NewPosition.x - OldPosition.x, NewPosition.y - OldPosition.y, NewPosition.z - OldPosition.z} * InverseTimestep;
+        }
     }
 
     /**
@@ -900,9 +1046,34 @@ namespace PhysicsRuntime {
             Actor.SkinPhysicsMesh(Context);
 
             nv::cloth::Cloth& Cloth{*Actor.mLodData[Actor.mCurrentLodIndex].mCloth};
+            const bool Teleport{Context.mTeleportMode != EClothingTeleportMode::None};
+            const bool Reset{Context.mTeleportMode == EClothingTeleportMode::TeleportAndReset};
+
+            // 다시 놓기를 요청하면 입자를 이번 포즈의 스키닝 위치에 두고 지난 위치도 같게 해 속도를 없앱니다.
+            if (Reset) {
+                const Core::TArray<FVector>& CurrSkinnedPositions{Actor.GetCurrentSkinnedPositions()};
+                nv::cloth::MappedRange<physx::PxVec4> CurrParticles{Cloth.getCurrentParticles()};
+                nv::cloth::MappedRange<physx::PxVec4> PrevParticles{Cloth.getPreviousParticles()};
+
+                for (Uint32 ParticleIndex{}; ParticleIndex < CurrParticles.size() && ParticleIndex < PrevParticles.size() && ParticleIndex < CurrSkinnedPositions.size(); ++ParticleIndex) {
+                    CurrParticles[ParticleIndex] = physx::PxVec4{ToPxVec3(CurrSkinnedPositions[ParticleIndex]), CurrParticles[ParticleIndex].w};
+                    PrevParticles[ParticleIndex] = CurrParticles[ParticleIndex];
+                }
+
+                Cloth.clearParticleAccelerations();
+            }
+
+            // 순간 이동이면 관성 없이 새 위치로 옮기되, 지금 속도는 남겨 튀지 않게 합니다.
+            const FTransform RootBoneWorldTransform{GetSimRootWorldTransform(Context.mComponentToWorld, Context.mBoneTransforms, Actor.mAssetCreatedFrom->mReferenceBoneIndex)};
+
+            if (Teleport) {
+                Cloth.teleportToLocation(ToPxVec3(RootBoneWorldTransform.mLocation), ToPxQuat(RootBoneWorldTransform.mRotation));
+                Cloth.ignoreVelocityDiscontinuity();
+            }
 
             // 기준 뼈의 월드 변환이 지난 프레임과 달라진 만큼 NvCloth가 입자에 관성을 줍니다.
             SetSimRootTransform(Cloth, Context.mComponentToWorld, Context.mBoneTransforms, Actor.mAssetCreatedFrom->mReferenceBoneIndex);
+
             // 설정이 중력을 덮어쓰면 그 값을, 아니면 천 전용 중력이나 월드 중력에 배율을 곱해 씁니다.
             if (const UClothConfigNv* const Config{Actor.mAssetCreatedFrom->GetClothConfig()}) {
                 if (Config->mUseGravityOverride) {
@@ -991,6 +1162,14 @@ namespace PhysicsRuntime {
                 Cloth.setConvexes(MakeRange(Scratch.mConvexMasks), 0, Cloth.getNumConvexes());
             }
 
+            // 바람과 애니메이션 당김은 입자 가속도로 넣습니다.
+            Actor.UpdateWind(Context, Context.mWindVelocity);
+            Actor.UpdateAnimDrive(Context);
+
+            // 이번 프레임 기준 뼈의 속도와 변환을 남깁니다.
+            Actor.mLastVelocity = Context.mDeltaSeconds > 0.0f ? (RootBoneWorldTransform.mLocation - Actor.mLastRootTransform.mLocation) * (1.0f / Context.mDeltaSeconds) : FVector{};
+            Actor.mLastRootTransform = RootBoneWorldTransform;
+
             NumParticles += Cloth.getNumParticles();
         }
 
@@ -1010,6 +1189,9 @@ namespace PhysicsRuntime {
             }
 
             ComputePhysicalMeshNormals(Actor);
+
+            // 다음 프레임에 입자 속도를 구할 때 쓰도록 진행한 시간을 남깁니다.
+            Actor.mPreviousTimestep = Context.mDeltaSeconds;
 
             // 다음 프레임 스키닝은 다른 버퍼에 써서 이번 프레임 값을 지난 프레임 값으로 남깁니다.
             Actor.mCurrentSkinnedPositionIndex = (Actor.mCurrentSkinnedPositionIndex + 1) % 2;

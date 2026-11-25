@@ -36,6 +36,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <utility>
 
 namespace Engine {
@@ -694,6 +695,10 @@ namespace Engine {
         Core::TArray<const PhysicsRuntime::UClothingAssetCommon*> AssetsInUse{};
         mSkeletalMesh->GetClothingAssetsInUse(AssetsInUse);
 
+        // 첫 진행에서 순간 이동으로 보지 않도록 지금 기준 뼈 위치를 지난 위치로 둡니다.
+        mPrevRootBoneMatrix = GetClothRootBoneWorldMatrix();
+        mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
+
         UpdateClothSimulationContext(0.0f);
 
         for (Index_t AssetIndex{}; AssetIndex < MeshClothingAssets.size(); ++AssetIndex) {
@@ -758,6 +763,15 @@ namespace Engine {
     void USkeletalMeshComponent::UpdateClothSimulationContext(float DeltaTime) {
         // 한 프레임이 너무 길면 천이 튀므로 물리 한 번에 진행할 최대 시간으로 자릅니다.
         constexpr float MaxPhysicsDelta{1.0f / 30.0f};
+
+        // 프레임이 최대 시간의 이 배수보다 길면 관성 대신 순간 이동으로 처리합니다.
+        constexpr float MaxDeltaTimeTeleportMultiplier{1.5f};
+
+        // 진행할 때만 순간 이동을 검사합니다. 처음 천을 만들 때는 이미 지금 위치에 놓습니다.
+        if (DeltaTime > 0.0f) {
+            CheckClothTeleport();
+        }
+
         const Engine::UWorld* const World{GetWorld()};
         const PhysicsRuntime::FPhysicsRuntime* const Runtime{World != nullptr ? World->GetPhysicsRuntime() : nullptr};
 
@@ -768,6 +782,96 @@ namespace Engine {
         mClothingSimulationContext.mDeltaSeconds = std::min(DeltaTime, MaxPhysicsDelta);
         mClothingSimulationContext.mPredictedLod = 0;
         mClothingSimulationContext.mMaxDistanceScale = mClothMaxDistanceScale;
+
+        // 바람이 불면 바람에 맞추는 정도를 매 프레임 조금씩 흔들어 돌풍처럼 보이게 합니다.
+        mClothingSimulationContext.mWindVelocity = mClothWindVelocity;
+        mClothingSimulationContext.mWindAdaption = mClothWindVelocity.LengthSquared() > 0.0f ? static_cast<float>(std::rand() % 20) * 0.1f : 2.0f;
+
+        mClothingSimulationContext.mTeleportMode = DeltaTime > MaxPhysicsDelta * MaxDeltaTimeTeleportMultiplier ? PhysicsRuntime::EClothingTeleportMode::Teleport : mClothTeleportMode;
+
+        // 요청한 순간 이동은 이번 진행 한 번에만 씁니다.
+        if (DeltaTime > 0.0f) {
+            mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
+        }
+    }
+
+    /**
+     * @brief 기준 뼈의 지금 월드 행렬을 구합니다.
+     */
+    FMatrix USkeletalMeshComponent::GetClothRootBoneWorldMatrix() const {
+        const Core::TArray<FMatrix>& BoneTransforms{mPose.GetGlobalTransforms()};
+
+        return BoneTransforms.empty() ? GetWorldMatrix() : BoneTransforms[0] * GetWorldMatrix();
+    }
+
+    /**
+     * @brief 기준 뼈가 한 프레임에 너무 멀리 움직이거나 많이 돌았으면 천 순간 이동을 요청합니다.
+     */
+    void USkeletalMeshComponent::CheckClothTeleport() {
+        const FMatrix CurRootBoneMatrix{GetClothRootBoneWorldMatrix()};
+        const PhysicsRuntime::EClothingTeleportMode RequestedMode{mResetAfterTeleport ? PhysicsRuntime::EClothingTeleportMode::TeleportAndReset : PhysicsRuntime::EClothingTeleportMode::Teleport};
+        FTransform CurRoot{};
+        FTransform PrevRoot{};
+        const bool HasTransforms{CurRootBoneMatrix.TryGetTransform(CurRoot) && mPrevRootBoneMatrix.TryGetTransform(PrevRoot)};
+
+        // 거리 검사입니다.
+        if (HasTransforms && mTeleportDistanceThreshold > 0.0f && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
+            if ((CurRoot.mLocation - PrevRoot.mLocation).LengthSquared() > mTeleportDistanceThreshold * mTeleportDistanceThreshold) {
+                mClothTeleportMode = RequestedMode;
+            }
+        }
+
+        // 회전 검사입니다. 두 회전 사이 각도의 코사인을 사원수 내적으로 구합니다.
+        if (HasTransforms && mTeleportRotationThreshold > 0.0f && mClothTeleportMode == PhysicsRuntime::EClothingTeleportMode::None) {
+            const FQuat& A{CurRoot.mRotation};
+            const FQuat& B{PrevRoot.mRotation};
+            const float Dot{A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w};
+            const float CosineTheta{2.0f * Dot * Dot - 1.0f};
+            const float CosineThreshold{std::cos(mTeleportRotationThreshold * 3.14159265f / 180.0f)};
+
+            if (CosineTheta < CosineThreshold) {
+                mClothTeleportMode = RequestedMode;
+            }
+        }
+
+        mPrevRootBoneMatrix = CurRootBoneMatrix;
+    }
+
+    /**
+     * @brief 천에 부는 월드 좌표 바람 속도를 반환합니다.
+     */
+    const FVector& USkeletalMeshComponent::GetClothWindVelocity() const {
+        return mClothWindVelocity;
+    }
+
+    /**
+     * @brief 천에 부는 월드 좌표 바람 속도를 설정합니다.
+     */
+    bool USkeletalMeshComponent::SetClothWindVelocity(const FVector& Velocity) {
+        mClothWindVelocity = Velocity;
+
+        return true;
+    }
+
+    /**
+     * @brief 다음 천 진행에서 천을 새 위치로 옮기되 속도는 유지하게 합니다.
+     */
+    void USkeletalMeshComponent::ForceClothNextUpdateTeleport() {
+        mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::Teleport;
+    }
+
+    /**
+     * @brief 다음 천 진행에서 천을 새 위치로 옮기고 입자를 스키닝 위치에 다시 놓게 합니다.
+     */
+    void USkeletalMeshComponent::ForceClothNextUpdateTeleportAndReset() {
+        mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::TeleportAndReset;
+    }
+
+    /**
+     * @brief 요청한 천 순간 이동을 취소합니다.
+     */
+    void USkeletalMeshComponent::ResetClothTeleportMode() {
+        mClothTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;
     }
 
     /**

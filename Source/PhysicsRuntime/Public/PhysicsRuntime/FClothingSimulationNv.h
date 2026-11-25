@@ -8,6 +8,7 @@
 
 #include "Core/Types.h"
 #include "Core/Math/FMatrix.h"
+#include "Core/Math/FTransform.h"
 #include "Core/Math/FVector.h"
 #include "PhysicsRuntime/IClothingSimulation.h"
 #include "PhysicsRuntime/UClothConfigNv.h"
@@ -58,6 +59,11 @@ namespace PhysicsRuntime {
          * @brief 볼록 다면체마다 쓰는 평면 번호를 비트로 표시한 값입니다.
          */
         Core::TArray<Uint32> mConvexMasks{};
+
+        /**
+         * @brief 지난 시뮬레이션의 입자 속도(m/s)입니다.
+         */
+        Core::TArray<FVector> mParticleVelocities{};
     };
 
     /**
@@ -114,6 +120,27 @@ namespace PhysicsRuntime {
          * @brief 충돌체가 바뀌었으면 천 에셋, 물리 에셋, 바깥 충돌체를 하나의 목록으로 다시 모읍니다.
          */
         void ConditionalRebuildCollisions();
+
+        /**
+         * @brief 바람을 천에 넣습니다.
+         * @details 단순한 방식은 입자마다 바람 속도 쪽으로 가속도를 넣고, 정확한 방식은 NvCloth에 바람 속도를 넣습니다.
+         * @param[in] Context 기준 뼈 변환과 바람에 맞추는 정도를 담은 입력입니다.
+         * @param[in] WindVelocity 월드 좌표의 바람 속도(m/s)입니다.
+         */
+        void UpdateWind(const FClothingSimulationContextCommon& Context, const FVector& WindVelocity);
+
+        /**
+         * @brief 입자를 스키닝 위치 쪽으로 당기는 스프링 가속도를 더합니다.
+         * @details 입자마다 세기를 칠한 맵이 있을 때만 동작합니다.
+         * @param[in] Context 이번 프레임의 입력입니다.
+         */
+        void UpdateAnimDrive(const FClothingSimulationContextCommon& Context);
+
+        /**
+         * @brief 지난 시뮬레이션의 입자 위치 차이와 시간으로 입자 속도를 구합니다.
+         * @param[out] OutVelocities 입자 속도(m/s)이며 입자 수에 맞게 크기를 바꿉니다.
+         */
+        void CalculateParticleVelocities(Core::TArray<FVector>& OutVelocities);
 
         /**
          * @brief 이번 프레임에 스키닝한 입자 위치를 반환합니다.
@@ -221,6 +248,21 @@ namespace PhysicsRuntime {
          * @brief 천 전용 중력 가속도(m/s²)입니다.
          */
         FVector mGravityOverride{};
+
+        /**
+         * @brief 지난 시뮬레이션에 진행한 시간(초)이며 입자 속도를 구할 때 씁니다.
+         */
+        float mPreviousTimestep{};
+
+        /**
+         * @brief 지난 프레임 기준 뼈의 월드 속도(m/s)입니다.
+         */
+        FVector mLastVelocity{};
+
+        /**
+         * @brief 지난 프레임 기준 뼈의 월드 변환입니다.
+         */
+        FTransform mLastRootTransform{};
     };
 
     /**
