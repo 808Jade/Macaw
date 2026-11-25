@@ -17,7 +17,13 @@ struct FSurfaceMaterial {
     float3 mReflectionTint;
 };
 
-FSurfaceMaterial ReadSurfaceMaterial(FPixelInput Input) {
+/**
+ * @brief 재질과 텍스처로 픽셀 하나의 표면 색과 법선을 구합니다.
+ * @param Input 래스터라이저가 보간한 정점 출력입니다.
+ * @param IsFrontFace 카메라를 향한 앞면이면 true입니다. 양면 재질의 뒷면이면 false입니다.
+ * @return 조명 계산에 쓸 표면 값입니다.
+ */
+FSurfaceMaterial ReadSurfaceMaterial(FPixelInput Input, bool IsFrontFace) {
     FSurfaceMaterial Surface = {(FSurfaceMaterial)0};
     Surface.mColor = BaseColor * Input.mColor * BaseColorTexture.Sample(MaterialSampler, Input.mUV);
     Surface.mNormal = SafeNormal(Input.mNormal);
@@ -29,6 +35,11 @@ FSurfaceMaterial ReadSurfaceMaterial(FPixelInput Input) {
 #if defined(HAS_NORMAL_MAP)
     Surface.mNormal = MappedNormal(Surface.mNormal, Input.mTangent, NormalMapTexture.Sample(MaterialSampler, Input.mUV).xyz);
 #endif
+
+    // 양면 재질의 뒷면은 법선이 카메라 반대쪽을 보므로 뒤집어 뒷면도 앞면처럼 빛을 받게 합니다. 한쪽 면 재질은 뒷면을 그리지 않습니다.
+    if (!IsFrontFace) {
+        Surface.mNormal = -Surface.mNormal;
+    }
 
 #if !defined(MACAW_UNLIT) && !defined(WORLD_NORMAL)
     Surface.mSpecularTint = SpecularColor.rgb;
@@ -73,8 +84,8 @@ struct FGBufferOutput {
     float4 mReflection : SV_TARGET5;
 };
 
-FGBufferOutput PixelMain(FPixelInput Input) {
-    const FSurfaceMaterial Surface = {ReadSurfaceMaterial(Input)};
+FGBufferOutput PixelMain(FPixelInput Input, bool IsFrontFace : SV_IsFrontFace) {
+    const FSurfaceMaterial Surface = {ReadSurfaceMaterial(Input, IsFrontFace)};
     FGBufferOutput Output = {(FGBufferOutput)0};
     Output.mColor = Surface.mColor;
     Output.mNormal = float4(Surface.mNormal, SurfaceParameters.y);
@@ -98,8 +109,8 @@ FGBufferOutput PixelMain(FPixelInput Input) {
     return Output;
 }
 #else
-float4 PixelMain(FPixelInput Input) : SV_TARGET {
-    const FSurfaceMaterial Surface = {ReadSurfaceMaterial(Input)};
+float4 PixelMain(FPixelInput Input, bool IsFrontFace : SV_IsFrontFace) : SV_TARGET {
+    const FSurfaceMaterial Surface = {ReadSurfaceMaterial(Input, IsFrontFace)};
 
 #if defined(WORLD_NORMAL)
     return float4(Surface.mNormal * 0.5f + 0.5f, 1.0f);
