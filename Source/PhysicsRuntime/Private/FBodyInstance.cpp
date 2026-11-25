@@ -419,6 +419,19 @@ namespace PhysicsRuntime {
         return true;
     }
 
+    bool PhysicsRuntime::FBodyInstance::AddImpulseAtLocation(const FVector& Impulse, const FVector& Location) {
+        physx::PxRigidDynamic* Dynamic{GetPxRigidDynamic()};
+        const physx::PxVec3 Value{PhysicsRuntime::ToPxVec3(Impulse)};
+        const physx::PxVec3 Position{PhysicsRuntime::ToPxVec3(Location)};
+
+        if (Dynamic == nullptr || Dynamic->getRigidBodyFlags().isSet(physx::PxRigidBodyFlag::eKINEMATIC) || !Value.isFinite() || !Position.isFinite()) {
+            return false;
+        }
+
+        physx::PxRigidBodyExt::addForceAtPos(*Dynamic, Value, Position, physx::PxForceMode::eIMPULSE);
+        return true;
+    }
+
     /**
      * @brief 동적 강체의 선속도를 반환합니다.
      */

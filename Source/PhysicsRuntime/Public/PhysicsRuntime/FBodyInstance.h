@@ -226,6 +226,7 @@ namespace PhysicsRuntime {
          * @return 동적 강체가 있고 값이 유한하여 적용했으면 true입니다.
          */
         bool AddImpulse(const FVector& Impulse, bool VelocityChange = false);
+        bool AddImpulseAtLocation(const FVector& Impulse, const FVector& Location);
 
         /**
          * @brief 동적 강체의 선속도를 반환합니다.

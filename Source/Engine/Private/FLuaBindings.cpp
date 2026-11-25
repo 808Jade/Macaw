@@ -338,6 +338,43 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         return Primitive != nullptr && Linear.IsFinite() && Angular.IsFinite() &&
                Primitive->SetPhysicsLinearVelocity(Linear) && Primitive->SetPhysicsAngularVelocity(Angular);
     };
+    Component["SetSimulatePhysics"] = [](const FLuaComponentRef& Ref, bool Simulate) {
+        auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
+        if (Primitive == nullptr) {
+            return false;
+        }
+
+        Primitive->SetSimulatePhysics(Simulate);
+        return true;
+    };
+    Component["SetBodySimulatePhysics"] = [](const FLuaComponentRef& Ref, const Core::FString& BoneName, bool Simulate) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->SetBodySimulatePhysics(BoneName, Simulate);
+    };
+    Component["SetAllBodiesBelowSimulatePhysics"] = [](const FLuaComponentRef& Ref, const Core::FString& BoneName, bool Simulate, sol::optional<bool> IncludeSelf) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->SetAllBodiesBelowSimulatePhysics(BoneName, Simulate, IncludeSelf.value_or(true));
+    };
+    Component["IsBodySimulatingPhysics"] = [](const FLuaComponentRef& Ref, const Core::FString& BoneName) {
+        const auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->IsBodySimulatingPhysics(BoneName);
+    };
+    Component["SetBodyPhysicsBlendWeight"] = [](const FLuaComponentRef& Ref, const Core::FString& BoneName, float Weight) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->SetBodyPhysicsBlendWeight(BoneName, Weight);
+    };
+    Component["SetAllBodiesBelowPhysicsBlendWeight"] = [](const FLuaComponentRef& Ref, const Core::FString& BoneName, float Weight, sol::optional<bool> IncludeSelf) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->SetAllBodiesBelowPhysicsBlendWeight(BoneName, Weight, IncludeSelf.value_or(true));
+    };
+    Component["AddImpulseToBody"] = [](const FLuaComponentRef& Ref, const Core::FString& BoneName, const FVector& Impulse, sol::optional<bool> VelocityChange) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->AddImpulseToBody(BoneName, Impulse, VelocityChange.value_or(false));
+    };
+    Component["AddImpulseAtLocationToBody"] = [](const FLuaComponentRef& Ref, const Core::FString& BoneName, const FVector& Impulse, const FVector& Location) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+        return Mesh != nullptr && Mesh->AddImpulseAtLocationToBody(BoneName, Impulse, Location);
+    };
     Component["SetHiddenInGame"] = [](const FLuaComponentRef& Ref, bool Hidden) {
         auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
         if (Primitive == nullptr) {

@@ -44,6 +44,25 @@ namespace Engine {
     class USkeletalMeshComponent final : public Engine::UMeshComponent {
         GENERATED_BODY()
 
+    private:
+        class FPostPhysicsTick final : public Engine::FTickFunction {
+        public:
+            explicit FPostPhysicsTick(Engine::USkeletalMeshComponent& Target);
+
+        private:
+            const CoreUObject::UObject* GetTarget() const override;
+            void ExecuteTick(float DeltaTime) override;
+
+        private:
+            Engine::USkeletalMeshComponent& mTarget;
+        };
+
+        struct FArticulatedBody {
+            std::unique_ptr<PhysicsRuntime::FBodyInstance> mInstance{};
+            float mBlendWeight{1.0f};
+            bool mCanSimulate{};
+        };
+
     public:
 
         /**
@@ -174,6 +193,15 @@ namespace Engine {
          * @param[in] Simulate true이면 물리로 움직이고, false이면 키네마틱으로 애니메이션을 따라갑니다.
          */
         void SetAllBodiesSimulatePhysics(bool Simulate);
+        bool SetBodySimulatePhysics(const Core::FString& BoneName, bool Simulate);
+        bool SetAllBodiesBelowSimulatePhysics(const Core::FString& BoneName, bool Simulate, bool IncludeSelf = true);
+        bool IsBodySimulatingPhysics(const Core::FString& BoneName) const;
+
+        bool SetBodyPhysicsBlendWeight(const Core::FString& BoneName, float Weight);
+        bool SetAllBodiesBelowPhysicsBlendWeight(const Core::FString& BoneName, float Weight, bool IncludeSelf = true);
+
+        bool AddImpulseToBody(const Core::FString& BoneName, const FVector& Impulse, bool VelocityChange = false);
+        bool AddImpulseAtLocationToBody(const Core::FString& BoneName, const FVector& Impulse, const FVector& Location);
 
         /**
          * @brief 현재 본 포즈를 반환합니다.
@@ -350,6 +378,7 @@ namespace Engine {
          * @brief 재등록 때 재해석하도록 에셋 참조를 해제합니다.
          */
         void UnregisterComponent() override;
+        void RegisterComponentTickFunctions(bool Register) override;
 
         /**
          * @brief 플레이 중이면 애니메이션 포즈를 갱신합니다.
@@ -556,6 +585,11 @@ namespace Engine {
          */
         bool ShouldSimulateBodies() const;
 
+        bool ShouldAnimatePhysicsPose() const;
+        Index_t FindPhysicsBodyIndex(const Core::FString& BoneName) const;
+        Core::TArray<Index_t> FindPhysicsBodiesBelow(const Core::FString& BoneName, bool IncludeSelf) const;
+        bool SetBodySimulation(FArticulatedBody& Body, bool Simulate);
+
         /**
          * @brief 관절과 뼈별 바디를 모두 해제합니다.
          * @note 관절이 바디를 가리키므로 관절을 먼저 해제합니다.
@@ -746,7 +780,9 @@ namespace Engine {
          * @brief 물리 에셋의 설계도 순서대로 만든 뼈별 바디입니다.
          * @note 바디는 userData가 주소를 가리키므로 포인터로 보관합니다.
          */
-        Core::TArray<std::unique_ptr<PhysicsRuntime::FBodyInstance>> mBodies{};
+        Core::TArray<FArticulatedBody> mBodies{};
+        Core::TArray<FMatrix> mUnblendedLocalPose{};
+        FPostPhysicsTick mPostPhysicsTick{*this};
 
         /**
          * @brief 물리 에셋의 관절 설정 순서대로 만든 관절입니다.

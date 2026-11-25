@@ -75,12 +75,30 @@ namespace Engine {
      */
     USkeletalMeshComponent::USkeletalMeshComponent() {
         SetEditorTickable(true);
+        mPostPhysicsTick.AddPrerequisite(GetPrimaryComponentTick());
     }
 
     /**
      * @brief 컴포넌트를 파괴합니다.
      */
     USkeletalMeshComponent::~USkeletalMeshComponent() = default;
+
+    USkeletalMeshComponent::FPostPhysicsTick::FPostPhysicsTick(Engine::USkeletalMeshComponent& Target)
+        : mTarget{Target} {
+        SetTickGroup(Engine::ETickingGroup::PostPhysics);
+        SetTickEnabled(false);
+    }
+
+    const CoreUObject::UObject* USkeletalMeshComponent::FPostPhysicsTick::GetTarget() const {
+        return &mTarget;
+    }
+
+    void USkeletalMeshComponent::FPostPhysicsTick::ExecuteTick(float DeltaTime) {
+        if (mTarget.HasBegunPlay() && mTarget.GetPrimaryComponentTick().IsTickEnabled() && mTarget.GetPrimaryComponentTick().CanEverTick()) {
+            mTarget.BlendInPhysics();
+            mTarget.TickClothing(DeltaTime);
+        }
+    }
 
     /**
      * @brief 기본 프리미티브 구분값을 반환합니다.
@@ -245,6 +263,7 @@ namespace Engine {
         mSkeletalMesh = Mesh;
         mSkeleton = Skeleton;
         mPose = std::move(Pose);
+        mUnblendedLocalPose.clear();
         mPreviewAssets = true;
 
         if (mAnimInstance != nullptr) {
@@ -275,6 +294,7 @@ namespace Engine {
         if (Mesh != mSkeletalMesh || Skeleton != mSkeleton) {
             mSkeletalMesh = Mesh;
             mSkeleton = Skeleton;
+            mUnblendedLocalPose.clear();
             mPose.Invalidate();
 
             if (Mesh != nullptr && Skeleton != nullptr) {
@@ -497,7 +517,8 @@ namespace Engine {
                 // 충돌 설정: 이 에셋의 바디끼리는 비활성 쌍 목록을 따르고, 충돌을 끈 바디는 아무것도 부딪히지 않는다.
                 Body->SetCollisionFilter(CollisionGroup, static_cast<Uint32>(BodyIndex), BodySetup->IsCollisionEnabled());
                 NameToBodyMap[BodySetup->GetBoneName()] = Body.get();
-                mBodies[BodyIndex] = std::move(Body);
+                mBodies[BodyIndex].mInstance = std::move(Body);
+                mBodies[BodyIndex].mCanSimulate = BodySetup->ShouldSimulatePhysics();
             }
         }
 
@@ -528,6 +549,7 @@ namespace Engine {
 
         // 관절까지 이은 뒤 컴포넌트 설정대로 시뮬레이션을 켭니다.
         SetAllBodiesSimulatePhysics(ShouldSimulateBodies());
+        mPostPhysicsTick.SetTickEnabled(!NameToBodyMap.empty());
     }
 
     /**
@@ -541,25 +563,152 @@ namespace Engine {
      * @brief 모든 뼈별 바디의 시뮬레이션 여부를 바꿉니다.
      */
     void USkeletalMeshComponent::SetAllBodiesSimulatePhysics(bool Simulate) {
-        const PhysicsRuntime::UPhysicsAsset* const PhysicsAsset{GetPhysicsAsset()};
+        for (FArticulatedBody& Body : mBodies) {
+            SetBodySimulation(Body, Simulate);
+        }
+    }
 
-        for (const auto& Body : mBodies) {
-            if (Body == nullptr) {
+    bool USkeletalMeshComponent::SetBodySimulatePhysics(const Core::FString& BoneName, bool Simulate) {
+        const Index_t Index{FindPhysicsBodyIndex(BoneName)};
+        return Index != InvalidIndex && SetBodySimulation(mBodies[Index], Simulate);
+    }
+
+    bool USkeletalMeshComponent::SetAllBodiesBelowSimulatePhysics(const Core::FString& BoneName, bool Simulate, bool IncludeSelf) {
+        bool Found{};
+        for (const Index_t Index : FindPhysicsBodiesBelow(BoneName, IncludeSelf)) {
+            Found |= SetBodySimulation(mBodies[Index], Simulate);
+        }
+
+        return Found;
+    }
+
+    bool USkeletalMeshComponent::IsBodySimulatingPhysics(const Core::FString& BoneName) const {
+        const Index_t Index{FindPhysicsBodyIndex(BoneName)};
+        return Index != InvalidIndex && mBodies[Index].mInstance->ShouldSimulatePhysics();
+    }
+
+    bool USkeletalMeshComponent::SetBodyPhysicsBlendWeight(const Core::FString& BoneName, float Weight) {
+        const Index_t Index{FindPhysicsBodyIndex(BoneName)};
+        if (Index == InvalidIndex || !mBodies[Index].mCanSimulate || !std::isfinite(Weight)) {
+            return false;
+        }
+
+        mBodies[Index].mBlendWeight = std::clamp(Weight, 0.0f, 1.0f);
+        return true;
+    }
+
+    bool USkeletalMeshComponent::SetAllBodiesBelowPhysicsBlendWeight(const Core::FString& BoneName, float Weight, bool IncludeSelf) {
+        if (!std::isfinite(Weight)) {
+            return false;
+        }
+
+        const auto Indices{FindPhysicsBodiesBelow(BoneName, IncludeSelf)};
+        const float ClampedWeight{std::clamp(Weight, 0.0f, 1.0f)};
+        for (const Index_t Index : Indices) {
+            mBodies[Index].mBlendWeight = ClampedWeight;
+        }
+
+        return !Indices.empty();
+    }
+
+    bool USkeletalMeshComponent::AddImpulseToBody(const Core::FString& BoneName, const FVector& Impulse, bool VelocityChange) {
+        const Index_t Index{FindPhysicsBodyIndex(BoneName)};
+        if (Index == InvalidIndex) {
+            return false;
+        }
+
+        PhysicsRuntime::FBodyInstance& Body{*mBodies[Index].mInstance};
+        return Body.ShouldSimulatePhysics() && Body.AddImpulse(Impulse, VelocityChange);
+    }
+
+    bool USkeletalMeshComponent::AddImpulseAtLocationToBody(const Core::FString& BoneName, const FVector& Impulse, const FVector& Location) {
+        const Index_t Index{FindPhysicsBodyIndex(BoneName)};
+        if (Index == InvalidIndex) {
+            return false;
+        }
+
+        PhysicsRuntime::FBodyInstance& Body{*mBodies[Index].mInstance};
+        return Body.ShouldSimulatePhysics() && Body.AddImpulseAtLocation(Impulse, Location);
+    }
+
+    bool USkeletalMeshComponent::ShouldAnimatePhysicsPose() const {
+        return !ShouldSimulateBodies() || !mPostPhysicsTick.IsTickEnabled() || std::ranges::any_of(mBodies, [](const FArticulatedBody& Body) {
+            return Body.mCanSimulate && (!Body.mInstance->ShouldSimulatePhysics() || Body.mBlendWeight < 1.0f);
+        });
+    }
+
+    Index_t USkeletalMeshComponent::FindPhysicsBodyIndex(const Core::FString& BoneName) const {
+        const Index_t BoneIndex{GetBoneIndex(BoneName)};
+        if (BoneIndex == InvalidIndex) {
+            return InvalidIndex;
+        }
+
+        for (Index_t Index{}; Index < mBodies.size(); ++Index) {
+            const auto& Body{mBodies[Index].mInstance};
+            if (Body != nullptr && Body->mInstanceBoneIndex == BoneIndex) {
+                return Index;
+            }
+        }
+
+        return InvalidIndex;
+    }
+
+    Core::TArray<Index_t> USkeletalMeshComponent::FindPhysicsBodiesBelow(const Core::FString& BoneName, bool IncludeSelf) const {
+        const Index_t RootIndex{GetBoneIndex(BoneName)};
+        if (RootIndex == InvalidIndex) {
+            return {};
+        }
+
+        const auto& Bones{mSkeleton->GetBones()};
+        Core::TArray<Index_t> Indices{};
+        for (Index_t Index{}; Index < mBodies.size(); ++Index) {
+            const FArticulatedBody& Body{mBodies[Index]};
+            if (!Body.mCanSimulate || (!IncludeSelf && Body.mInstance->mInstanceBoneIndex == RootIndex)) {
                 continue;
             }
 
-            // 바디 셋업이 Kinematic으로 지정한 바디는 시뮬레이션을 켜도 Kinematic으로 남습니다.
-            const PhysicsRuntime::UBodySetup* const Setup{PhysicsAsset != nullptr && Body->mInstanceBodyIndex < PhysicsAsset->mSkeletalBodySetups.size() ? PhysicsAsset->mSkeletalBodySetups[Body->mInstanceBodyIndex].get() : nullptr};
+            Int32 Current{static_cast<Int32>(Body.mInstance->mInstanceBoneIndex)};
+            while (Current >= 0 && static_cast<Index_t>(Current) != RootIndex) {
+                Current = Bones[Current].GetParentIndex();
+            }
 
-            Body->SetInstanceSimulatePhysics(Simulate && (Setup == nullptr || Setup->ShouldSimulatePhysics()));
+            if (Current >= 0) {
+                Indices.push_back(Index);
+            }
         }
+
+        return Indices;
+    }
+
+    bool USkeletalMeshComponent::SetBodySimulation(FArticulatedBody& Body, bool Simulate) {
+        if (!Body.mCanSimulate) {
+            return false;
+        }
+
+        PhysicsRuntime::FBodyInstance& Instance{*Body.mInstance};
+        if (Instance.ShouldSimulatePhysics() == Simulate) {
+            return true;
+        }
+
+        FTransform BoneTransform{};
+        if (Simulate && !GetBoneWorldTransform(Instance.mInstanceBoneIndex, BoneTransform)) {
+            return false;
+        }
+
+        Instance.SetInstanceSimulatePhysics(Simulate);
+        if (Simulate) {
+            Instance.SetBodyTransform(BoneTransform);
+        }
+
+        return true;
     }
 
     /**
      * @brief 키네마틱 바디를 현재 애니메이션 포즈의 뼈 위치로 옮깁니다.
      */
     void USkeletalMeshComponent::UpdateKinematicBonesToAnim() {
-        for (const auto& Body : mBodies) {
+        for (const auto& Entry : mBodies) {
+            const auto& Body{Entry.mInstance};
             FTransform BoneTransform{};
 
             if (Body != nullptr && !Body->ShouldSimulatePhysics() && GetBoneWorldTransform(Body->mInstanceBoneIndex, BoneTransform)) {
@@ -572,13 +721,16 @@ namespace Engine {
      * @brief 시뮬레이션한 바디 위치를 읽어 뼈 포즈에 씁니다.
      */
     void USkeletalMeshComponent::BlendInPhysics() {
-        if (mSkeletalMesh == nullptr || mSkeleton == nullptr) {
+        if (mSkeletalMesh == nullptr || mSkeleton == nullptr || std::ranges::none_of(mBodies, [](const FArticulatedBody& Body) {
+            return Body.mBlendWeight > 0.0f && Body.mInstance != nullptr && Body.mInstance->ShouldSimulatePhysics();
+        })) {
             return;
         }
 
         const Core::TArray<Asset::FMeshImportBone>& Bones{mSkeleton->GetBones()};
         const Core::TArray<FMatrix>& OldGlobals{mPose.GetGlobalTransforms()};
-        Core::TArray<FMatrix> Locals{mPose.GetLocalTransforms()};
+        const auto& BaseLocals{mUnblendedLocalPose.empty() ? mPose.GetLocalTransforms() : mUnblendedLocalPose};
+        Core::TArray<FMatrix> Locals{BaseLocals};
         const FMatrix ComponentToWorld{GetTransform().ToMatrix()};
         FMatrix WorldToComponent{};
 
@@ -587,22 +739,27 @@ namespace Engine {
         }
 
         // 뼈마다 시뮬레이션 중인 바디를 찾아 둡니다.
-        Core::TArray<const PhysicsRuntime::FBodyInstance*> BoneToBody(Bones.size(), nullptr);
+        Core::TArray<const FArticulatedBody*> BoneToBody{};
+        BoneToBody.resize(Bones.size());
 
-        for (const auto& Body : mBodies) {
+        for (const FArticulatedBody& Entry : mBodies) {
+            const auto& Body{Entry.mInstance};
             if (Body != nullptr && Body->ShouldSimulatePhysics() && Body->IsValidBodyInstance() && Body->mInstanceBoneIndex < Bones.size()) {
-                BoneToBody[Body->mInstanceBoneIndex] = Body.get();
+                BoneToBody[Body->mInstanceBoneIndex] = &Entry;
             }
         }
 
         // 부모부터 내려가며 바디가 있는 뼈는 바디 위치로, 없는 뼈는 부모를 따라가게 합니다.
-        Core::TArray<FMatrix> NewGlobals(Bones.size(), FMatrix::Identity());
+        Core::TArray<FMatrix> NewGlobals{};
+        NewGlobals.resize(Bones.size(), FMatrix::Identity());
 
         for (Index_t BoneIndex{}; BoneIndex < Bones.size(); ++BoneIndex) {
             const Int32 ParentIndex{Bones[BoneIndex].GetParentIndex()};
             const FMatrix ParentGlobal{ParentIndex >= 0 ? NewGlobals[ParentIndex] : FMatrix::Identity()};
+            const FArticulatedBody* Body{BoneToBody[BoneIndex]};
+            FMatrix ParentInverse{FMatrix::Identity()};
 
-            if (BoneToBody[BoneIndex] == nullptr) {
+            if (Body == nullptr || Body->mBlendWeight <= 0.0f || (ParentIndex >= 0 && !ParentGlobal.TryInverse(ParentInverse))) {
                 NewGlobals[BoneIndex] = Locals[BoneIndex] * ParentGlobal;
                 continue;
             }
@@ -611,19 +768,27 @@ namespace Engine {
             FTransform OldWorld{};
             (OldGlobals[BoneIndex] * ComponentToWorld).TryGetTransform(OldWorld);
 
-            const FTransform BodyWorld{BoneToBody[BoneIndex]->GetBodyTransform()};
+            const FTransform BodyWorld{Body->mInstance->GetBodyTransform()};
             const FTransform NewWorld{BodyWorld.mLocation, BodyWorld.mRotation, OldWorld.mScale};
-            FMatrix ParentInverse{};
+            const FMatrix PhysicsLocal{NewWorld.ToMatrix() * WorldToComponent * ParentInverse};
 
-            NewGlobals[BoneIndex] = NewWorld.ToMatrix() * WorldToComponent;
-
-            if (ParentIndex < 0) {
-                Locals[BoneIndex] = NewGlobals[BoneIndex];
-            } else if (ParentGlobal.TryInverse(ParentInverse)) {
-                Locals[BoneIndex] = NewGlobals[BoneIndex] * ParentInverse;
+            if (Body->mBlendWeight >= 1.0f) {
+                Locals[BoneIndex] = PhysicsLocal;
+            } else {
+                FTransform Animation{};
+                FTransform Physics{};
+                if (Locals[BoneIndex].TryGetTransform(Animation) && PhysicsLocal.TryGetTransform(Physics)) {
+                    Physics.mScale = Animation.mScale;
+                    Locals[BoneIndex] = Animation.Blend(Physics, Body->mBlendWeight).ToMatrix();
+                }
             }
+
+            NewGlobals[BoneIndex] = Locals[BoneIndex] * ParentGlobal;
         }
 
+        if (mUnblendedLocalPose.empty()) {
+            mUnblendedLocalPose = BaseLocals;
+        }
         if (mPose.SetAnimatedLocalTransforms(*mSkeletalMesh, *mSkeleton, std::move(Locals))) {
             MarkRenderStateDirty();
         }
@@ -642,12 +807,13 @@ namespace Engine {
         mConstraints.clear();
 
         for (const auto& Body : mBodies) {
-            if (Body != nullptr) {
-                Body->TermBody();
+            if (Body.mInstance != nullptr) {
+                Body.mInstance->TermBody();
             }
         }
 
         mBodies.clear();
+        mPostPhysicsTick.SetTickEnabled(false);
     }
 
     /**
@@ -681,6 +847,7 @@ namespace Engine {
             return false;
         }
 
+        mUnblendedLocalPose.clear();
         MarkRenderStateDirty();
 
         return true;
@@ -694,6 +861,7 @@ namespace Engine {
             return false;
         }
 
+        mUnblendedLocalPose.clear();
         MarkRenderStateDirty();
 
         return true;
@@ -707,6 +875,7 @@ namespace Engine {
             return false;
         }
 
+        mUnblendedLocalPose.clear();
         MarkRenderStateDirty();
 
         return true;
@@ -1067,7 +1236,8 @@ namespace Engine {
         Core::TArray<PhysicsRuntime::FBodyInstance*> BodyOverlaps{};
         bool Queried{};
 
-        for (const auto& Body : mBodies) {
+        for (const auto& Entry : mBodies) {
+            const auto& Body{Entry.mInstance};
             if (Body == nullptr || !Body->OverlapMulti(BodyOverlaps)) {
                 continue;
             }
@@ -1099,7 +1269,18 @@ namespace Engine {
         mPreviewAssets = false;
         mSkeletalMesh = nullptr;
         mSkeleton = nullptr;
+        mUnblendedLocalPose.clear();
         mPose.Invalidate();
+    }
+
+    void USkeletalMeshComponent::RegisterComponentTickFunctions(bool Register) {
+        Engine::UMeshComponent::RegisterComponentTickFunctions(Register);
+
+        if (!Register) {
+            mPostPhysicsTick.UnregisterTickFunction();
+        } else if (auto* Level{GetOwner() != nullptr ? GetOwner()->GetLevel() : nullptr}) {
+            mPostPhysicsTick.RegisterTickFunction(*Level);
+        }
     }
 
     /**
@@ -1113,16 +1294,19 @@ namespace Engine {
             return;
         }
 
-        // 시뮬레이션 중이면 물리 결과가 포즈를 정하고, 아니면 애니메이션 포즈를 바디가 따라갑니다.
-        if (ShouldSimulateBodies() && !mBodies.empty()) {
-            BlendInPhysics();
-        } else {
+        if (ShouldAnimatePhysicsPose()) {
             TickAnimation(DeltaTime);
+            if (!mUnblendedLocalPose.empty()) {
+                SetAnimatedLocalPose(std::move(mUnblendedLocalPose));
+            }
+
             UpdateKinematicBonesToAnim();
         }
 
         // 이번 프레임의 포즈가 정해진 뒤에 천을 진행합니다.
-        TickClothing(DeltaTime);
+        if (!mPostPhysicsTick.IsTickEnabled()) {
+            TickClothing(DeltaTime);
+        }
     }
 
     void USkeletalMeshComponent::BeginPlay() {
@@ -1339,9 +1523,7 @@ namespace Engine {
         }
 
         // 스키닝 행렬만 다시 계산하고 피킹 형상과 경계는 갱신하지 않습니다. 프록시를 다시 만들어 새 스키닝 행렬을 렌더러에 넘깁니다.
-        if (mPose.SetAnimatedLocalTransforms(*mSkeletalMesh, *mSkeleton, std::move(Locals))) {
-            MarkRenderStateDirty();
-
+        if (SetAnimatedLocalPose(std::move(Locals))) {
             if (mApplyRootMotionToActor) {
                 // 시뮬레이션 중에는 물리가 트랜스폼을 결정하므로, 루트 모션이 쌓이지 않도록 소비만 하고 적용하지 않습니다.
                 const FTransform RootMotion{mAnimInstance->ConsumeExtractedRootMotion()};
@@ -1549,6 +1731,7 @@ namespace Engine {
         if (Archive.IsLoading()) {
             mPreviewAssets = false;
             mInactiveAnimGraph.clear();
+            mUnblendedLocalPose.clear();
         }
 
         Engine::UMeshComponent::Serialize(Archive);
