@@ -266,6 +266,10 @@ void FLevelEditorToolkit::Shutdown() {
         mSettings->SaveSettings();
     }
 
+    if (mThumbnails != nullptr) {
+        mThumbnails->FlushSavedThumbnails();
+    }
+
     mViewport->SetPlayInputCaptureHandlers({}, {});
     mContext->SetSceneSavedHandler({});
     mContext->SetSequencerOpener({});

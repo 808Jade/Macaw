@@ -90,12 +90,33 @@ FContentBrowserWidget::FContentBrowserWidget(FEditorContext* Context, Platform::
 	  mWorkspace{Workspace},
 	  mImports{Imports},
 	  mAssetEditors{AssetEditors} {
-
+    if (auto* Assets{AssetCatalog.GetAssets()}; Assets != nullptr) {
+        mContentChanges = FindFirstChangeNotificationW(Assets->GetContentRoot().c_str(), TRUE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
+    }
 }
 
-FContentBrowserWidget::~FContentBrowserWidget() = default;
+FContentBrowserWidget::~FContentBrowserWidget() {
+    if (mContentChanges != nullptr && mContentChanges != INVALID_HANDLE_VALUE) {
+        FindCloseChangeNotification(mContentChanges);
+    }
+}
 
 void FContentBrowserWidget::Tick() {
+    const auto Now{std::chrono::steady_clock::now()};
+    if (mContentChanges != nullptr && mContentChanges != INVALID_HANDLE_VALUE && WaitForSingleObject(mContentChanges, 0) == WAIT_OBJECT_0) {
+        if (!FindNextChangeNotification(mContentChanges)) {
+            FindCloseChangeNotification(mContentChanges);
+            mContentChanges = nullptr;
+        }
+
+        mContentRefreshTime = Now + std::chrono::milliseconds{250};
+    }
+
+    if (mContentRefreshTime != std::chrono::steady_clock::time_point{} && Now >= mContentRefreshTime && mContext->CanEditWorld()) {
+        mContentRefreshTime = {};
+        mRefreshContent = true;
+    }
+
     if (mRefreshContent) {
         RefreshContent();
     }
@@ -273,6 +294,8 @@ void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
 
     // 에셋은 다른 에셋에 상대 경로 문자열로 저장됩니다.
     const Core::FString Needle{'"' + Core::FilePath::ToGenericUtf8(mContentActionTarget) + (Directory ? '/' : '"')};
+    const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
+    const Core::FString SourceNeedle{Source.empty() ? Core::FString{} : Core::FilePath::ToGenericUtf8(Source)};
 
     const std::filesystem::path Root{mContext->GetProject()->GetAssets()->GetContentRoot()};
     std::filesystem::recursive_directory_iterator Iterator{Root, std::filesystem::directory_options::skip_permission_denied, Code};
@@ -289,7 +312,7 @@ void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
         std::ifstream Input{Iterator->path(), std::ios::binary};
         const std::string Text{std::istreambuf_iterator<char>{Input}, std::istreambuf_iterator<char>{}};
 
-        if (Text.find(Needle) != std::string::npos) {
+        if (Text.find(Needle) != std::string::npos || (!SourceNeedle.empty() && Text.find(SourceNeedle) != std::string::npos)) {
             mContentActionReferences.push_back(Relative);
         }
     }
@@ -364,6 +387,10 @@ void FContentBrowserWidget::DrawContentActionPopup() {
         Confirmed = ImGui::InputText("##ContentRename", mContentActionName.data(), mContentActionName.size(), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
     } else {
         ImGui::Text("%s%s을(를) 휴지통으로 옮길까요?", Display.c_str(), Directory ? " 폴더와 그 안의 모든 파일" : "");
+        const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
+        if (!Source.empty()) {
+            ImGui::Text("원본 이미지 %s도 함께 옮깁니다.", Core::FilePath::ToGenericUtf8(Source).c_str());
+        }
     }
 
     if (!mContentActionReferences.empty()) {
@@ -416,7 +443,16 @@ bool FContentBrowserWidget::RenameContent() {
         return false;
     }
 
-    const std::filesystem::path NewFile{Directory ? std::filesystem::path{Core::FilePath::FromUtf8(NewName.c_str())} : std::filesystem::path{Core::FilePath::FromUtf8(NewName.c_str())} += mContentActionTarget.extension()};
+    const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
+    auto NewFile{Core::FilePath::FromUtf8(NewName.c_str())};
+    if (!Source.empty() && Core::FilePath::ToLowerExtension(NewFile) != Core::FilePath::ToLowerExtension(Source)) {
+        NewFile += Source.extension();
+    }
+
+    if (!Directory) {
+        NewFile += mContentActionTarget.extension();
+    }
+
     const std::filesystem::path Destination{Absolute.parent_path() / NewFile};
     if (Destination == Absolute) {
         return true;
@@ -429,16 +465,41 @@ bool FContentBrowserWidget::RenameContent() {
         return false;
     }
 
+    const auto SourceAbsolute{Source.empty() ? std::filesystem::path{} : GetContentActionPath(Source)};
+    const auto SourceDestination{Destination.parent_path() / Destination.stem()};
+    if (!SourceAbsolute.empty() && SourceAbsolute != SourceDestination) {
+        if (std::filesystem::exists(SourceDestination, Code) && !std::filesystem::equivalent(SourceDestination, SourceAbsolute, Code)) {
+            mContentActionError = "같은 이름의 원본 이미지가 이미 있습니다.";
+            return false;
+        }
+
+        std::filesystem::rename(SourceAbsolute, SourceDestination, Code);
+        if (Code) {
+            mContentActionError = "원본 이미지 이름을 바꾸지 못했습니다: " + Code.message();
+            return false;
+        }
+    }
+
     std::filesystem::rename(Absolute, Destination, Code);
 
     if (Code) {
         mContentActionError = "이름을 바꾸지 못했습니다: " + Code.message();
+        if (!SourceAbsolute.empty() && SourceAbsolute != SourceDestination) {
+            std::filesystem::rename(SourceDestination, SourceAbsolute, Code);
+            if (Code) {
+                mContentActionError += " 원본 이미지를 되돌리지 못했습니다: " + Code.message();
+            }
+        }
 
         return false;
     }
 
     // 옛 경로의 캐시 객체는 바뀌지 않으므로 은퇴시켜, 나중에 같은 경로를 다시 쓸 때 새로 로드하게 합니다.
     mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
+    if (!SourceAbsolute.empty()) {
+        mContext->GetProject()->GetAssets()->RetireAssets(SourceAbsolute);
+        mAssetEditors.CloseRetired(SourceAbsolute);
+    }
 
     mAssetEditors.CloseRetired(Absolute);
     mSelectedContentPath = mContentActionTarget.parent_path() / NewFile;
@@ -463,6 +524,11 @@ bool FContentBrowserWidget::DeleteContent() {
     // 실수로 지워도 되돌릴 수 있도록 휴지통으로 옮깁니다. 경로 목록은 두 개의 NUL로 끝나야 합니다.
     std::wstring From{Absolute.native()};
     From.push_back(L'\0');
+    const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
+    if (!Source.empty()) {
+        From += GetContentActionPath(Source).native();
+        From.push_back(L'\0');
+    }
 
     SHFILEOPSTRUCTW Operation{};
     Operation.hwnd = mPlatform->GetWindowHandle();
@@ -480,6 +546,12 @@ bool FContentBrowserWidget::DeleteContent() {
 
     // 지운 에셋을 참조하던 객체는 살려 두고, 같은 경로에 다시 임포트하면 새 객체를 로드하게 합니다.
     mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
+    if (!Source.empty()) {
+        const auto SourceAbsolute{GetContentActionPath(Source)};
+        mContext->GetProject()->GetAssets()->RetireAssets(SourceAbsolute);
+        mAssetEditors.CloseRetired(SourceAbsolute);
+    }
+
 
     mAssetEditors.CloseRetired(Absolute);
     mRefreshContent = true;
@@ -610,6 +682,16 @@ void FContentBrowserWidget::RefreshContent() {
     }
 
     mAssetCatalog->Refresh(mContentError);
+    if (mContext->CanEditWorld()) {
+        Core::FString ImportError{};
+        if (mAssetCatalog->ImportLooseTextures(ImportError)) {
+            mAssetCatalog->Refresh(mContentError);
+        }
+
+        if (mContentError.empty()) {
+            mContentError = std::move(ImportError);
+        }
+    }
 
     for (const auto& Directory : mAssetCatalog->GetDirectories()) {
         mContentFolders[Directory.parent_path()].push_back(Directory);
@@ -617,6 +699,10 @@ void FContentBrowserWidget::RefreshContent() {
     }
 
     for (const auto& Entry : mAssetCatalog->GetEntries()) {
+        if (mAssetCatalog->IsImportedTextureSource(Entry.GetPath())) {
+            continue;
+        }
+
         mAssetPaths.push_back(Entry.GetPath());
 
         if (Entry.GetType().has_value()) {

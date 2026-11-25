@@ -29,12 +29,38 @@
 
 #include <algorithm>
 #include <bit>
+#include <d3d11.h>
+#include <DirectXTex.h>
 #include <functional>
 #include <utility>
+#include <wincodec.h>
+#include <wrl/client.h>
 
 using namespace Editor;
 
 namespace {
+    constexpr Uint32 ThumbnailSize{256};
+
+    bool EncodeThumbnail(const Viewer::FViewerCapture& Capture, const RenderCore::IRendererModule& Renderer, DirectX::Blob& Png) {
+        auto* View{static_cast<ID3D11ShaderResourceView*>(Capture.GetNativeTexture())};
+        auto* Device{static_cast<ID3D11Device*>(Renderer.GetNativeDevice())};
+        auto* Context{static_cast<ID3D11DeviceContext*>(Renderer.GetNativeContext())};
+
+        if (View == nullptr || Device == nullptr || Context == nullptr) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID3D11Resource> Resource{};
+        DirectX::ScratchImage Image{};
+        View->GetResource(Resource.GetAddressOf());
+
+        if (FAILED(DirectX::CaptureTexture(Device, Context, Resource.Get(), Image))) {
+            return false;
+        }
+
+        return SUCCEEDED(DirectX::SaveToWICMemory(*Image.GetImage(0, 0, 0), DirectX::WIC_FLAGS_FORCE_SRGB, GUID_ContainerFormatPng, Png, &GUID_WICPixelFormat24bppBGR));
+    }
+
     std::size_t FileSignature(Asset::FAssetManager& Assets, const std::filesystem::path& Path) {
         if (Path.empty()) {
             return 0;
@@ -69,9 +95,19 @@ FAssetThumbnailCache::FAssetThumbnailCache(FEditorAssetCatalog& Catalog, RenderC
     mCaptureViewer.GetShowFlags().mGrid = false;
     mDefaultMesh->SetMeshData(Engine::GetPrimitiveMesh(Engine::EPrimitiveType::Cube));
     LoadPreviewSettings();
+
+    if (mAssets != nullptr && mRenderer != nullptr) {
+        mAssets->SetAssetSavedHandler([this](const std::filesystem::path& Path, Asset::EAssetType Type) {
+            QueueSavedThumbnail(Path, Type);
+        });
+    }
 }
 
-FAssetThumbnailCache::~FAssetThumbnailCache() = default;
+FAssetThumbnailCache::~FAssetThumbnailCache() {
+    if (mAssets != nullptr && mRenderer != nullptr) {
+        mAssets->SetAssetSavedHandler({});
+    }
+}
 
 bool FAssetThumbnailCache::Supports(Asset::EAssetType Type) {
     return Viewer::FAssetViewer::Supports(Type) || Type == Asset::EAssetType::BlendSpace || Type == Asset::EAssetType::AnimGraph || Type == Asset::EAssetType::PhysicsAsset;
@@ -94,7 +130,14 @@ void FAssetThumbnailCache::BeginFrame() {
         mThumbnails.erase(Oldest);
     }
 
+    SaveNextThumbnail();
     ProcessRequests();
+}
+
+void FAssetThumbnailCache::FlushSavedThumbnails() {
+    while (!mSavedThumbnails.empty()) {
+        SaveNextThumbnail();
+    }
 }
 
 void FAssetThumbnailCache::Invalidate() {
@@ -148,7 +191,8 @@ void* FAssetThumbnailCache::GetThumbnail(const std::filesystem::path& Path, Asse
 
 void FAssetThumbnailCache::ProcessRequests() {
     for (Uint32 Check{}; Check < 8 && !mRequests.empty(); ++Check) {
-        const FPendingThumbnail& Pending{mRequests.front()};
+        const FPendingThumbnail Pending{std::move(mRequests.front())};
+        mRequests.pop_front();
         const auto Found{mThumbnails.find(Pending.mKey)};
 
         if (Found == mThumbnails.end() || Found->second.mLastUsed + 1 < mFrame) {
@@ -156,40 +200,51 @@ void FAssetThumbnailCache::ProcessRequests() {
                 Found->second.mQueued = false;
             }
 
-            mRequests.pop_front();
-
             continue;
         }
 
         FThumbnail& Thumbnail{Found->second};
         Thumbnail.mQueued = false;
-        Thumbnail.mLastChecked = mFrame;
         Core::FString Error{};
+        const auto Path{Pending.mPath.empty() ? std::filesystem::path{} : mAssets->ResolvePath(Pending.mPath, Error)};
+        if (mSavedThumbnails.contains(Path)) {
+            Thumbnail.mLastChecked = mFrame;
+            continue;
+        }
+
+        std::error_code Code{};
+        const auto FileTime{Path.empty() ? std::filesystem::file_time_type::min() : std::filesystem::last_write_time(Path, Code)};
+        const bool CheckFile{Thumbnail.mLastChecked == 0 || Thumbnail.mFileTime != FileTime};
+        Thumbnail.mLastChecked = mFrame;
+
+        if (CheckFile) {
+            Thumbnail.mFileTime = FileTime;
+            Thumbnail.mEmbedded = false;
+
+            if (!Code && Path.extension() == L".masset") {
+                auto Capture{LoadEmbeddedThumbnail(Path, Pending.mType)};
+                if (Capture != nullptr) {
+                    ReplaceCapture(Thumbnail, std::move(Capture));
+                    Thumbnail.mEmbedded = true;
+                    Thumbnail.mHasSignature = false;
+                    Thumbnail.mFailed = false;
+                }
+            }
+        }
+
+        if (Thumbnail.mEmbedded) {
+            continue;
+        }
+
         auto* Object{LoadAsset(Pending.mPath, Pending.mType, Error)};
         const std::size_t Signature{mGeneration ^ AssetSignature(Pending.mPath, Object, Pending.mType)};
 
         if ((Thumbnail.mHasSignature && Thumbnail.mSignature == Signature) || (Thumbnail.mFailed && Thumbnail.mFailedSignature == Signature)) {
-            mRequests.pop_front();
             continue;
         }
 
-        std::unique_ptr<Viewer::FViewerCapture> Capture{};
-
-        if (Object != nullptr && BindCaptureAsset(Pending, Object, Error)) {
-            const auto* Sequence{CoreUObject::Cast<Asset::UAnimSequence>(Object)};
-            const auto Prepared{Sequence != nullptr ? mCaptureViewer.PrepareCapture(Viewer::FViewerCaptureState{Sequence->GetPlayLength() * 0.25}, Error) : mCaptureViewer.PrepareCapture(Error)};
-            if (Prepared == Viewer::EViewerPrepareResult::Ready && mCaptureViewer.Resize(256, 256) && mCaptureViewer.Fit()) {
-                mCaptureViewer.SetViewMode(Pending.mType == Asset::EAssetType::Material ? Engine::EViewMode::Lit : Engine::EViewMode::Unlit);
-                Capture = mCaptureViewer.Capture(Error, true);
-            }
-        }
-
+        ReplaceCapture(Thumbnail, CaptureThumbnail(Pending, Object, Error));
         if (Thumbnail.mCapture != nullptr) {
-            mRetiredCaptures.push_back(std::move(Thumbnail.mCapture));
-        }
-
-        if (Capture != nullptr) {
-            Thumbnail.mCapture = std::move(Capture);
             Thumbnail.mSignature = Signature;
             Thumbnail.mHasSignature = true;
             Thumbnail.mFailed = false;
@@ -199,11 +254,103 @@ void FAssetThumbnailCache::ProcessRequests() {
             Thumbnail.mFailed = true;
         }
 
-        mCaptureViewer.Close(false);
-        mCaptureMaterial.reset();
-        mRequests.pop_front();
         return;
     }
+}
+
+void FAssetThumbnailCache::QueueSavedThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type) {
+    if (!Supports(Type) || Path.extension() != L".masset") {
+        return;
+    }
+
+    std::error_code Code{};
+    const auto SavedTime{std::filesystem::last_write_time(Path, Code)};
+    if (!Code) {
+        mSavedThumbnails.insert_or_assign(Path, std::pair{Type, SavedTime});
+    }
+}
+
+void FAssetThumbnailCache::SaveNextThumbnail() {
+    if (mSavedThumbnails.empty()) {
+        return;
+    }
+
+    const auto Request{mSavedThumbnails.extract(mSavedThumbnails.begin())};
+    const auto& Path{Request.key()};
+    const auto [Type, SavedTime]{Request.mapped()};
+    std::error_code Code{};
+    if (std::filesystem::last_write_time(Path, Code) != SavedTime || Code) {
+        return;
+    }
+
+    const Core::FString Key{MakeKey(Path, Type) + "#" + std::to_string(static_cast<Uint32>(Type))};
+    const FPendingThumbnail Pending{Key, Path, Type};
+    Core::FString Error{};
+    auto* Object{LoadAsset(Path, Type, Error)};
+    auto Capture{CaptureThumbnail(Pending, Object, Error)};
+    DirectX::Blob Png{};
+    const bool Saved{Capture != nullptr && EncodeThumbnail(*Capture, *mRenderer, Png) && Asset::FAssetFile::SaveThumbnail(Path, Type, {static_cast<const Uint8*>(Png.GetBufferPointer()), Png.GetBufferSize()}, SavedTime, Error)};
+
+    const auto Found{mThumbnails.find(Key)};
+    if (Found != mThumbnails.end()) {
+        FThumbnail& Thumbnail{Found->second};
+        Thumbnail.mLastChecked = 0;
+
+        if (Saved) {
+            ReplaceCapture(Thumbnail, std::move(Capture));
+            Thumbnail.mFileTime = std::filesystem::last_write_time(Path, Code);
+            Thumbnail.mLastChecked = mFrame;
+            Thumbnail.mEmbedded = !Code;
+            Thumbnail.mHasSignature = false;
+            Thumbnail.mFailed = false;
+        }
+    }
+}
+
+void FAssetThumbnailCache::ReplaceCapture(FThumbnail& Thumbnail, std::unique_ptr<Viewer::FViewerCapture> Capture) {
+    if (Thumbnail.mCapture != nullptr) {
+        mRetiredCaptures.push_back(std::move(Thumbnail.mCapture));
+    }
+
+    Thumbnail.mCapture = std::move(Capture);
+}
+
+std::unique_ptr<Viewer::FViewerCapture> FAssetThumbnailCache::LoadEmbeddedThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type) const {
+    auto* Device{static_cast<ID3D11Device*>(mRenderer->GetNativeDevice())};
+    Core::TArray<Uint8> Bytes{};
+    if (Device == nullptr || !Asset::FAssetFile::LoadThumbnail(Path, Type, Bytes)) {
+        return nullptr;
+    }
+
+    DirectX::TexMetadata Metadata{};
+    if (FAILED(DirectX::GetMetadataFromWICMemory(Bytes.data(), Bytes.size(), DirectX::WIC_FLAGS_IGNORE_SRGB, Metadata)) || Metadata.width != ThumbnailSize || Metadata.height != ThumbnailSize) {
+        return nullptr;
+    }
+
+    auto Texture{CoreUObject::NewObject<Asset::UTexture2D>()};
+    if (!Texture->LoadFromMemory(Bytes, L"Thumbnail.png", false) || !Texture->CreateResources(Device)) {
+        return nullptr;
+    }
+
+    return std::make_unique<Viewer::FViewerCapture>(std::move(Texture));
+}
+
+std::unique_ptr<Viewer::FViewerCapture> FAssetThumbnailCache::CaptureThumbnail(const FPendingThumbnail& Pending, CoreUObject::UObject* Object, Core::FString& Error) {
+    std::unique_ptr<Viewer::FViewerCapture> Capture{};
+
+    if (Object != nullptr && BindCaptureAsset(Pending, Object, Error)) {
+        const auto* Sequence{CoreUObject::Cast<Asset::UAnimSequence>(Object)};
+        const auto Prepared{Sequence != nullptr ? mCaptureViewer.PrepareCapture(Viewer::FViewerCaptureState{Sequence->GetPlayLength() * 0.25}, Error) : mCaptureViewer.PrepareCapture(Error)};
+        if (Prepared == Viewer::EViewerPrepareResult::Ready && mCaptureViewer.Resize(ThumbnailSize, ThumbnailSize) && mCaptureViewer.Fit()) {
+            mCaptureViewer.SetViewMode(Pending.mType == Asset::EAssetType::Material ? Engine::EViewMode::Lit : Engine::EViewMode::Unlit);
+            Capture = mCaptureViewer.Capture(Error, true);
+        }
+    }
+
+    mCaptureViewer.Close(false);
+    mCaptureMaterial.reset();
+
+    return Capture;
 }
 
 bool FAssetThumbnailCache::SetAnimationPreview(const std::filesystem::path& Path, const Core::FString& MeshPath, const Core::FString& SkeletonPath, Core::FString& Error) {
@@ -227,6 +374,11 @@ bool FAssetThumbnailCache::SetAnimationPreview(const std::filesystem::path& Path
         Error = "Cannot save animation preview settings";
 
         return false;
+    }
+
+    if (mAssets != nullptr && mRenderer != nullptr) {
+        Core::FString PathError{};
+        QueueSavedThumbnail(mAssets->ResolvePath(Path, PathError), Asset::EAssetType::AnimSequence);
     }
 
     return true;

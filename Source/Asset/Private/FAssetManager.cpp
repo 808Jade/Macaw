@@ -757,6 +757,22 @@ namespace Asset {
         mPhysicsRuntime = Runtime;
     }
 
+    void FAssetManager::SetAssetSavedHandler(std::function<void(const std::filesystem::path&, Asset::EAssetType)> Handler) {
+        mAssetSaved = std::move(Handler);
+    }
+
+    bool FAssetManager::SaveAssetFile(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid) {
+        if (!Asset::FAssetFile::Save(Path, Type, Payload, Error, Guid)) {
+            return false;
+        }
+
+        if (mAssetSaved) {
+            mAssetSaved(Path, Type);
+        }
+
+        return true;
+    }
+
     /**
      * @brief 이 관리자가 보유한 메시의 경로를 조회합니다.
      */
@@ -1334,7 +1350,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Mesh, Payload, Error, GetSaveIdentity(Target, Mesh.GetGuid()))) {
+        if (!SaveAssetFile(Target, Asset::EAssetType::Mesh, Payload, Error, GetSaveIdentity(Target, Mesh.GetGuid()))) {
             return false;
         }
 
@@ -1380,7 +1396,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::SkeletalMesh, Payload, Error, GetSaveIdentity(Target, Mesh.GetGuid()))) {
+        if (!SaveAssetFile(Target, Asset::EAssetType::SkeletalMesh, Payload, Error, GetSaveIdentity(Target, Mesh.GetGuid()))) {
             return false;
         }
 
@@ -1418,7 +1434,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Skeleton, Payload, Error, GetSaveIdentity(Target, Skeleton.GetGuid()))) {
+        if (!SaveAssetFile(Target, Asset::EAssetType::Skeleton, Payload, Error, GetSaveIdentity(Target, Skeleton.GetGuid()))) {
             return false;
         }
 
@@ -1461,7 +1477,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::PhysicsAsset, Payload, Error, GetSaveIdentity(Target, PhysicsAsset.GetGuid()))) {
+        if (!SaveAssetFile(Target, Asset::EAssetType::PhysicsAsset, Payload, Error, GetSaveIdentity(Target, PhysicsAsset.GetGuid()))) {
             return false;
         }
 
@@ -1503,7 +1519,7 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::AnimSequence, Payload, Error, GetSaveIdentity(Target, Sequence.GetGuid()))) {
+        if (!SaveAssetFile(Target, Asset::EAssetType::AnimSequence, Payload, Error, GetSaveIdentity(Target, Sequence.GetGuid()))) {
             return false;
         }
 
@@ -1520,7 +1536,7 @@ namespace Asset {
             return false;
         }
 
-        if (Target.empty() || !Texture.IsValid() || Texture.GetPixels().empty()) {
+        if (Target.empty() || !Texture.IsValid() || (Texture.GetPixels().empty() && Texture.GetDDSData().empty())) {
             if (Error.empty()) {
                 Error = "Only textures with stored pixel data can be saved";
             }
@@ -1543,11 +1559,17 @@ namespace Asset {
             return false;
         }
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::Texture, Payload, Error, GetSaveIdentity(Target, Texture.GetGuid()))) {
+        if (!SaveAssetFile(Target, Asset::EAssetType::Texture, Payload, Error, GetSaveIdentity(Target, Texture.GetGuid()))) {
             return false;
         }
 
         return true;
+    }
+
+    bool FAssetManager::IsTextureSource(const std::filesystem::path& Path) {
+        const auto Extension{Core::FilePath::ToLowerExtension(Path)};
+
+        return Extension == L".png" || Extension == L".jpg" || Extension == L".jpeg" || Extension == L".bmp" || Extension == L".tga" || Extension == L".dds" || Extension == L".hdr";
     }
 
     /**
@@ -1569,7 +1591,7 @@ namespace Asset {
             return ImportShader(Source, Directory, ImportedPath, Error);
         }
 
-        const bool Texture{Extension == L".png" || Extension == L".jpg" || Extension == L".jpeg" || Extension == L".bmp" || Extension == L".tga" || Extension == L".dds" || Extension == L".hdr"};
+        const bool Texture{IsTextureSource(Source)};
 
         if (!Texture && !Asset::IMeshImporter::IsSupported(Source)) {
             Error = "Unsupported import file type: " + Core::FilePath::ToUtf8(Source.filename());
@@ -2250,7 +2272,7 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::BlendSpace, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, BlendSpace.GetGuid()))) {
+        if (!SaveAssetFile(Target, Asset::EAssetType::BlendSpace, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, BlendSpace.GetGuid()))) {
             return false;
         }
 
@@ -2379,7 +2401,7 @@ namespace Asset {
 
         const Core::FString Payload{Archive.ToString()};
 
-        if (!Asset::FAssetFile::Save(Target, Asset::EAssetType::AnimGraph, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Graph.GetGuid()))) {
+        if (!SaveAssetFile(Target, Asset::EAssetType::AnimGraph, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Payload.data()), Payload.size()}, Error, GetSaveIdentity(Target, Graph.GetGuid()))) {
             return false;
         }
 
@@ -2650,6 +2672,10 @@ namespace Asset {
 
         if (Target.empty() || !ApplyMaterialSettings(*Candidate, Material, Error) || !Asset::FMaterialFile::Save(Target, *this, *Candidate, Error)) {
             return false;
+        }
+
+        if (mAssetSaved) {
+            mAssetSaved(Target, Asset::EAssetType::Material);
         }
 
         const auto Existing{mMaterials.find(CacheKey(GetRelativePath(Path, Error)))};

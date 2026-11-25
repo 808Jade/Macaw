@@ -73,6 +73,9 @@ namespace Editor {
          * @return 폴더 검색을 완료하면 true입니다.
          */
         bool Refresh(Core::FString& Error);
+        bool ImportLooseTextures(Core::FString& Error);
+        bool IsImportedTextureSource(const std::filesystem::path& Path) const;
+        std::filesystem::path FindTextureSource(const std::filesystem::path& AssetPath) const;
 
         /**
          * @brief 현재 항목들을 반환합니다.

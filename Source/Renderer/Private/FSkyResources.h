@@ -43,8 +43,8 @@ namespace Renderer {
         /**
          * @brief 상수 버퍼·샘플러·깊이·래스터라이저 상태를 생성하고 파노라마를 불러옵니다.
          * @param[in] Device GPU 자원을 생성할 Direct3D 11 장치입니다.
-         * @param[in] PanoramaPath BC7 DDS 형식의 등장방형 파노라마 경로입니다.
-         * @param[in] PreviewPath 에셋 뷰어 미리 보기에 사용할 BC7 DDS 형식의 등장방형 파노라마 경로입니다.
+         * @param[in] PanoramaPath 등장방형 파노라마 텍스처 에셋 또는 DDS 경로입니다.
+         * @param[in] PreviewPath 에셋 뷰어에 사용할 프리뷰 텍스처 에셋 또는 DDS 경로입니다.
          * @return 고정 GPU 상태를 생성하면 true입니다.
          * @note 파노라마를 읽지 못하면 경고만 보고하고 true를 반환하며 Render는 아무것도 그리지 않습니다.
          */
@@ -71,9 +71,9 @@ namespace Renderer {
 
     private:
         /**
-         * @brief BC7 DDS를 CPU 변환 없이 밉 체인 그대로 GPU 텍스처로 생성합니다.
+         * @brief 하늘 텍스처를 표시 공간의 값으로 샘플링하도록 GPU 자원을 생성합니다.
          * @param[in] Device GPU 자원을 생성할 Direct3D 11 장치입니다.
-         * @param[in] Path 읽을 DDS 파일 경로입니다.
+         * @param[in] Path 읽을 텍스처 에셋 또는 DDS 경로입니다.
          * @param[out] Panorama 생성한 셰이더 리소스 뷰를 기록할 대상입니다.
          * @return 셰이더 리소스 뷰를 생성하면 true입니다.
          */

@@ -11,83 +11,10 @@
 #include "Core/Math/FMatrix.h"
 #include "Engine/FSceneView.h"
 
-#include <dxgiformat.h>
-#include <algorithm>
-#include <fstream>
+#include "Asset/FAssetManager.h"
+#include "Asset/UTexture2D.h"
 
 namespace Renderer {
-
-    /**
-     * @brief 이 파일에서 사용하는 내부 보조 기능과 상태를 묶습니다.
-     */
-    namespace {
-        // DX10 확장을 포함한 DDS 헤더를 32비트 단위로 읽을 때의 필드 위치입니다.
-
-        /**
-         * @brief DX10 확장까지 포함한 DDS 헤더 워드 수입니다.
-         */
-        constexpr std::size_t HeaderWords{37};
-
-        /**
-         * @brief DDS 매직 값의 워드 위치입니다.
-         */
-        constexpr Index_t MagicWord{0};
-
-        /**
-         * @brief DDS 텍스처 높이의 워드 위치입니다.
-         */
-        constexpr Index_t HeightWord{3};
-
-        /**
-         * @brief DDS 텍스처 너비의 워드 위치입니다.
-         */
-        constexpr Index_t WidthWord{4};
-
-        /**
-         * @brief DDS 밉 개수의 워드 위치입니다.
-         */
-        constexpr Index_t MipCountWord{7};
-
-        /**
-         * @brief DDS 기본 헤더 FourCC의 워드 위치입니다.
-         */
-        constexpr Index_t FourCCWord{21};
-
-        /**
-         * @brief DDS DX10 DXGI 포맷의 워드 위치입니다.
-         */
-        constexpr Index_t FormatWord{32};
-
-        /**
-         * @brief DDS DX10 리소스 차원의 워드 위치입니다.
-         */
-        constexpr Index_t DimensionWord{33};
-
-        /**
-         * @brief DDS DX10 배열 크기의 워드 위치입니다.
-         */
-        constexpr Index_t ArraySizeWord{35};
-
-        /**
-         * @brief DDS 파일 식별 매직 값입니다.
-         */
-        constexpr Uint32 DDSMagic{0x20534444u};
-
-        /**
-         * @brief DX10 확장 DDS 헤더의 FourCC입니다.
-         */
-        constexpr Uint32 DX10FourCC{0x30315844u};
-
-        /**
-         * @brief DDS DX10의 2차원 텍스처 차원 값입니다.
-         */
-        constexpr Uint32 Texture2DDimension{3u};
-
-        /**
-         * @brief BC7 블록 하나의 바이트 수입니다.
-         */
-        constexpr std::size_t BC7BlockBytes{16};
-    }
 
     /**
      * @brief 기본 설정으로 FSkyResources 객체를 초기화합니다.
@@ -202,71 +129,19 @@ namespace Renderer {
     }
 
     /**
-     * @brief BC7 DDS를 CPU 변환 없이 밉 체인 그대로 GPU 텍스처로 생성합니다.
+     * @brief 하늘 텍스처를 표시 공간의 값으로 샘플링하도록 GPU 자원을 생성합니다.
      */
     bool Renderer::FSkyResources::LoadPanorama(ID3D11Device* Device, const std::filesystem::path& Path, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& Panorama) {
-        std::error_code Code{};
-        const auto Size{std::filesystem::file_size(Path, Code)};
-        std::ifstream Input{Path, std::ios::binary};
-        Core::TStaticArray<Uint32, HeaderWords> Header{};
-
-        if (Code || Size < sizeof(Header) || !Input || !Input.read(reinterpret_cast<char*>(Header.data()), sizeof(Header))) {
+        Asset::FAssetManager Assets{Path.parent_path()};
+        Core::FString Error{};
+        auto* Texture{Assets.LoadTexture(Path.filename(), Error)};
+        if (Texture == nullptr || !Texture->SetSRGB(false) || !Texture->CreateResources(Device)) {
             return false;
         }
 
-        const bool BC7{Header[FormatWord] == DXGI_FORMAT_BC7_UNORM || Header[FormatWord] == DXGI_FORMAT_BC7_UNORM_SRGB};
+        Panorama = Texture->GetShaderResourceView();
 
-        if (Header[MagicWord] != DDSMagic || Header[FourCCWord] != DX10FourCC || !BC7 || Header[DimensionWord] != Texture2DDimension || Header[ArraySizeWord] != 1 || Header[WidthWord] == 0 || Header[HeightWord] == 0 || Header[WidthWord] > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || Header[HeightWord] > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION) {
-            return false;
-        }
-
-        const Uint32 MipCount{std::max(Header[MipCountWord], 1u)};
-
-        if (MipCount > D3D11_REQ_MIP_LEVELS) {
-            return false;
-        }
-
-        Core::TArray<Uint8> Pixels(static_cast<std::size_t>(Size) - sizeof(Header));
-
-        if (!Input.read(reinterpret_cast<char*>(Pixels.data()), static_cast<std::streamsize>(Pixels.size()))) {
-            return false;
-        }
-
-        Core::TArray<D3D11_SUBRESOURCE_DATA> InitialData{};
-        InitialData.reserve(MipCount);
-
-        std::size_t Offset{};
-
-        for (Index_t Mip{}; Mip < MipCount; ++Mip) {
-            const std::size_t BlocksWide{(static_cast<std::size_t>(std::max(Header[WidthWord] >> Mip, 1u)) + 3) / 4};
-            const std::size_t BlocksHigh{(static_cast<std::size_t>(std::max(Header[HeightWord] >> Mip, 1u)) + 3) / 4};
-            const std::size_t RowPitch{BlocksWide * BC7BlockBytes};
-            const std::size_t SlicePitch{RowPitch * BlocksHigh};
-
-            if (SlicePitch > Pixels.size() - Offset) {
-                return false;
-            }
-
-            InitialData.push_back({Pixels.data() + Offset, static_cast<UINT>(RowPitch), static_cast<UINT>(SlicePitch)});
-
-            Offset += SlicePitch;
-        }
-
-        D3D11_TEXTURE2D_DESC Description{};
-        Description.Width = Header[WidthWord];
-        Description.Height = Header[HeightWord];
-        Description.MipLevels = MipCount;
-        Description.ArraySize = 1;
-
-        // 장면 컬러가 표시 공간 값을 그대로 담으므로 sRGB 디코드 없이 읽습니다.
-        Description.Format = DXGI_FORMAT_BC7_UNORM;
-        Description.SampleDesc.Count = 1;
-        Description.Usage = D3D11_USAGE_IMMUTABLE;
-        Description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-        Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture{};
-
-        return SUCCEEDED(Device->CreateTexture2D(&Description, InitialData.data(), Texture.GetAddressOf())) && SUCCEEDED(Device->CreateShaderResourceView(Texture.Get(), nullptr, Panorama.ReleaseAndGetAddressOf()));
+        return Panorama != nullptr;
     }
 
 }

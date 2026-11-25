@@ -73,9 +73,20 @@ namespace Renderer {
          * @param[in] EngineFirst true이면 실행 파일과 함께 배포한 콘텐츠를 우선 사용합니다.
          * @return 계산하거나 조회한 값입니다.
          */
-        std::filesystem::path FindTextContent(const std::filesystem::path& ContentRoot, const std::filesystem::path& RelativePath, bool EngineFirst = false) {
+        std::filesystem::path FindTextContent(const std::filesystem::path& ContentRoot, const std::filesystem::path& RelativePath, bool EngineFirst = false, bool PreferAsset = false) {
             std::error_code Error{};
-            const std::filesystem::path ProjectPath{ContentRoot / RelativePath};
+            const auto FindInRoot{[&](const std::filesystem::path& Root) {
+                const auto Source{Root / RelativePath};
+                if (!PreferAsset) {
+                    return Source;
+                }
+
+                auto AssetPath{Source};
+                AssetPath += L".masset";
+
+                return std::filesystem::is_regular_file(AssetPath, Error) ? AssetPath : Source;
+            }};
+            const auto ProjectPath{FindInRoot(ContentRoot)};
 
             if (!EngineFirst && std::filesystem::is_regular_file(ProjectPath, Error)) {
                 return ProjectPath;
@@ -83,7 +94,7 @@ namespace Renderer {
 
             Core::TStaticArray<wchar_t, 32768> Executable{};
             const DWORD Length{GetModuleFileNameW(nullptr, Executable.data(), static_cast<DWORD>(Executable.size()))};
-            const std::filesystem::path EnginePath{Length > 0 && Length < Executable.size() ? std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content" / RelativePath : ProjectPath};
+            const auto EnginePath{Length > 0 && Length < Executable.size() ? FindInRoot(std::filesystem::path{Executable.data()}.parent_path() / "Templates/Project/Content") : ProjectPath};
 
             return EngineFirst && !std::filesystem::is_regular_file(EnginePath, Error) ? ProjectPath : EnginePath;
         }
@@ -1038,7 +1049,7 @@ namespace Renderer {
 
         const std::filesystem::path ContentRoot{mShaderDirectory.parent_path()};
 
-        if (!mSkyResources->Initialize(mDevice.Get(), FindTextContent(ContentRoot, "Sky/Epic_BlueSunset_EquiRect_flat.dds"), FindTextContent(ContentRoot, "Sky/PreviewCourtyard.dds", true))) {
+        if (!mSkyResources->Initialize(mDevice.Get(), FindTextContent(ContentRoot, "Sky/Epic_BlueSunset_EquiRect_flat.dds", false, true), FindTextContent(ContentRoot, "Sky/PreviewCourtyard.dds", true, true))) {
             return false;
         }
 

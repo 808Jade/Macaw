@@ -102,6 +102,7 @@ namespace Asset {
     public:
 
         bool RefreshAssetRegistry(Core::FString& Error);
+        static bool IsTextureSource(const std::filesystem::path& Path);
         std::filesystem::path FindAssetPath(const Core::FGuid& Guid, Core::FString& Error);
         CoreUObject::UObject* LoadAsset(const Core::FGuid& Guid, Core::FString& Error, const CoreUObject::UClass* ExpectedClass = nullptr);
 
@@ -126,6 +127,7 @@ namespace Asset {
          * @note 런타임은 이 관리자가 임포트하는 동안 유지되어야 하며, 엔진은 런타임을 종료하기 전에 nullptr로 되돌립니다.
          */
         void SetPhysicsRuntime(PhysicsRuntime::FPhysicsRuntime* Runtime);
+        void SetAssetSavedHandler(std::function<void(const std::filesystem::path&, Asset::EAssetType)> Handler);
 
         /**
          * @brief 이 관리자가 보유한 메시의 경로를 조회합니다.
@@ -503,6 +505,7 @@ namespace Asset {
 
     private:
 
+        bool SaveAssetFile(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid);
         Core::FGuid GetSaveIdentity(const std::filesystem::path& Path, const Core::FGuid& Guid) const;
         bool ValidateAssetIdentity(const std::filesystem::path& Path, const Core::FGuid& Guid, Core::FString& Error);
 
@@ -526,6 +529,7 @@ namespace Asset {
          * @brief 에셋 접근을 제한하는 프로젝트 콘텐츠 폴더의 절대 경로입니다.
          */
         std::filesystem::path mContentRoot{};
+        std::function<void(const std::filesystem::path&, Asset::EAssetType)> mAssetSaved{};
 
         /**
          * @brief 메시 임포트 때 볼록 충돌 형상을 계산하는 PhysX 런타임이며, 엔진이 주입하지 않으면 nullptr입니다.

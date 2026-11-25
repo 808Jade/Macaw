@@ -75,6 +75,8 @@ namespace Editor {
             Uint64 mLastUsed{};
 
             Uint64 mLastChecked{};
+            std::filesystem::file_time_type mFileTime{};
+            bool mEmbedded{};
 
             /**
              * @brief 현재 이미지의 변경 서명이 유효한지 여부입니다.
@@ -155,6 +157,7 @@ namespace Editor {
          * @brief 이전 프레임의 임시 캡처를 정리하고 대기 중인 썸네일 요청을 처리합니다.
          */
         void BeginFrame();
+        void FlushSavedThumbnails();
 
         /**
          * @brief 캐시를 무효화하고 기존 이미지의 해제를 프레임 경계까지 보류합니다.
@@ -204,6 +207,12 @@ namespace Editor {
          * @return 재질 미리보기 변경 비교용 해시입니다.
          */
         static std::size_t MaterialSignature(const Asset::UMaterial* Material);
+
+        void QueueSavedThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type);
+        void SaveNextThumbnail();
+        void ReplaceCapture(FThumbnail& Thumbnail, std::unique_ptr<Viewer::FViewerCapture> Capture);
+        std::unique_ptr<Viewer::FViewerCapture> LoadEmbeddedThumbnail(const std::filesystem::path& Path, Asset::EAssetType Type) const;
+        std::unique_ptr<Viewer::FViewerCapture> CaptureThumbnail(const FPendingThumbnail& Pending, CoreUObject::UObject* Object, Core::FString& Error);
 
         /**
          * @brief 에셋 종류에 맞는 관리자 로드 함수를 호출합니다.
@@ -286,6 +295,7 @@ namespace Editor {
          * @brief 아직 촬영이 완료되지 않은 썸네일 요청 큐입니다.
          */
         std::deque<FPendingThumbnail> mRequests{};
+        Core::TMap<std::filesystem::path, std::pair<Asset::EAssetType, std::filesystem::file_time_type>> mSavedThumbnails{};
 
         /**
          * @brief 현재 UI가 참조할 수 있어 프레임 경계까지 해제를 늦춘 이전 캡처입니다.
