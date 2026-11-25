@@ -743,6 +743,19 @@ namespace Editor {
         bool SetClothConfigTest(const Core::FString& Name, const Core::TArray<float>& Values);
 
         /**
+         * @brief 선택한 스켈레탈 메시를 천 데이터와 함께 메시 파일에 저장합니다.
+         * @return 저장했으면 true입니다.
+         */
+        bool SaveClothMesh();
+
+        /**
+         * @brief 선택한 스켈레탈 메시의 섹션에서 천을 빼고, 이 메시를 쓰는 월드의 컴포넌트 천을 다시 만듭니다.
+         * @param[in] SubMeshIndex 천을 뺄 섹션 번호입니다.
+         * @return 천을 뺐으면 true입니다.
+         */
+        bool RemoveClothTest(Index_t SubMeshIndex);
+
+        /**
          * @brief 선택한 컴포넌트가 스켈레탈 메시 컴포넌트이면 그것을, 액터이면 그 액터의 첫 스켈레탈 메시 컴포넌트를 찾습니다.
          * @return 찾은 컴포넌트이며 없으면 nullptr입니다.
          */

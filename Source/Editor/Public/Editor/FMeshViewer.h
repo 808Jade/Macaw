@@ -175,6 +175,28 @@ namespace Editor {
         void DrawProperties();
 
         /**
+         * @brief 섹션마다 천 상태와 천 만들기, 천 에셋마다 물리 에셋과 설정, 메시 저장을 그립니다.
+         */
+        void DrawClothing();
+
+        /**
+         * @brief 칠하기 대상 천 입자를 가중치 색으로 그리고, 왼쪽 버튼으로 붓 안의 입자에 값을 칠합니다.
+         * @details 입자는 바인드 포즈 위치에 그리며, 버튼을 놓으면 칠한 값을 천 에셋에 반영합니다.
+         * @param[in] View 미리 보기의 뷰입니다.
+         * @param[in] Origin 미리 보기 이미지 왼쪽 위의 화면 위치입니다.
+         * @param[in] Mouse 미리 보기 안의 마우스 위치입니다.
+         * @param[in] Hovered 마우스가 미리 보기 위에 있는지 나타냅니다.
+         * @param[in] Input 이번 프레임의 입력입니다.
+         */
+        void DrawClothPaint(const Engine::FSceneView& View, const FVector2& Origin, const FVector2& Mouse, bool Hovered, const Core::FInput& Input);
+
+        /**
+         * @brief 천 칠하기를 쓸 수 있는 상태인지 검사합니다.
+         * @return 칠하기를 켰고 칠할 천 에셋이 있으면 true입니다.
+         */
+        bool IsClothPainting() const;
+
+        /**
          * @brief 본 하나와 그 자손을 계층 트리 노드로 표시하고 클릭하면 조작 대상으로 선택합니다.
          * @param Bone 표시할 본 번호입니다.
          * @param Children 본 번호별 자식 본 번호 목록입니다.
@@ -328,6 +350,41 @@ namespace Editor {
          * @brief 최근 미리보기 실패의 설명입니다.
          */
         Core::FString mError{};
+
+        /**
+         * @brief 천 칸에서 마지막으로 한 작업의 결과입니다.
+         */
+        Core::FString mClothMessage{};
+
+        /**
+         * @brief 미리 보기에서 천 가중치를 칠하는지 나타냅니다.
+         */
+        bool mClothPaintEnabled{};
+
+        /**
+         * @brief 칠할 천 에셋 번호입니다.
+         */
+        int mClothPaintAsset{};
+
+        /**
+         * @brief 칠할 가중치 맵 대상 번호입니다.
+         */
+        int mClothPaintTarget{};
+
+        /**
+         * @brief 붓으로 칠할 값입니다. 최대 거리와 뒤쪽 거리, 반지름은 미터입니다.
+         */
+        float mClothPaintValue{};
+
+        /**
+         * @brief 붓의 화면 반지름(픽셀)입니다.
+         */
+        float mClothPaintRadius{30.0f};
+
+        /**
+         * @brief 칠한 뒤 아직 천 에셋에 반영하지 않은 값이 있는지 나타냅니다.
+         */
+        bool mClothPaintDirty{};
 
         /**
          * @brief 뷰어의 표시 모드입니다.

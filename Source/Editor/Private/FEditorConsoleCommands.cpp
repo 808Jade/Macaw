@@ -210,6 +210,21 @@ namespace Editor {
 
             SetClothConfigTest(Lowercase(Name), Values);
         }});
+        mConsoleCommands.Register({"cloth.save", {}, {}, [this](const Editor::FConsoleInvocation&) {
+            SaveClothMesh();
+        }});
+        mConsoleCommands.Register({"cloth.remove", "<section>", {}, [this](const Editor::FConsoleInvocation& Invocation) {
+            const std::optional<Core::FString> Value{ReadConsoleValue(Invocation.mArguments)};
+            Uint32 SubMeshIndex{};
+
+            if (!Value || Value->empty() || std::from_chars(Value->data(), Value->data() + Value->size(), SubMeshIndex).ec != std::errc{}) {
+                AddLog(MakeUsage(Invocation));
+
+                return;
+            }
+
+            RemoveClothTest(SubMeshIndex);
+        }});
         mConsoleCommands.Register({"cloth.sim", "<section/off>", {"off"}, [this](const Editor::FConsoleInvocation& Invocation) {
             const std::optional<Core::FString> Value{ReadConsoleValue(Invocation.mArguments)};
 

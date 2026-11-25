@@ -20,6 +20,7 @@
 #include "Asset/FClothingAssetFactory.h"
 #include "Asset/USkeletalMesh.h"
 #include "Asset/USkeleton.h"
+#include "ClothEditing.h"
 #include "PhysicsRuntime/FClothingSimulationNv.h"
 #include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "RenderCore/IRendererModule.h"
@@ -1467,6 +1468,90 @@ namespace Editor {
     }
 
     /**
+     * @brief 선택한 스켈레탈 메시를 천 데이터와 함께 메시 파일에 저장합니다.
+     */
+    bool Editor::FEditorContext::SaveClothMesh() {
+        Engine::USkeletalMeshComponent* Component{FindSelectedSkeletalMeshComponent()};
+        Asset::USkeletalMesh* Mesh{Component != nullptr ? Component->GetSkeletalMesh() : nullptr};
+        Engine::FProject* Project{GetProject()};
+
+        if (Mesh == nullptr || Project == nullptr || Component->GetMeshPath().empty()) {
+            AddLog("Select a skeletal mesh actor or component first.");
+
+            return false;
+        }
+
+        const std::filesystem::path MeshPath{Core::FilePath::FromUtf8(Component->GetMeshPath())};
+
+        // 뼈를 파일 안에 넣은 예전 메시는 새 형식으로 저장하면 뼈가 사라지므로 막습니다.
+        if (Project->GetAssets()->FindLegacySkeleton(MeshPath) != nullptr) {
+            AddLog("This mesh uses an embedded skeleton, so its file cannot be saved safely. Reimport it with a separate skeleton first.");
+
+            return false;
+        }
+
+        Core::FString Error{};
+
+        if (!Project->GetAssets()->SaveSkeletalMesh(MeshPath, *Mesh, Error)) {
+            AddLog("Cannot save the skeletal mesh. " + Error);
+
+            return false;
+        }
+
+        AddLog("Saved " + Component->GetMeshPath() + " with " + std::to_string(Mesh->GetMeshClothingAssets().size()) + " clothing assets.");
+
+        return true;
+    }
+
+    /**
+     * @brief 선택한 스켈레탈 메시의 섹션에서 천을 빼고, 이 메시를 쓰는 월드의 컴포넌트 천을 다시 만듭니다.
+     */
+    bool Editor::FEditorContext::RemoveClothTest(Index_t SubMeshIndex) {
+        Engine::USkeletalMeshComponent* Component{FindSelectedSkeletalMeshComponent()};
+        Asset::USkeletalMesh* Mesh{Component != nullptr ? Component->GetSkeletalMesh() : nullptr};
+        const Asset::FClothingSectionData* SectionData{Mesh != nullptr ? Mesh->GetSectionClothingData(SubMeshIndex) : nullptr};
+
+        if (SectionData == nullptr || !SectionData->IsValid()) {
+            AddLog("The selected mesh has no cloth on section " + std::to_string(SubMeshIndex) + ".");
+
+            return false;
+        }
+
+        // 이 메시로 천을 만든 컴포넌트는 지울 에셋을 가리키므로, 에셋을 빼기 전에 천을 해제합니다.
+        Core::TArray<Engine::USkeletalMeshComponent*> Users{};
+        Engine::UWorld* World{GetWorld()};
+
+        if (World != nullptr && World->GetPersistentLevel() != nullptr) {
+            for (const auto& Actor : World->GetPersistentLevel()->GetActors()) {
+                for (const auto& ActorComponent : Actor->GetComponents()) {
+                    if (auto* User{CoreUObject::Cast<Engine::USkeletalMeshComponent>(ActorComponent.get())}; User != nullptr && User->GetSkeletalMesh() == Mesh) {
+                        User->ReleaseAllClothingResources();
+                        Users.push_back(User);
+                    }
+                }
+            }
+        }
+
+        if (mClothAssetTestComponent.Get() != nullptr && mClothAssetTestComponent->GetSkeletalMesh() == Mesh) {
+            ClearClothAssetTest();
+        }
+
+        if (mClothSimTestComponent.Get() != nullptr && mClothSimTestComponent->GetSkeletalMesh() == Mesh) {
+            ClearClothSimTest();
+        }
+
+        Mesh->RemoveClothingAsset(SectionData->mAssetGuid);
+
+        for (Engine::USkeletalMeshComponent* User : Users) {
+            User->RecreateClothingActors();
+        }
+
+        AddLog("Removed the cloth from section " + std::to_string(SubMeshIndex) + ". Run cloth.save to keep the change.");
+
+        return true;
+    }
+
+    /**
      * @brief 선택한 스켈레탈 메시의 천 에셋들의 설정 하나를 바꾸고 천을 다시 만듭니다.
      */
     bool Editor::FEditorContext::SetClothConfigTest(const Core::FString& Name, const Core::TArray<float>& Values) {
@@ -1481,49 +1566,10 @@ namespace Editor {
 
         // 설정 이름과 값의 위치를 한곳에 모아 보여 주기와 바꾸기에 함께 씁니다.
         const auto GetFloats{[](PhysicsRuntime::UClothConfigNv& Config) {
-            return Core::TArray<std::pair<Core::FString, float*>>{
-                {"vertical.stiffness", &Config.mVerticalConstraint.mStiffness},
-                {"vertical.stiffnessmultiplier", &Config.mVerticalConstraint.mStiffnessMultiplier},
-                {"vertical.stretchlimit", &Config.mVerticalConstraint.mStretchLimit},
-                {"vertical.compressionlimit", &Config.mVerticalConstraint.mCompressionLimit},
-                {"horizontal.stiffness", &Config.mHorizontalConstraint.mStiffness},
-                {"horizontal.stiffnessmultiplier", &Config.mHorizontalConstraint.mStiffnessMultiplier},
-                {"horizontal.stretchlimit", &Config.mHorizontalConstraint.mStretchLimit},
-                {"horizontal.compressionlimit", &Config.mHorizontalConstraint.mCompressionLimit},
-                {"bend.stiffness", &Config.mBendConstraint.mStiffness},
-                {"bend.stiffnessmultiplier", &Config.mBendConstraint.mStiffnessMultiplier},
-                {"bend.stretchlimit", &Config.mBendConstraint.mStretchLimit},
-                {"bend.compressionlimit", &Config.mBendConstraint.mCompressionLimit},
-                {"shear.stiffness", &Config.mShearConstraint.mStiffness},
-                {"shear.stiffnessmultiplier", &Config.mShearConstraint.mStiffnessMultiplier},
-                {"shear.stretchlimit", &Config.mShearConstraint.mStretchLimit},
-                {"shear.compressionlimit", &Config.mShearConstraint.mCompressionLimit},
-                {"selfcollisionradius", &Config.mSelfCollisionRadius},
-                {"selfcollisionstiffness", &Config.mSelfCollisionStiffness},
-                {"selfcollisioncullscale", &Config.mSelfCollisionCullScale},
-                {"friction", &Config.mFriction},
-                {"winddrag", &Config.mWindDragCoefficient},
-                {"windlift", &Config.mWindLiftCoefficient},
-                {"solverfrequency", &Config.mSolverFrequency},
-                {"stiffnessfrequency", &Config.mStiffnessFrequency},
-                {"gravityscale", &Config.mGravityScale},
-                {"tetherstiffness", &Config.mTetherStiffness},
-                {"tetherlimit", &Config.mTetherLimit},
-                {"collisionthickness", &Config.mCollisionThickness},
-                {"animdrivespring", &Config.mAnimDriveSpringStiffness},
-                {"animdrivedamper", &Config.mAnimDriveDamperStiffness},
-            };
+            return Editor::ClothEditing::GetConfigFloats(Config);
         }};
         const auto GetVectors{[](PhysicsRuntime::UClothConfigNv& Config) {
-            return Core::TArray<std::pair<Core::FString, FVector*>>{
-                {"damping", &Config.mDamping},
-                {"lineardrag", &Config.mLinearDrag},
-                {"angulardrag", &Config.mAngularDrag},
-                {"linearinertia", &Config.mLinearInertiaScale},
-                {"angularinertia", &Config.mAngularInertiaScale},
-                {"centrifugalinertia", &Config.mCentrifugalInertiaScale},
-                {"gravityoverride", &Config.mGravityOverride},
-            };
+            return Editor::ClothEditing::GetConfigVectors(Config);
         }};
 
         // 이름이 없으면 첫 천 에셋의 설정 값을 보여 줍니다.
@@ -1633,9 +1679,13 @@ namespace Editor {
 
         PhysicsRuntime::UPhysicsAsset* PhysicsAsset{};
 
+        Core::FString PhysicsAssetPath{Path};
+
         if (Path == "mesh") {
             PhysicsAsset = Component->GetPhysicsAsset();
+            PhysicsAssetPath = !Component->GetPhysicsAssetOverride().empty() ? Component->GetPhysicsAssetOverride() : Mesh->GetPhysicsAssetPath();
         } else if (Path == "none") {
+            PhysicsAssetPath.clear();
             // 물리 에셋을 비우면 천이 몸과 부딪히지 않습니다.
             PhysicsAsset = nullptr;
         } else {
@@ -1669,6 +1719,7 @@ namespace Editor {
 
         for (const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset : Mesh->GetMeshClothingAssets()) {
             ClothingAsset->SetPhysicsAsset(PhysicsAsset, SkeletonBoneNames);
+            ClothingAsset->mPhysicsAssetPath = PhysicsAssetPath;
         }
 
         // 이미 만든 천은 예전 충돌체를 가지고 있으므로 다시 만듭니다.
@@ -1710,48 +1761,12 @@ namespace Editor {
         const Asset::FClothingSectionData* SectionData{Mesh->GetSectionClothingData(SubMeshIndex)};
 
         if (SectionData == nullptr || !SectionData->IsValid()) {
-            // 따로 정하기 전까지는 메시가 쓰는 물리 에셋과 부딪히게 합니다.
-            std::unique_ptr<PhysicsRuntime::UClothingAssetCommon> NewAsset{Asset::FClothingAssetFactory::CreateFromSkeletalMesh(*Mesh, *Skeleton, SubMeshIndex, Component->GetPhysicsAsset())};
+            // 따로 정하기 전까지는 컴포넌트가 쓰는 물리 에셋과 부딪히게 합니다. 저장한 물리 에셋이면 경로도 남깁니다.
+            const Core::FString PhysicsAssetPath{!Component->GetPhysicsAssetOverride().empty() ? Component->GetPhysicsAssetOverride() : Mesh->GetPhysicsAssetPath()};
+            Core::FString CreateError{};
 
-            if (NewAsset == nullptr) {
-                AddLog("Cannot create a clothing asset from section " + std::to_string(SubMeshIndex) + ". See the Console for details.");
-
-                return false;
-            }
-
-            // 칠하기 도구가 없으므로 위쪽 일부 입자만 고정하고 나머지는 움직일 수 있게 합니다.
-            constexpr float FixedBandRatio{0.2f};
-            constexpr float MovableMaxDistance{0.5f};
-            PhysicsRuntime::FClothLODDataCommon& LodData{NewAsset->mLodData[0]};
-            PhysicsRuntime::FClothPhysicalMeshData& PhysMesh{LodData.mPhysicalMeshData};
-            float MinZ{std::numeric_limits<float>::max()};
-            float MaxZ{std::numeric_limits<float>::lowest()};
-
-            for (const FVector& Vertex : PhysMesh.mVertices) {
-                MinZ = std::min(MinZ, Vertex.z);
-                MaxZ = std::max(MaxZ, Vertex.z);
-            }
-
-            const float FixedAboveZ{MaxZ - (MaxZ - MinZ) * FixedBandRatio};
-            PhysicsRuntime::FPointWeightMap& MaxDistances{PhysMesh.AddWeightMap(PhysicsRuntime::EWeightMapTargetCommon::MaxDistance)};
-
-            for (Index_t VertIndex{}; VertIndex < PhysMesh.mVertices.size(); ++VertIndex) {
-                MaxDistances[VertIndex] = PhysMesh.mVertices[VertIndex].z >= FixedAboveZ ? 0.0f : MovableMaxDistance;
-            }
-
-            for (PhysicsRuntime::FPointWeightMap& PointWeightMap : LodData.mPointWeightMaps) {
-                if (PointWeightMap.mCurrentTarget == PhysicsRuntime::EWeightMapTargetCommon::MaxDistance) {
-                    PointWeightMap.mValues = MaxDistances.mValues;
-                }
-            }
-
-            NewAsset->InvalidateCachedData();
-
-            PhysicsRuntime::UClothingAssetCommon& ClothingAsset{*NewAsset};
-            Mesh->AddClothingAsset(std::move(NewAsset));
-
-            if (!Asset::FClothingAssetFactory::BindToSkeletalMesh(*Mesh, ClothingAsset, SubMeshIndex, 0)) {
-                AddLog("Cannot bind the clothing asset to section " + std::to_string(SubMeshIndex) + ". See the Console for details.");
+            if (Editor::ClothEditing::CreateClothFromSection(*Mesh, *Skeleton, SubMeshIndex, Component->GetPhysicsAsset(), PhysicsAssetPath, CreateError) == nullptr) {
+                AddLog(CreateError);
 
                 return false;
             }
