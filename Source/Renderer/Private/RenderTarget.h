@@ -27,6 +27,8 @@ namespace Renderer {
         struct FDepthOfFieldTargets {
             Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, 2> mSeparated{};
             Core::TStaticArray<std::unique_ptr<Asset::UTexture2D>, 2> mBlurred{};
+            /** @brief 절반 해상도 텍셀의 전경·배경 착란원 반경(절반 해상도 텍셀 단위)을 RG에 저장합니다. */
+            std::unique_ptr<Asset::UTexture2D> mCircleOfConfusion{};
         };
 
         /**

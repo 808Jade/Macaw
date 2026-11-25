@@ -118,7 +118,8 @@ namespace Renderer {
             InfinityBlurRadius = 0.5f * InfinityCircleOfConfusion / SensorHeight * static_cast<float>(Target.GetHeight());
         }
 
-        // 블러 커널 반경은 레이어마다 하나입니다. 배경 착란원은 무한대에서 K로 수렴하므로 K까지만 쓰고, 전경은 카메라에 가까울수록 커지므로 상한까지 씁니다.
+        // 블러는 픽셀마다 자신의 착란원 반경으로 퍼집니다. ZW는 레이어별 최대 탐색 반경입니다.
+        // 배경 착란원은 무한대에서 K로 수렴하므로 K까지만 찾고, 전경은 카메라에 가까울수록 커지므로 상한까지 찾습니다.
         const float ForegroundBlurRadius{InfinityBlurRadius > 0.0f ? MaxBlurRadius : 0.0f};
         const float BackgroundBlurRadius{std::min(InfinityBlurRadius, MaxBlurRadius)};
         Constants.mDepthOfFieldParameters = {FocusDistance, InfinityBlurRadius, ForegroundBlurRadius, BackgroundBlurRadius};
@@ -213,12 +214,14 @@ namespace Renderer {
         const D3D11_VIEWPORT HalfViewport{0.0f, 0.0f, static_cast<float>(Foreground->GetSizeX()), static_cast<float>(Foreground->GetSizeY()), 0.0f, 1.0f};
         Context->RSSetViewports(1, &HalfViewport);
 
-        const Core::TStaticArray<ID3D11RenderTargetView*, 2> Separated{Foreground->GetRenderTargetView(), Background->GetRenderTargetView()};
+        // 분리 패스는 두 레이어와 함께 레이어별 착란원 반경을 기록합니다.
+        const Core::TStaticArray<ID3D11RenderTargetView*, 3> Separated{Foreground->GetRenderTargetView(), Background->GetRenderTargetView(), Layers->mCircleOfConfusion->GetRenderTargetView()};
         const Core::TStaticArray<ID3D11ShaderResourceView*, 2> SceneInputs{Color, Depth};
         Draw(Context, mSeparateDepthOfField.Get(), Separated, SceneInputs);
 
-        // 전경과 배경은 커널 반경이 달라 따로 블러합니다. Settings.x가 블러할 레이어(0 전경, 1 배경)이며 다른 출력 슬롯은 비워 둡니다.
-        const Core::TStaticArray<ID3D11ShaderResourceView*, 4> BlurInputs{nullptr, nullptr, Foreground->GetShaderResourceView(), Background->GetShaderResourceView()};
+        // 블러는 표본마다 자신의 착란원 반경으로 퍼지는 scatter-as-gather입니다. 레이어마다 탐색 반경이 달라 따로 실행합니다.
+        // Settings.x가 블러할 레이어(0 전경, 1 배경)이며 다른 출력 슬롯은 비워 둡니다.
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 5> BlurInputs{nullptr, nullptr, Foreground->GetShaderResourceView(), Background->GetShaderResourceView(), Layers->mCircleOfConfusion->GetShaderResourceView()};
         const Core::TStaticArray<ID3D11RenderTargetView*, 2> BlurredForegroundOnly{BlurredForeground->GetRenderTargetView(), nullptr};
         const Core::TStaticArray<ID3D11RenderTargetView*, 2> BlurredBackgroundOnly{nullptr, BlurredBackground->GetRenderTargetView()};
 
@@ -250,7 +253,8 @@ namespace Renderer {
     }
 
     void Renderer::FPostProcessResources::Draw(ID3D11DeviceContext* Context, ID3D11PixelShader* PixelShader, std::span<ID3D11RenderTargetView* const> Outputs, std::span<ID3D11ShaderResourceView* const> Inputs, ID3D11BlendState* Blend) {
-        const Core::TStaticArray<ID3D11ShaderResourceView*, 4> Empty{};
+        // DOF 블러가 쓰는 t4(착란원 반경)까지 비웁니다.
+        const Core::TStaticArray<ID3D11ShaderResourceView*, 5> Empty{};
 
         Context->PSSetShaderResources(0, static_cast<UINT>(Empty.size()), Empty.data());
         Context->OMSetRenderTargets(static_cast<UINT>(Outputs.size()), Outputs.data(), nullptr);

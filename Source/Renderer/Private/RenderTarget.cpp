@@ -179,6 +179,8 @@ namespace Renderer {
             for (Index_t Index{}; Index < mDepthOfFieldTargets->mSeparated.size(); ++Index) {
                 Bytes += mDepthOfFieldTargets->mSeparated[Index]->GetResourceBytes() + mDepthOfFieldTargets->mBlurred[Index]->GetResourceBytes();
             }
+
+            Bytes += mDepthOfFieldTargets->mCircleOfConfusion->GetResourceBytes();
         }
 
         return Bytes;
@@ -233,6 +235,12 @@ namespace Renderer {
                     return nullptr;
                 }
             }
+        }
+
+        Targets->mCircleOfConfusion = CoreUObject::NewObject<Asset::UTexture2D>();
+
+        if (!Targets->mCircleOfConfusion->Configure(Width, Height, Asset::ETextureFormat::RGBA16Float, Usage) || !Targets->mCircleOfConfusion->CreateResources(Device.Get())) {
+            return nullptr;
         }
 
         mDepthOfFieldTargets = std::move(Targets);

@@ -53,7 +53,7 @@ cbuffer PostProcessConstants : register(b0) {
     float4 ProjectionDepth;
 
     /**
-     * @brief 초점 평면 거리(m), 무한대의 착란원 반경 K(px), 전경·배경 블러 커널 반경(px)입니다.
+     * @brief 초점 평면 거리(m), 무한대의 착란원 반경 K(px), 전경(착란원 상한)·배경 블러의 최대 탐색 반경(px)입니다.
      */
     float4 DepthOfFieldParameters;
 };
@@ -131,16 +131,26 @@ float ComputeCircleOfConfusionRadius(float ViewDepth, float FocusDistance, float
 }
 
 /**
- * @brief X에 전경 가중치, Y에 배경 가중치를 반환합니다. 착란원 반경을 레이어의 블러 커널 반경으로 나눈 비율입니다.
- * @param[in] ViewDepth 픽셀의 뷰 공간 깊이(m)입니다.
- * @param[in] Parameters 초점 평면 거리, 무한대 착란원 반경, 전경·배경 블러 커널 반경입니다.
+ * @brief 착란원 반경이 이 값(px) 이하이면 선명한 픽셀로 봅니다. 그 위 1px 구간에서 흐린 레이어로 넘어갑니다.
  */
-float2 ComputeDepthOfFieldWeights(float ViewDepth, float4 Parameters) {
-    const float Radius = {ComputeCircleOfConfusionRadius(ViewDepth, Parameters.x, Parameters.y)};
-    const float2 KernelRadius = {max(Parameters.zw, 0.0001f)};
-    const float2 Weights = {saturate(Radius / KernelRadius)};
+static const float DepthOfFieldSharpRadius = {0.5f};
 
-    return ViewDepth < Parameters.x ? float2(Weights.x, 0.0f) : float2(0.0f, Weights.y);
+/**
+ * @brief X에 전경 가중치, Y에 배경 가중치를 반환합니다.
+ * @details 흐림의 크기는 블러가 픽셀별 착란원 반경으로 표현하므로, 가중치는 원본과 흐린 레이어 사이의 전환만 담당합니다.
+ * @param[in] ViewDepth 픽셀의 뷰 공간 깊이(m)입니다.
+ * @param[in] Radius 픽셀의 착란원 반경(px)입니다.
+ * @param[in] FocusDistance 초점 평면 거리(m)입니다.
+ */
+float2 ComputeDepthOfFieldWeights(float ViewDepth, float Radius, float FocusDistance) {
+    const float Weight = {saturate(Radius - DepthOfFieldSharpRadius)};
+
+    return ViewDepth < FocusDistance ? float2(Weight, 0.0f) : float2(0.0f, Weight);
+}
+
+/** @brief 착란원 반경을 직접 계산해 레이어 가중치를 반환합니다. */
+float2 ComputeDepthOfFieldWeights(float ViewDepth, float4 Parameters) {
+    return ComputeDepthOfFieldWeights(ViewDepth, ComputeCircleOfConfusionRadius(ViewDepth, Parameters.x, Parameters.y), Parameters.x);
 }
 
 /**

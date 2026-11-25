@@ -472,12 +472,37 @@ namespace Editor {
     /**
      * @brief 월드 원점에 고정한 그리드와 에디터 보조 요소를 포함한 뷰포트를 그립니다.
      */
+    void Editor::FEditorViewportClient::SyncFieldOfViewWithActiveCamera() {
+        const Engine::UWorld* World{mContext != nullptr ? mContext->GetWorld() : nullptr};
+        const Engine::UCameraComponent* Camera{World != nullptr ? World->GetActiveCamera() : nullptr};
+
+        if (Camera == nullptr) {
+            mObservedCamera = nullptr;
+
+            return;
+        }
+
+        // 렌즈 모드에서는 초점거리·센서 높이로 계산한 시야각이므로 렌즈 값 변경도 함께 따라갑니다.
+        const Core::FAngle FieldOfView{Camera->GetFieldOfView()};
+        const bool SameCamera{mObservedCamera == Camera};
+        const bool Changed{SameCamera && FieldOfView != mObservedCameraFieldOfView};
+
+        mObservedCamera = Camera;
+        mObservedCameraFieldOfView = FieldOfView;
+
+        if (Changed && FieldOfView.IsFinite()) {
+            mFieldOfView = std::clamp(FieldOfView, 1_deg, 179_deg);
+        }
+    }
+
     void Editor::FEditorViewportClient::Draw(Engine::FSceneViewport* Viewport) {
         Engine::UWorld* World{mContext->GetWorld()};
 
         if (World == nullptr || World->GetScene() == nullptr || mContext->GetRenderer() == nullptr) {
             return;
         }
+
+        SyncFieldOfViewWithActiveCamera();
 
         const Engine::FSceneView View{CalcSceneView(Viewport->GetSize())};
 
