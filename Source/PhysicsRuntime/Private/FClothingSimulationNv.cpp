@@ -1107,10 +1107,13 @@ namespace PhysicsRuntime {
                     Scratch.mSphereData.emplace_back(ToPxVec3(SphereLocation), (Sphere.mRadius * RadiusScale + Actor.mCollisionThickness).GetBase());
                 }
 
-                Cloth.setSpheres(MakeRange(Scratch.mSphereData), 0, Cloth.getNumSpheres());
-
-                // NvCloth는 앞의 32개 구만 남기고 캡슐도 32개까지만 받으므로, 남지 않는 구를 잇는 캡슐과 32개를 넘는 캡슐은 넣지 않습니다.
+                // NvCloth는 구를 32개까지만 받고 넘기면 충돌 마스크가 넘치므로, 앞의 32개만 넘깁니다.
                 const Index_t NumKeptSpheres{std::min(Scratch.mSphereData.size(), MaxClothCollisionShapes)};
+                const physx::PxVec4* const SpheresBegin{Scratch.mSphereData.data()};
+
+                Cloth.setSpheres(nv::cloth::Range<const physx::PxVec4>{SpheresBegin, SpheresBegin + NumKeptSpheres}, 0, Cloth.getNumSpheres());
+
+                // 캡슐도 32개까지만 받으므로, 넘기지 않은 구를 잇는 캡슐과 32개를 넘는 캡슐은 넣지 않습니다.
 
                 for (const FClothCollisionPrim_SphereConnection& Capsule : CollisionData.mSphereConnections) {
                     if (Scratch.mCapsuleSphereIndices.size() / 2 >= MaxClothCollisionShapes) {
