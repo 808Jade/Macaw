@@ -124,10 +124,11 @@ namespace PhysicsRuntime {
         /**
          * @brief 바람을 천에 넣습니다.
          * @details 단순한 방식은 입자마다 바람 속도 쪽으로 가속도를 넣고, 정확한 방식은 NvCloth에 바람 속도를 넣습니다.
-         * @param[in] Context 기준 뼈 변환과 바람에 맞추는 정도를 담은 입력입니다.
+         * @param[in] Context 기준 뼈 변환을 담은 입력입니다.
          * @param[in] WindVelocity 월드 좌표의 바람 속도(m/s)입니다.
+         * @param[in] WindAdaption 단순한 방식에서 입자 속도를 바람에 맞추는 정도입니다.
          */
-        void UpdateWind(const FClothingSimulationContextCommon& Context, const FVector& WindVelocity);
+        void UpdateWind(const FClothingSimulationContextCommon& Context, const FVector& WindVelocity, float WindAdaption);
 
         /**
          * @brief 입자를 스키닝 위치 쪽으로 당기는 스프링 가속도를 더합니다.

@@ -37,12 +37,12 @@ namespace PhysicsRuntime {
      * @brief 모든 설정 값을 저장하거나 불러옵니다.
      */
     void UClothConfigNv::SerializeConfig(Core::FArchive& Archive) {
-        // 값이 바뀌면 이 번호를 올리고 예전 번호를 읽는 분기를 둡니다.
-        Uint32 Version{1};
+        // 값이 바뀌면 이 번호를 올리고 예전 번호를 읽는 분기를 둡니다. 2부터 기본 바람이 있습니다.
+        Uint32 Version{2};
 
         Archive.Serialize("ClothConfigVersion", Version);
 
-        if (Archive.HasError() || Version != 1) {
+        if (Archive.HasError() || (Version != 1 && Version != 2)) {
             Archive.SetError("Unsupported cloth config version");
 
             return;
@@ -84,5 +84,11 @@ namespace PhysicsRuntime {
         Archive.Serialize("CollisionThickness", mCollisionThickness);
         Archive.Serialize("AnimDriveSpringStiffness", mAnimDriveSpringStiffness);
         Archive.Serialize("AnimDriveDamperStiffness", mAnimDriveDamperStiffness);
+
+        if (Version >= 2) {
+            Archive.Serialize("DefaultWindVelocity", mDefaultWindVelocity);
+        } else if (Archive.IsLoading()) {
+            mDefaultWindVelocity = FVector{};
+        }
     }
 }

@@ -164,6 +164,12 @@ namespace PhysicsRuntime {
         float mWindLiftCoefficient{0.02f / 100.0f};
 
         /**
+         * @brief 이 천에 기본으로 부는 월드 좌표 바람 속도(m/s)입니다.
+         * @details 컴포넌트의 천 바람 속도가 0이면 이 값을 씁니다. 메시 뷰어 미리 보기도 이 값을 씁니다.
+         */
+        FVector mDefaultWindVelocity{};
+
+        /**
          * @brief 기준 뼈가 움직일 때 천이 끌려가는 정도를 축마다 줄이는 비율(0~1)입니다.
          */
         FVector mLinearDrag{0.2f, 0.2f, 0.2f};

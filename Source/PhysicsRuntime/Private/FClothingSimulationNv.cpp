@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 #include <utility>
 
@@ -242,7 +243,7 @@ namespace PhysicsRuntime {
     /**
      * @brief 바람을 천에 넣습니다.
      */
-    void FClothingActorNv::UpdateWind(const FClothingSimulationContextCommon& Context, const FVector& WindVelocity) {
+    void FClothingActorNv::UpdateWind(const FClothingSimulationContextCommon& Context, const FVector& WindVelocity, float WindAdaption) {
         if (mAssetCreatedFrom == nullptr || mCurrentLodIndex >= mLodData.size() || mCurrentLodIndex >= mAssetCreatedFrom->mLodData.size() || mLodData[mCurrentLodIndex].mCloth == nullptr) {
             return;
         }
@@ -271,7 +272,7 @@ namespace PhysicsRuntime {
                     if (Valid && InverseMasses[AccelerationIndex] > 0.0f && DeltaLengthSquared > 1.e-12f) {
                         // 바람이 면에 수직일수록 세게 받고, 면을 스치듯 지나가면 약하게 받습니다.
                         const float DirectionDot{(VelocityDelta * (1.0f / std::sqrt(DeltaLengthSquared))).Dot(mCurrentNormals[AccelerationIndex])};
-                        VelocityDelta *= std::min(1.0f, std::abs(DirectionDot) * Context.mWindAdaption);
+                        VelocityDelta *= std::min(1.0f, std::abs(DirectionDot) * WindAdaption);
                         ParticleAccelerations[static_cast<Uint32>(AccelerationIndex)] = physx::PxVec4{VelocityDelta.x, VelocityDelta.y, VelocityDelta.z, 0.0f};
                     } else {
                         ParticleAccelerations[static_cast<Uint32>(AccelerationIndex)] = physx::PxVec4{0.0f, 0.0f, 0.0f, 0.0f};
@@ -1163,7 +1164,13 @@ namespace PhysicsRuntime {
             }
 
             // 바람과 애니메이션 당김은 입자 가속도로 넣습니다.
-            Actor.UpdateWind(Context, Context.mWindVelocity);
+            // 컴포넌트에 바람이 없으면 천 에셋의 기본 바람을 쓰고, 그때도 컴포넌트처럼 매 프레임 조금씩 흔들어 돌풍처럼 보이게 합니다.
+            const UClothConfigNv* const WindConfig{Actor.mAssetCreatedFrom->GetClothConfig()};
+            const bool UseAssetWind{Context.mWindVelocity.IsNearlyZero() && WindConfig != nullptr && !WindConfig->mDefaultWindVelocity.IsNearlyZero()};
+            const FVector WindVelocity{UseAssetWind ? WindConfig->mDefaultWindVelocity : Context.mWindVelocity};
+            const float WindAdaption{UseAssetWind ? static_cast<float>(std::rand() % 20) * 0.1f : Context.mWindAdaption};
+
+            Actor.UpdateWind(Context, WindVelocity, WindAdaption);
             Actor.UpdateAnimDrive(Context);
 
             // 이번 프레임 기준 뼈의 속도와 변환을 남깁니다.
