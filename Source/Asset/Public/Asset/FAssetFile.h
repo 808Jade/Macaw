@@ -82,7 +82,8 @@ namespace Asset {
         /**
          * @brief 뼈별 충돌 모양과 관절 설정을 바이너리 본문으로 저장하는 물리 에셋입니다.
          */
-        PhysicsAsset
+        PhysicsAsset,
+        Redirector
     };
 
     /**

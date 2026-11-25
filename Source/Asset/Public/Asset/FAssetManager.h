@@ -176,6 +176,9 @@ namespace Asset {
          */
         std::filesystem::path ResolvePath(const std::filesystem::path& Path, Core::FString& Error) const;
         std::filesystem::path ResolveWritablePath(const std::filesystem::path& Path, Core::FString& Error) const;
+        std::filesystem::path ResolveRedirectedPath(const std::filesystem::path& Path, Core::TArray<std::filesystem::path>& Redirectors, Core::FString& Error) const;
+        bool RewriteBinaryAssetReferences(Asset::EAssetType Type, Core::TArray<Uint8>& Payload, const std::function<Core::FString(const Core::FString&, bool)>& Remap, bool& Changed, Core::FString& Error) const;
+        bool IsRedirectorDirectory(const std::filesystem::path& Path) const;
 
         /**
          * @brief 경로가 콘텐츠 폴더 안에 있는지 검증하고 UTF-8 상대 경로를 반환합니다.
@@ -505,10 +508,14 @@ namespace Asset {
          * @param[in] Path 은퇴시킬 에셋 파일 또는 폴더 경로입니다.
          */
         void RetireAssets(const std::filesystem::path& Path);
+        bool RenameContentPath(const std::filesystem::path& Path, const std::filesystem::path& Destination, Core::FString& Error);
 
     private:
 
         std::filesystem::path ResolveContentPath(const std::filesystem::path& Path, std::filesystem::path& ReferencePath, Core::FString& Error) const;
+        std::filesystem::path ResolveAssetPath(const std::filesystem::path& Path, std::filesystem::path& ReferencePath, Core::FString& Error, Core::TArray<std::filesystem::path>* Redirectors = nullptr) const;
+        std::filesystem::path ResolveAssetLoadPath(const std::filesystem::path& Path, Core::FString& Key, Core::FString& Error) const;
+        std::filesystem::path FindContentRedirector(const std::filesystem::path& Resolved, const std::filesystem::path& ReferencePath, std::filesystem::path& Suffix) const;
         std::filesystem::path GetPathWithinRoot(const std::filesystem::path& Root, const std::filesystem::path& Path) const;
 
         bool SaveAssetFile(const std::filesystem::path& Path, Asset::EAssetType Type, std::span<const Uint8> Payload, Core::FString& Error, const Core::FGuid& Guid);

@@ -22,6 +22,7 @@
 #include "PhysicsRuntime/UPhysicsAsset.h"
 #include "Core/Base/ErrorHandler.h"
 #include "FMaterialFile.h"
+#include "FMaterialAssetData.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "CoreUObject/Reflection/UClass.h"
 #include "Serialization/JsonArchive.h"
@@ -43,6 +44,15 @@ namespace Asset {
      * @brief 이 구현 파일에서만 사용하는 내부 상태와 보조 함수입니다.
      */
     namespace {
+
+        constexpr wchar_t DirectoryRedirectorName[]{L".redirector.masset"};
+
+        bool IsAssetRedirector(const std::filesystem::path& Path) {
+            Asset::EAssetType Type{};
+            Core::FString Error{};
+
+            return Asset::FAssetFile::GetType(Path, Type, Error) && Type == Asset::EAssetType::Redirector;
+        }
 
         bool RestoreAssetIdentity(const std::filesystem::path& Path, CoreUObject::UObject& Object, Core::FString& Error) {
             Asset::EAssetType Type{};
@@ -846,7 +856,97 @@ namespace Asset {
     std::filesystem::path Asset::FAssetManager::ResolvePath(const std::filesystem::path& Path, Core::FString& Error) const {
         std::filesystem::path ReferencePath{};
 
-        return ResolveContentPath(Path, ReferencePath, Error);
+        return ResolveAssetPath(Path, ReferencePath, Error);
+    }
+
+    std::filesystem::path Asset::FAssetManager::ResolveRedirectedPath(const std::filesystem::path& Path, Core::TArray<std::filesystem::path>& Redirectors, Core::FString& Error) const {
+        std::filesystem::path ReferencePath{};
+        Redirectors.clear();
+
+        return ResolveAssetPath(Path, ReferencePath, Error, &Redirectors);
+    }
+
+    bool Asset::FAssetManager::RewriteBinaryAssetReferences(Asset::EAssetType Type, Core::TArray<Uint8>& Payload, const std::function<Core::FString(const Core::FString&, bool)>& Remap, bool& Changed, Core::FString& Error) const {
+        struct FStringReplacement {
+            std::size_t mOffset{};
+            std::size_t mLength{};
+            Core::FString mValue{};
+        };
+
+        Changed = false;
+        Core::TArray<FStringReplacement> Replacements{};
+        Serialization::FMemoryArchive Archive{std::as_const(Payload)};
+        Archive.SetStringReader([&](std::string_view Name, const Core::FString& Value, std::size_t Offset) {
+            const bool IsMaterialPath{Type == Asset::EAssetType::Material && (Name == "Shader" || Name == "BaseColorTexture" || Name == "NormalMap" || Name == "SpecularTexture" || Name == "EmissiveTexture" || Name == "ReflectionTexture")};
+            const bool IsMeshPath{(Type == Asset::EAssetType::Mesh || Type == Asset::EAssetType::SkeletalMesh) && (Name == "Material" || Name == "PhysicsAsset" || Name == "PhysicsAssetPath")};
+            const bool IsShaderPath{Type == Asset::EAssetType::Shader && Name == "Source"};
+            auto Replacement{Remap(Value, IsMaterialPath || IsMeshPath || IsShaderPath)};
+            if (!Replacement.empty()) {
+                Replacements.push_back({Offset, Value.size(), std::move(Replacement)});
+            }
+        });
+
+        if (Type == Asset::EAssetType::Material) {
+            Asset::FMaterialAssetData Material{};
+            Material.Serialize(Archive);
+        } else if (Type == Asset::EAssetType::Mesh) {
+            Asset::FMeshData Mesh{};
+            SerializeMesh(Archive, Mesh);
+            if (Archive.GetRemainingBytes() != 0 && !Archive.HasError()) {
+                Core::TArray<PhysicsRuntime::FKConvexElem> Collision{};
+                SerializeCollision(Archive, Collision);
+            }
+        } else if (Type == Asset::EAssetType::SkeletalMesh) {
+            Asset::FMeshData MeshData{};
+            Core::TArray<Asset::FMeshImportBone> Bones{};
+            Core::TArray<Asset::FMeshImportSkinWeight> Weights{};
+            Core::FString PhysicsAsset{};
+            Uint32 Version{};
+            SerializeSkeletalMesh(Archive, MeshData, Weights, PhysicsAsset, &Bones, &Version);
+            if (Version >= 4 && !Archive.HasError()) {
+                auto Mesh{CoreUObject::NewObject<Asset::USkeletalMesh>()};
+                if (!Mesh->SetMeshData(std::move(MeshData), std::move(Weights))) {
+                    Error = "Invalid skeletal mesh geometry";
+                    return false;
+                }
+                Mesh->SerializeClothingData(Archive);
+            }
+        } else if (Type == Asset::EAssetType::Shader) {
+            Uint32 Version{};
+            Archive.Serialize("Version", Version);
+            if (Version != 1) {
+                Error = "Unsupported shader asset version";
+                return false;
+            }
+            auto Shader{CoreUObject::NewObject<RenderCore::UShader>()};
+            Shader->Serialize(Archive);
+        } else {
+            return true;
+        }
+
+        if (Archive.HasError() || Archive.GetRemainingBytes() != 0) {
+            Error = Archive.HasError() ? Archive.GetError() : "Unexpected binary asset data";
+            return false;
+        }
+
+        if (!Replacements.empty()) {
+            Core::TArray<Uint8> Result{};
+            Result.reserve(Payload.size());
+            std::size_t Previous{};
+            for (const auto& Replacement : Replacements) {
+                Result.insert(Result.end(), Payload.data() + Previous, Payload.data() + Replacement.mOffset);
+                const Uint32 Length{static_cast<Uint32>(Replacement.mValue.size())};
+                const auto* Bytes{reinterpret_cast<const Uint8*>(&Length)};
+                Result.insert(Result.end(), Bytes, Bytes + sizeof(Length));
+                Result.insert(Result.end(), Replacement.mValue.begin(), Replacement.mValue.end());
+                Previous = Replacement.mOffset + sizeof(Length) + Replacement.mLength;
+            }
+            Result.insert(Result.end(), Payload.data() + Previous, Payload.data() + Payload.size());
+            Payload = std::move(Result);
+            Changed = true;
+        }
+
+        return true;
     }
 
     std::filesystem::path Asset::FAssetManager::ResolveWritablePath(const std::filesystem::path& Path, Core::FString& Error) const {
@@ -860,6 +960,123 @@ namespace Asset {
         }
 
         return Resolved;
+    }
+
+    bool Asset::FAssetManager::IsRedirectorDirectory(const std::filesystem::path& Path) const {
+        if (!IsAssetRedirector(Path / DirectoryRedirectorName)) {
+            return false;
+        }
+
+        std::error_code Code{};
+        std::filesystem::directory_iterator Iterator{Path, Code};
+        const std::filesystem::directory_iterator End{};
+        if (Code || Iterator == End || Iterator->path().filename() != DirectoryRedirectorName) {
+            return false;
+        }
+
+        return Iterator.increment(Code) == End && !Code;
+    }
+
+    std::filesystem::path Asset::FAssetManager::ResolveAssetPath(const std::filesystem::path& Path, std::filesystem::path& ReferencePath, Core::FString& Error, Core::TArray<std::filesystem::path>* Redirectors) const {
+        auto Resolved{ResolveContentPath(Path, ReferencePath, Error)};
+        Core::TArray<std::filesystem::path> Visited{};
+
+        while (!Resolved.empty() && !ReferencePath.has_root_directory()) {
+            std::filesystem::path Suffix{};
+            const auto Redirector{FindContentRedirector(Resolved, ReferencePath, Suffix)};
+            if (Redirector.empty()) {
+                std::error_code Code{};
+                if (Visited.empty() || std::filesystem::exists(Resolved, Code)) {
+                    return Resolved;
+                }
+
+                Error = "The redirector target does not exist";
+                break;
+            }
+
+            const auto Key{Core::FilePath::ToLower(Resolved)};
+            if (Visited.size() == 64 || std::ranges::find(Visited, Key) != Visited.end()) {
+                Error = "Circular or excessive asset redirection";
+                break;
+            }
+            Visited.push_back(Key);
+            if (Redirectors != nullptr) {
+                Redirectors->push_back(Redirector);
+            }
+
+            Core::TArray<Uint8> Data{};
+            if (!Asset::FAssetFile::Load(Redirector, Asset::EAssetType::Redirector, Data, Error)) {
+                break;
+            }
+
+            std::filesystem::path Target{};
+            try {
+                Target = Core::FilePath::FromUtf8(std::string_view{reinterpret_cast<const char*>(Data.data()), Data.size()});
+            } catch (const std::filesystem::filesystem_error&) {
+                Error = "Invalid asset redirector target";
+                break;
+            }
+
+            if (Target.has_root_path() || Core::FilePath::GetContentMount(Target) != Core::FilePath::EContentMount::Game || Target == L".") {
+                Error = "Invalid asset redirector target";
+                break;
+            }
+
+            Resolved = ResolveContentPath(Suffix.empty() ? Target : Target / Suffix, ReferencePath, Error);
+        }
+
+        if (!Visited.empty() || Resolved.empty()) {
+            ReferencePath.clear();
+            return {};
+        }
+
+        return Resolved;
+    }
+
+    std::filesystem::path Asset::FAssetManager::ResolveAssetLoadPath(const std::filesystem::path& Path, Core::FString& Key, Core::FString& Error) const {
+        std::filesystem::path ReferencePath{};
+        const auto Resolved{ResolveAssetPath(Path, ReferencePath, Error)};
+        Key = CacheKey(Core::FilePath::ToGenericUtf8(ReferencePath));
+
+        return Resolved;
+    }
+
+    std::filesystem::path Asset::FAssetManager::FindContentRedirector(const std::filesystem::path& Resolved, const std::filesystem::path& ReferencePath, std::filesystem::path& Suffix) const {
+        if (Resolved.extension() == L".masset") {
+            Asset::EAssetType Type{};
+            Core::FString Error{};
+            if (Asset::FAssetFile::GetType(Resolved, Type, Error)) {
+                return Type == Asset::EAssetType::Redirector ? Resolved : std::filesystem::path{};
+            }
+        }
+
+        std::error_code Code{};
+        const auto Status{std::filesystem::status(Resolved, Code)};
+        if (std::filesystem::is_directory(Status) && IsRedirectorDirectory(Resolved)) {
+            return Resolved / DirectoryRedirectorName;
+        }
+
+        if (std::filesystem::exists(Status) || !std::filesystem::status_known(Status)) {
+            return {};
+        }
+
+        if (IsTextureSource(Resolved)) {
+            auto Candidate{Resolved};
+            Candidate += L".masset";
+            if (IsAssetRedirector(Candidate)) {
+                return Candidate;
+            }
+        }
+
+        for (auto Parent{ReferencePath.parent_path()}; !Parent.empty(); Parent = Parent.parent_path()) {
+            const auto Candidate{mContentRoot / Parent / DirectoryRedirectorName};
+            if (IsAssetRedirector(Candidate)) {
+                Suffix = ReferencePath.lexically_relative(Parent);
+                return Candidate;
+            }
+        }
+
+        return {};
     }
 
     std::filesystem::path Asset::FAssetManager::ResolveContentPath(const std::filesystem::path& Path, std::filesystem::path& ReferencePath, Core::FString& Error) const {
@@ -998,7 +1215,9 @@ namespace Asset {
                         return {};
                     }
 
-                    Paths.push_back(Core::FilePath::FromUtf8(Reference));
+                    if (!IsAssetRedirector(Iterator->path())) {
+                        Paths.push_back(Core::FilePath::FromUtf8(Reference));
+                    }
                 }
 
                 if (!Code) {
@@ -1023,7 +1242,8 @@ namespace Asset {
      */
     Asset::UStaticMesh* Asset::FAssetManager::LoadMesh(const std::filesystem::path& Path, Core::FString& Error) {
         const Core::FScopedStatTimer StatTimer{Asset::AssetStats::MeshLoad};
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -1039,7 +1259,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::Mesh, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::Mesh, Payload, Error)) {
             return nullptr;
         }
 
@@ -1063,13 +1283,13 @@ namespace Asset {
             return nullptr;
         }
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Mesh, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *Mesh, Error)) {
             return nullptr;
         }
 
         Asset::UStaticMesh* Result{Mesh.get()};
 
-        Mesh->SetName(Core::FilePath::ToUtf8(Path.stem()));
+        Mesh->SetName(Core::FilePath::ToUtf8(ResolvedPath.stem()));
         mMeshes.emplace(Key, std::move(Mesh));
 
         return Result;
@@ -1080,7 +1300,8 @@ namespace Asset {
      */
     Asset::USkeletalMesh* Asset::FAssetManager::LoadSkeletalMesh(const std::filesystem::path& Path, Core::FString& Error) {
         const Core::FScopedStatTimer StatTimer{Asset::AssetStats::MeshLoad};
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -1096,7 +1317,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::SkeletalMesh, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::SkeletalMesh, Payload, Error)) {
             return nullptr;
         }
 
@@ -1146,13 +1367,13 @@ namespace Asset {
             }
         }
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Mesh, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *Mesh, Error)) {
             return nullptr;
         }
 
         Asset::USkeletalMesh* Result{Mesh.get()};
 
-        Mesh->SetName(Core::FilePath::ToUtf8(Path.stem()));
+        Mesh->SetName(Core::FilePath::ToUtf8(ResolvedPath.stem()));
 
         if (!LegacyBones.empty()) {
             auto Skeleton{CoreUObject::NewObject<Asset::USkeleton>()};
@@ -1173,7 +1394,8 @@ namespace Asset {
     }
 
     Asset::USkeleton* Asset::FAssetManager::LoadSkeleton(const std::filesystem::path& Path, Core::FString& Error) {
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -1189,7 +1411,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::Skeleton, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::Skeleton, Payload, Error)) {
             return nullptr;
         }
 
@@ -1206,13 +1428,13 @@ namespace Asset {
             return nullptr;
         }
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Skeleton, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *Skeleton, Error)) {
             return nullptr;
         }
 
         Asset::USkeleton* Result{Skeleton.get()};
 
-        Skeleton->SetName(Core::FilePath::ToUtf8(Path.stem()));
+        Skeleton->SetName(Core::FilePath::ToUtf8(ResolvedPath.stem()));
         mSkeletons.emplace(Key, std::move(Skeleton));
 
         return Result;
@@ -1220,7 +1442,9 @@ namespace Asset {
 
     Asset::USkeleton* Asset::FAssetManager::FindLegacySkeleton(const std::filesystem::path& MeshPath) const {
         Core::FString Error{};
-        const auto Existing{mLegacySkeletons.find(CacheKey(GetRelativePath(MeshPath, Error)))};
+        Core::FString Key{};
+        ResolveAssetLoadPath(MeshPath, Key, Error);
+        const auto Existing{mLegacySkeletons.find(Key)};
 
         return Existing != mLegacySkeletons.end() ? Existing->second.get() : nullptr;
     }
@@ -1229,7 +1453,8 @@ namespace Asset {
      * @brief 물리 에셋을 캐시에서 찾거나 파일에서 읽어 캐시에 보관합니다.
      */
     PhysicsRuntime::UPhysicsAsset* Asset::FAssetManager::LoadPhysicsAsset(const std::filesystem::path& Path, Core::FString& Error) {
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -1245,7 +1470,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::PhysicsAsset, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::PhysicsAsset, Payload, Error)) {
             return nullptr;
         }
 
@@ -1260,21 +1485,21 @@ namespace Asset {
             return nullptr;
         }
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *PhysicsAsset, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *PhysicsAsset, Error)) {
             return nullptr;
         }
 
         PhysicsRuntime::UPhysicsAsset* Result{PhysicsAsset.get()};
 
-        PhysicsAsset->SetName(Core::FilePath::ToUtf8(Path.stem()));
+        PhysicsAsset->SetName(Core::FilePath::ToUtf8(ResolvedPath.stem()));
         mPhysicsAssets.emplace(Key, std::move(PhysicsAsset));
 
         return Result;
     }
 
     Asset::UAnimSequence* Asset::FAssetManager::LoadAnimSequence(const std::filesystem::path& Path, Core::FString& Error) {
-        Core::FString RelativePath{GetRelativePath(Path, Error)};
-        const Core::FString Key{CacheKey(RelativePath)};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -1290,7 +1515,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::AnimSequence, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::AnimSequence, Payload, Error)) {
             return nullptr;
         }
 
@@ -1315,7 +1540,7 @@ namespace Asset {
             return nullptr;
         }
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Sequence, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *Sequence, Error)) {
             return nullptr;
         }
 
@@ -1325,8 +1550,8 @@ namespace Asset {
         Sequence->SetRootMotionRootLock(RootLock);
         Sequence->SetForceRootLock(ForceRootLock);
         Sequence->SetRootMotionBone(RootBone);
-        Sequence->SetName(Core::FilePath::ToUtf8(Path.stem()));
-        Sequence->mAssetPath = std::move(RelativePath);
+        Sequence->SetName(Core::FilePath::ToUtf8(ResolvedPath.stem()));
+        Sequence->mAssetPath = GetRelativePath(ResolvedPath, Error);
         mAnimSequences.emplace(Key, std::move(Sequence));
 
         return Result;
@@ -1337,7 +1562,8 @@ namespace Asset {
      */
     Asset::UTexture2D* Asset::FAssetManager::LoadTexture(const std::filesystem::path& Path, Core::FString& Error) {
         const Core::FScopedStatTimer StatTimer{Asset::AssetStats::TextureLoad};
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -1351,16 +1577,10 @@ namespace Asset {
             return Existing->second.get();
         }
 
-        const auto Source{ResolvePath(Path, Error)};
-
-        if (Source.empty()) {
-            return nullptr;
-        }
-
-        if (Source.extension() != L".masset") {
+        if (ResolvedPath.extension() != L".masset") {
             auto Texture{CoreUObject::NewObject<Asset::UTexture2D>()};
 
-            if (!Texture->LoadFromFile(Source)) {
+            if (!Texture->LoadFromFile(ResolvedPath)) {
                 Error = "Cannot load the material texture";
 
                 return nullptr;
@@ -1375,7 +1595,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::Texture, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::Texture, Payload, Error)) {
             return nullptr;
         }
 
@@ -1391,7 +1611,7 @@ namespace Asset {
             return nullptr;
         }
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Texture, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *Texture, Error)) {
             return nullptr;
         }
 
@@ -2048,6 +2268,97 @@ namespace Asset {
         return SaveTexture(Target, *Texture, Error);
     }
 
+    bool Asset::FAssetManager::RenameContentPath(const std::filesystem::path& Path, const std::filesystem::path& Destination, Core::FString& Error) {
+        const auto From{ResolveWritablePath(Path, Error)};
+        if (From.empty()) {
+            return false;
+        }
+
+        const auto DestinationParent{ResolveWritablePath(Destination.parent_path().empty() ? std::filesystem::path{L"."} : Destination.parent_path(), Error)};
+        if (DestinationParent.empty()) {
+            return false;
+        }
+
+        const auto Name{Destination.filename()};
+        const auto To{DestinationParent / Name};
+        if (Name.empty() || Name == L"." || Name == L".." || Name.native().find_first_of(L"\\/:*?\"<>|") != std::wstring::npos || Name.native().find(L'\0') != std::wstring::npos || GetRelativePath(From, Error) == ".") {
+            Error = "Invalid content destination";
+            return false;
+        }
+
+        if (From == To) {
+            return true;
+        }
+
+        std::error_code Code{};
+        if (!std::filesystem::is_directory(DestinationParent, Code) || Code || IsRedirectorDirectory(DestinationParent)) {
+            Error = "The destination must be an existing content folder";
+            return false;
+        }
+
+        if (!GetPathWithinRoot(From, DestinationParent).empty()) {
+            Error = "Cannot move a folder into itself";
+            return false;
+        }
+
+        const bool SamePath{Core::FilePath::ToLower(From) == Core::FilePath::ToLower(To)};
+        const auto DestinationStatus{std::filesystem::symlink_status(To, Code)};
+        if (std::filesystem::is_symlink(DestinationStatus) || !std::filesystem::status_known(DestinationStatus) || (std::filesystem::exists(DestinationStatus) && (!SamePath || !std::filesystem::equivalent(From, To, Code)))) {
+            Error = "The destination name is already in use";
+            return false;
+        }
+
+        const bool Directory{std::filesystem::is_directory(From, Code)};
+        if (Code) {
+            Error = "Cannot read the rename source: " + Code.message();
+            return false;
+        }
+
+        std::filesystem::path Stage{};
+        if (!SamePath && (Directory || From.extension() == L".masset")) {
+            const Core::FGuid StagingId{};
+            Stage = From.parent_path() / Core::FilePath::FromUtf8(".macaw-rename-" + StagingId.ToString());
+            if (!StagingId.IsValid() || !std::filesystem::create_directory(Stage, Code)) {
+                Error = "Cannot prepare the asset redirector";
+                return false;
+            }
+        }
+
+        Asset::FAssetImportScope Scope{Stage};
+        const auto Marker{Stage / DirectoryRedirectorName};
+        if (!Stage.empty()) {
+            const auto Target{GetRelativePath(To, Error)};
+            if (Target.empty() || !Asset::FAssetFile::Save(Marker, Asset::EAssetType::Redirector, std::span<const Uint8>{reinterpret_cast<const Uint8*>(Target.data()), Target.size()}, Error)) {
+                return false;
+            }
+        }
+
+        std::filesystem::rename(From, To, Code);
+        if (Code) {
+            Error = "Cannot rename the content: " + Code.message();
+            return false;
+        }
+
+        if (!Stage.empty()) {
+            std::filesystem::rename(Directory ? Stage : Marker, From, Code);
+            if (Code) {
+                Error = "Cannot install the asset redirector: " + Code.message();
+                std::filesystem::rename(To, From, Code);
+                if (Code) {
+                    Error += " Cannot restore the original path: " + Code.message();
+                }
+                return false;
+            }
+
+            if (Directory) {
+                Scope.Commit();
+            }
+        }
+
+        RetireAssets(From);
+        return true;
+    }
+
     /**
      * @brief 경로와 하위 폴더에 해당하는 에셋을 캐시에서 은퇴시켜 기존 참조의 수명을 유지합니다.
      * @details 각 캐시의 소유권을 mRetired로 이전하며 파일은 변경하지 않습니다.
@@ -2095,7 +2406,8 @@ namespace Asset {
      */
     Asset::UMaterial* Asset::FAssetManager::LoadMaterial(const std::filesystem::path& Path, Core::FString& Error) {
         const Core::FScopedStatTimer StatTimer{Asset::AssetStats::MaterialLoad};
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -2111,7 +2423,7 @@ namespace Asset {
 
         auto Material{CoreUObject::NewObject<Asset::UMaterial>()};
 
-        if (!Asset::FMaterialFile::Load(ResolvePath(Path, Error), *this, *Material, Error)) {
+        if (!Asset::FMaterialFile::Load(ResolvedPath, *this, *Material, Error)) {
             return nullptr;
         }
 
@@ -2126,7 +2438,8 @@ namespace Asset {
      * @brief 시퀀스 에셋을 로드하여 캐시에 보관합니다.
      */
     Asset::ULevelSequence* Asset::FAssetManager::LoadSequence(const std::filesystem::path& Path, Core::FString& Error) {
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -2142,7 +2455,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::Sequence, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::Sequence, Payload, Error)) {
             return nullptr;
         }
 
@@ -2157,7 +2470,7 @@ namespace Asset {
         auto Sequence{CoreUObject::NewObject<Asset::ULevelSequence>()};
         Sequence->Serialize(Archive);
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Sequence, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *Sequence, Error)) {
             return nullptr;
         }
 
@@ -2235,7 +2548,8 @@ namespace Asset {
     }
 
     Asset::UBlendSpace* Asset::FAssetManager::LoadBlendSpace(const std::filesystem::path& Path, Core::FString& Error) {
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -2251,7 +2565,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::BlendSpace, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::BlendSpace, Payload, Error)) {
             return nullptr;
         }
 
@@ -2275,11 +2589,11 @@ namespace Asset {
         }
 
         std::unique_ptr<Asset::UBlendSpace> BlendSpace{CoreUObject::NewObject<Asset::UBlendSpace1D>()};
-        BlendSpace->SetName(Core::FilePath::ToUtf8(Path.stem()));
+        BlendSpace->SetName(Core::FilePath::ToUtf8(ResolvedPath.stem()));
 
         BlendSpace->Serialize(Archive, *this);
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *BlendSpace, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *BlendSpace, Error)) {
             return nullptr;
         }
 
@@ -2376,7 +2690,8 @@ namespace Asset {
     }
 
     Asset::UAnimGraph* Asset::FAssetManager::LoadAnimGraph(const std::filesystem::path& Path, Core::FString& Error) {
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -2392,7 +2707,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Asset::EAssetType::AnimGraph, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Asset::EAssetType::AnimGraph, Payload, Error)) {
             return nullptr;
         }
 
@@ -2408,7 +2723,7 @@ namespace Asset {
 
         Graph->Serialize(Archive);
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Graph, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *Graph, Error)) {
             return nullptr;
         }
 
@@ -2418,7 +2733,7 @@ namespace Asset {
             return nullptr;
         }
 
-        Graph->SetName(Core::FilePath::ToUtf8(Path.stem()));
+        Graph->SetName(Core::FilePath::ToUtf8(ResolvedPath.stem()));
 
         Asset::UAnimGraph* Result{Graph.get()};
 
@@ -2530,7 +2845,8 @@ namespace Asset {
             return nullptr;
         }
 
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return nullptr;
@@ -2550,7 +2866,7 @@ namespace Asset {
 
         Core::TArray<Uint8> Payload{};
 
-        if (!Asset::FAssetFile::Load(ResolvePath(Path, Error), Type, Payload, Error)) {
+        if (!Asset::FAssetFile::Load(ResolvedPath, Type, Payload, Error)) {
             return nullptr;
         }
 
@@ -2578,11 +2894,11 @@ namespace Asset {
             return nullptr;
         }
 
-        if (!RestoreAssetIdentity(ResolvePath(Path, Error), *Object, Error)) {
+        if (!RestoreAssetIdentity(ResolvedPath, *Object, Error)) {
             return nullptr;
         }
 
-        Object->SetName(Core::FilePath::ToUtf8(Path.stem()));
+        Object->SetName(Core::FilePath::ToUtf8(ResolvedPath.stem()));
 
         if (Handler->mPostLoad && !Handler->mPostLoad(*Object, Error)) {
             return nullptr;
@@ -2788,7 +3104,8 @@ namespace Asset {
      * @brief 캐시 객체의 주소를 유지하면서 파일의 최신 설정을 다시 적용합니다.
      */
     bool Asset::FAssetManager::ReloadMaterial(const std::filesystem::path& Path, Core::FString& Error) {
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        const auto ResolvedPath{ResolveAssetLoadPath(Path, Key, Error)};
 
         if (Key.empty()) {
             return false;
@@ -2797,12 +3114,12 @@ namespace Asset {
         const auto Existing{mMaterials.find(Key)};
 
         if (Existing == mMaterials.end()) {
-            return LoadMaterial(Path, Error) != nullptr;
+            return LoadMaterial(ResolvedPath, Error) != nullptr;
         }
 
         auto Candidate{CoreUObject::NewObject<Asset::UMaterial>()};
 
-        if (!Asset::FMaterialFile::Load(ResolvePath(Path, Error), *this, *Candidate, Error)) {
+        if (!Asset::FMaterialFile::Load(ResolvedPath, *this, *Candidate, Error)) {
             return false;
         }
 
@@ -2839,7 +3156,8 @@ namespace Asset {
      * @brief 노멀 맵을 선형 색상으로 로드하고 전용 캐시에 보관합니다.
      */
     Asset::UTexture2D* Asset::FAssetManager::LoadNormalMap(const std::filesystem::path& Path, Core::FString& Error) {
-        const Core::FString Key{CacheKey(GetRelativePath(Path, Error))};
+        Core::FString Key{};
+        ResolveAssetLoadPath(Path, Key, Error);
 
         if (Key.empty()) {
             return nullptr;

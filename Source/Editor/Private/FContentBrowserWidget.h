@@ -50,7 +50,15 @@ namespace Editor {
             /**
              * @brief 선택 콘텐츠를 삭제하는 작업입니다.
              */
-            Delete
+            Delete,
+            Move
+        };
+
+        struct FReferenceCacheEntry {
+            std::filesystem::file_time_type mTime{};
+            std::uintmax_t mSize{};
+            Asset::EAssetType mType{};
+            Core::TArray<Core::FString> mValues{};
         };
 
     public:
@@ -175,17 +183,21 @@ namespace Editor {
          * @return 이름 변경이 완료되면 true입니다.
          */
         bool RenameContent();
+        bool RelocateContent(const std::filesystem::path& Destination);
+        void AcceptContentMove(const std::filesystem::path& Directory);
 
         /**
          * @brief 참조와 편집 상태를 확인하고 선택한 콘텐츠를 삭제합니다.
          * @return 삭제가 완료되면 true입니다.
          */
-        bool DeleteContent();
+        bool DeleteContent(bool Force);
+        bool CheckDeleteReferences(const std::filesystem::path& Replacement = {});
 
         /**
          * @brief 선택 콘텐츠에 맞는 생성·탐색·이름 변경·삭제 메뉴를 그립니다.
          */
         void DrawContentContextMenu();
+        void FixUpRedirectors(const std::filesystem::path& Directory);
 
         /**
          * @brief 현재 콘텐츠 디렉터리에 새 폴더를 만듭니다.
@@ -331,6 +343,7 @@ namespace Editor {
          * @brief 콘텐츠 작업 대상의 파일 시스템 경로입니다.
          */
         std::filesystem::path mContentActionTarget{};
+        std::filesystem::path mMoveDestinationDirectory{};
 
         /**
          * @brief 이름 변경 창의 새 이름 입력 버퍼입니다.
@@ -346,6 +359,14 @@ namespace Editor {
          * @brief 콘텐츠 작업 대상의 참조 경로 목록입니다.
          */
         Core::TArray<std::filesystem::path> mContentActionReferences{};
+        Core::TMap<std::filesystem::path, Editor::FContentBrowserWidget::FReferenceCacheEntry> mReferenceCache{};
+        std::optional<Asset::EAssetType> mDeleteType{};
+        std::filesystem::path mDeleteReplacement{};
+        Core::FString mDeleteCheckError{};
+        bool mDeleteLiveReference{};
+        bool mDeleteStartupReference{};
+        bool mConfirmForceDelete{};
+        std::optional<std::filesystem::path> mPendingFixUpDirectory{};
 
         /**
          * @brief 콘텐츠 목록과 드래그 미리보기가 공유하는 에셋 타일입니다.

@@ -31,7 +31,7 @@ Core::FGuid FAssetManager::GetSaveIdentity(const std::filesystem::path& Path, co
 
 bool FAssetManager::ValidateAssetIdentity(const std::filesystem::path& Path, const Core::FGuid& Guid, Core::FString& Error) {
     Error.clear();
-    const auto Target{ResolvePath(Path, Error)};
+    const auto Target{ResolveWritablePath(Path, Error)};
 
     if (Target.empty() || !Guid.IsValid() || !RefreshAssetRegistry(Error)) {
         if (Error.empty()) {
@@ -66,7 +66,8 @@ bool FAssetManager::RefreshAssetRegistry(Core::FString& Error) {
         Core::FGuid Guid{Core::FGuid::Null()};
         Core::FString HeaderError{};
 
-        if (!FAssetFile::GetIdentity(ResolvePath(Path, HeaderError), Type, Guid, HeaderError) || !Guid.IsValid()) {
+        std::filesystem::path ReferencePath{};
+        if (!FAssetFile::GetIdentity(ResolveContentPath(Path, ReferencePath, HeaderError), Type, Guid, HeaderError) || !Guid.IsValid()) {
             continue;
         }
 
@@ -200,8 +201,8 @@ CoreUObject::UObject* FAssetManager::LoadAsset(const Core::FGuid& Guid, Core::FS
 
 UShader* FAssetManager::LoadShader(const std::filesystem::path& Path, Core::FString& Error) {
     Error.clear();
-    const auto Target{ResolvePath(Path, Error)};
-    const Core::FString Key{Core::FilePath::ToGenericUtf8(Core::FilePath::ToLower(Core::FilePath::FromUtf8(GetRelativePath(Path, Error))))};
+    Core::FString Key{};
+    const auto Target{ResolveAssetLoadPath(Path, Key, Error)};
 
     if (Target.empty() || Key.empty()) {
         return nullptr;

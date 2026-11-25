@@ -121,7 +121,11 @@ namespace Editor {
             if (Link || Relative.empty() || Relative.has_root_directory() != Engine) {
                 Iterator.disable_recursion_pending();
             } else if (Directory && !Engine) {
-                mDirectories.push_back(Relative);
+                if (mAssets->IsRedirectorDirectory(Iterator->path())) {
+                    Iterator.disable_recursion_pending();
+                } else {
+                    mDirectories.push_back(Relative);
+                }
             } else if (!Directory && !Code && Iterator->is_regular_file(Code)) {
                 const std::wstring Extension{Core::FilePath::ToLowerExtension(Relative)};
                 std::optional<Asset::EAssetType> Type{};
@@ -138,7 +142,7 @@ namespace Editor {
                     Type = Asset::EAssetType::Texture;
                 }
 
-                if (Type.has_value() || !Engine || (ShaderSources && (Extension == L".hlsl" || Extension == L".hlsli"))) {
+                if (Type != Asset::EAssetType::Redirector && (Type.has_value() || !Engine || (ShaderSources && (Extension == L".hlsl" || Extension == L".hlsli")))) {
                     mEntries.emplace_back(Relative, Type);
 
                     if (Engine) {

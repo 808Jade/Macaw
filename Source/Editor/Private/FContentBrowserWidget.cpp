@@ -17,18 +17,28 @@
 #include "EditorStyle.h"
 #include "Core/FilePath.h"
 #include "Engine/FProject.h"
+#include "Engine/FWorldSerializer.h"
+#include "Engine/ULevel.h"
+#include "Engine/UWorld.h"
 #include "Engine/Particles/ParticleAssets.h"
+#include "Serialization/JsonArchive.h"
 #include "Asset/UMaterial.h"
+#include "RenderCore/Shader/UShader.h"
 #include "CoreUObject/Reflection/NewObject.h"
 #include "Viewer/FAssetViewer.h"
 #include "Platform/Window.h"
 #include "Core/Types.h"
 #include <shellapi.h>
 #include <imgui_internal.h>
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <format>
 #include <fstream>
+#include <string_view>
 
 using namespace Editor;
 
@@ -36,6 +46,8 @@ using namespace Editor;
  * @brief FContentBrowserWidget 구현에 한정되는 내부 형식·상수·도우미 함수입니다.
  */
 namespace {
+
+    constexpr char ContentMovePayload[]{"MacawContentMove"};
 
     bool IsShaderSource(const std::filesystem::path& Path) {
         const auto Extension{Core::FilePath::ToLowerExtension(Path)};
@@ -78,6 +90,85 @@ namespace {
 
         return Pressed;
     }
+
+    bool IsContentPathWithin(const std::filesystem::path& Path, const std::filesystem::path& Directory) {
+        const auto Relative{Core::FilePath::ToLower(Path).lexically_relative(Core::FilePath::ToLower(Directory))};
+        return !Relative.empty() && *Relative.begin() != L"..";
+    }
+
+    Core::FString NormalizeReferenceText(Core::FString Text) {
+        std::ranges::transform(Text, Text.begin(), [](unsigned char Letter) {
+            return Letter == '\\' ? '/' : static_cast<char>(std::tolower(Letter));
+        });
+        Text.erase(std::unique(Text.begin(), Text.end(), [](char Left, char Right) {
+            return Left == '/' && Right == '/';
+        }), Text.end());
+
+        return Text;
+    }
+
+    bool AssetHasReferenceFields(Asset::EAssetType Type) {
+        return Type != Asset::EAssetType::Texture && Type != Asset::EAssetType::Skeleton && Type != Asset::EAssetType::AnimSequence && Type != Asset::EAssetType::PhysicsAsset;
+    }
+
+    bool RewriteJsonReferenceValues(rapidjson::Value& Value, std::string_view Field, bool Graph, rapidjson::Document::AllocatorType& Allocator, const std::function<Core::FString(const Core::FString&, bool)>& Remap, bool& Changed, std::size_t Depth) {
+        if (Depth == 256) {
+            return false;
+        }
+
+        if (Value.IsObject()) {
+            for (auto Member{Value.MemberBegin()}; Member != Value.MemberEnd(); ++Member) {
+                if (!RewriteJsonReferenceValues(Member->value, {Member->name.GetString(), Member->name.GetStringLength()}, Graph, Allocator, Remap, Changed, Depth + 1)) {
+                    return false;
+                }
+            }
+        } else if (Value.IsArray()) {
+            for (auto& Element : Value.GetArray()) {
+                if (!RewriteJsonReferenceValues(Element, Field, Graph, Allocator, Remap, Changed, Depth + 1)) {
+                    return false;
+                }
+            }
+        } else if (Value.IsString()) {
+            constexpr std::string_view PathFields[]{"Animation", "AnimGraph", "BaseColorTexture", "BlendSpace", "Material", "Mesh", "NormalMap", "Panorama", "PhysicsAsset", "PhysicsAssetOverride", "ScriptPath", "Sequence", "Shader", "SkeletalMesh", "Skeleton", "SlotMaterials", "Sprite", "Template", "Texture"};
+            const auto Replacement{Remap(Core::FString{Value.GetString(), Value.GetStringLength()}, std::ranges::find(PathFields, Field) != std::end(PathFields) || (Graph && (Field == "Value" || Field == "Default")))};
+            if (!Replacement.empty()) {
+                Value.SetString(Replacement.data(), static_cast<rapidjson::SizeType>(Replacement.size()), Allocator);
+                Changed = true;
+            }
+        }
+
+        return true;
+    }
+
+    bool RewriteJsonAssetReferences(Asset::EAssetType Type, Core::TArray<Uint8>& Payload, const std::function<Core::FString(const Core::FString&, bool)>& Remap, bool& Changed, Core::FString& Error) {
+        rapidjson::Document Document{};
+        Document.Parse<rapidjson::kParseValidateEncodingFlag | rapidjson::kParseIterativeFlag>(reinterpret_cast<const char*>(Payload.data()), Payload.size());
+        if (Document.HasParseError()) {
+            Error = "Invalid asset JSON";
+            return false;
+        }
+
+        if (!RewriteJsonReferenceValues(Document, {}, Type == Asset::EAssetType::AnimGraph, Document.GetAllocator(), Remap, Changed, 0)) {
+            Error = "The asset JSON exceeds the supported nesting depth";
+            return false;
+        }
+        if (Changed) {
+            rapidjson::StringBuffer Buffer{};
+            rapidjson::Writer<rapidjson::StringBuffer> Writer{Buffer};
+            if (!Document.Accept(Writer)) {
+                Error = "Cannot write asset JSON";
+                return false;
+            }
+            Payload.assign(Buffer.GetString(), Buffer.GetString() + Buffer.GetSize());
+        }
+
+        return true;
+    }
+
+    bool RewriteAssetReferences(const Asset::FAssetManager& Assets, Asset::EAssetType Type, Core::TArray<Uint8>& Payload, const std::function<Core::FString(const Core::FString&, bool)>& Remap, bool& Changed, Core::FString& Error) {
+        const bool Json{Type == Asset::EAssetType::Scene || Type == Asset::EAssetType::Sequence || Type == Asset::EAssetType::BlendSpace || Type == Asset::EAssetType::AnimGraph || Type == Asset::EAssetType::ParticleSystem};
+        return Json ? RewriteJsonAssetReferences(Type, Payload, Remap, Changed, Error) : Assets.RewriteBinaryAssetReferences(Type, Payload, Remap, Changed, Error);
+    }
 }
 
 FContentBrowserWidget::FContentBrowserWidget(FEditorContext* Context, Platform::FWindowsApplication* Platform, FEditorAssetCatalog& AssetCatalog, FAssetThumbnailCache& Thumbnails, FImGuiUIScale& UIScale, FEditorWorkspace& Workspace, FAssetImportController& Imports, FAssetEditorManager& AssetEditors)
@@ -95,6 +186,12 @@ FContentBrowserWidget::FContentBrowserWidget(FEditorContext* Context, Platform::
 FContentBrowserWidget::~FContentBrowserWidget() = default;
 
 void FContentBrowserWidget::Tick() {
+    if (mPendingFixUpDirectory.has_value()) {
+        const auto Directory{std::move(*mPendingFixUpDirectory)};
+        mPendingFixUpDirectory.reset();
+        FixUpRedirectors(Directory);
+    }
+
     if (mRefreshContent) {
         RefreshContent();
     }
@@ -111,8 +208,9 @@ void FContentBrowserWidget::DrawDragPreview() {
     const auto Type{mAssetTypes.find(Path)};
     const bool HasThumbnail{Type != mAssetTypes.end() && FAssetThumbnailCache::Supports(Type->second)};
     void* Thumbnail{HasThumbnail ? mThumbnails->GetThumbnail(Path, Type->second) : nullptr};
-    const auto& Style{Type != mAssetTypes.end() ? FAssetTileWidget::GetStyle(Type->second) : FAssetTileWidget::GetStyle(GetContentKind(Path, false))};
-    const Core::FString Name{Core::FilePath::ToUtf8(Path.stem())};
+    const bool Directory{mContentFolders.contains(Path)};
+    const auto& Style{Type != mAssetTypes.end() ? FAssetTileWidget::GetStyle(Type->second) : FAssetTileWidget::GetStyle(GetContentKind(Path, Directory))};
+    const Core::FString Name{Core::FilePath::ToUtf8(Directory ? Path.filename() : Path.stem())};
 
     if (ImGui::BeginTooltip()) {
         const float Scale{mUIScale.GetScale()};
@@ -222,7 +320,7 @@ void FContentBrowserWidget::DrawContent() {
 
         mRevealContentDirectory = false;
 
-        if (ImGui::BeginPopupContextWindow("ContentFolderMenu")) {
+        if (ImGui::BeginPopupContextWindow("ContentFolderMenu", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems)) {
             DrawContentContextMenu();
             ImGui::EndPopup();
         }
@@ -259,17 +357,20 @@ std::filesystem::path FContentBrowserWidget::GetContentActionPath(const std::fil
 }
 
 void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
-    if (GetContentActionPath(mSelectedContentPath).empty()) {
+    const std::filesystem::path Absolute{GetContentActionPath(mSelectedContentPath)};
+    if (Absolute.empty()) {
         return;
     }
 
     mContentAction = Action;
     mContentActionTarget = mSelectedContentPath;
+    mMoveDestinationDirectory = mContentDirectory;
     mContentActionError.clear();
     mContentActionReferences.clear();
+    mDeleteReplacement.clear();
+    mConfirmForceDelete = false;
     mOpenContentAction = true;
 
-    const std::filesystem::path Absolute{GetContentActionPath(mContentActionTarget)};
     std::error_code Code{};
     const bool Directory{std::filesystem::is_directory(Absolute, Code)};
     const Core::FString Name{Core::FilePath::ToUtf8(Directory ? mContentActionTarget.filename() : mContentActionTarget.stem())};
@@ -277,30 +378,11 @@ void FContentBrowserWidget::BeginContentAction(EContentAction Action) {
     mContentActionName.fill('\0');
     std::copy_n(Name.begin(), std::min(Name.size(), mContentActionName.size() - 1), mContentActionName.begin());
 
-    // 에셋은 다른 에셋에 상대 경로 문자열로 저장됩니다.
-    const Core::FString Needle{'"' + Core::FilePath::ToGenericUtf8(mContentActionTarget) + (Directory ? '/' : '"')};
-    const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
-    const Core::FString SourceNeedle{Source.empty() ? Core::FString{} : Core::FilePath::ToGenericUtf8(Source)};
-
-    const std::filesystem::path Root{mContext->GetProject()->GetAssets()->GetContentRoot()};
-    std::filesystem::recursive_directory_iterator Iterator{Root, std::filesystem::directory_options::skip_permission_denied, Code};
-    const std::filesystem::recursive_directory_iterator End{};
-
-    for (; !Code && Iterator != End; Iterator.increment(Code)) {
-        const std::filesystem::path Relative{Iterator->path().lexically_relative(Root)};
-        const auto Inside{Relative.lexically_relative(mContentActionTarget)};
-
-        if (!Iterator->is_regular_file(Code) || Core::FilePath::ToLowerExtension(Relative) != L".masset" || Relative == mContentActionTarget || (!Inside.empty() && *Inside.begin() != L"..")) {
-            continue;
-        }
-
-        std::ifstream Input{Iterator->path(), std::ios::binary};
-        const std::string Text{std::istreambuf_iterator<char>{Input}, std::istreambuf_iterator<char>{}};
-
-        if (Text.find(Needle) != std::string::npos || (!SourceNeedle.empty() && Text.find(SourceNeedle) != std::string::npos)) {
-            mContentActionReferences.push_back(Relative);
-        }
+    if (Action != EContentAction::Delete) {
+        return;
     }
+
+    CheckDeleteReferences();
 }
 
 Core::FString FContentBrowserWidget::FindContentActionBlocker(const std::filesystem::path& Absolute) const {
@@ -348,7 +430,7 @@ Core::FString FContentBrowserWidget::FindContentActionBlocker(const std::filesys
 void FContentBrowserWidget::DrawContentActionPopup() {
     constexpr const char* RenameName{"Rename Asset"};
     constexpr const char* DeleteName{"Delete Asset"};
-    const char* PopupName{mContentAction == EContentAction::Rename ? RenameName : DeleteName};
+    const char* PopupName{mContentAction == EContentAction::Rename ? RenameName : mContentAction == EContentAction::Move ? "Move Asset" : DeleteName};
 
     if (mOpenContentAction) {
         ImGui::OpenPopup(PopupName);
@@ -374,6 +456,26 @@ void FContentBrowserWidget::DrawContentActionPopup() {
         }
 
         Confirmed = ImGui::InputText("##ContentRename", mContentActionName.data(), mContentActionName.size(), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+    } else if (mContentAction == EContentAction::Move) {
+        ImGui::TextUnformatted(Display.c_str());
+        const Core::FString Current{mMoveDestinationDirectory.empty() ? "Content" : Core::FilePath::ToGenericUtf8(mMoveDestinationDirectory)};
+        ImGui::SetNextItemWidth(280.0f * mUIScale.GetScale());
+        if (ImGui::BeginCombo("Destination", Current.c_str())) {
+            Core::TArray<std::filesystem::path> Directories{};
+            for (const auto& Entry : mContentFolders) {
+                if (!Entry.first.has_root_directory() && !IsContentPathWithin(Entry.first, mContentActionTarget)) {
+                    Directories.push_back(Entry.first);
+                }
+            }
+            std::sort(Directories.begin(), Directories.end());
+            for (const auto& Folder : Directories) {
+                const Core::FString Label{Folder.empty() ? "Content" : Core::FilePath::ToGenericUtf8(Folder)};
+                if (ImGui::Selectable(Label.c_str(), mMoveDestinationDirectory == Folder)) {
+                    mMoveDestinationDirectory = Folder;
+                }
+            }
+            ImGui::EndCombo();
+        }
     } else {
         ImGui::Text("%s%s을(를) 휴지통으로 옮길까요?", Display.c_str(), Directory ? " 폴더와 그 안의 모든 파일" : "");
         const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
@@ -382,9 +484,17 @@ void FContentBrowserWidget::DrawContentActionPopup() {
         }
     }
 
-    if (!mContentActionReferences.empty()) {
+    const bool HasDeleteReferences{mContentAction == EContentAction::Delete && (!mContentActionReferences.empty() || mDeleteLiveReference || mDeleteStartupReference || !mDeleteCheckError.empty())};
+    if (HasDeleteReferences) {
         ImGui::Spacing();
-        ImGui::TextColored({1.0f, 0.75f, 0.3f, 1.0f}, "다음 에셋이 이 경로를 참조합니다. 참조가 끊어집니다.");
+        ImGui::TextColored({1.0f, 0.75f, 0.3f, 1.0f}, "삭제 대상의 참조를 확인하세요.");
+
+        if (mDeleteLiveReference) {
+            ImGui::BulletText("현재 열린 씬");
+        }
+        if (mDeleteStartupReference) {
+            ImGui::BulletText("프로젝트 시작 씬");
+        }
 
         for (Index_t Index{}; Index < std::min<std::size_t>(mContentActionReferences.size(), 6); ++Index) {
             ImGui::BulletText("%s", Core::FilePath::ToGenericUtf8(mContentActionReferences[Index]).c_str());
@@ -392,6 +502,10 @@ void FContentBrowserWidget::DrawContentActionPopup() {
 
         if (mContentActionReferences.size() > 6) {
             ImGui::TextDisabled("외 %zu개", mContentActionReferences.size() - 6);
+        }
+
+        if (!mDeleteCheckError.empty()) {
+            ImGui::TextWrapped("%s", mDeleteCheckError.c_str());
         }
     }
 
@@ -401,15 +515,58 @@ void FContentBrowserWidget::DrawContentActionPopup() {
 
     ImGui::Spacing();
 
-    Confirmed |= EditorStyle::Button(mContentAction == EContentAction::Rename ? "Rename" : "Delete");
+    bool Replace{};
+    bool Force{};
+    if (mContentAction == EContentAction::Delete && HasDeleteReferences) {
+        if (mConfirmForceDelete) {
+            ImGui::TextWrapped("강제 삭제하면 기존 참조가 끊어질 수 있습니다.");
+            if (mDeleteStartupReference) {
+                ImGui::TextWrapped("시작 씬을 삭제하면 다음 프로젝트 실행 전에 새 시작 씬을 지정해야 합니다.");
+            }
+            Force = EditorStyle::Button("Confirm Force Delete");
+        } else {
+            if (mDeleteType.has_value()) {
+                const Core::FString Label{mDeleteReplacement.empty() ? "Select an asset" : Core::FilePath::ToGenericUtf8(mDeleteReplacement)};
+                ImGui::SetNextItemWidth(280.0f * mUIScale.GetScale());
+                if (ImGui::BeginCombo("Replacement", Label.c_str())) {
+                    for (const auto& Entry : mAssetCatalog->GetEntries()) {
+                        const auto& Path{Entry.GetPath()};
+                        if (Entry.GetType() == mDeleteType && !Path.has_root_directory() && Core::FilePath::ToLowerExtension(Path) == L".masset" && Path != mContentActionTarget) {
+                            const auto Name{Core::FilePath::ToGenericUtf8(Path)};
+                            if (ImGui::Selectable(Name.c_str(), Path == mDeleteReplacement)) {
+                                mDeleteReplacement = Path;
+                            }
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::BeginDisabled(mDeleteReplacement.empty());
+                Replace = EditorStyle::Button("Replace References");
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+            }
+            if (EditorStyle::Button("Force Delete")) {
+                mConfirmForceDelete = true;
+            }
+        }
+    } else {
+        ImGui::BeginDisabled(mContentAction == EContentAction::Move && mMoveDestinationDirectory == mContentActionTarget.parent_path());
+        Confirmed |= EditorStyle::Button(mContentAction == EContentAction::Rename ? "Rename" : mContentAction == EContentAction::Move ? "Move Here" : "Delete");
+        ImGui::EndDisabled();
+    }
 
     ImGui::SameLine();
 
     if (EditorStyle::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         ImGui::CloseCurrentPopup();
-    }
-
-    if (Confirmed && (mContentAction == EContentAction::Rename ? RenameContent() : DeleteContent())) {
+    } else if (Replace) {
+        mContentActionError = FindContentActionBlocker(Absolute);
+        if (mContentActionError.empty() && CheckDeleteReferences(mDeleteReplacement) && DeleteContent(false)) {
+            ImGui::CloseCurrentPopup();
+        }
+    } else if (Force && DeleteContent(true)) {
+        ImGui::CloseCurrentPopup();
+    } else if (Confirmed && (mContentAction == EContentAction::Rename ? RenameContent() : mContentAction == EContentAction::Move ? RelocateContent(mMoveDestinationDirectory / mContentActionTarget.filename()) : DeleteContent(false))) {
         ImGui::CloseCurrentPopup();
     }
 
@@ -421,10 +578,6 @@ bool FContentBrowserWidget::RenameContent() {
     const Core::FString NewName{mContentActionName.data()};
     std::error_code Code{};
     const bool Directory{std::filesystem::is_directory(Absolute, Code)};
-
-    if (mContentActionError = FindContentActionBlocker(Absolute); !mContentActionError.empty()) {
-        return false;
-    }
 
     if (NewName.empty() || NewName.find_first_of("\\/:*?\"<>|") != Core::FString::npos || NewName.back() == '.' || NewName.back() == ' ') {
         mContentActionError = "이름이 비어 있거나 쓸 수 없는 문자가 들어 있습니다.";
@@ -442,7 +595,23 @@ bool FContentBrowserWidget::RenameContent() {
         NewFile += mContentActionTarget.extension();
     }
 
-    const std::filesystem::path Destination{Absolute.parent_path() / NewFile};
+    return RelocateContent(mContentActionTarget.parent_path() / NewFile);
+}
+
+bool FContentBrowserWidget::RelocateContent(const std::filesystem::path& Target) {
+    const auto Absolute{GetContentActionPath(mContentActionTarget)};
+    if (mContentActionError = FindContentActionBlocker(Absolute); !mContentActionError.empty()) {
+        return false;
+    }
+
+    const auto Parent{GetContentActionPath(Target.parent_path().empty() ? std::filesystem::path{L"."} : Target.parent_path())};
+    std::error_code Code{};
+    if (Parent.empty() || !std::filesystem::is_directory(Parent, Code)) {
+        mContentActionError = "이동할 폴더를 찾을 수 없습니다.";
+        return false;
+    }
+
+    const auto Destination{Parent / Target.filename()};
     if (Destination == Absolute) {
         return true;
     }
@@ -454,6 +623,7 @@ bool FContentBrowserWidget::RenameContent() {
         return false;
     }
 
+    const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
     const auto SourceAbsolute{Source.empty() ? std::filesystem::path{} : GetContentActionPath(Source)};
     const auto SourceDestination{Destination.parent_path() / Destination.stem()};
     if (!SourceAbsolute.empty() && SourceAbsolute != SourceDestination) {
@@ -469,10 +639,10 @@ bool FContentBrowserWidget::RenameContent() {
         }
     }
 
-    std::filesystem::rename(Absolute, Destination, Code);
-
-    if (Code) {
-        mContentActionError = "이름을 바꾸지 못했습니다: " + Code.message();
+    auto* Assets{mContext->GetProject()->GetAssets()};
+    Core::FString RenameError{};
+    if (!Assets->RenameContentPath(Absolute, Destination, RenameError)) {
+        mContentActionError = RenameError;
         if (!SourceAbsolute.empty() && SourceAbsolute != SourceDestination) {
             std::filesystem::rename(SourceDestination, SourceAbsolute, Code);
             if (Code) {
@@ -483,30 +653,403 @@ bool FContentBrowserWidget::RenameContent() {
         return false;
     }
 
-    // 옛 경로의 캐시 객체는 바뀌지 않으므로 은퇴시켜, 나중에 같은 경로를 다시 쓸 때 새로 로드하게 합니다.
-    mContext->GetProject()->GetAssets()->RetireAssets(Absolute);
     if (!SourceAbsolute.empty()) {
-        mContext->GetProject()->GetAssets()->RetireAssets(SourceAbsolute);
+        // 옛 경로의 캐시 객체는 바뀌지 않으므로 은퇴시켜, 나중에 같은 경로를 다시 쓸 때 새로 로드하게 합니다.
+        Assets->RetireAssets(SourceAbsolute);
         mAssetEditors.CloseRetired(SourceAbsolute);
     }
 
     mAssetEditors.CloseRetired(Absolute);
-    mSelectedContentPath = mContentActionTarget.parent_path() / NewFile;
+    mAssetEditors.CloseRetired(Destination);
+    mSelectedContentPath = Target;
     mRefreshContent = true;
 
     if (mContentDirectory == mContentActionTarget) {
         mContentDirectory = mSelectedContentPath;
+    } else if (mContentAction == EContentAction::Move) {
+        mContentDirectory = Target.parent_path();
     }
 
-    mContext->AddLog("Renamed " + Core::FilePath::ToGenericUtf8(mContentActionTarget) + " to " + Core::FilePath::ToUtf8(NewFile));
+    mContext->AddLog("Moved " + Core::FilePath::ToGenericUtf8(mContentActionTarget) + " to " + Core::FilePath::ToGenericUtf8(Target));
 
     return true;
 }
 
-bool FContentBrowserWidget::DeleteContent() {
+void FContentBrowserWidget::AcceptContentMove(const std::filesystem::path& Directory) {
+    const auto* Payload{ImGui::GetDragDropPayload()};
+    if (Directory.has_root_directory() || Payload == nullptr || Payload->SourceId != mAssetDragSourceId || Payload->Data == nullptr || !mContext->CanEditWorld()) {
+        return;
+    }
+
+    const auto Path{Core::FilePath::FromUtf8(static_cast<const char*>(Payload->Data))};
+    const auto AssetType{mAssetTypes.find(Path)};
+    if (Path.empty() || Path.has_root_directory() || (!mContentFolders.contains(Path) && (AssetType == mAssetTypes.end() || Core::FilePath::ToLowerExtension(Path) != L".masset")) || Path.parent_path() == Directory || IsContentPathWithin(Directory, Path)) {
+        return;
+    }
+
+    if (ImGui::BeginDragDropTarget()) {
+        if (ImGui::AcceptDragDropPayload(Payload->DataType) != nullptr) {
+            mSelectedContentPath = Path;
+            BeginContentAction(EContentAction::Move);
+            mMoveDestinationDirectory = Directory;
+        }
+        ImGui::EndDragDropTarget();
+    }
+}
+
+bool FContentBrowserWidget::CheckDeleteReferences(const std::filesystem::path& Replacement) {
+    mContentActionReferences.clear();
+    mDeleteType.reset();
+    mDeleteCheckError.clear();
+    mDeleteLiveReference = false;
+    mDeleteStartupReference = false;
+
+    auto& Project{*mContext->GetProject()};
+    auto& Assets{*Project.GetAssets()};
+    const auto& Root{Assets.GetContentRoot()};
+    const auto Absolute{GetContentActionPath(mContentActionTarget)};
+    const auto Source{mAssetCatalog->FindTextureSource(mContentActionTarget)};
+    const auto SourceAbsolute{Source.empty() ? std::filesystem::path{} : GetContentActionPath(Source)};
+    const bool Replacing{!Replacement.empty()};
+    std::error_code Code{};
+    if (Absolute.empty() || !std::filesystem::exists(Absolute, Code) || Code) {
+        mDeleteCheckError = "삭제할 콘텐츠를 찾을 수 없습니다.";
+        return false;
+    }
+
+    const auto IsDeleted{[&](const std::filesystem::path& Path) {
+        return !Path.empty() && (IsContentPathWithin(Path, Absolute) || (!SourceAbsolute.empty() && Core::FilePath::ToLower(Path) == Core::FilePath::ToLower(SourceAbsolute)));
+    }};
+    const auto Report{[&](const std::filesystem::path& File, const Core::FString& Error) {
+        if (mDeleteCheckError.empty()) {
+            mDeleteCheckError = Core::FilePath::ToGenericUtf8(File.lexically_relative(Root)) + " · " + Error;
+        }
+    }};
+
+    struct FReferenceFile {
+        std::filesystem::path mPath{};
+        std::optional<Asset::EAssetType> mType{};
+    };
+    struct FReferenceEdit {
+        std::filesystem::path mPath{};
+        Asset::EAssetType mType{};
+        Core::TArray<Uint8> mPayload{};
+        std::filesystem::file_time_type mTime{};
+    };
+
+    Core::TArray<FReferenceFile> Files{};
+    Core::TArray<Core::FGuid> Guids{};
+    Core::TArray<Core::FString> Literals{};
+    Core::FString Error{};
+    const bool Directory{std::filesystem::is_directory(Absolute, Code)};
+    const auto AddLiteral{[&](const std::filesystem::path& Path, bool Prefix) {
+        const auto Relative{Path.lexically_relative(Root)};
+        if (!Relative.empty()) {
+            Literals.push_back(NormalizeReferenceText(Core::FilePath::ToGenericUtf8(Relative) + (Prefix ? "/" : "")));
+        }
+    }};
+    AddLiteral(Absolute, Directory);
+    if (!SourceAbsolute.empty()) {
+        AddLiteral(SourceAbsolute, false);
+    }
+
+    std::filesystem::recursive_directory_iterator Iterator{Root, Code};
+    const std::filesystem::recursive_directory_iterator End{};
+    for (; !Code && Iterator != End; Iterator.increment(Code)) {
+        if (Iterator->is_symlink(Code)) {
+            Iterator.disable_recursion_pending();
+            continue;
+        }
+        if (Code || !Iterator->is_regular_file(Code)) {
+            continue;
+        }
+
+        const auto& Path{Iterator->path()};
+        const auto Extension{Core::FilePath::ToLowerExtension(Path)};
+        if (Extension == L".masset") {
+            Asset::EAssetType Type{};
+            auto Guid{Core::FGuid::Null()};
+            if (!Asset::FAssetFile::GetIdentity(Path, Type, Guid, Error)) {
+                Report(Path, Error);
+                continue;
+            }
+
+            if (IsDeleted(Path)) {
+                if (Core::FilePath::ToLower(Path) == Core::FilePath::ToLower(Absolute) && Type != Asset::EAssetType::Redirector) {
+                    mDeleteType = Type;
+                }
+                if (Guid.IsValid()) {
+                    Guids.push_back(Guid);
+                    Literals.push_back(NormalizeReferenceText(Guid.ToString()));
+                }
+            } else if (AssetHasReferenceFields(Type)) {
+                Files.push_back({Path, Type});
+            }
+        } else if (!IsDeleted(Path) && (Extension == L".lua" || IsShaderSource(Path))) {
+            Files.push_back({Path, {}});
+        }
+    }
+
+    if (Code) {
+        Report(Root, Code.message());
+    }
+
+    Core::FString ReplacementPath{};
+    std::filesystem::path ReplacementAbsolute{};
+    auto ReplacementGuid{Core::FGuid::Null()};
+    if (Replacing) {
+        ReplacementAbsolute = GetContentActionPath(Replacement);
+        Asset::EAssetType Type{};
+        if (ReplacementAbsolute.empty() || IsDeleted(ReplacementAbsolute) || !mDeleteType.has_value() || !Asset::FAssetFile::GetIdentity(ReplacementAbsolute, Type, ReplacementGuid, Error) || Type != *mDeleteType) {
+            mDeleteCheckError = "같은 타입의 다른 에셋을 선택하세요.";
+            return false;
+        }
+
+        if (mContext->IsSceneDirty() || mContext->IsSceneEditActive()) {
+            mDeleteCheckError = "참조를 교체하기 전에 현재 씬을 저장하세요.";
+            return false;
+        }
+
+        ReplacementPath = Assets.GetRelativePath(ReplacementAbsolute, Error);
+        if (ReplacementPath.empty()) {
+            mDeleteCheckError = Error;
+            return false;
+        }
+    }
+
+    Core::TArray<FReferenceEdit> Edits{};
+    for (const auto& File : Files) {
+        if (File.mType != Asset::EAssetType::Redirector) {
+            continue;
+        }
+
+        const auto Resolved{Assets.ResolvePath(File.mPath, Error)};
+        const bool FolderAlias{File.mPath.filename() == L".redirector.masset"};
+        if (IsDeleted(Resolved)) {
+            mContentActionReferences.push_back(File.mPath.lexically_relative(Root));
+            AddLiteral(FolderAlias ? File.mPath.parent_path() : File.mPath, FolderAlias);
+            if (!FolderAlias) {
+                auto Raw{File.mPath};
+                Raw.replace_extension();
+                if (Asset::FAssetManager::IsTextureSource(Raw)) {
+                    AddLiteral(Raw, false);
+                }
+            }
+
+            if (Replacing && !FolderAlias) {
+                const auto Time{std::filesystem::last_write_time(File.mPath, Code)};
+                if (Code) {
+                    Report(File.mPath, Code.message());
+                } else {
+                    Edits.push_back({File.mPath, *File.mType, {ReplacementPath.begin(), ReplacementPath.end()}, Time});
+                }
+            } else if (Replacing) {
+                Report(File.mPath, "폴더 Redirector는 에셋 하나로 교체할 수 없습니다.");
+            }
+        } else if (FolderAlias && !Resolved.empty() && IsContentPathWithin(Absolute, Resolved)) {
+            const auto Relative{Core::FilePath::ToLower(Absolute).lexically_relative(Core::FilePath::ToLower(Resolved))};
+            AddLiteral(File.mPath.parent_path() / Relative, Directory);
+        }
+    }
+
+    Core::TMap<Core::FString, bool> Paths{};
+    const auto Match{[&](const Core::FString& Value, bool& GuidReference) {
+        GuidReference = false;
+        auto Guid{Core::FGuid::Null()};
+        if (Value.size() == 36 && Core::FGuid::Parse(Value, Guid)) {
+            GuidReference = true;
+            return std::ranges::find(Guids, Guid) != Guids.end();
+        }
+        if (Value.find('.') == Core::FString::npos || Value.find('\0') != Core::FString::npos) {
+            return false;
+        }
+
+        if (const auto Existing{Paths.find(Value)}; Existing != Paths.end()) {
+            return Existing->second;
+        }
+
+        bool Found{};
+        try {
+            const auto Path{Core::FilePath::FromUtf8(Value)};
+            Core::FString PathError{};
+            Found = Path.has_extension() && IsDeleted(Assets.ResolvePath(Path, PathError));
+        } catch (const std::filesystem::filesystem_error&) {
+        }
+        Paths.emplace(Value, Found);
+        return Found;
+    }};
+
+    bool IgnoredGuid{};
+    mDeleteStartupReference = Match(Project.GetStartupScene(), IgnoredGuid);
+    if (const auto* World{mContext->GetWorld()}; World != nullptr && World->GetPersistentLevel() != nullptr) {
+        Core::TArray<Engine::AActor*> Actors{};
+        for (const auto& Actor : World->GetPersistentLevel()->GetActors()) {
+            if (Actor != nullptr) {
+                Actors.push_back(Actor.get());
+            }
+        }
+        Serialization::FJsonArchive Archive{Core::EArchiveMode::Saving};
+        Engine::FWorldSerializer::SaveActors(Archive, Actors);
+        const auto Json{Archive.ToString()};
+        Core::TArray<Uint8> Payload{Json.begin(), Json.end()};
+        const auto Inspect{[&](const Core::FString& Value, bool) -> Core::FString {
+            bool Guid{};
+            mDeleteLiveReference |= Match(Value, Guid);
+            return {};
+        }};
+        bool Changed{};
+        if (Archive.HasError() || !RewriteJsonAssetReferences(Asset::EAssetType::Scene, Payload, Inspect, Changed, Error)) {
+            Report(mContext->GetScenePath(), Archive.HasError() ? Archive.GetError() : Error);
+        }
+        if (Replacing && mDeleteLiveReference && mContext->GetScenePath().empty()) {
+            Report(Root, "열린 씬을 저장한 뒤 참조를 교체하세요.");
+        }
+    }
+
+    if (!mAssetEditors.CollectSavePrompts().empty()) {
+        Report(Root, "열린 에셋 편집기의 변경 사항을 저장한 뒤 다시 시도하세요.");
+    }
+
+    for (const auto& File : Files) {
+        if (File.mType == Asset::EAssetType::Redirector) {
+            continue;
+        }
+        if (!File.mType.has_value()) {
+            std::ifstream Input{File.mPath, std::ios::binary};
+            if (!Input) {
+                Report(File.mPath, "소스 파일을 읽을 수 없습니다.");
+                continue;
+            }
+            const auto Text{NormalizeReferenceText(Core::FString{std::istreambuf_iterator<char>{Input}, std::istreambuf_iterator<char>{}})};
+            if (std::ranges::any_of(Literals, [&](const Core::FString& Value) {
+                return Text.find(Value) != Core::FString::npos;
+            })) {
+                mContentActionReferences.push_back(File.mPath.lexically_relative(Root));
+                if (Replacing) {
+                    Report(File.mPath, "소스에 있는 참조는 직접 바꿔야 합니다.");
+                }
+            }
+            continue;
+        }
+
+        const auto Type{*File.mType};
+        const auto Time{std::filesystem::last_write_time(File.mPath, Code)};
+        const auto Size{Code ? 0 : std::filesystem::file_size(File.mPath, Code)};
+        const auto Cached{mReferenceCache.find(File.mPath)};
+        if (!Code && Cached != mReferenceCache.end() && Cached->second.mTime == Time && Cached->second.mSize == Size && Cached->second.mType == Type) {
+            const bool Found{std::ranges::any_of(Cached->second.mValues, [&](const Core::FString& Value) {
+                bool Guid{};
+                return Match(Value, Guid);
+            })};
+            if (!Replacing || !Found) {
+                if (Found) {
+                    mContentActionReferences.push_back(File.mPath.lexically_relative(Root));
+                }
+                continue;
+            }
+        }
+
+        Core::TArray<Uint8> Payload{};
+        if (Code || !Asset::FAssetFile::Load(File.mPath, Type, Payload, Error)) {
+            Report(File.mPath, Code ? Code.message() : Error);
+            continue;
+        }
+
+        bool Found{};
+        Core::TArray<Core::FString> Values{};
+        const auto Remap{[&](const Core::FString& Value, bool Editable) -> Core::FString {
+            if (Value.size() == 36 || Value.find('.') != Core::FString::npos) {
+                Values.push_back(Value);
+            }
+            bool Guid{};
+            if (!Match(Value, Guid)) {
+                return {};
+            }
+            Found = true;
+            if (!Replacing) {
+                return {};
+            }
+            if (!Editable || (Guid && !ReplacementGuid.IsValid())) {
+                Report(File.mPath, "참조를 안전하게 교체할 수 없습니다.");
+                return {};
+            }
+            return Guid ? ReplacementGuid.ToString() : ReplacementPath;
+        }};
+        bool Changed{};
+        if (!RewriteAssetReferences(Assets, Type, Payload, Remap, Changed, Error)) {
+            Report(File.mPath, Error);
+        } else {
+            mReferenceCache.insert_or_assign(File.mPath, FReferenceCacheEntry{Time, Size, Type, std::move(Values)});
+        }
+        if (Found) {
+            mContentActionReferences.push_back(File.mPath.lexically_relative(Root));
+            if (Replacing && IsContentPathWithin(File.mPath, ReplacementAbsolute)) {
+                Report(File.mPath, "대체 에셋이 삭제할 에셋을 사용 중입니다.");
+            }
+        }
+        if (Changed) {
+            Edits.push_back({File.mPath, Type, std::move(Payload), Time});
+        }
+    }
+
+    if (!Replacing || !mDeleteCheckError.empty()) {
+        return mDeleteCheckError.empty();
+    }
+
+    for (const auto& Edit : Edits) {
+        if (mAssetEditors.HasOpenAsset(Edit.mType, [&](const std::filesystem::path& Path) {
+            Core::FString PathError{};
+            return Core::FilePath::ToLower(Assets.ResolvePath(Path, PathError)) == Core::FilePath::ToLower(Edit.mPath);
+        })) {
+            Report(Edit.mPath, "에셋 편집기를 닫은 뒤 참조를 교체하세요.");
+            return false;
+        }
+    }
+
+    for (const auto& Edit : Edits) {
+        const auto Writable{GetContentActionPath(Edit.mPath)};
+        if (Writable.empty() || std::filesystem::last_write_time(Writable, Code) != Edit.mTime || Code) {
+            Report(Edit.mPath, "검사 중 참조 파일이 변경됐습니다.");
+            return false;
+        }
+        if (!Asset::FAssetFile::Save(Writable, Edit.mType, Edit.mPayload, Error)) {
+            Report(Edit.mPath, Error);
+            return false;
+        }
+        mReferenceCache.erase(Edit.mPath);
+        if (Edit.mType == Asset::EAssetType::Material) {
+            if (!Assets.ReloadMaterial(Writable, Error)) {
+                Report(Edit.mPath, Error);
+                return false;
+            }
+        } else {
+            Assets.RetireAssets(Writable);
+        }
+    }
+
+    if (mDeleteStartupReference && !Project.SetStartupScene(Replacement, Error)) {
+        Report(Project.GetFilePath(), Error);
+        return false;
+    }
+
+    const auto ScenePath{mContext->GetScenePath()};
+    if (!Edits.empty() && !ScenePath.empty() && !mContext->LoadScene(ScenePath)) {
+        Report(ScenePath, "열린 씬을 다시 열지 못했습니다.");
+        return false;
+    }
+
+    return true;
+}
+
+bool FContentBrowserWidget::DeleteContent(bool Force) {
     const std::filesystem::path Absolute{GetContentActionPath(mContentActionTarget)};
 
     if (mContentActionError = FindContentActionBlocker(Absolute); !mContentActionError.empty()) {
+        return false;
+    }
+
+    if (!Force && (!CheckDeleteReferences() || !mContentActionReferences.empty() || mDeleteLiveReference || mDeleteStartupReference)) {
+        mContentActionError = "사용 중인 참조를 교체하거나 Force Delete를 선택하세요.";
         return false;
     }
 
@@ -520,13 +1063,14 @@ bool FContentBrowserWidget::DeleteContent() {
     }
 
     SHFILEOPSTRUCTW Operation{};
-    Operation.hwnd = mPlatform->GetWindowHandle();
+    Operation.hwnd = mPlatform != nullptr ? mPlatform->GetWindowHandle() : nullptr;
     Operation.wFunc = FO_DELETE;
     Operation.pFrom = From.c_str();
     Operation.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
 
     if (SHFileOperationW(&Operation) != 0 || Operation.fAnyOperationsAborted) {
         mContentActionError = "휴지통으로 옮기지 못했습니다. 다른 프로그램이 파일을 쓰고 있는지 확인하세요.";
+        mRefreshContent = true;
 
         return false;
     }
@@ -607,6 +1151,10 @@ void FContentBrowserWidget::DrawContentContextMenu() {
             BeginContentAction(EContentAction::Rename);
         }
 
+        if (ImGui::MenuItem("Move To...", nullptr, false, CanEditSelection && (mContentFolders.contains(mSelectedContentPath) || (mAssetTypes.contains(mSelectedContentPath) && Core::FilePath::ToLowerExtension(mSelectedContentPath) == L".masset")))) {
+            BeginContentAction(EContentAction::Move);
+        }
+
         if (ImGui::MenuItem("Delete", "Del", false, CanEditSelection)) {
             BeginContentAction(EContentAction::Delete);
         }
@@ -620,6 +1168,11 @@ void FContentBrowserWidget::DrawContentContextMenu() {
 
     ImGui::Separator();
 
+    const auto FixUpDirectory{mContentFolders.contains(mSelectedContentPath) ? mSelectedContentPath : mContentDirectory};
+    if (ImGui::MenuItem("Fix Up Redirectors in Folder", nullptr, false, CanEdit && !FixUpDirectory.has_root_directory())) {
+        mPendingFixUpDirectory = FixUpDirectory;
+    }
+
     if (ImGui::MenuItem("Show in Explorer")) {
         ShowContentInExplorer();
     }
@@ -627,6 +1180,280 @@ void FContentBrowserWidget::DrawContentContextMenu() {
     if (ImGui::MenuItem("Refresh")) {
         mRefreshContent = true;
     }
+}
+
+void FContentBrowserWidget::FixUpRedirectors(const std::filesystem::path& Directory) {
+    if (!mContext->CanEditWorld()) {
+        return;
+    }
+
+    mContentError.clear();
+    auto& Project{*mContext->GetProject()};
+    auto& Assets{*Project.GetAssets()};
+    const auto& Root{Assets.GetContentRoot()};
+    const auto Scope{GetContentActionPath(Directory.empty() ? std::filesystem::path{L"."} : Directory)};
+    if (Scope.empty()) {
+        return;
+    }
+
+    struct FFixUpFile {
+        std::filesystem::path mPath{};
+        std::optional<Asset::EAssetType> mType{};
+    };
+
+    Core::TArray<FFixUpFile> Files{};
+    Core::TArray<std::filesystem::path> Selected{};
+    Core::FString Error{};
+    std::error_code Code{};
+    std::filesystem::recursive_directory_iterator Iterator{Root, Code};
+    const std::filesystem::recursive_directory_iterator End{};
+
+    for (; !Code && Iterator != End; Iterator.increment(Code)) {
+        if (Iterator->is_symlink(Code)) {
+            Iterator.disable_recursion_pending();
+        } else if (!Code && Iterator->is_regular_file(Code)) {
+            const auto& Path{Iterator->path()};
+            const auto Extension{Core::FilePath::ToLowerExtension(Path)};
+            if (Extension == L".masset") {
+                Asset::EAssetType Type{};
+                const bool Valid{Asset::FAssetFile::GetType(Path, Type, Error)};
+                Files.push_back({Path, Valid ? std::optional<Asset::EAssetType>{Type} : std::nullopt});
+                if (Valid && Type == Asset::EAssetType::Redirector && IsContentPathWithin(Path, Scope)) {
+                    Selected.push_back(Path);
+                }
+            } else if (Extension == L".lua" || Extension == L".hlsl" || Extension == L".hlsli") {
+                Files.push_back({Path, {}});
+            }
+        }
+    }
+
+    if (Code) {
+        mContentError = "콘텐츠를 읽지 못했습니다. " + Code.message();
+        return;
+    }
+
+    if (Selected.empty()) {
+        mContentError = "이 폴더에 정리할 Redirector가 없습니다.";
+        return;
+    }
+
+    if (mContext->IsSceneDirty() || mContext->IsSceneEditActive() || mAssetEditors.HasUnsavedSource([](const std::filesystem::path&) {
+        return true;
+    })) {
+        mContentError = "씬과 소스 파일의 변경 사항을 저장한 뒤 Redirector를 정리하세요.";
+        return;
+    }
+
+    const auto IsSelected{[&](const std::filesystem::path& Path) {
+        const auto Key{Core::FilePath::ToLower(Path)};
+        return std::ranges::any_of(Selected, [&](const std::filesystem::path& Item) {
+            return Core::FilePath::ToLower(Item) == Key;
+        });
+    }};
+    const auto ReportFailure{[&](const std::filesystem::path& Path, const Core::FString& Reason) {
+        mContentError = "Redirector 정리를 완료하지 못했습니다. " + Core::FilePath::ToGenericUtf8(Path.lexically_relative(Root)) + " · " + Reason;
+        mContext->AddLog(mContentError);
+    }};
+
+    Core::TArray<Core::FString> SourceNeedles{};
+    for (const auto& Marker : Selected) {
+        if (Assets.ResolvePath(Marker, Error).empty()) {
+            ReportFailure(Marker, Error);
+            return;
+        }
+
+        auto Alias{Marker.lexically_relative(Root)};
+        if (Alias.filename() == L".redirector.masset") {
+            SourceNeedles.push_back(NormalizeReferenceText(Core::FilePath::ToGenericUtf8(Alias.parent_path()) + '/'));
+        } else {
+            SourceNeedles.push_back(NormalizeReferenceText(Core::FilePath::ToGenericUtf8(Alias)));
+            Alias.replace_extension();
+            if (Asset::FAssetManager::IsTextureSource(Alias)) {
+                SourceNeedles.push_back(NormalizeReferenceText(Core::FilePath::ToGenericUtf8(Alias)));
+            }
+        }
+    }
+
+    Core::FString ReferenceError{};
+    const auto Remap{[&](const Core::FString& Value, bool Editable) -> Core::FString {
+        if (Value.empty() || Value.find('.') == Core::FString::npos || Value.find('\0') != Core::FString::npos) {
+            return {};
+        }
+
+        std::filesystem::path Path{};
+        try {
+            Path = Core::FilePath::FromUtf8(Value);
+        } catch (const std::filesystem::filesystem_error&) {
+            return {};
+        }
+
+        if (!Path.has_extension()) {
+            return {};
+        }
+
+        Core::TArray<std::filesystem::path> Trace{};
+        Core::FString ResolveError{};
+        const auto Destination{Assets.ResolveRedirectedPath(Path, Trace, ResolveError)};
+        if (!std::ranges::any_of(Trace, IsSelected)) {
+            return {};
+        }
+
+        if (!Editable || Destination.empty()) {
+            ReferenceError = Value + " 경로를 안전하게 갱신할 수 없습니다.";
+            return {};
+        }
+
+        const auto Relative{Assets.GetRelativePath(Destination, ResolveError)};
+        if (Relative.empty()) {
+            ReferenceError = Value + " 경로를 안전하게 갱신할 수 없습니다.";
+        }
+        return Relative;
+    }};
+
+    const Core::FString Startup{Remap(Project.GetStartupScene(), true)};
+    if (!ReferenceError.empty()) {
+        ReportFailure(Project.GetFilePath(), ReferenceError);
+        return;
+    }
+
+    std::size_t Updated{};
+    for (const auto& File : Files) {
+        if (!File.mType.has_value()) {
+            if (Core::FilePath::ToLowerExtension(File.mPath) == L".masset") {
+                ReportFailure(File.mPath, "에셋 형식을 읽을 수 없습니다.");
+                return;
+            }
+
+            std::ifstream Input{File.mPath, std::ios::binary};
+            if (!Input) {
+                ReportFailure(File.mPath, "소스 파일을 읽을 수 없습니다.");
+                return;
+            }
+            const auto Text{NormalizeReferenceText(Core::FString{std::istreambuf_iterator<char>{Input}, std::istreambuf_iterator<char>{}})};
+            if (std::ranges::any_of(SourceNeedles, [&](const Core::FString& Needle) {
+                return Text.find(Needle) != Core::FString::npos;
+            })) {
+                ReportFailure(File.mPath, "소스에 이전 경로가 남아 있습니다.");
+                return;
+            }
+            continue;
+        }
+
+        const auto Type{*File.mType};
+        if (!AssetHasReferenceFields(Type)) {
+            continue;
+        }
+
+        const auto SavedTime{std::filesystem::last_write_time(File.mPath, Code)};
+        if (Code) {
+            ReportFailure(File.mPath, Code.message());
+            return;
+        }
+
+        Core::TArray<Uint8> Payload{};
+        bool Changed{};
+        if (Type == Asset::EAssetType::Redirector) {
+            Core::TArray<std::filesystem::path> Trace{};
+            const auto Destination{Assets.ResolveRedirectedPath(File.mPath, Trace, Error)};
+            if (Trace.size() < 2 || !std::any_of(Trace.begin() + 1, Trace.end(), IsSelected)) {
+                continue;
+            }
+            if (Destination.empty()) {
+                ReportFailure(File.mPath, Error);
+                return;
+            }
+            const auto Target{Assets.GetRelativePath(Destination, Error)};
+            Payload.assign(Target.begin(), Target.end());
+            Changed = true;
+        } else {
+            if (!Asset::FAssetFile::Load(File.mPath, Type, Payload, Error)) {
+                ReportFailure(File.mPath, Error);
+                return;
+            }
+
+            const bool Valid{RewriteAssetReferences(Assets, Type, Payload, Remap, Changed, Error)};
+            if (!Valid || !ReferenceError.empty()) {
+                ReportFailure(File.mPath, ReferenceError.empty() ? Error : ReferenceError);
+                return;
+            }
+        }
+
+        if (!Changed) {
+            continue;
+        }
+
+        if (mAssetEditors.HasOpenAsset(Type, [&](const std::filesystem::path& Path) {
+            Core::FString PathError{};
+            return Core::FilePath::ToLower(Assets.ResolvePath(Path, PathError)) == Core::FilePath::ToLower(File.mPath);
+        })) {
+            ReportFailure(File.mPath, "에셋 편집기를 닫은 뒤 다시 시도하세요.");
+            return;
+        }
+
+        if (std::filesystem::last_write_time(File.mPath, Code) != SavedTime || Code) {
+            ReportFailure(File.mPath, "검사 중 파일이 변경됐습니다.");
+            return;
+        }
+
+        const auto Writable{GetContentActionPath(File.mPath)};
+        if (Writable.empty() || !Asset::FAssetFile::Save(Writable, Type, Payload, Error)) {
+            ReportFailure(File.mPath, Error);
+            return;
+        }
+        mReferenceCache.erase(File.mPath);
+
+        if (Type == Asset::EAssetType::Material) {
+            if (!Assets.ReloadMaterial(Writable, Error)) {
+                ReportFailure(File.mPath, Error);
+                return;
+            }
+        } else if (Type == Asset::EAssetType::Shader) {
+            auto* Shader{Assets.LoadShader(Writable, Error)};
+            const auto Source{Shader != nullptr ? Remap(Shader->GetSourcePath(), true) : Core::FString{}};
+            if (Shader == nullptr || !ReferenceError.empty() || (!Source.empty() && !Shader->SetSourcePath(Source))) {
+                ReportFailure(File.mPath, ReferenceError.empty() ? Error : ReferenceError);
+                return;
+            }
+        } else {
+            Assets.RetireAssets(Writable);
+        }
+        ++Updated;
+    }
+
+    if (!Startup.empty() && !Project.SetStartupScene(Core::FilePath::FromUtf8(Startup), Error)) {
+        ReportFailure(Project.GetFilePath(), Error);
+        return;
+    }
+
+    const auto ScenePath{mContext->GetScenePath()};
+    if (Updated != 0 && !ScenePath.empty() && !mContext->LoadScene(ScenePath)) {
+        ReportFailure(ScenePath, "편집 중인 씬을 다시 열지 못했습니다.");
+        return;
+    }
+
+    std::size_t Removed{};
+    for (const auto& Marker : Selected) {
+        const auto Writable{GetContentActionPath(Marker)};
+        Asset::EAssetType Type{};
+        if (Writable.empty() || !Asset::FAssetFile::GetType(Writable, Type, Error) || Type != Asset::EAssetType::Redirector) {
+            ReportFailure(Marker, "Redirector가 변경됐습니다.");
+            return;
+        }
+
+        const bool EmptyRedirectorDirectory{Assets.IsRedirectorDirectory(Writable.parent_path())};
+        if (!std::filesystem::remove(Writable, Code) || Code) {
+            ReportFailure(Marker, Code ? Code.message() : "Redirector를 찾을 수 없습니다.");
+            return;
+        }
+
+        if (EmptyRedirectorDirectory) {
+            std::filesystem::remove(Writable.parent_path(), Code);
+        }
+        ++Removed;
+    }
+
+    mRefreshContent = true;
+    mContext->AddLog(std::format("Fix Up Redirectors: updated {} files, removed {} redirectors", Updated + static_cast<std::size_t>(!Startup.empty()), Removed));
 }
 
 void FContentBrowserWidget::CreateContentFolder() {
@@ -667,6 +1494,10 @@ void FContentBrowserWidget::ShowContentInExplorer() const {
 }
 
 void FContentBrowserWidget::RefreshContent() {
+    std::erase_if(mReferenceCache, [](const auto& Entry) {
+        std::error_code Code{};
+        return !std::filesystem::exists(Entry.first, Code) && !Code;
+    });
     mAssetPaths.clear();
     mAssetTypes.clear();
     mContentFolders.clear();
@@ -773,9 +1604,21 @@ void FContentBrowserWidget::DrawContentTree(const std::filesystem::path& Directo
     const ImVec2 Maximum{ImGui::GetItemRectMax()};
 
     mImports.RegisterContentDropTarget(Directory, {Minimum.x, Minimum.y, Maximum.x, Maximum.y});
+    AcceptContentMove(Directory);
 
     if (ImGui::IsItemClicked()) {
         NavigateContent(Directory);
+    }
+
+    if (!Directory.has_root_directory() && ImGui::BeginPopupContextItem("##FolderRedirectors")) {
+        if (!Directory.empty() && ImGui::MenuItem("Move To...", nullptr, false, mContext->CanEditWorld())) {
+            mSelectedContentPath = Directory;
+            BeginContentAction(EContentAction::Move);
+        }
+        if (ImGui::MenuItem("Fix Up Redirectors in Folder", nullptr, false, mContext->CanEditWorld())) {
+            mPendingFixUpDirectory = Directory;
+        }
+        ImGui::EndPopup();
     }
 
     if (Open) {
@@ -965,6 +1808,7 @@ void FContentBrowserWidget::DrawContentEntries() {
                         const ImVec2 Maximum{ImGui::GetItemRectMax()};
 
                         mImports.RegisterContentDropTarget(Path, {Minimum.x, Minimum.y, Maximum.x, Maximum.y});
+                        AcceptContentMove(Path);
                     }
 
                     // 애니메이션 에셋은 Details의 해당 필드에 놓을 수 있도록 끌기를 허용합니다.
@@ -976,8 +1820,9 @@ void FContentBrowserWidget::DrawContentEntries() {
 
                     const bool HasViewer{HasAssetType && Viewer::FAssetViewer::Supports(Type->second)};
 
-                    if ((LuaScript || HasViewer || AnimSequence || BlendSpace || AnimGraph || Shader) && mContext->CanEditWorld() && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
-                        const char* Payload{LuaScript ? Editor::EditorAssetDragDrop::LuaScriptPayload : Shader ? Editor::EditorAssetDragDrop::ShaderPayload : AnimSequence ? Editor::EditorAssetDragDrop::AnimSequencePayload : BlendSpace ? Editor::EditorAssetDragDrop::BlendSpacePayload : AnimGraph ? Editor::EditorAssetDragDrop::AnimGraphPayload : Type->second == Asset::EAssetType::Mesh || Type->second == Asset::EAssetType::SkeletalMesh ? Editor::EditorAssetDragDrop::MeshPayload : Type->second == Asset::EAssetType::Skeleton ? Editor::EditorAssetDragDrop::SkeletonPayload : Type->second == Asset::EAssetType::Material ? Editor::EditorAssetDragDrop::MaterialPayload : Editor::EditorAssetDragDrop::TexturePayload};
+                    const bool Assignable{LuaScript || HasViewer || AnimSequence || BlendSpace || AnimGraph || Shader};
+                    if ((Assignable || (Directory && !Path.has_root_directory()) || (HasAssetType && Core::FilePath::ToLowerExtension(Path) == L".masset")) && mContext->CanEditWorld() && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+                        const char* Payload{!Assignable ? ContentMovePayload : LuaScript ? Editor::EditorAssetDragDrop::LuaScriptPayload : Shader ? Editor::EditorAssetDragDrop::ShaderPayload : AnimSequence ? Editor::EditorAssetDragDrop::AnimSequencePayload : BlendSpace ? Editor::EditorAssetDragDrop::BlendSpacePayload : AnimGraph ? Editor::EditorAssetDragDrop::AnimGraphPayload : Type->second == Asset::EAssetType::Mesh || Type->second == Asset::EAssetType::SkeletalMesh ? Editor::EditorAssetDragDrop::MeshPayload : Type->second == Asset::EAssetType::Skeleton ? Editor::EditorAssetDragDrop::SkeletonPayload : Type->second == Asset::EAssetType::Material ? Editor::EditorAssetDragDrop::MaterialPayload : Editor::EditorAssetDragDrop::TexturePayload};
 
                         ImGui::SetDragDropPayload(Payload, Actual.c_str(), Actual.size() + 1);
                         mAssetDragSourceId = ImGui::GetDragDropPayload()->SourceId;
