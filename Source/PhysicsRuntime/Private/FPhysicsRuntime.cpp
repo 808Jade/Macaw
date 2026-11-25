@@ -79,7 +79,7 @@ namespace PhysicsRuntime {
         }
 
         mTolerancesScale.length = UnitLength / 1_m;
-        mTolerancesScale.speed = mSettings.mTypicalSpeed.GetBase();
+        mTolerancesScale.speed = mSettings.mTypicalSpeed;
 
         mFoundation.reset(PxCreateFoundation(PX_PHYSICS_VERSION, mAllocator, mErrorCallback));
 

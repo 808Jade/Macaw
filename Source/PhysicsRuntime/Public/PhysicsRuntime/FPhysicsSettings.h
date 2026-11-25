@@ -7,7 +7,6 @@
 #pragma once
 
 #include "Core/Math/FVector.h"
-#include "Core/Literals/QuantityTypes.h"
 #include "Core/Types.h"
 
 namespace PhysicsRuntime {
@@ -23,7 +22,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 허용 오차 기준으로 쓰는 일반적인 물체 속력(m/s)입니다.
          */
-        Core::FSpeed mTypicalSpeed{Core::FSpeed::FromBase(9.81f)};
+        float mTypicalSpeed{9.81f};
 
         /**
          * @brief 시뮬레이션 작업을 실행할 CPU 디스패처의 작업 스레드 수입니다.
@@ -74,7 +73,7 @@ namespace PhysicsRuntime {
         /**
          * @brief 물리 장면을 한 번에 진행하는 고정 스텝 시간(초)이며 유한한 양수여야 합니다.
          */
-        Core::FTime mFixedStep{Core::FTime::FromBase(1.0f / 60.0f)};
+        float mFixedStepSeconds{1.0f / 60.0f};
 
         /**
          * @brief 한 프레임에 진행할 수 있는 최대 고정 스텝 수이며, 넘는 시간은 버립니다.

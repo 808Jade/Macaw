@@ -148,8 +148,8 @@ namespace PhysicsRuntime {
     /**
      * @brief 장면을 한 스텝 진행하고 결과를 받을 때까지 기다립니다.
      */
-    bool PhysicsRuntime::FPhysicsScene::Simulate(Core::FTime StepTime) {
-        if (mScene == nullptr || !std::isfinite(StepTime.GetBase()) || StepTime <= Core::FTime{}) {
+    bool PhysicsRuntime::FPhysicsScene::Simulate(float StepSeconds) {
+        if (mScene == nullptr || !std::isfinite(StepSeconds) || StepSeconds <= 0.0f) {
             return false;
         }
 
@@ -157,8 +157,8 @@ namespace PhysicsRuntime {
             const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::Simulate};
 
             mContacts.clear();
-            mVehicleManager->Step(StepTime);
-            mScene->simulate(StepTime.GetBase());
+            mVehicleManager->Step(Core::FTime::FromBase(StepSeconds));
+            mScene->simulate(StepSeconds);
             mScene->fetchResults(true);
         }
 
