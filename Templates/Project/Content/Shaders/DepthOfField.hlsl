@@ -39,6 +39,21 @@ float ApertureHalfWidth(float Y, float Sides) {
     return sqrt(saturate(1.0f - Y * Y));
 }
 
+// LDR 장면 색에서 잘린 광원 에너지를 근사로 복원하는 입력 상한입니다. 0.92이면 최대 12.5배까지 펼칩니다.
+static const float BokehHighlightInputLimit = {0.92f};
+
+// 블러 전에 LDR 색을 역 Reinhard로 HDR 근사값으로 펼쳐 작은 광원이 밝은 보케 디스크로 남게 합니다.
+float3 ExpandBokehHighlights(float3 Color) {
+    const float Peak = {min(max(max(Color.r, Color.g), Color.b), BokehHighlightInputLimit)};
+
+    return Color / (1.0f - Peak);
+}
+
+// ExpandBokehHighlights의 정확한 역함수입니다. 흐려지지 않은 색은 원래 값으로 돌아옵니다.
+float3 CompressBokehHighlights(float3 Color) {
+    return Color / (1.0f + max(max(Color.r, Color.g), Color.b));
+}
+
 float ApertureSampleCoverage(float X, float HalfWidth) {
     return max(min(X + 0.5f, HalfWidth) - max(X - 0.5f, -HalfWidth), 0.0f);
 }
@@ -94,7 +109,7 @@ float4 DilateForeground(float4 Center, int2 FirstPixel, int2 LastPixel) {
         for (int Tap = 0; Tap < 4; ++Tap) {
             const int2 Offset = {int2(Tap % 2, Tap / 2)};
             const int2 Pixel = {min(BestPixel + Offset, LastPixel)};
-            ExpandedColor += SceneColor.Load(int3(Pixel, 0)).rgb * BestWeights[Tap];
+            ExpandedColor += ExpandBokehHighlights(SceneColor.Load(int3(Pixel, 0)).rgb) * BestWeights[Tap];
         }
 
         // 선택한 표본의 RGB와 알파를 함께 사용하고 작은 블러 반경에서는 확장을 줄입니다.
@@ -116,7 +131,7 @@ FDepthOfFieldLayers SeparateDepthOfField(FVertexOutput Input) {
         for (int X = 0; X < 2; ++X) {
             const int3 Pixel = {int3(min(FirstPixel + int2(X, Y), LastPixel), 0)};
             const float2 Weights = {GetLayerWeights(SceneDepth.Load(Pixel))};
-            const float4 Color = {float4(SceneColor.Load(Pixel).rgb, 1.0f)};
+            const float4 Color = {float4(ExpandBokehHighlights(SceneColor.Load(Pixel).rgb), 1.0f)};
 
             // 색상과 커버리지를 함께 필터링해 레이어 경계에서 색이 섞이거나 어두워지는 현상을 줄입니다.
             Output.mForeground += Color * Weights.x;
@@ -191,7 +206,7 @@ float3 CompositeBackground(float3 Color, float BackgroundWeight, float2 LayerUV)
         const float4 Background = {BackgroundLayer.SampleLevel(LinearClamp, LayerUV, 0.0f)};
 
         if (Background.a > MinLayerCoverage) {
-            Color = lerp(Color, Background.rgb / Background.a, BackgroundWeight);
+            Color = lerp(Color, CompressBokehHighlights(Background.rgb / Background.a), BackgroundWeight);
         }
     }
 
@@ -242,16 +257,17 @@ float4 CompositeDepthOfField(FVertexOutput Input) : SV_TARGET {
     const float Coverage = {saturate(Foreground.a)};
     const float Uncovered = {1.0f - Coverage};
     const float MissingCoverage = {Weights.x - Coverage};
+    // 레이어는 HDR 근사값을 커버리지로 곱해 저장하므로 색을 되돌린 뒤 다시 커버리지를 곱합니다.
+    const float3 NearColor = {Foreground.a > MinLayerCoverage ? CompressBokehHighlights(Foreground.rgb / Foreground.a) : (float3)0};
 
     [branch]
     if (Foreground.a > 0.0f && MissingCoverage > MinLayerCoverage) {
         // 블러로 비워진 영역은 뒤쪽 표본으로 채워 원본 Near 윤곽이 다시 섞이지 않게 합니다.
-        const float3 NearColor = {Foreground.rgb / Foreground.a};
         const float3 Behind = {ReconstructBehindForeground(Pixel, Depth, HalfSize, NearColor)};
         Color = lerp(Color, Behind, saturate(MissingCoverage / Uncovered));
     }
 
-    Color = Foreground.rgb + Color * Uncovered;
+    Color = NearColor * Coverage + Color * Uncovered;
 
     // 반경이 1px보다 작으면 절반 해상도 필터의 영향을 원본으로 부드럽게 줄입니다.
     return float4(lerp(Original.rgb, Color, saturate(DepthOfFieldParameters.w)), Original.a);
