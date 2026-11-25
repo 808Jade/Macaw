@@ -9,6 +9,8 @@
 #include "Core/Types.h"
 #include "Core/Literals/QuantityTypes.h"
 #include "Core/Math/FVector.h"
+// 설정 멤버 포인터의 크기가 파일마다 같도록, 앞선언 대신 정의를 include합니다.
+#include "PhysicsRuntime/UClothConfigNv.h"
 
 #include <utility>
 
@@ -18,7 +20,6 @@ namespace Asset {
 }
 
 namespace PhysicsRuntime {
-    class UClothConfigNv;
     class UClothingAssetCommon;
     class UPhysicsAsset;
     struct FClothPhysicalMeshData;
