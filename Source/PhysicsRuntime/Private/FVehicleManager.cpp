@@ -8,6 +8,7 @@
 #include "Core/Literals/UnitLiterals.h"
 #include "PhysicsRuntime/FBodyInstance.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
+#include "PhysicsRuntime/PhysicsStats.h"
 
 #include <vehicle/PxVehicleDrive4W.h>
 #include <vehicle/PxVehicleDriveNW.h>
@@ -707,6 +708,7 @@ namespace PhysicsRuntime {
             return;
         }
 
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::VehicleUpdate};
         FRaycastBatch& Batch{*mRaycastBatch};
         for (FVehicle& Vehicle : mVehicles) {
             const physx::PxVehicleWheelQueryResult Results{Vehicle.mWheelResults.data(), static_cast<physx::PxU32>(Vehicle.mWheelResults.size())};

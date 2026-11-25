@@ -14,6 +14,7 @@
 #include "Engine/Component/USkeletalMeshComponent.h"
 #include "Engine/UWorld.h"
 #include "PhysicsRuntime/FRigidBodySimulation.h"
+#include "PhysicsRuntime/PhysicsStats.h"
 #include "PhysicsRuntime/UPhysicsAsset.h"
 
 namespace Engine {
@@ -125,6 +126,7 @@ namespace Engine {
             return;
         }
 
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::AnimRigidBody};
         const auto& Bones{Skeleton->GetBones()};
         const FMatrix ComponentToWorld{Component->GetTransform().ToMatrix()};
         FMatrix WorldToComponent{};

@@ -433,6 +433,8 @@ namespace PhysicsRuntime {
 
     private:
 
+        void Solve(float DeltaTime);
+
         /**
          * @brief 천의 현재 입자 위치로 삼각형 법선을 더해 입자 법선을 구합니다.
          * @param[in,out] Actor 법선을 갱신할 천입니다.

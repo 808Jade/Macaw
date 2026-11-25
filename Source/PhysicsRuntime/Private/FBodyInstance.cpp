@@ -11,6 +11,7 @@
 #include "PhysicsRuntime/FPhysicsScene.h"
 #include "PhysicsRuntime/FVehicleManager.h"
 #include "PhysicsRuntime/PhysicsConversion.h"
+#include "PhysicsRuntime/PhysicsStats.h"
 #include "PhysicsRuntime/UBodySetup.h"
 #include "Core/Log/Log.h"
 
@@ -500,6 +501,9 @@ namespace PhysicsRuntime {
             return false;
         }
 
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::OverlapQueryTime};
+        PhysicsRuntime::PhysicsStats::OverlapQueries.Add();
+
         Core::TArray<physx::PxShape*> Shapes(mActor->getNbShapes());
         mActor->getShapes(Shapes.data(), static_cast<physx::PxU32>(Shapes.size()));
 
@@ -551,6 +555,9 @@ namespace PhysicsRuntime {
         if (Length <= 1.0e-6f) {
             return false;
         }
+
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::SweepQueryTime};
+        PhysicsRuntime::PhysicsStats::SweepQueries.Add();
 
         Core::TArray<physx::PxShape*> Shapes(mActor->getNbShapes());
         mActor->getShapes(Shapes.data(), static_cast<physx::PxU32>(Shapes.size()));

@@ -977,6 +977,7 @@ namespace Engine {
     void Engine::UWorld::UpdateOverlaps() {
         using FOverlapPair = std::pair<CoreUObject::TObjectRef<Engine::UPrimitiveComponent>, CoreUObject::TObjectRef<Engine::UPrimitiveComponent>>;
 
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::OverlapUpdate};
         Core::TArray<FOverlapPair> Current{};
 
         if (mPhysicsScene != nullptr && mPersistentLevel != nullptr) {
@@ -1011,6 +1012,8 @@ namespace Engine {
                 }
             }
         }
+
+        PhysicsRuntime::PhysicsStats::OverlapPairs.Add(static_cast<double>(Current.size()));
 
         const auto Contains{[](const auto& Pairs, const auto& Pair) {
             return std::find(Pairs.begin(), Pairs.end(), Pair) != Pairs.end();
