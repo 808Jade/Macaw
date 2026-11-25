@@ -300,6 +300,15 @@ namespace PhysicsRuntime {
          */
         void SetInstanceSimulatePhysics(bool Simulate);
 
+        /**
+         * @brief 이 바디의 모든 PhysX 형상에 충돌 필터 데이터를 설정합니다.
+         * @param[in] GroupId 같은 물리 에셋 인스턴스의 바디가 공유하는 충돌 그룹 번호이며 0이 아니어야 쌍 목록이 적용됩니다.
+         * @param[in] BodyIndex 물리 에셋 안의 바디 번호입니다.
+         * @param[in] CollisionEnabled false이면 이 바디는 어떤 형상과도 충돌하지 않습니다. 뷰포트 선택(레이캐스트)에는 영향이 없습니다.
+         * @note 바디를 만든 직후, 첫 시뮬레이션 전에 호출해야 합니다.
+         */
+        void SetCollisionFilter(Uint32 GroupId, Uint32 BodyIndex, bool CollisionEnabled);
+
     public:
 
         /**

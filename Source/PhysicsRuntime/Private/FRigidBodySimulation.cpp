@@ -43,6 +43,7 @@ namespace PhysicsRuntime {
         const Index_t BodyCount{Asset.mSkeletalBodySetups.size()};
         Core::TMap<Core::FString, PhysicsRuntime::FBodyInstance*> NameToBody{};
         Index_t Created{};
+        const Uint32 CollisionGroup{mScene->AllocateCollisionGroup()};
 
         mEntries.resize(BodyCount);
 
@@ -73,6 +74,9 @@ namespace PhysicsRuntime {
                 continue;
             }
 
+            // 충돌 설정: 이 에셋의 바디끼리는 비활성 쌍 목록을 따르고, 충돌을 끈 바디는 아무것도 부딪히지 않는다.
+            Body->SetCollisionFilter(CollisionGroup, static_cast<Uint32>(BodyIndex), Setup->IsCollisionEnabled());
+
             // 머리카락처럼 가벼운 바디가 접촉이 없어 잠들면 Kinematic 부모가 움직여도 늦게 반응하므로 잠들지 않게 한다.
             if (physx::PxRigidDynamic* Dynamic{Body->GetPxRigidActor() != nullptr ? Body->GetPxRigidActor()->is<physx::PxRigidDynamic>() : nullptr}) {
                 Dynamic->setSleepThreshold(0.0f);
@@ -92,6 +96,8 @@ namespace PhysicsRuntime {
 
             return false;
         }
+
+        mScene->SetCollisionDisabledPairs(CollisionGroup, Asset.BuildCollisionDisabledBodyPairs());
 
         mConstraints.resize(Asset.mConstraintSetup.size());
 

@@ -144,6 +144,7 @@ namespace Asset::FPhysicsAssetUtils {
     bool CreateFromSkeletalMesh(PhysicsRuntime::UPhysicsAsset& PhysicsAsset, const USkeletalMesh& Mesh, const USkeleton& Skeleton, const FPhysAssetCreateParams& Params) {
         PhysicsAsset.mSkeletalBodySetups.clear();
         PhysicsAsset.mConstraintSetup.clear();
+        PhysicsAsset.mCollisionDisabledPairs.clear();
         PhysicsAsset.UpdateBodySetupIndexMap();
 
         if (!Mesh.IsValid() || !Skeleton.IsValid()) {
@@ -372,6 +373,11 @@ namespace Asset::FPhysicsAssetUtils {
 
         std::erase_if(PhysicsAsset.mConstraintSetup, [&BoneName](const std::unique_ptr<PhysicsRuntime::UPhysicsConstraintTemplate>& Setup) {
             return Setup == nullptr || Setup->mDefaultInstance.mConstraintBone1 == BoneName || Setup->mDefaultInstance.mConstraintBone2 == BoneName;
+        });
+
+        // 지운 바디의 뼈를 가리키는 충돌 비활성 쌍도 함께 지운다.
+        std::erase_if(PhysicsAsset.mCollisionDisabledPairs, [&BoneName](const std::pair<Core::FString, Core::FString>& Pair) {
+            return Pair.first == BoneName || Pair.second == BoneName;
         });
 
         PhysicsAsset.mSkeletalBodySetups.erase(PhysicsAsset.mSkeletalBodySetups.begin() + static_cast<std::ptrdiff_t>(BodyIndex));
