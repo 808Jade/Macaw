@@ -138,16 +138,30 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        // 관절 위치는 바디의 스케일만큼 늘어난 자리에 둡니다.
+        // 관절 위치는 그 관절 프레임이 속한 바디의 스케일만큼 늘어난 자리에 둡니다.
+        // 프레임 위치는 뼈 기준 값이고 바디의 형상은 뼈의 월드 스케일(부모 뼈들의 스케일 포함)로 만들어지므로,
+        // 같은 스케일을 써야 한다. 컴포넌트 스케일만 쓰면 뼈에 스케일이 있는 스켈레톤(예: cm 단위를 0.01 루트 스케일로 줄인 FBX)에서
+        // 관절 위치가 형상보다 수십~수백 배 멀리 놓여 시뮬레이션이 폭주한다.
+        // 바디가 뼈의 스케일을 담고 있지 않은 호출(스케일 1)에서는 호출자가 넘긴 Scale을 그대로 쓴다.
+        const auto ScaleOf{[Scale](const FBodyInstance* Body) {
+            if (Body == nullptr) {
+                return Scale;
+            }
+
+            const FVector& BodyScale{Body->GetBodyScale()};
+            const float BodyMin{std::min({std::abs(BodyScale.x), std::abs(BodyScale.y), std::abs(BodyScale.z)})};
+
+            return BodyMin > 0.0f && std::isfinite(BodyMin) ? BodyMin : Scale;
+        }};
         FTransform Local1{GetRefFrame(EConstraintFrame::Frame1)};
         FTransform Local2{GetRefFrame(EConstraintFrame::Frame2)};
 
         if (Actor1 != nullptr) {
-            Local1.mLocation *= Scale;
+            Local1.mLocation *= ScaleOf(Body1);
         }
 
         if (Actor2 != nullptr) {
-            Local2.mLocation *= Scale;
+            Local2.mLocation *= ScaleOf(Body2);
         }
 
         // 부모 바디를 앞에, 자식 바디를 뒤에 둡니다.
