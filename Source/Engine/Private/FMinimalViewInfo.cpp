@@ -21,6 +21,7 @@ namespace Engine {
         Result.mLocation = mLocation.Lerp(Other.mLocation, Alpha);
         Result.mRotation = mRotation.Slerp(Other.mRotation, Alpha);
         Result.mFieldOfView = mFieldOfView + (Other.mFieldOfView - mFieldOfView) * Alpha;
+        Result.mSensorHeight = Core::Math::Lerp(mSensorHeight, Other.mSensorHeight, Alpha);
 
         const Engine::FDepthOfFieldSettings& From{mDepthOfFieldSettings};
         const Engine::FDepthOfFieldSettings& To{Other.mDepthOfFieldSettings};
@@ -30,8 +31,6 @@ namespace Engine {
         if (Alpha > 0.0f && Alpha < 1.0f) {
             if (From.mEnabled && To.mEnabled) {
                 DepthOfField.mFocalDistance = Core::Math::Lerp(From.mFocalDistance, To.mFocalDistance, Alpha);
-                DepthOfField.mFocusWidth = Core::Math::Lerp(From.mFocusWidth, To.mFocusWidth, Alpha);
-                DepthOfField.mTransitionDistance = Core::Math::Lerp(From.mTransitionDistance, To.mTransitionDistance, Alpha);
                 DepthOfField.mMaxBlurRadius = std::lerp(From.mMaxBlurRadius, To.mMaxBlurRadius, Alpha);
                 DepthOfField.mFStop = std::lerp(From.mFStop, To.mFStop, Alpha);
             } else if (From.mEnabled != To.mEnabled) {
@@ -54,6 +53,7 @@ namespace Engine {
         CameraView.mForward = mRotation.ForwardVector();
         CameraView.mSize = Size;
         CameraView.mFieldOfView = mFieldOfView;
+        CameraView.mSensorHeight = mSensorHeight;
         CameraView.mDepthOfFieldSettings = mDepthOfFieldSettings;
         CameraView.mView = FMatrix::LookTo(CameraView.mLocation, CameraView.mForward, mRotation.UpVector());
         CameraView.mProjection = FMatrix::Perspective(mFieldOfView, Size.x / Size.y, 0.05_m, 10000_m);

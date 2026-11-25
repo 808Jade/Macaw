@@ -220,6 +220,14 @@ namespace Editor {
                 if (Name == "FStop") {
                     return "F-stop";
                 }
+
+                if (Name == "FocalDistance") {
+                    return "Focus Distance";
+                }
+            }
+
+            if (Name == "UseFieldOfView") {
+                return "Use Field of View";
             }
 
             if (Name == "ShadowBiasPreset") {

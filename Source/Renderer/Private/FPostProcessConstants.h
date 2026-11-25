@@ -62,7 +62,7 @@ namespace Renderer {
         FVector4 mProjectionDepth{};
 
         /**
-         * @brief 초점 거리·초점 구간의 절반 폭·전이 거리(m)와 F-stop이 반영된 블러 반경(px)입니다.
+         * @brief 초점 평면 거리(m), 무한대의 착란원 반경 K(px), 전경·배경 블러 커널 반경(px)입니다.
          */
         FVector4 mDepthOfFieldParameters{};
     };

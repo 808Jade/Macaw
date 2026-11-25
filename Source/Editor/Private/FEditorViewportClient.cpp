@@ -707,9 +707,12 @@ namespace Editor {
 
         const Engine::UWorld* World{mContext != nullptr ? mContext->GetWorld() : nullptr};
 
-        // 편집 카메라의 시점을 유지하면서 활성 카메라의 피사계 심도 설정을 적용합니다.
+        // 편집 카메라의 시점을 유지하면서 활성 카메라의 피사계 심도 설정과 렌즈를 적용합니다.
+        // 편집 카메라의 시야각은 카메라 렌즈와 무관하므로 흐림 크기는 카메라의 초점거리·센서로 계산합니다.
         if (const Engine::UCameraComponent* Camera{World != nullptr ? World->GetActiveCamera() : nullptr}) {
             View.mDepthOfFieldSettings = Camera->GetDepthOfFieldSettings();
+            View.mSensorHeight = Camera->GetSensorHeight();
+            View.mLensFocalLength = Camera->GetFocalLength();
         }
 
         return View;

@@ -58,11 +58,19 @@ float ApertureSampleCoverage(float X, float HalfWidth) {
     return max(min(X + 0.5f, HalfWidth) - max(X - 0.5f, -HalfWidth), 0.0f);
 }
 
+float ForegroundBlurRadius() {
+    return DepthOfFieldParameters.z;
+}
+
+float BackgroundBlurRadius() {
+    return DepthOfFieldParameters.w;
+}
+
 float2 GetLayerWeights(float Depth) {
     float2 Weights = {float2(0.0f, 1.0f)};
 
     if (Depth < 1.0f) {
-        Weights = ComputeDepthOfFieldWeights(ReconstructViewDepth(Depth), DepthOfFieldParameters.x, DepthOfFieldParameters.y, DepthOfFieldParameters.z);
+        Weights = ComputeDepthOfFieldWeights(ReconstructViewDepth(Depth), DepthOfFieldParameters);
     }
 
     return Weights * (1.0f - Settings.zw);
@@ -114,7 +122,7 @@ float4 DilateForeground(float4 Center, int2 FirstPixel, int2 LastPixel) {
 
         // 선택한 표본의 RGB와 알파를 함께 사용하고 작은 블러 반경에서는 확장을 줄입니다.
         const float4 Expanded = {float4(ExpandedColor * 0.25f, BestCoverage)};
-        Center = lerp(Center, Expanded, saturate(DepthOfFieldParameters.w * 0.5f));
+        Center = lerp(Center, Expanded, saturate(ForegroundBlurRadius() * 0.5f));
     }
 
     return Center;
@@ -152,7 +160,8 @@ FDepthOfFieldLayers SeparateDepthOfField(FVertexOutput Input) {
 
 FDepthOfFieldLayers BlurDepthOfField(FVertexOutput Input) {
     const float2 HalfSize = {ceil(ScreenSize.xy * 0.5f)};
-    const float HalfRadius = {max(0.5f * DepthOfFieldParameters.w, 0.001f)};
+    // 전경·배경 레이어를 따로 블러합니다. Settings.x가 0이면 전경, 1이면 배경 커널 반경을 씁니다.
+    const float HalfRadius = {max(0.5f * (Settings.x == 0.0f ? ForegroundBlurRadius() : BackgroundBlurRadius()), 0.001f)};
     // 큰 반경에서는 표본 간격을 넓혀 커널이 읽는 텍셀 수를 제한합니다.
     const float SampleSpacing = {max(1.0f, HalfRadius / 10.0f)};
     const float Radius = {HalfRadius / SampleSpacing};
@@ -215,7 +224,7 @@ float3 CompositeBackground(float3 Color, float BackgroundWeight, float2 LayerUV)
 
 float3 ReconstructBehindForeground(int2 Pixel, float Depth, float2 HalfSize, float3 Fallback) {
     const int2 LastPixel = {int2(ScreenSize.xy) - 1};
-    const float Radius = {DepthOfFieldParameters.w};
+    const float Radius = {ForegroundBlurRadius()};
     float4 Behind = {(float4)0};
 
     [loop]
@@ -270,5 +279,5 @@ float4 CompositeDepthOfField(FVertexOutput Input) : SV_TARGET {
     Color = NearColor * Coverage + Color * Uncovered;
 
     // 반경이 1px보다 작으면 절반 해상도 필터의 영향을 원본으로 부드럽게 줄입니다.
-    return float4(lerp(Original.rgb, Color, saturate(DepthOfFieldParameters.w)), Original.a);
+    return float4(lerp(Original.rgb, Color, saturate(max(ForegroundBlurRadius(), BackgroundBlurRadius()))), Original.a);
 }

@@ -43,7 +43,7 @@ cbuffer PostProcessConstants : register(b0) {
     float4 FogDistances;
 
     /**
-     * @brief X는 후처리 패스 번호, Y는 조리개 변의 수(원형은 0), ZW는 Near·Far 블러 비활성화 여부입니다.
+     * @brief X는 후처리 패스 번호(DOF 블러에서는 레이어 0 전경, 1 배경), Y는 조리개 변의 수(원형은 0), ZW는 Near·Far 블러 비활성화 여부입니다.
      */
     float4 Settings;
 
@@ -53,7 +53,7 @@ cbuffer PostProcessConstants : register(b0) {
     float4 ProjectionDepth;
 
     /**
-     * @brief 초점 거리·초점 구간의 절반 폭·전이 거리(m)와 F-stop이 반영된 블러 반경(px)입니다.
+     * @brief 초점 평면 거리(m), 무한대의 착란원 반경 K(px), 전경·배경 블러 커널 반경(px)입니다.
      */
     float4 DepthOfFieldParameters;
 };
@@ -119,16 +119,28 @@ float ReconstructViewDepth(float Depth) {
     return (ProjectionDepth.y - Depth * ProjectionDepth.w) / (Depth * ProjectionDepth.z - ProjectionDepth.x);
 }
 
-/** @brief X에 전경 가중치, Y에 배경 가중치를 반환합니다. */
-float2 ComputeDepthOfFieldWeights(float ViewDepth, float FocalDistance, float HalfFocusWidth, float TransitionDistance) {
-    float FocusOffset = {ViewDepth - FocalDistance};
-    float2 DistanceOutsideFocus = {float2(-FocusOffset, FocusOffset) - HalfFocusWidth};
+/**
+ * @brief 얇은 렌즈 모델로 착란원 반경(px)을 계산합니다.
+ * @param[in] ViewDepth 픽셀의 뷰 공간 깊이(m)입니다.
+ * @param[in] FocusDistance 초점 평면까지의 거리(m)입니다.
+ * @param[in] InfinityRadius 무한대 거리에서의 착란원 반경(px)입니다.
+ * @return K · |d − S| / d이며 초점 평면에서 0, 무한대에서 K, 카메라에 가까울수록 커집니다.
+ */
+float ComputeCircleOfConfusionRadius(float ViewDepth, float FocusDistance, float InfinityRadius) {
+    return InfinityRadius * abs(ViewDepth - FocusDistance) / max(ViewDepth, 0.0001f);
+}
 
-    if (TransitionDistance <= 0.0f) {
-        return float2(DistanceOutsideFocus.x > 0.0f ? 1.0f : 0.0f, DistanceOutsideFocus.y > 0.0f ? 1.0f : 0.0f);
-    }
+/**
+ * @brief X에 전경 가중치, Y에 배경 가중치를 반환합니다. 착란원 반경을 레이어의 블러 커널 반경으로 나눈 비율입니다.
+ * @param[in] ViewDepth 픽셀의 뷰 공간 깊이(m)입니다.
+ * @param[in] Parameters 초점 평면 거리, 무한대 착란원 반경, 전경·배경 블러 커널 반경입니다.
+ */
+float2 ComputeDepthOfFieldWeights(float ViewDepth, float4 Parameters) {
+    const float Radius = {ComputeCircleOfConfusionRadius(ViewDepth, Parameters.x, Parameters.y)};
+    const float2 KernelRadius = {max(Parameters.zw, 0.0001f)};
+    const float2 Weights = {saturate(Radius / KernelRadius)};
 
-    return saturate(DistanceOutsideFocus / TransitionDistance);
+    return ViewDepth < Parameters.x ? float2(Weights.x, 0.0f) : float2(0.0f, Weights.y);
 }
 
 /**
@@ -259,7 +271,7 @@ float4 PixelMain(FVertexOutput Input) : SV_TARGET {
         }
 
         float ViewDepth = {ReconstructViewDepth(Depth)};
-        float2 Weights = {ComputeDepthOfFieldWeights(ViewDepth, DepthOfFieldParameters.x, DepthOfFieldParameters.y, DepthOfFieldParameters.z)};
+        float2 Weights = {ComputeDepthOfFieldWeights(ViewDepth, DepthOfFieldParameters)};
         const float2 EnabledWeights = {Weights * (1.0f - Settings.zw)};
 
         return float4(EnabledWeights.x, 1.0f - max(Weights.x, Weights.y), EnabledWeights.y, 1.0f);

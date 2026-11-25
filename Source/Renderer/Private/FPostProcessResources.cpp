@@ -104,9 +104,24 @@ namespace Renderer {
         Constants.mProjectionDepth = {Projection(2, 2), Projection(3, 2), Projection(2, 3), Projection(3, 3)};
 
         const Engine::FDepthOfFieldSettings& DepthOfField{Family.mView.mDepthOfFieldSettings};
-        constexpr float FullBlurFStop{1.4f};
-        const float BlurRadius{DepthOfField.mMaxBlurRadius * (FullBlurFStop / std::max(FullBlurFStop, DepthOfField.mFStop))};
-        Constants.mDepthOfFieldParameters = {DepthOfField.mFocalDistance.GetBase(), (DepthOfField.mFocusWidth * 0.5f).GetBase(), DepthOfField.mTransitionDistance.GetBase(), BlurRadius};
+        // 얇은 렌즈 모델: 초점거리 f, 조리개 지름 f/N, 초점 평면 S일 때 깊이 d의 착란원 지름은 센서에서
+        // c(d) = f² / (N(S − f)) · |d − S| / d 입니다. 화면 높이가 센서 높이에 대응하므로 픽셀 반경은 c/2 · 화면 높이 / 센서 높이입니다.
+        // 무한대에서의 반경 K만 CPU에서 구하고, 셰이더는 K · |d − S| / d로 픽셀마다 반경을 계산합니다.
+        const float SensorHeight{Family.mView.mSensorHeight.GetBase()};
+        const float FocalLength{Family.mView.mLensFocalLength > Core::FLength{} ? Family.mView.mLensFocalLength.GetBase() : Engine::Lens::FocalLengthFromFieldOfView(Family.mView.mFieldOfView, Family.mView.mSensorHeight).GetBase()};
+        const float FocusDistance{std::max(DepthOfField.mFocalDistance.GetBase(), FocalLength * 1.001f)};
+        const float MaxBlurRadius{std::max(DepthOfField.mMaxBlurRadius, 0.0f)};
+        float InfinityBlurRadius{};
+
+        if (FocalLength > 0.0f && SensorHeight > 0.0f && DepthOfField.mFStop > 0.0f && std::isfinite(FocalLength)) {
+            const float InfinityCircleOfConfusion{FocalLength * FocalLength / (DepthOfField.mFStop * (FocusDistance - FocalLength))};
+            InfinityBlurRadius = 0.5f * InfinityCircleOfConfusion / SensorHeight * static_cast<float>(Target.GetHeight());
+        }
+
+        // 블러 커널 반경은 레이어마다 하나입니다. 배경 착란원은 무한대에서 K로 수렴하므로 K까지만 쓰고, 전경은 카메라에 가까울수록 커지므로 상한까지 씁니다.
+        const float ForegroundBlurRadius{InfinityBlurRadius > 0.0f ? MaxBlurRadius : 0.0f};
+        const float BackgroundBlurRadius{std::min(InfinityBlurRadius, MaxBlurRadius)};
+        Constants.mDepthOfFieldParameters = {FocusDistance, InfinityBlurRadius, ForegroundBlurRadius, BackgroundBlurRadius};
 
         Asset::UTexture2D* Source{Target.GetSceneColor()};
         Uint32 DrawCalls{};
@@ -138,7 +153,7 @@ namespace Renderer {
         Constants.mSettings.w = DepthOfField.mFarBlur ? 0.0f : 1.0f;
 
         if (mCompositeDepthOfField != nullptr && Family.mShowFlags.mDepthOfField && DepthOfField.mEnabled &&
-            (DepthOfField.mNearBlur || DepthOfField.mFarBlur) && BlurRadius > 0.0f &&
+            (DepthOfField.mNearBlur || DepthOfField.mFarBlur) && InfinityBlurRadius > 0.0f && MaxBlurRadius > 0.0f &&
             !Family.mView.mOrthographic && !Visualization && Family.mViewMode != Engine::EViewMode::Wireframe) {
             switch (DepthOfField.mApertureShape) {
             case Engine::EDepthOfFieldApertureShape::Pentagon:
@@ -154,11 +169,12 @@ namespace Renderer {
             Asset::UTexture2D* Destination{Source == Target.GetSceneColor() ? Target.GetPostProcessColor() : Target.GetSceneColor()};
             mConstants.Update(Context, Constants);
 
-            if (RenderDepthOfField(Context, Target, *Source, *Destination)) {
+            if (RenderDepthOfField(Context, Target, Constants, *Source, *Destination)) {
                 Source = Destination;
-                DrawCalls += 3;
+                DrawCalls += 4;
             }
 
+            Constants.mSettings.x = 0.0f;
             Constants.mSettings.y = 0.0f;
         }
 
@@ -182,7 +198,7 @@ namespace Renderer {
         return DrawCalls + 1;
     }
 
-    bool Renderer::FPostProcessResources::RenderDepthOfField(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination) {
+    bool Renderer::FPostProcessResources::RenderDepthOfField(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, Renderer::FPostProcessConstants& Constants, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination) {
         const FDXRenderTarget::FDepthOfFieldTargets* Layers{Target.PrepareDepthOfFieldTargets()};
 
         if (Layers == nullptr) {
@@ -201,9 +217,18 @@ namespace Renderer {
         const Core::TStaticArray<ID3D11ShaderResourceView*, 2> SceneInputs{Color, Depth};
         Draw(Context, mSeparateDepthOfField.Get(), Separated, SceneInputs);
 
-        const Core::TStaticArray<ID3D11RenderTargetView*, 2> Blurred{BlurredForeground->GetRenderTargetView(), BlurredBackground->GetRenderTargetView()};
+        // 전경과 배경은 커널 반경이 달라 따로 블러합니다. Settings.x가 블러할 레이어(0 전경, 1 배경)이며 다른 출력 슬롯은 비워 둡니다.
         const Core::TStaticArray<ID3D11ShaderResourceView*, 4> BlurInputs{nullptr, nullptr, Foreground->GetShaderResourceView(), Background->GetShaderResourceView()};
-        Draw(Context, mBlurDepthOfField.Get(), Blurred, BlurInputs);
+        const Core::TStaticArray<ID3D11RenderTargetView*, 2> BlurredForegroundOnly{BlurredForeground->GetRenderTargetView(), nullptr};
+        const Core::TStaticArray<ID3D11RenderTargetView*, 2> BlurredBackgroundOnly{nullptr, BlurredBackground->GetRenderTargetView()};
+
+        Constants.mSettings.x = 0.0f;
+        mConstants.Update(Context, Constants);
+        Draw(Context, mBlurDepthOfField.Get(), BlurredForegroundOnly, BlurInputs);
+
+        Constants.mSettings.x = 1.0f;
+        mConstants.Update(Context, Constants);
+        Draw(Context, mBlurDepthOfField.Get(), BlurredBackgroundOnly, BlurInputs);
 
         const D3D11_VIEWPORT FullViewport{0.0f, 0.0f, static_cast<float>(Target.GetWidth()), static_cast<float>(Target.GetHeight()), 0.0f, 1.0f};
         Context->RSSetViewports(1, &FullViewport);

@@ -134,16 +134,6 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
         Settings.mFocalDistance = Core::FLength::FromBase(Meters);
     });
-    DepthOfField["FocusWidth"] = sol::property([](const Engine::FDepthOfFieldSettings& Settings) {
-        return Settings.mFocusWidth.GetBase();
-    }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
-        Settings.mFocusWidth = Core::FLength::FromBase(Meters);
-    });
-    DepthOfField["TransitionDistance"] = sol::property([](const Engine::FDepthOfFieldSettings& Settings) {
-        return Settings.mTransitionDistance.GetBase();
-    }, [](Engine::FDepthOfFieldSettings& Settings, float Meters) {
-        Settings.mTransitionDistance = Core::FLength::FromBase(Meters);
-    });
     DepthOfField["MaxBlurRadius"] = &Engine::FDepthOfFieldSettings::mMaxBlurRadius;
     DepthOfField["FStop"] = &Engine::FDepthOfFieldSettings::mFStop;
     DepthOfField["ApertureShape"] = &Engine::FDepthOfFieldSettings::mApertureShape;
@@ -221,6 +211,33 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Component["SetDepthOfFieldFocalDistance"] = [](const FLuaComponentRef& Ref, float Distance) {
         auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
         return Camera != nullptr && Camera->SetDepthOfFieldFocalDistance(Core::FLength::FromBase(Distance));
+    };
+    // 렌즈 값은 mm 단위로 주고받습니다. 카메라 컴포넌트가 아니면 nil 또는 false를 반환합니다.
+    Component["GetFocalLength"] = [](const FLuaComponentRef& Ref) -> sol::optional<float> {
+        if (const auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())}) {
+            return Camera->GetFocalLength().GetBase() * 1000.0f;
+        }
+
+        return sol::nullopt;
+    };
+    Component["SetFocalLength"] = [](const FLuaComponentRef& Ref, float Millimeters) {
+        auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
+        return Camera != nullptr && Camera->SetFocalLength(Core::FLength::FromBase(Millimeters * 0.001f));
+    };
+    Component["GetSensorHeight"] = [](const FLuaComponentRef& Ref) -> sol::optional<float> {
+        if (const auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())}) {
+            return Camera->GetSensorHeight().GetBase() * 1000.0f;
+        }
+
+        return sol::nullopt;
+    };
+    Component["SetSensorHeight"] = [](const FLuaComponentRef& Ref, float Millimeters) {
+        auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
+        return Camera != nullptr && Camera->SetSensorHeight(Core::FLength::FromBase(Millimeters * 0.001f));
+    };
+    Component["SetUseFieldOfView"] = [](const FLuaComponentRef& Ref, bool UseFieldOfView) {
+        auto* Camera{CoreUObject::Cast<Engine::UCameraComponent>(&Ref.Resolve())};
+        return Camera != nullptr && Camera->SetUseFieldOfView(UseFieldOfView);
     };
     Component["SetDriveTorque"] = [](const FLuaComponentRef& Ref, float Torque, Uint32 WheelIndex) {
         auto* Movement{CoreUObject::Cast<Engine::USimpleVehicleMovementComponent>(&Ref.Resolve())};

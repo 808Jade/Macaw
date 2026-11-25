@@ -86,8 +86,11 @@ namespace Renderer {
         void RenderTexture(ID3D11DeviceContext* Context, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination, ID3D11BlendState* Blend);
 
     private:
-        /** @brief 절반 해상도에서 전경과 배경을 분리 및 블러하고 전체 해상도에 합성합니다. */
-        bool RenderDepthOfField(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination);
+        /**
+         * @brief 절반 해상도에서 전경과 배경을 분리 및 블러하고 전체 해상도에 합성합니다.
+         * @param[in,out] Constants 레이어별 블러 패스마다 Settings.x를 바꿔 다시 올립니다.
+         */
+        bool RenderDepthOfField(ID3D11DeviceContext* Context, Renderer::FDXRenderTarget& Target, Renderer::FPostProcessConstants& Constants, const Asset::UTexture2D& Source, Asset::UTexture2D& Destination);
 
         /**
          * @brief 입력 컬러·깊이를 읽어 다른 컬러 타깃에 전체 화면 삼각형을 그리고 SRV·RTV 바인딩을 해제합니다.

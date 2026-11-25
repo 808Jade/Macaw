@@ -54,6 +54,11 @@ namespace Engine {
          */
         Core::FAngle mFieldOfView{mDefaultFieldOfView};
 
+        /**
+         * @brief 센서의 세로 크기입니다. 시야각과 함께 렌즈 초점거리를 정합니다.
+         */
+        Core::FLength mSensorHeight{Core::FLength::FromBase(Engine::Lens::DefaultSensorHeightMillimeters * 0.001f)};
+
         Engine::FDepthOfFieldSettings mDepthOfFieldSettings{};
 
     private:
