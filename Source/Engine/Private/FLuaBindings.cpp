@@ -211,6 +211,17 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         // nil은 연결 해제이고, 스태틱 메시가 아닌 컴포넌트는 거부합니다.
         return Movement != nullptr && (!MeshRef || Mesh != nullptr) && Movement->SetWheelMesh(WheelIndex, Mesh);
     };
+    Component["SetWheelSkeletalMesh"] = [](const FLuaComponentRef& Ref, sol::optional<FLuaComponentRef> MeshRef) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        auto* Mesh{MeshRef ? CoreUObject::Cast<Engine::USkeletalMeshComponent>(&MeshRef->Resolve()) : nullptr};
+
+        return Movement != nullptr && (!MeshRef || Mesh != nullptr) && Movement->SetWheelSkeletalMesh(Mesh);
+    };
+    Component["SetWheelBone"] = [](const FLuaComponentRef& Ref, Uint32 WheelIndex, sol::optional<Core::FString> BoneName) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+
+        return Movement != nullptr && Movement->SetWheelBone(WheelIndex, BoneName.value_or(Core::FString{}));
+    };
     Component["GetDriveState"] = [](const FLuaComponentRef& Ref) {
         const auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
         return Movement != nullptr ? std::tuple{Movement->GetCurrentGear(), Movement->GetForwardSpeed().GetBase()} : std::tuple{Int32{}, 0.0f};

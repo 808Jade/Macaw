@@ -8,7 +8,9 @@
 #include "CoreUObject/Reflection/Cast.h"
 #include "Engine/AActor.h"
 #include "Engine/Component/UPrimitiveComponent.h"
+#include "Engine/Component/USkeletalMeshComponent.h"
 #include "Engine/Component/UStaticMeshComponent.h"
+#include "Asset/USkeleton.h"
 #include "Engine/UWorld.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
 #include "PhysicsRuntime/FVehicleManager.h"
@@ -162,6 +164,54 @@ namespace Engine {
         return Mesh != nullptr && Mesh->GetOwner() == GetOwner() && !Mesh->IsCollisionEnabled() ? Mesh : nullptr;
     }
 
+    bool UVehicleMovementComponent::SetWheelSkeletalMesh(Engine::USkeletalMeshComponent* Mesh) {
+        if (Mesh != nullptr && (GetOwner() == nullptr || Mesh->GetOwner() != GetOwner() || Mesh == GetUpdatedComponent())) {
+            return false;
+        }
+
+        mWheelSkeletalMesh = CoreUObject::MakeObjectRef(Mesh);
+        return true;
+    }
+
+    Engine::USkeletalMeshComponent* UVehicleMovementComponent::GetWheelSkeletalMesh() const {
+        auto* Mesh{mWheelSkeletalMesh.Get()};
+
+        return Mesh != nullptr && Mesh->GetOwner() == GetOwner() && Mesh != GetUpdatedComponent() ? Mesh : nullptr;
+    }
+
+    bool UVehicleMovementComponent::SetWheelBone(Uint32 WheelIndex, const Core::FString& BoneName) {
+        if (WheelIndex >= GetWheelSettings().size()) {
+            return false;
+        }
+
+        // 메시가 이미 있으면 존재하는 본만 받고, 같은 본을 두 바퀴에 연결하지 않습니다.
+        const auto* Mesh{GetWheelSkeletalMesh()};
+        if (!BoneName.empty()) {
+            if (Mesh != nullptr && Mesh->GetBoneIndex(BoneName) == InvalidIndex) {
+                return false;
+            }
+
+            for (Uint32 Other{}; Other < mWheelBones.size(); ++Other) {
+                if (Other != WheelIndex && mWheelBones[Other] == BoneName) {
+                    return false;
+                }
+            }
+        }
+
+        if (WheelIndex >= mWheelBones.size()) {
+            mWheelBones.resize(WheelIndex + 1);
+        }
+
+        mWheelBones[WheelIndex] = BoneName;
+        return true;
+    }
+
+    const Core::FString& UVehicleMovementComponent::GetWheelBone(Uint32 WheelIndex) const {
+        static const Core::FString Empty{};
+
+        return WheelIndex < GetWheelSettings().size() && WheelIndex < mWheelBones.size() ? mWheelBones[WheelIndex] : Empty;
+    }
+
     bool UVehicleMovementComponent::SetDriveInput(float Throttle, float Brake, float Steering) {
         const auto* Body{GetRegisteredBody()};
         auto* Manager{GetVehicleManager()};
@@ -235,6 +285,65 @@ namespace Engine {
             FTransform WheelPose{State.mLocalPose * ChassisPose};
             WheelPose.mScale = Mesh->GetTransform().mScale;
             Mesh->SetTransform(WheelPose);
+        }
+
+        UpdateWheelBones(ChassisPose);
+    }
+
+    void UVehicleMovementComponent::UpdateWheelBones(const FTransform& ChassisPose) {
+        auto* Mesh{GetWheelSkeletalMesh()};
+        const auto* Skeleton{Mesh != nullptr ? Mesh->GetSkeleton() : nullptr};
+
+        if (Mesh == nullptr || Skeleton == nullptr || Mesh->GetWorld() != GetWorld()) {
+            return;
+        }
+
+        // 메시 공간 → 차체 바디 공간 변환 K입니다. 행 벡터 규약이므로 왼쪽 행렬이 먼저 적용됩니다.
+        FMatrix ChassisInverse{};
+        FMatrix MeshInverse{};
+        if (!ChassisPose.ToMatrix().TryInverse(ChassisInverse) || !Mesh->GetTransform().ToMatrix().TryInverse(MeshInverse)) {
+            return;
+        }
+
+        const FMatrix MeshToChassis{Mesh->GetTransform().ToMatrix() * ChassisInverse};
+        const FMatrix ChassisToMesh{ChassisPose.ToMatrix() * MeshInverse};
+
+        const auto& Bones{Skeleton->GetBones()};
+        const auto& BindGlobals{Skeleton->GetGlobalBindPoses()};
+        const auto& PoseGlobals{Mesh->GetPose().GetGlobalTransforms()};
+        Core::TArray<FMatrix> Locals{Mesh->GetPose().GetLocalTransforms()};
+        bool Changed{};
+
+        if (Locals.size() != Bones.size() || BindGlobals.size() != Bones.size() || PoseGlobals.size() != Bones.size()) {
+            return;
+        }
+
+        for (Uint32 Wheel{}; Wheel < std::min(mWheelBones.size(), GetWheelSettings().size()); ++Wheel) {
+            const Index_t Bone{mWheelBones[Wheel].empty() ? InvalidIndex : Mesh->GetBoneIndex(mWheelBones[Wheel])};
+            FVehicleWheelState State{};
+
+            if (Bone == InvalidIndex || Bone >= Bones.size() || !GetWheelState(Wheel, State)) {
+                continue;
+            }
+
+            // 바인드 포즈를 mCenterOffset에 놓인 정지 바퀴로 보고, 바퀴 중심 기준 변화량 D만 본에 더합니다.
+            // 본 축이 모델링 도구마다 달라도 바인드 회전을 유지하므로 결과가 바뀌지 않습니다.
+            const FMatrix WheelDelta{FMatrix::Translation(-GetWheelSettings()[Wheel].mCenterOffset) * State.mLocalPose.ToMatrix()};
+            const FMatrix BoneInMesh{BindGlobals[Bone] * MeshToChassis * WheelDelta * ChassisToMesh};
+
+            // 부모 본은 이번 프레임 포즈(애니메이션 포함)를 기준으로 로컬 변환을 구합니다.
+            const Int32 Parent{Bones[Bone].GetParentIndex()};
+            FMatrix ParentInverse{FMatrix::Identity()};
+            if (Parent >= 0 && (static_cast<Index_t>(Parent) >= PoseGlobals.size() || !PoseGlobals[Parent].TryInverse(ParentInverse))) {
+                continue;
+            }
+
+            Locals[Bone] = BoneInMesh * ParentInverse;
+            Changed = true;
+        }
+
+        if (Changed) {
+            Mesh->SetAnimatedLocalPose(std::move(Locals));
         }
     }
 

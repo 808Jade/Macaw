@@ -186,6 +186,14 @@ namespace Engine {
         bool SetLocalPose(const Core::TArray<FMatrix>& Transforms);
 
         /**
+         * @brief 매 프레임 바뀌는 런타임 포즈를 스키닝 행렬에만 반영합니다.
+         * @details 애니메이션 재생과 같이 검증과 CPU 형상·경계 갱신을 생략하므로, 피킹 형상과 경계는 마지막으로 계산한 값을 유지합니다.
+         * @param Transforms 본 인덱스순 부모 기준 행렬입니다.
+         * @return 본 수가 스켈레톤과 같아 적용했으면 true입니다.
+         */
+        bool SetAnimatedLocalPose(Core::TArray<FMatrix> Transforms);
+
+        /**
          * @brief 모든 본을 바인드 포즈로 복원합니다.
          * @return 복원하면 true입니다.
          */

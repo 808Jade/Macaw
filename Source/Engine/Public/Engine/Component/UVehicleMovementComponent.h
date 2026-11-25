@@ -23,6 +23,7 @@ namespace PhysicsRuntime {
 
 namespace Engine {
 
+    class USkeletalMeshComponent;
     class UStaticMeshComponent;
 
     /** @brief 차체 로컬 좌표와 미터·킬로그램 단위로 지정하는 바퀴 및 서스펜션 설정입니다. */
@@ -84,6 +85,20 @@ namespace Engine {
         bool SetWheelMesh(Uint32 WheelIndex, Engine::UStaticMeshComponent* Mesh);
         Engine::UStaticMeshComponent* GetWheelMesh(Uint32 WheelIndex) const;
 
+        /**
+         * @brief 바퀴 본을 움직일 같은 Pawn의 스켈레탈 메시입니다. nullptr로 연결을 해제합니다.
+         * @details 차체(이동 대상) 자신은 지정할 수 없습니다. 본 이름 목록은 유지합니다.
+         */
+        bool SetWheelSkeletalMesh(Engine::USkeletalMeshComponent* Mesh);
+        Engine::USkeletalMeshComponent* GetWheelSkeletalMesh() const;
+
+        /**
+         * @brief 바퀴에 스켈레탈 메시의 본을 연결합니다. 빈 이름으로 연결을 해제합니다.
+         * @details 바인드 포즈를 정지 상태로 보고, 바퀴 중심(mCenterOffset) 기준의 조향·굴림·서스펜션 변화만 본에 더합니다.
+         */
+        bool SetWheelBone(Uint32 WheelIndex, const Core::FString& BoneName);
+        const Core::FString& GetWheelBone(Uint32 WheelIndex) const;
+
         /** @brief 엔진이 있는 차량의 입력입니다. 가속과 조향은 [-1, 1], 제동은 [0, 1]이며 음수 가속은 후진을 요청합니다. NoDrive 차량은 false를 반환합니다. */
         bool SetDriveInput(float Throttle, float Brake, float Steering);
 
@@ -135,12 +150,19 @@ namespace Engine {
         void TryRegisterVehicle();
         void UnregisterVehicle();
         void SynchronizeVelocity();
+        void UpdateWheelBones(const FTransform& ChassisPose);
 
         UPROPERTY(Edit, Serialize, Getter = GetWheelSettings, Setter = SetWheelSettings)
         Core::TArray<Engine::FVehicleWheelSettings> mWheelSettings{};
 
         UPROPERTY(Serialize, Name = "WheelMeshes")
         Core::TArray<CoreUObject::TObjectRef<Engine::UStaticMeshComponent>> mWheelMeshes{};
+
+        UPROPERTY(Serialize, Name = "WheelSkeletalMesh")
+        CoreUObject::TObjectRef<Engine::USkeletalMeshComponent> mWheelSkeletalMesh{};
+
+        UPROPERTY(Serialize, Name = "WheelBones")
+        Core::TArray<Core::FString> mWheelBones{};
 
         CoreUObject::TObjectRef<Engine::UPrimitiveComponent> mChassis{};
         CoreUObject::FDelegateHandle mBodyStateHandle{};

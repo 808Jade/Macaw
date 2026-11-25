@@ -186,6 +186,18 @@ function Component:ResetDrive() end
 ---@return boolean
 function Component:SetWheelMesh(WheelIndex, Mesh) end
 
+--- 바퀴 본을 움직일 같은 액터의 스켈레탈 메시 컴포넌트를 지정합니다. 차체 자신은 지정할 수 없습니다. nil이면 해제합니다.
+---@param Mesh MacawComponent? 스켈레탈 메시 컴포넌트
+---@return boolean
+function Component:SetWheelSkeletalMesh(Mesh) end
+
+--- 바퀴에 스켈레탈 메시의 본을 연결합니다. 바인드 포즈를 mCenterOffset에 놓인 정지 바퀴로 보고
+--- 조향·굴림·서스펜션 변화만 더합니다. 본 축 방향은 상관없습니다. nil이나 빈 문자열이면 해제합니다.
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@param BoneName string?
+---@return boolean
+function Component:SetWheelBone(WheelIndex, BoneName) end
+
 ---@return integer Gear 후진 -1, 중립 0, 전진 1부터
 ---@return number ForwardSpeed m/s
 function Component:GetDriveState() end

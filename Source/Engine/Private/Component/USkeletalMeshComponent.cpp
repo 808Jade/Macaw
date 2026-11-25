@@ -598,6 +598,19 @@ namespace Engine {
     }
 
     /**
+     * @brief 런타임 포즈로 스키닝 행렬만 다시 계산합니다.
+     */
+    bool USkeletalMeshComponent::SetAnimatedLocalPose(Core::TArray<FMatrix> Transforms) {
+        if (mSkeletalMesh == nullptr || mSkeleton == nullptr || !mPose.SetAnimatedLocalTransforms(*mSkeletalMesh, *mSkeleton, std::move(Transforms))) {
+            return false;
+        }
+
+        MarkRenderStateDirty();
+
+        return true;
+    }
+
+    /**
      * @brief 모든 본을 바인드 포즈로 복원합니다.
      */
     bool USkeletalMeshComponent::ResetPose() {
