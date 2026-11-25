@@ -31,6 +31,7 @@ namespace Engine {
     class AActor;
     enum class EPrimitiveType : Uint8;
     class FPrimitiveDrawInterface;
+    class UMovementComponent;
     class UVehicleMovementComponent;
     struct FHitResult;
     struct FPrimitiveSceneProxy;
@@ -59,6 +60,13 @@ namespace Engine {
          * @brief 충돌한 액터·컴포넌트·충돌 정보를 전달하는 이벤트 시그니처입니다.
          */
         using FHitDelegate = CoreUObject::TDelegate<Engine::UPrimitiveComponent*, Engine::AActor*, Engine::UPrimitiveComponent*, const Engine::FHitResult&>;
+
+    private:
+        enum class EInitialPenetrationMode : Uint8 {
+            Allow,
+            Stop,
+            Resolve
+        };
 
     public:
 
@@ -443,8 +451,12 @@ namespace Engine {
 
     private:
 
+        friend class UMovementComponent;
         friend class UVehicleMovementComponent;
 
+        bool MoveComponentSwept(const FVector& Delta, const FQuat& NewRotation, EInitialPenetrationMode PenetrationMode, Engine::FHitResult& OutHit);
+
+    private:
         /**
          * @brief 프록시 전체 재생성이 필요한지 여부입니다.
          */

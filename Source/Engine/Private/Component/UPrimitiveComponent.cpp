@@ -443,8 +443,20 @@ namespace Engine {
      * @brief 바디가 있으면 이동 경로를 쓸어 응답이 Block인 바디에 막히는 지점에서 멈추고 양쪽에 Hit 이벤트를 보냅니다.
      */
     bool Engine::UPrimitiveComponent::MoveComponentImpl(const FVector& Delta, bool Sweep, Engine::FHitResult& OutHit) {
-        if (!Sweep || !mBodyInstance.IsValidBodyInstance()) {
-            return ApplyMove(Delta);
+        return Sweep ? MoveComponentSwept(Delta, GetTransform().mRotation, EInitialPenetrationMode::Allow, OutHit) : ApplyMove(Delta);
+    }
+
+    bool Engine::UPrimitiveComponent::MoveComponentSwept(const FVector& Delta, const FQuat& NewRotation, EInitialPenetrationMode PenetrationMode, Engine::FHitResult& OutHit) {
+        const auto ApplyTransform{[this, &NewRotation](const FVector& Offset) {
+            FTransform Transform{GetTransform()};
+            Transform.mLocation += Offset;
+            Transform.mRotation = NewRotation;
+
+            return SetTransform(Transform);
+        }};
+
+        if (Delta.IsNearlyZero() || !mBodyInstance.IsValidBodyInstance()) {
+            return ApplyTransform(Delta);
         }
 
         Engine::AActor* const Owner{GetOwner()};
@@ -456,30 +468,58 @@ namespace Engine {
         PhysicsRuntime::FBodySweepHit SweepHit{};
 
         if (!mBodyInstance.Sweep(Delta, SweepHit, IgnoreOwnActor)) {
-            return ApplyMove(Delta);
+            return ApplyTransform(Delta);
+        }
+
+        constexpr float PullBackDistance{(0.01_m).GetBase()};
+        FVector Adjustment{};
+
+        if (PenetrationMode == EInitialPenetrationMode::Resolve && SweepHit.mStartPenetrating && SweepHit.mImpactNormal.IsNormalized() && std::isfinite(SweepHit.mPenetrationDepth) && SweepHit.mPenetrationDepth > 0.0f) {
+            const FVector Candidate{SweepHit.mImpactNormal * (SweepHit.mPenetrationDepth + PullBackDistance)};
+            const FVector AdjustedStart{OutHit.mTraceStart + Candidate};
+            const FVector AdjustedEnd{AdjustedStart + Delta};
+            PhysicsRuntime::FBodySweepHit AdjustmentHit{};
+
+            if (AdjustedEnd.IsFinite() && !mBodyInstance.Sweep(Candidate, AdjustmentHit, IgnoreOwnActor)) {
+                PhysicsRuntime::FBodySweepHit RetryHit{};
+                const bool RetryBlocked{mBodyInstance.Sweep(Delta, RetryHit, IgnoreOwnActor, Candidate)};
+
+                if (!RetryHit.mStartPenetrating) {
+                    OutHit.Init(AdjustedStart, AdjustedEnd);
+
+                    if (!RetryBlocked) {
+                        return ApplyTransform(Candidate + Delta);
+                    }
+
+                    Adjustment = Candidate;
+                    SweepHit = RetryHit;
+                }
+            }
         }
 
         Engine::UPrimitiveComponent* const OtherComponent{SweepHit.mBody != nullptr ? SweepHit.mBody->GetOwnerComponent() : nullptr};
         const float Length{Delta.Length()};
-        const FVector Start{GetTransform().mLocation};
 
         OutHit.mBlockingHit = true;
         OutHit.mStartPenetrating = SweepHit.mStartPenetrating;
         OutHit.mTime = SweepHit.mDistance / Length;
-        OutHit.mDistance = SweepHit.mDistance;
-        OutHit.mLocation = Start + Delta * OutHit.mTime;
+        OutHit.mDistance = Core::FLength::FromBase(SweepHit.mDistance);
+        OutHit.mLocation = OutHit.mTraceStart + Delta * OutHit.mTime;
         OutHit.mImpactPoint = SweepHit.mImpactPoint;
         OutHit.mNormal = SweepHit.mImpactNormal;
         OutHit.mImpactNormal = SweepHit.mImpactNormal;
-        OutHit.mPenetrationDepth = SweepHit.mPenetrationDepth;
+        OutHit.mPenetrationDepth = Core::FLength::FromBase(SweepHit.mPenetrationDepth);
         OutHit.SetComponent(OtherComponent);
         OutHit.SetActor(OtherComponent != nullptr ? OtherComponent->GetOwner() : nullptr);
 
+        if (PenetrationMode != EInitialPenetrationMode::Allow && OutHit.mStartPenetrating) {
+            return false;
+        }
+
         // 막은 표면에 붙어 다음 이동이 시작부터 겹치지 않도록 1 cm 물러난 위치까지만 옮깁니다.
-        constexpr float PullBackDistance{(0.01_m).GetBase()};
         const float MoveDistance{std::max(0.0f, SweepHit.mDistance - PullBackDistance)};
 
-        if (!ApplyMove(Delta * (MoveDistance / Length))) {
+        if (!ApplyTransform(Adjustment + Delta * (MoveDistance / Length))) {
             return false;
         }
 

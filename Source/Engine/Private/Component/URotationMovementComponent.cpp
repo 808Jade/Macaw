@@ -5,7 +5,6 @@
  */
 
 #include "Engine/Component/URotationMovementComponent.h"
-#include "Core/Literals/AngleFunctions.h"
 #include "Core/Literals/UnitLiterals.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/UWorld.h"
@@ -41,7 +40,7 @@ namespace Engine {
         const auto Pitch{(mRotationRate.pitch * 1_degps) * StepTime};
         const auto Yaw{(mRotationRate.yaw * 1_degps) * StepTime};
         const auto Roll{(mRotationRate.roll * 1_degps) * StepTime};
-        const FQuat DeltaRotation{Core::Math::MakeRotator(Pitch, Yaw, Roll).Normalized().Quaternion()};
+        const FQuat DeltaRotation{FRotator{Pitch, Yaw, Roll}.Normalized().Quaternion()};
         const FQuat NewRotation{(mRotationInLocalSpace ? OldRotation * DeltaRotation : DeltaRotation * OldRotation).Normalized()};
 
         const FVector OldPivot{OldRotation.RotateVector(mPivotTranslation)};

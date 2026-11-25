@@ -718,7 +718,7 @@ namespace PhysicsRuntime {
             for (const FKSphereElem& Sphere : AggGeom.mSphereElems) {
                 FClothCollisionPrim_Sphere NewSphere{};
                 NewSphere.mLocalPosition = Sphere.mCenter;
-                NewSphere.mRadius = Sphere.mRadius;
+                NewSphere.mRadius = Sphere.mRadius.GetBase();
                 NewSphere.mBoneIndex = MappedBoneIndex;
 
                 Actor.mExtractedCollisions.mSpheres.push_back(NewSphere);
@@ -728,16 +728,16 @@ namespace PhysicsRuntime {
             // 캡슐 축은 회전 전 Z축이고 길이는 양 끝 반구 중심 사이 거리입니다.
             for (const FKSphylElem& Sphyl : AggGeom.mSphylElems) {
                 const FVector OrientedDirection{Sphyl.mRotation.RotateVector(FVector{0.0f, 0.0f, 1.0f})};
-                const FVector HalfDim{OrientedDirection * (Sphyl.mLength * 0.5f)};
+                const FVector HalfDim{OrientedDirection * (Sphyl.mLength.GetBase() * 0.5f)};
 
                 FClothCollisionPrim_Sphere Sphere0{};
                 Sphere0.mLocalPosition = Sphyl.mCenter - HalfDim;
-                Sphere0.mRadius = Sphyl.mRadius;
+                Sphere0.mRadius = Sphyl.mRadius.GetBase();
                 Sphere0.mBoneIndex = MappedBoneIndex;
 
                 FClothCollisionPrim_Sphere Sphere1{};
                 Sphere1.mLocalPosition = Sphyl.mCenter + HalfDim;
-                Sphere1.mRadius = Sphyl.mRadius;
+                Sphere1.mRadius = Sphyl.mRadius.GetBase();
                 Sphere1.mBoneIndex = MappedBoneIndex;
 
                 Actor.mExtractedCollisions.mSpheres.push_back(Sphere0);

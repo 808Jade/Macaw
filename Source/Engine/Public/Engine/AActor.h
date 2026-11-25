@@ -269,6 +269,7 @@ namespace Engine {
          * @return 현재 소유 컴포넌트의 전역 핸들 목록입니다.
          */
         Core::TArray<CoreUObject::TObjectRef<Engine::UActorComponent>> GetComponentRefs() const;
+        void UpdateRootMovementComponents();
 
     private:
         /**

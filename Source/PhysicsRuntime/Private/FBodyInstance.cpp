@@ -501,8 +501,8 @@ namespace PhysicsRuntime {
     /**
      * @brief 바디의 형상을 현재 자세에서 Delta만큼 쓸어 처음 막히는 바디를 찾습니다.
      */
-    bool PhysicsRuntime::FBodyInstance::Sweep(const FVector& Delta, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore) const {
-        if (mActor == nullptr || mScene == nullptr || mScene->GetScene() == nullptr || !IsQueryCollisionEnabled() || !Delta.IsFinite()) {
+    bool PhysicsRuntime::FBodyInstance::Sweep(const FVector& Delta, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore, const FVector& StartOffset) const {
+        if (mActor == nullptr || mScene == nullptr || mScene->GetScene() == nullptr || !IsQueryCollisionEnabled() || !Delta.IsFinite() || !StartOffset.IsFinite()) {
             return false;
         }
 
@@ -516,6 +516,7 @@ namespace PhysicsRuntime {
         mActor->getShapes(Shapes.data(), static_cast<physx::PxU32>(Shapes.size()));
 
         const physx::PxTransform ActorPose{mActor->getGlobalPose()};
+        const physx::PxTransform StartPose{ActorPose.p + PhysicsRuntime::ToPxVec3(StartOffset), ActorPose.q};
         const physx::PxVec3 Direction{PhysicsRuntime::ToPxVec3(Delta / Length)};
         // 시작부터 겹친 바디를 이동 방향으로 걸러야 하므로 Block 바디를 모두 터치로 받아 가장 가까운 것을 직접 고릅니다.
         FResponseQueryFilter Callback{*this, physx::PxQueryHitType::eTOUCH, physx::PxQueryHitType::eNONE, ShouldIgnore};
@@ -532,7 +533,7 @@ namespace PhysicsRuntime {
             physx::PxSweepBuffer Buffer{Touches.data(), static_cast<physx::PxU32>(Touches.size())};
 
             // 시작부터 겹친 바디의 침투 방향과 깊이를 받기 위해 MTD를 계산합니다.
-            if (!mScene->GetScene()->sweep(Geometry.any(), ActorPose * Shape->getLocalPose(), Direction, Length, Buffer, physx::PxHitFlag::eDEFAULT | physx::PxHitFlag::eMTD, Filter, &Callback)) {
+            if (!mScene->GetScene()->sweep(Geometry.any(), StartPose * Shape->getLocalPose(), Direction, Length, Buffer, physx::PxHitFlag::eDEFAULT | physx::PxHitFlag::eMTD, Filter, &Callback)) {
                 continue;
             }
 
@@ -780,15 +781,19 @@ namespace PhysicsRuntime {
         const bool Query{IsQueryCollisionEnabled()};
         const bool Simulation{mCollisionEnabled == PhysicsRuntime::ECollisionEnabled::PhysicsOnly || mCollisionEnabled == PhysicsRuntime::ECollisionEnabled::QueryAndPhysics};
         // 시뮬레이션 필터 셰이더와 쿼리 필터가 word0의 응답을 읽어 두 바디 중 약한 응답을 씁니다.
-        const physx::PxFilterData FilterData{static_cast<physx::PxU32>(mCollisionResponse), 0, 0, 0};
+        const physx::PxU32 Response{static_cast<physx::PxU32>(mCollisionResponse)};
         Core::TArray<physx::PxShape*> Shapes(mActor->getNbShapes());
         mActor->getShapes(Shapes.data(), static_cast<physx::PxU32>(Shapes.size()));
 
         for (physx::PxShape* Shape : Shapes) {
             Shape->setFlag(physx::PxShapeFlag::eSCENE_QUERY_SHAPE, Query);
             Shape->setFlag(physx::PxShapeFlag::eSIMULATION_SHAPE, Simulation);
-            Shape->setQueryFilterData(FilterData);
-            Shape->setSimulationFilterData(FilterData);
+            physx::PxFilterData QueryFilter{Shape->getQueryFilterData()};
+            physx::PxFilterData SimulationFilter{Shape->getSimulationFilterData()};
+            QueryFilter.word0 = Response;
+            SimulationFilter.word0 = Response;
+            Shape->setQueryFilterData(QueryFilter);
+            Shape->setSimulationFilterData(SimulationFilter);
         }
 
         if (physx::PxScene* Scene{mActor->getScene()}) {

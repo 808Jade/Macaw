@@ -172,7 +172,12 @@ namespace Engine {
 
         Engine::UWorld::FDispatchScope Scope{mWorld};
         mRootComponent = Component;
+        UpdateRootMovementComponents();
 
+        return true;
+    }
+
+    void Engine::AActor::UpdateRootMovementComponents() {
         for (const auto& OwnedComponent : GetComponentRefs()) {
             auto* Movement{CoreUObject::Cast<Engine::UMovementComponent>(OwnedComponent.Get())};
 
@@ -180,8 +185,6 @@ namespace Engine {
                 Movement->UpdateTickEnabledState();
             }
         }
-
-        return true;
     }
 
     bool Engine::AActor::CanPromoteRootComponent(const Engine::USceneComponent* Component) const {
@@ -193,6 +196,7 @@ namespace Engine {
             return false;
         }
 
+        Engine::UWorld::FDispatchScope Scope{mWorld};
         Engine::USceneComponent* PreviousRoot{mRootComponent};
         Engine::USceneComponent* ExternalParent{PreviousRoot != nullptr ? PreviousRoot->GetAttachParent() : nullptr};
         Core::TArray<Engine::USceneComponent*> PreviousChildren{};
@@ -217,6 +221,8 @@ namespace Engine {
         for (Engine::USceneComponent* Child : PreviousChildren) {
             Child->UpdateAttachParent(PreviousRoot);
         }
+
+        UpdateRootMovementComponents();
 
         return true;
     }

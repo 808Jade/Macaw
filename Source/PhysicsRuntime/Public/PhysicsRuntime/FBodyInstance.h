@@ -270,7 +270,7 @@ namespace PhysicsRuntime {
          * @return 응답이 Block인 바디에 막혔으면 true입니다.
          * @note 쿼리에 참여하지 않는 바디는 쓸지 않습니다. 시작부터 겹친 바디는 그 바디에서 멀어지는 방향이면 무시합니다.
          */
-        bool Sweep(const FVector& Delta, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore = {}) const;
+        bool Sweep(const FVector& Delta, PhysicsRuntime::FBodySweepHit& OutHit, const PhysicsRuntime::FIgnoreBodyPredicate& ShouldIgnore = {}, const FVector& StartOffset = {}) const;
 
         /**
          * @brief PhysX 강체에서 그 강체를 만든 바디 인스턴스를 찾습니다.

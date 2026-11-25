@@ -182,7 +182,8 @@ namespace PhysicsRuntime {
         }
 
         const PhysicsRuntime::FPhysicsSettings& Settings{mScene->GetRuntime()->GetSettings()};
-        const float StepSeconds{Settings.mFixedStepSeconds};
+        const Core::FTime FixedStep{Settings.mFixedStep};
+        const float StepSeconds{FixedStep.GetBase()};
 
         if (StepSeconds <= 0.0f) {
             return;
@@ -216,7 +217,7 @@ namespace PhysicsRuntime {
                 Entry.mBody->SetBodyTransform(Interpolated);
             }
 
-            mScene->Simulate(StepSeconds);
+            mScene->Simulate(FixedStep);
         }
 
         for (FEntry& Entry : mEntries) {
