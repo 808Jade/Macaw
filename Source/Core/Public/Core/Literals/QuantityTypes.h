@@ -71,6 +71,27 @@ namespace Core {
     using FEnergy = Core::TQuantity<Core::Dim::Energy, float>;
 
     /**
+     * @brief 토크(N·m)입니다.
+     * @details 엔진에서 회전각과 곱하면 에너지가 됩니다.
+     */
+    using FTorque = Core::TQuantity<Core::Dim::Torque, float>;
+
+    /**
+     * @brief 회전 관성(kg·m²)입니다.
+     */
+    using FMomentOfInertia = Core::TQuantity<Core::Dim::MomentOfInertia, float>;
+
+    /**
+     * @brief 스프링 강성(N/m)입니다.
+     */
+    using FSpringStiffness = Core::TQuantity<Core::Dim::SpringStiffness, float>;
+
+    /**
+     * @brief 선형 감쇠 계수(N·s/m)입니다.
+     */
+    using FLinearDampingCoefficient = Core::TQuantity<Core::Dim::LinearDampingCoefficient, float>;
+
+    /**
      * @brief 일률(W)입니다.
      */
     using FPower = Core::TQuantity<Core::Dim::Power, float>;

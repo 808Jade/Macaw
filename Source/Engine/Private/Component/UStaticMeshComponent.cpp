@@ -160,10 +160,25 @@ namespace Engine {
         return mMeshPath.empty() || mStaticMesh != nullptr;
     }
 
+    bool Engine::UStaticMeshComponent::IsCollisionEnabled() const {
+        return mCollisionEnabled;
+    }
+
+    void Engine::UStaticMeshComponent::SetCollisionEnabled(bool Enabled) {
+        if (mCollisionEnabled != Enabled) {
+            mCollisionEnabled = Enabled;
+            RecreatePhysicsState();
+        }
+    }
+
     /**
-     * @brief 표시 중인 메시에 맞는 충돌 형상을 반환합니다.
+     * @brief 충돌이 켜져 있으면 표시 중인 메시에 맞는 충돌 형상을 반환합니다.
      */
     const PhysicsRuntime::UBodySetup* Engine::UStaticMeshComponent::GetBodySetup() const {
+        if (!mCollisionEnabled) {
+            return nullptr;
+        }
+
         if (mMeshPath.empty()) {
             return Engine::GetPrimitiveBodySetup(mPrimitive);
         }

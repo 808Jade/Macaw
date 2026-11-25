@@ -154,6 +154,68 @@ function Component:SetDepthOfFieldSettings(Value) end
 ---@return boolean
 function Component:SetDepthOfFieldFocalDistance(Distance) end
 
+---@param Torque number N·m
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@return boolean
+function Component:SetDriveTorque(Torque, WheelIndex) end
+
+---@param Torque number N·m
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@return boolean
+function Component:SetBrakeTorque(Torque, WheelIndex) end
+
+---@param AngleDegrees number 도 단위 조향각
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@return boolean
+function Component:SetSteerAngle(AngleDegrees, WheelIndex) end
+
+---엔진이 있는 차량(4W 등)의 입력입니다. Simple 차량은 false를 반환합니다.
+---@param Throttle number -1부터 1까지, 음수는 후진 요청
+---@param Brake number 0부터 1까지
+---@param Steering number -1부터 1까지
+---@return boolean
+function Component:SetDriveInput(Throttle, Brake, Steering) end
+
+---@return boolean
+function Component:ResetDrive() end
+
+--- 같은 액터의 충돌이 꺼진 스태틱 메시 컴포넌트를 바퀴에 연결합니다. 물리 스텝 뒤 바퀴 자세를 따라 움직입니다.
+--- 메시 원점은 바퀴 중심, 바퀴 축은 로컬 Y여야 합니다. nil을 넘기면 연결을 해제합니다.
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@param Mesh MacawComponent? 스태틱 메시 컴포넌트
+---@return boolean
+function Component:SetWheelMesh(WheelIndex, Mesh) end
+
+--- 바퀴 본을 움직일 같은 액터의 스켈레탈 메시 컴포넌트를 지정합니다. 차체 자신은 지정할 수 없습니다. nil이면 해제합니다.
+---@param Mesh MacawComponent? 스켈레탈 메시 컴포넌트
+---@return boolean
+function Component:SetWheelSkeletalMesh(Mesh) end
+
+--- 바퀴에 스켈레탈 메시의 본을 연결합니다. 바인드 포즈를 mCenterOffset에 놓인 정지 바퀴로 보고
+--- 조향·굴림·서스펜션 변화만 더합니다. 본 축 방향은 상관없습니다. nil이나 빈 문자열이면 해제합니다.
+---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
+---@param BoneName string?
+---@return boolean
+function Component:SetWheelBone(WheelIndex, BoneName) end
+
+---@return integer Gear 후진 -1, 중립 0, 전진 1부터
+---@return number ForwardSpeed m/s
+function Component:GetDriveState() end
+
+---@param Text string 월드 빌보드에 표시할 문자열
+---@return boolean
+function Component:SetText(Text) end
+
+--- 현재 바디의 형상을 차량 서스펜션이 감지할 주행면으로 지정합니다.
+---@param Drivable boolean
+---@return boolean
+function Component:SetVehicleDrivable(Drivable) end
+
+---@param Linear MacawVector m/s
+---@param Angular MacawVector rad/s
+---@return boolean
+function Component:SetPhysicsVelocity(Linear, Angular) end
+
 ---@class MacawActor
 ---@field UUID string
 ---@field Location MacawVector
@@ -178,6 +240,11 @@ function Actor:SetActorTransform(Value) end
 ---@param ClassName string
 ---@return MacawComponent?
 function Actor:GetComponentByClass(ClassName) end
+
+--- 이름이 정확히 일치하는 첫 번째 컴포넌트를 반환합니다. 없으면 nil입니다.
+---@param Name string
+---@return MacawComponent?
+function Actor:GetComponentByName(Name) end
 
 ---@return MacawComponent?
 function Actor:GetSkeletalMeshComponent() end

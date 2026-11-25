@@ -7,9 +7,17 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "Core/Literals/TQuantity.h"
 #include "CoreUObject/FObjectReference.h"
 
 namespace CoreUObject {
+
+    template <typename T>
+    inline constexpr bool IsFloatQuantity = false;
+
+    // 물리량은 네이티브 타입을 유지하고 편집기와 아카이브에는 SI 기본 단위의 숫자로 전달합니다.
+    template <Core::FDimension D>
+    inline constexpr bool IsFloatQuantity<Core::TQuantity<D, float>> = true;
 
     /**
      * @brief 템플릿 타입의 크기, 정렬과 식별 문자열을 갖는 정적 메타데이터를 반환합니다.
@@ -34,7 +42,7 @@ namespace CoreUObject {
             return CoreUObject::EPropertyType::Unsigned;
         } else if constexpr (std::is_same_v<T, Uint64>) {
             return CoreUObject::EPropertyType::Unsigned64;
-        } else if constexpr (std::is_same_v<T, float>) {
+        } else if constexpr (std::is_same_v<T, float> || CoreUObject::IsFloatQuantity<T>) {
             return CoreUObject::EPropertyType::Float;
         } else if constexpr (std::is_same_v<T, Core::FString>) {
             return CoreUObject::EPropertyType::String;
@@ -148,6 +156,8 @@ namespace CoreUObject {
             return static_cast<Uint32>(Value);
         } else if constexpr (CoreUObject::TIsObjectRef<FValue>::value) {
             return CoreUObject::FObjectReference{Value};
+        } else if constexpr (CoreUObject::IsFloatQuantity<FValue>) {
+            return Value.GetBase();
         } else {
             return CoreUObject::FPropertyValue{Value};
         }
@@ -158,7 +168,9 @@ namespace CoreUObject {
      */
     template <typename FValue>
     std::optional<FValue> FromPropertyValue(const CoreUObject::FPropertyValue& Value) {
-        using FStoredValue = std::conditional_t<std::is_enum_v<FValue>, Int32, std::conditional_t<std::is_same_v<FValue, Uint8>, Uint32, std::conditional_t<CoreUObject::TIsObjectRef<FValue>::value, CoreUObject::FObjectReference, FValue>>>;
+        using FNumericValue = std::conditional_t<CoreUObject::IsFloatQuantity<FValue>, float, FValue>;
+        using FReferenceValue = std::conditional_t<CoreUObject::TIsObjectRef<FValue>::value, CoreUObject::FObjectReference, FNumericValue>;
+        using FStoredValue = std::conditional_t<std::is_enum_v<FValue>, Int32, std::conditional_t<std::is_same_v<FValue, Uint8>, Uint32, FReferenceValue>>;
         const FStoredValue* Typed{std::get_if<FStoredValue>(&Value)};
 
         if (Typed == nullptr) {
@@ -173,6 +185,8 @@ namespace CoreUObject {
 
         if constexpr (CoreUObject::TIsObjectRef<FValue>::value) {
             return Typed->template ToObjectRef<typename FValue::FObjectType>();
+        } else if constexpr (CoreUObject::IsFloatQuantity<FValue>) {
+            return FValue::FromBase(*Typed);
         } else {
             return static_cast<FValue>(*Typed);
         }

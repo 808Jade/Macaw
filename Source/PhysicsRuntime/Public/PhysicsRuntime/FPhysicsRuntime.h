@@ -20,7 +20,7 @@ namespace PhysicsRuntime {
 
     /**
      * @brief 프로세스 전체에서 공유하는 PhysX SDK 객체의 수명을 관리합니다.
-     * @details Foundation, PVD 연결, Physics, Extensions, Cooking, 기본 재질과 CPU 디스패처를 만들고 역순으로 해제합니다.
+     * @details Foundation, PVD 연결, Physics, Extensions, Vehicle SDK, Cooking, 기본 재질과 CPU 디스패처를 만들고 역순으로 해제합니다.
      *          엔진 1유닛을 1m로 보고 허용 오차 기준을 정하며, 월드별 물리 장면은 이 객체가 만든 SDK 객체를 빌려 사용합니다.
      * @ingroup PhysicsRuntime
      */
@@ -201,6 +201,9 @@ namespace PhysicsRuntime {
          * @brief PxInitExtensions 호출에 성공했는지 여부입니다.
          */
         bool mExtensionsInitialized{};
+
+        /** @brief PxInitVehicleSDK 호출에 성공했는지 여부입니다. */
+        bool mVehicleSdkInitialized{};
     };
 
 }

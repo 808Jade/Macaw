@@ -6,6 +6,7 @@
 
 #include "Engine/AActor.h"
 #include "Engine/Component/UActorComponent.h"
+#include "Engine/Component/UMovementComponent.h"
 #include "Engine/Component/USceneComponent.h"
 #include "Engine/ULevel.h"
 #include "Engine/UWorld.h"
@@ -92,11 +93,11 @@ namespace Engine {
         Engine::UActorComponent* Added{Component.get()};
         Added->SetOwner(this);
 
-        if (mRootComponent == nullptr) {
-            mRootComponent = CoreUObject::Cast<Engine::USceneComponent>(Added);
-        }
-
         mComponents.push_back(std::move(Component));
+
+        if (mRootComponent == nullptr) {
+            SetRootComponent(CoreUObject::Cast<Engine::USceneComponent>(Added));
+        }
 
         if (mWorld != nullptr) {
             Added->RegisterComponent(mWorld);
@@ -131,13 +132,26 @@ namespace Engine {
      * @brief 소유한 공간 컴포넌트를 액터의 루트로 지정합니다.
      */
     bool Engine::AActor::SetRootComponent(Engine::USceneComponent* Component) {
+        if (Component == mRootComponent) {
+            return true;
+        }
+
         if (Component != nullptr && std::none_of(mComponents.begin(), mComponents.end(), [Component](const auto& Entry) {
             return Entry.get() == Component;
         })) {
             return false;
         }
 
+        Engine::UWorld::FDispatchScope Scope{mWorld};
         mRootComponent = Component;
+
+        for (const auto& OwnedComponent : GetComponentRefs()) {
+            auto* Movement{CoreUObject::Cast<Engine::UMovementComponent>(OwnedComponent.Get())};
+
+            if (Movement != nullptr && Movement->mUseOwnerRoot) {
+                Movement->UpdateTickEnabledState();
+            }
+        }
 
         return true;
     }
