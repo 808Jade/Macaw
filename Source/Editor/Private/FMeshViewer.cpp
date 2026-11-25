@@ -33,6 +33,7 @@
 #include "Asset/UMaterial.h"
 #include "RenderCore/IRendererModule.h"
 
+#include "Core/Base/ErrorHandler.h"
 #include "EditorStyle.h"
 #include "PhysicsRuntime/IClothingSimulation.h"
 
@@ -290,6 +291,7 @@ namespace Editor {
             // 버전 1 메시는 본을 파일 안에 내장하는데 저장하면 새 형식으로 쓰여 본이 사라질 수 있으므로 막는다.
             if (Assets.FindLegacySkeleton(Core::FilePath::FromUtf8(MeshPath)) != nullptr) {
                 Error = "This mesh uses an embedded skeleton, so its file cannot be saved safely. Set the physics asset on the component instead.";
+                Core::ErrorHandler::Report("MeshViewer", "Cannot assign the physics asset '" + Selected + "' to '" + MeshPath + "': " + Error, Core::ErrorHandler::EErrorLevel::Warning);
 
                 return;
             }
@@ -298,11 +300,15 @@ namespace Editor {
             Error.clear();
 
             if (!Assets.SaveSkeletalMesh(Core::FilePath::FromUtf8(MeshPath), Mesh, Error)) {
+                // 저장하지 못하면 메시 파일과 같은 값으로 되돌린다. 원인은 로그에도 남겨 어떤 조건에서 되돌아가는지 알 수 있게 한다.
                 Mesh.SetPhysicsAssetPath(Current);
 
                 if (Error.empty()) {
                     Error = "Cannot save the skeletal mesh.";
                 }
+
+                Error = "Could not assign '" + Selected + "': " + Error;
+                Core::ErrorHandler::Report("MeshViewer", Error + " (mesh '" + MeshPath + "')", Core::ErrorHandler::EErrorLevel::Warning);
             }
         }
     }
@@ -469,7 +475,10 @@ namespace Editor {
         }
 
         if (!mError.empty()) {
+            // 실패 원인은 눈에 띄게 붉은색으로 보인다.
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{1.0f, 0.45f, 0.45f, 1.0f});
             ImGui::TextWrapped("%s", mError.c_str());
+            ImGui::PopStyleColor();
         }
     }
 
