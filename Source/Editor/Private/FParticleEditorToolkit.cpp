@@ -242,6 +242,8 @@ FParticleEditorToolkit::FParticleEditorToolkit(FEditorContext& Context, const st
 	  mThumbnails{Thumbnails},
 	  mMessages{Messages},
 	  mViewer{Context.GetRenderer(), &mAssets} {
+    GetTab().SetIcon(EEditorIcon::ParticleSystem, IM_COL32(238, 187, 106, 255));
+
     auto& Host{GetToolkitHost()};
     Host.SetDockSpaceName("ParticleWorkspace");
     Host.SetLayoutBuilder([this](Uint32 DockSpace) {
@@ -391,7 +393,7 @@ bool FParticleEditorToolkit::Reload(Core::FString& Error) {
 
 void FParticleEditorToolkit::UpdateTitle() {
     const Core::FString Id{Core::FilePath::ToGenericUtf8(GetAssetPath())};
-    GetTab().SetName(Core::FilePath::ToUtf8(GetAssetPath().stem()) + (mDirty ? " *" : "") + "###ParticleEditor:" + Id);
+    GetTab().SetName(EditorStyle::TabIconPadding + Core::FilePath::ToUtf8(GetAssetPath().stem()) + (mDirty ? " *" : "") + "###ParticleEditor:" + Id);
 }
 
 void FParticleEditorToolkit::HandleCommands() {

@@ -406,6 +406,13 @@ namespace Editor {
             break;
         }
 
+        case EIcon::ParticleSystem:
+            DrawList->AddQuadFilled(Point(8.0f, 4.0f), Point(12.0f, 10.0f), Point(8.0f, 16.0f), Point(4.0f, 10.0f), Color);
+            DrawList->AddCircleFilled(Point(15.0f, 5.0f), 2.0f * Scale, Color);
+            DrawList->AddCircleFilled(Point(16.5f, 13.0f), 1.5f * Scale, Color);
+            DrawList->AddCircleFilled(Point(3.0f, 16.0f), 1.5f * Scale, Color);
+
+            break;
         case EIcon::Text:
             Line(4.0f, 4.0f, 16.0f, 4.0f);
             Line(10.0f, 4.0f, 10.0f, 17.0f);
