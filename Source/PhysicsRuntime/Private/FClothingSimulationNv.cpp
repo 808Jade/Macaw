@@ -1007,17 +1007,8 @@ namespace PhysicsRuntime {
             NumParticles += Cloth.getNumParticles();
         }
 
-        if (mSolver->beginSimulation(std::min(DeltaTime, MaxDeltaTime))) {
-            const int ChunkCount{mSolver->getSimulationChunkCount()};
-
-            for (int ChunkIndex{}; ChunkIndex < ChunkCount; ++ChunkIndex) {
-                mSolver->simulateChunk(ChunkIndex);
-            }
-
-            mSolver->endSimulation();
-        }
-
-        PhysicsStats::ClothParticles.Set(static_cast<double>(NumParticles));
+        Solve(std::min(DeltaTime, MaxDeltaTime));
+        PhysicsStats::ClothParticles.Add(static_cast<double>(NumParticles));
     }
 
     /**
@@ -1183,15 +1174,7 @@ namespace PhysicsRuntime {
             NumParticles += Cloth.getNumParticles();
         }
 
-        if (mSolver->beginSimulation(Context.mDeltaTime.GetBase())) {
-            const int ChunkCount{mSolver->getSimulationChunkCount()};
-
-            for (int ChunkIndex{}; ChunkIndex < ChunkCount; ++ChunkIndex) {
-                mSolver->simulateChunk(ChunkIndex);
-            }
-
-            mSolver->endSimulation();
-        }
+        Solve(Context.mDeltaTime.GetBase());
 
         for (FClothingActorNv& Actor : mActors) {
             if (Actor.mAssetCreatedFrom == nullptr || Actor.mCurrentLodIndex >= Actor.mLodData.size()) {
@@ -1207,7 +1190,23 @@ namespace PhysicsRuntime {
             Actor.mCurrentSkinnedPositionIndex = (Actor.mCurrentSkinnedPositionIndex + 1) % 2;
         }
 
-        PhysicsStats::ClothParticles.Set(static_cast<double>(NumParticles));
+        PhysicsStats::ClothParticles.Add(static_cast<double>(NumParticles));
+    }
+
+    void FClothingSimulationNv::Solve(float DeltaTime) {
+        const Core::FScopedStatTimer StatTimer{PhysicsStats::ClothSolve};
+
+        if (!mSolver->beginSimulation(DeltaTime)) {
+            return;
+        }
+
+        const int ChunkCount{mSolver->getSimulationChunkCount()};
+
+        for (int ChunkIndex{}; ChunkIndex < ChunkCount; ++ChunkIndex) {
+            mSolver->simulateChunk(ChunkIndex);
+        }
+
+        mSolver->endSimulation();
     }
 
     /**
@@ -1254,6 +1253,8 @@ namespace PhysicsRuntime {
 
             return;
         }
+
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::ClothWriteback};
 
         for (const FClothingActorNv& Actor : mActors) {
             if (Actor.mAssetCreatedFrom == nullptr || Actor.mCurrentLodIndex >= Actor.mLodData.size()) {

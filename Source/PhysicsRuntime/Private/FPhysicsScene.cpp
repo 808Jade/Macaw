@@ -193,15 +193,20 @@ namespace PhysicsRuntime {
             mContacts.clear();
             mVehicleManager->Step(Step);
             mScene->simulate(Step.GetBase());
+
+            const Core::FScopedStatTimer FetchTimer{PhysicsRuntime::PhysicsStats::FetchResults};
             mScene->fetchResults(true);
         }
 
-        physx::PxU32 MovedCount{};
-        mScene->getActiveActors(MovedCount);
+        physx::PxSimulationStatistics SimulationStats{};
+        mScene->getSimulationStatistics(SimulationStats);
 
         PhysicsRuntime::PhysicsStats::Steps.Add();
-        PhysicsRuntime::PhysicsStats::MovedBodies.Add(static_cast<double>(MovedCount));
         PhysicsRuntime::PhysicsStats::Contacts.Add(static_cast<double>(mContacts.size()));
+        PhysicsRuntime::PhysicsStats::ActiveDynamicBodies.Add(static_cast<double>(SimulationStats.nbActiveDynamicBodies));
+        PhysicsRuntime::PhysicsStats::ActiveKinematicBodies.Add(static_cast<double>(SimulationStats.nbActiveKinematicBodies));
+        PhysicsRuntime::PhysicsStats::ActiveConstraints.Add(static_cast<double>(SimulationStats.nbActiveConstraints));
+        PhysicsRuntime::PhysicsStats::DiscreteContactPairs.Add(static_cast<double>(SimulationStats.nbDiscreteContactPairsTotal));
         PhysicsRuntime::PhysicsStats::DynamicBodies.Set(static_cast<double>(mScene->getNbActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC)));
         PhysicsRuntime::PhysicsStats::StaticBodies.Set(static_cast<double>(mScene->getNbActors(physx::PxActorTypeFlag::eRIGID_STATIC)));
 
@@ -398,6 +403,9 @@ namespace PhysicsRuntime {
         if (Length <= 1.0e-6f) {
             return false;
         }
+
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::SweepQueryTime};
+        PhysicsRuntime::PhysicsStats::SweepQueries.Add();
 
         FSphereSweepFilter Callback{ShouldIgnore};
         const physx::PxQueryFilterData Filter{physx::PxQueryFlag::eSTATIC | physx::PxQueryFlag::eDYNAMIC | physx::PxQueryFlag::ePREFILTER | physx::PxQueryFlag::eNO_BLOCK};

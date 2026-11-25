@@ -32,6 +32,7 @@
 #include "PhysicsRuntime/FConstraintInstance.h"
 #include "PhysicsRuntime/FPhysicsRuntime.h"
 #include "PhysicsRuntime/FPhysicsScene.h"
+#include "PhysicsRuntime/PhysicsStats.h"
 #include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "PhysicsRuntime/UPhysicsAsset.h"
 
@@ -476,6 +477,7 @@ namespace Engine {
             return;
         }
 
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::ArticulatedSetup};
         const Index_t NumBodies{PhysicsAsset->mSkeletalBodySetups.size()};
 
         PhysicsRuntime::FInitBodySpawnParams SpawnParams{};
@@ -712,26 +714,53 @@ namespace Engine {
      * @brief 키네마틱 바디를 현재 애니메이션 포즈의 뼈 위치로 옮깁니다.
      */
     void USkeletalMeshComponent::UpdateKinematicBonesToAnim() {
+        if (mBodies.empty()) {
+            return;
+        }
+
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::KinematicSync};
+        Index_t UpdatedBodies{};
+
         for (const auto& Entry : mBodies) {
             const auto& Body{Entry.mInstance};
             FTransform BoneTransform{};
 
-            if (Body != nullptr && !Body->ShouldSimulatePhysics() && GetBoneWorldTransform(Body->mInstanceBoneIndex, BoneTransform)) {
-                Body->SetBodyTransform(BoneTransform);
+            if (Body != nullptr && !Body->ShouldSimulatePhysics() && GetBoneWorldTransform(Body->mInstanceBoneIndex, BoneTransform) && Body->SetBodyTransform(BoneTransform)) {
+                ++UpdatedBodies;
             }
         }
+
+        PhysicsRuntime::PhysicsStats::KinematicBoneUpdates.Add(static_cast<double>(UpdatedBodies));
     }
 
     /**
      * @brief 시뮬레이션한 바디 위치를 읽어 뼈 포즈에 씁니다.
      */
     void USkeletalMeshComponent::BlendInPhysics() {
-        if (mSkeletalMesh == nullptr || mSkeleton == nullptr || std::ranges::none_of(mBodies, [](const FArticulatedBody& Body) {
-            return Body.mBlendWeight > 0.0f && Body.mInstance != nullptr && Body.mInstance->ShouldSimulatePhysics();
-        })) {
+        if (mSkeletalMesh == nullptr || mSkeleton == nullptr) {
             return;
         }
 
+        Index_t SimulatedBodies{};
+        bool HasBlendBody{};
+
+        for (const FArticulatedBody& Body : mBodies) {
+            if (Body.mInstance != nullptr && Body.mInstance->ShouldSimulatePhysics()) {
+                ++SimulatedBodies;
+                HasBlendBody |= Body.mBlendWeight > 0.0f;
+            }
+        }
+
+        if (SimulatedBodies > 0) {
+            PhysicsRuntime::PhysicsStats::RagdollComponents.Add();
+            PhysicsRuntime::PhysicsStats::SimulatedBoneBodies.Add(static_cast<double>(SimulatedBodies));
+        }
+
+        if (!HasBlendBody) {
+            return;
+        }
+
+        const Core::FScopedStatTimer StatTimer{PhysicsRuntime::PhysicsStats::PoseBlend};
         const Core::TArray<Asset::FMeshImportBone>& Bones{mSkeleton->GetBones()};
         const Core::TArray<FMatrix>& OldGlobals{mPose.GetGlobalTransforms()};
         const auto& BaseLocals{mUnblendedLocalPose.empty() ? mPose.GetLocalTransforms() : mUnblendedLocalPose};
@@ -757,6 +786,7 @@ namespace Engine {
         // 부모부터 내려가며 바디가 있는 뼈는 바디 위치로, 없는 뼈는 부모를 따라가게 합니다.
         Core::TArray<FMatrix> NewGlobals{};
         NewGlobals.resize(Bones.size(), FMatrix::Identity());
+        Index_t BlendedBones{};
 
         for (Index_t BoneIndex{}; BoneIndex < Bones.size(); ++BoneIndex) {
             const Int32 ParentIndex{Bones[BoneIndex].GetParentIndex()};
@@ -779,12 +809,14 @@ namespace Engine {
 
             if (Body->mBlendWeight >= 1.0f) {
                 Locals[BoneIndex] = PhysicsLocal;
+                ++BlendedBones;
             } else {
                 FTransform Animation{};
                 FTransform Physics{};
                 if (Locals[BoneIndex].TryGetTransform(Animation) && PhysicsLocal.TryGetTransform(Physics)) {
                     Physics.mScale = Animation.mScale;
                     Locals[BoneIndex] = Animation.Blend(Physics, Body->mBlendWeight).ToMatrix();
+                    ++BlendedBones;
                 }
             }
 
@@ -795,6 +827,7 @@ namespace Engine {
             mUnblendedLocalPose = BaseLocals;
         }
         if (mPose.SetAnimatedLocalTransforms(*mSkeletalMesh, *mSkeleton, std::move(Locals))) {
+            PhysicsRuntime::PhysicsStats::BlendedBones.Add(static_cast<double>(BlendedBones));
             MarkRenderStateDirty();
         }
     }

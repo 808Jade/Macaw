@@ -288,6 +288,8 @@ function Component:SetVehicleDrivable(Drivable) end
 ---@return boolean
 function Component:SetPhysicsVelocity(Linear, Angular) end
 
+function Component:AddForce(Force) end
+
 ---@class MacawActor
 ---@field UUID string
 ---@field Location MacawVector

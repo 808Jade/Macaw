@@ -338,6 +338,10 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         return Primitive != nullptr && Linear.IsFinite() && Angular.IsFinite() &&
                Primitive->SetPhysicsLinearVelocity(Linear) && Primitive->SetPhysicsAngularVelocity(Angular);
     };
+    Component["AddForce"] = [](const FLuaComponentRef& Ref, const FVector& Force) {
+        auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
+        return Primitive != nullptr && Primitive->IsSimulatingPhysics() && Force.IsFinite() && Primitive->AddForce(Force);
+    };
     Component["SetSimulatePhysics"] = [](const FLuaComponentRef& Ref, bool Simulate) {
         auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
         if (Primitive == nullptr) {
