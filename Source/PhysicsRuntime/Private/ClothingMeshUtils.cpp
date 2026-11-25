@@ -235,6 +235,10 @@ namespace PhysicsRuntime {
 
         OutSkinningData.reserve(NumTargetVerts);
 
+        // 법선과 접선은 그 방향으로 이만큼 간 점을 천 삼각형에 붙여 두었다가 다시 구합니다.
+        // 점이 삼각형 크기보다 훨씬 멀면 무게중심 좌표가 커져 천이 휠 때 법선이 크게 흔들리므로, 천 삼각형보다 작은 1cm(0.01m)를 씁니다.
+        constexpr float DirectionOffset{0.01f};
+
         for (Index_t VertIndex{}; VertIndex < NumTargetVerts; ++VertIndex) {
             const FVector& VertPosition{TargetMesh.mPositions[VertIndex]};
             const FVector& VertNormal{TargetMesh.mNormals[VertIndex]};
@@ -258,8 +262,8 @@ namespace PhysicsRuntime {
 
             FMeshToMeshVertData& SkinningData{OutSkinningData.emplace_back()};
             SkinningData.mPositionBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, VertPosition);
-            SkinningData.mNormalBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, VertPosition + VertNormal);
-            SkinningData.mTangentBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, VertPosition + VertTangent);
+            SkinningData.mNormalBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, VertPosition + VertNormal * DirectionOffset);
+            SkinningData.mTangentBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, VertPosition + VertTangent * DirectionOffset);
             SkinningData.mSourceMeshVertIndices = {IndexA, IndexB, IndexC, 0};
             SkinningData.mWeight = 1.0f;
         }
