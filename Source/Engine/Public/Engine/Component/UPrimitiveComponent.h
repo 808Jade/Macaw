@@ -214,6 +214,18 @@ namespace Engine {
         void SetReceivesDecals(bool ReceivesDecals);
 
         /**
+         * @brief 게임(Game·PIE) 월드에서 이 프리미티브를 그리지 않는지 반환합니다. 충돌과 물리는 영향받지 않습니다.
+         * @return 게임 중 숨김이면 true입니다.
+         */
+        bool IsHiddenInGame() const;
+
+        /**
+         * @brief 게임(Game·PIE) 월드에서 그리기 여부를 바꿉니다. 에디터 월드에서는 계속 보여 편집할 수 있습니다.
+         * @param HiddenInGame 게임 중 숨기려면 true입니다.
+         */
+        void SetHiddenInGame(bool HiddenInGame);
+
+        /**
          * @brief 컴포넌트 겹침 시작 이벤트를 반환합니다.
          * @return 이 컴포넌트가 소유한 이벤트 델리게이트의 참조입니다.
          */
@@ -407,6 +419,12 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Getter = GetReceivesDecals, Setter = SetReceivesDecals)
         bool mReceivesDecals{true};
+
+        /**
+         * @brief 게임(Game·PIE) 월드에서 그리지 않는지 여부입니다. 차량 충돌 박스처럼 물리 전용 프리미티브에 씁니다.
+         */
+        UPROPERTY(Edit, Serialize, Getter = IsHiddenInGame, Setter = SetHiddenInGame)
+        bool mHiddenInGame{};
 
         /**
          * @brief 변환 업로드가 필요한지 여부입니다.

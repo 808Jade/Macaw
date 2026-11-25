@@ -147,6 +147,12 @@ namespace Engine {
          */
         bool SetPhysicsAssetOverride(const Core::FString& Path);
 
+        /** @brief 메시가 뼈별 바디나 메시 전체 바디로 물리 충돌을 만드는지 반환합니다. */
+        bool IsCollisionEnabled() const;
+
+        /** @brief 메시의 표시를 유지하며 물리 충돌을 켜거나 끄고 물리 상태를 다시 만듭니다. */
+        void SetCollisionEnabled(bool Enabled);
+
         /**
          * @brief 뼈 이름으로 뼈 번호를 찾습니다.
          * @param[in] BoneName 찾을 뼈의 이름입니다.
@@ -649,6 +655,12 @@ namespace Engine {
          */
         UPROPERTY(Edit, Serialize, Name = "PhysicsAssetOverride", Getter = GetPhysicsAssetOverride, Setter = SetPhysicsAssetOverride)
         Core::FString mPhysicsAssetOverride{};
+
+        /**
+         * @brief 물리 충돌을 만들지 여부입니다. 차량 바퀴 본처럼 표시만 하는 메시는 끕니다.
+         */
+        UPROPERTY(Edit, Serialize, Name = "CollisionEnabled", Getter = IsCollisionEnabled, Setter = SetCollisionEnabled)
+        bool mCollisionEnabled{true};
 
         /**
          * @brief 애니메이션 그래프를 만드는 UAnimInstance 파생 클래스 이름입니다. 비어 있으면 Animation을 단일 노드로 재생합니다.

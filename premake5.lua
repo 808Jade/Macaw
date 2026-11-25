@@ -141,6 +141,8 @@ for _, Name in ipairs(ModuleNames) do
     if Name == "Engine" then
         includedirs { "vcpkg_installed/x64-windows/include/luajit" }
         defines { "SOL_ALL_SAFETIES_ON=1" }
+        -- sol2 바인딩은 템플릿 인스턴스가 많아 기본 COFF 섹션 한도(65,279)를 넘습니다.
+        buildoptions { "/bigobj" }
     end
 end
 

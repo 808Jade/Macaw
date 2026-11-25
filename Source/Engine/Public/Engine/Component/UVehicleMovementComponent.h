@@ -87,7 +87,7 @@ namespace Engine {
 
         /**
          * @brief 바퀴 본을 움직일 같은 Pawn의 스켈레탈 메시입니다. nullptr로 연결을 해제합니다.
-         * @details 차체(이동 대상) 자신은 지정할 수 없습니다. 본 이름 목록은 유지합니다.
+         * @details 차체(이동 대상) 자신과 충돌이 켜진 메시는 지정할 수 없습니다. 본 이름 목록은 유지합니다.
          */
         bool SetWheelSkeletalMesh(Engine::USkeletalMeshComponent* Mesh);
         Engine::USkeletalMeshComponent* GetWheelSkeletalMesh() const;

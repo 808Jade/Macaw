@@ -119,6 +119,14 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         {"Hexagon", Engine::EDepthOfFieldApertureShape::Hexagon}
     });
 
+    // 액터·컴포넌트에 지정할 수 있는 그룹만 노출합니다. 내부 경계 그룹은 SetTickGroup이 거부합니다.
+    Lua.new_enum<Engine::ETickingGroup>("TickGroup", {
+        {"PrePhysics", Engine::ETickingGroup::PrePhysics},
+        {"DuringPhysics", Engine::ETickingGroup::DuringPhysics},
+        {"PostPhysics", Engine::ETickingGroup::PostPhysics},
+        {"PostUpdateWork", Engine::ETickingGroup::PostUpdateWork}
+    });
+
     auto DepthOfField{Lua.new_usertype<Engine::FDepthOfFieldSettings>("DepthOfFieldSettings", sol::constructors<Engine::FDepthOfFieldSettings()>())};
     DepthOfField["Enabled"] = &Engine::FDepthOfFieldSettings::mEnabled;
     DepthOfField["FocalDistance"] = &Engine::FDepthOfFieldSettings::mFocalDistance;
@@ -153,7 +161,14 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Component["Owner"] = sol::property([](const FLuaComponentRef& Ref) {
         return FActorRef{CoreUObject::MakeObjectRef(Ref.Resolve().GetOwner())};
     });
-    Component["SetAnimGraphFloat"] = [](const FLuaComponentRef& Ref, const Core::FString& Name, float Value) {
+    Component["GetTickGroup"] = [](const FLuaComponentRef& Ref) {
+        return Ref.Resolve().GetTickGroup();
+    };
+    // 변경은 다음 프레임 배치부터 적용됩니다.
+    Component["SetTickGroup"] = [](const FLuaComponentRef& Ref, Engine::ETickingGroup Group) {
+        return Ref.Resolve().SetTickGroup(Group);
+    };
+    Component["SetAnimGraphFloat"] =[](const FLuaComponentRef& Ref, const Core::FString& Name, float Value) {
         auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
         return Mesh != nullptr && Mesh->SetAnimGraphFloat(Name, Value);
     };
@@ -222,6 +237,40 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
 
         return Movement != nullptr && Movement->SetWheelBone(WheelIndex, BoneName.value_or(Core::FString{}));
     };
+    // 차종 교체용입니다. 바퀴 수와 서스펜션 값은 유지하고 위치·반지름·폭만 바꾸며, 값이 바뀌면 차량을 다시 등록합니다.
+    Component["SetWheelGeometry"] = [](const FLuaComponentRef& Ref, const sol::table& Wheels) {
+        auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
+        if (Movement == nullptr || Wheels.size() != Movement->GetWheelSettings().size()) {
+            return false;
+        }
+
+        auto Settings{Movement->GetWheelSettings()};
+        for (Index_t Index{}; Index < Settings.size(); ++Index) {
+            const auto Wheel{Wheels.get<sol::optional<sol::table>>(Index + 1)};
+            if (!Wheel) {
+                return false;
+            }
+
+            const auto Offset{Wheel->get<sol::optional<FVector>>("Offset")};
+            const auto Radius{Wheel->get<sol::optional<float>>("Radius")};
+            const auto Width{Wheel->get<sol::optional<float>>("Width")};
+            if (!Offset || !Radius || !Width || !Offset->IsFinite()) {
+                return false;
+            }
+
+            Settings[Index].mCenterOffset = *Offset;
+            Settings[Index].mRadius = Core::FLength::FromBase(*Radius);
+            Settings[Index].mWidth = Core::FLength::FromBase(*Width);
+        }
+
+        return Movement->SetWheelSettings(Settings);
+    };
+    // 스켈레톤을 먼저 바꿔 새 메시가 이전 스켈레톤과 짝지어진 포즈를 거치지 않게 합니다.
+    Component["SetSkeletalMesh"] = [](const FLuaComponentRef& Ref, const Core::FString& MeshPath, const Core::FString& SkeletonPath) {
+        auto* Mesh{CoreUObject::Cast<Engine::USkeletalMeshComponent>(&Ref.Resolve())};
+
+        return Mesh != nullptr && Mesh->SetSkeletonPath(SkeletonPath) && Mesh->SetMeshPath(MeshPath) && Mesh->GetSkeletalMesh() != nullptr && Mesh->GetSkeleton() != nullptr;
+    };
     Component["GetDriveState"] = [](const FLuaComponentRef& Ref) {
         const auto* Movement{CoreUObject::Cast<Engine::UVehicleMovementComponent>(&Ref.Resolve())};
         return Movement != nullptr ? std::tuple{Movement->GetCurrentGear(), Movement->GetForwardSpeed().GetBase()} : std::tuple{Int32{}, 0.0f};
@@ -249,6 +298,27 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
         return Primitive != nullptr && Linear.IsFinite() && Angular.IsFinite() &&
                Primitive->SetPhysicsLinearVelocity(Linear) && Primitive->SetPhysicsAngularVelocity(Angular);
     };
+    Component["SetHiddenInGame"] = [](const FLuaComponentRef& Ref, bool Hidden) {
+        auto* Primitive{CoreUObject::Cast<Engine::UPrimitiveComponent>(&Ref.Resolve())};
+        if (Primitive == nullptr) {
+            return false;
+        }
+
+        Primitive->SetHiddenInGame(Hidden);
+        return true;
+    };
+    // 이 컴포넌트의 스케일만 바꿉니다. Actor:SetActorTransform과 달리 다른 컴포넌트에 비율을 전파하지 않으며,
+    // 물리 바디가 있으면 새 크기로 다시 만듭니다(차량이면 바디 재생성 이벤트로 다시 등록됩니다).
+    Component["SetComponentScale"] = [](const FLuaComponentRef& Ref, const FVector& Scale) {
+        auto* Scene{CoreUObject::Cast<Engine::USceneComponent>(&Ref.Resolve())};
+        if (Scene == nullptr || !Scale.IsFinite() || Scale.x <= 0.0f || Scale.y <= 0.0f || Scale.z <= 0.0f) {
+            return false;
+        }
+
+        FTransform Transform{Scene->GetTransform()};
+        Transform.mScale = Scale;
+        return Scene->SetTransform(Transform);
+    };
     Lua["SkeletalMeshComponent"] = Lua.get<sol::table>("Component");
     Lua["CameraComponent"] = Lua.get<sol::table>("Component");
 
@@ -263,7 +333,13 @@ void FLuaRuntime::RegisterBindings(sol::state_view Lua) {
     Actor["UUID"] = sol::property([](const FActorRef& Ref) {
         return Ref.mActor.GetGuid().ToString();
     });
-    Actor["GetActorTransform"] = [](const FActorRef& Ref) {
+    Actor["GetTickGroup"] = [](const FActorRef& Ref) {
+        return Ref.Resolve().GetTickGroup();
+    };
+    Actor["SetTickGroup"] = [](const FActorRef& Ref, Engine::ETickingGroup Group) {
+        return Ref.Resolve().SetTickGroup(Group);
+    };
+    Actor["GetActorTransform"] =[](const FActorRef& Ref) {
         return Ref.Resolve().GetActorTransform();
     };
     Actor["SetActorTransform"] = [](const FActorRef& Ref, const FTransform& Value) {

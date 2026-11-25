@@ -84,6 +84,15 @@ DepthOfFieldApertureShape = {
     Hexagon = 2,
 }
 
+--- 프레임 안에서 Tick이 실행되는 순서입니다. 물리 스텝은 DuringPhysics와 PostPhysics 사이에 실행됩니다.
+---@enum MacawTickGroup
+TickGroup = {
+    PrePhysics = 0,
+    DuringPhysics = 2,
+    PostPhysics = 4,
+    PostUpdateWork = 5,
+}
+
 ---@class MacawDepthOfFieldSettings
 ---@field Enabled boolean
 ---@field FocalDistance number 미터
@@ -123,6 +132,15 @@ CameraComponent = Component
 
 ---@return boolean
 function Component:IsValid() end
+
+---@return MacawTickGroup
+function Component:GetTickGroup() end
+
+--- 컴포넌트 Tick 그룹을 바꿉니다. 다음 프레임부터 적용됩니다. 그룹을 고정한 컴포넌트(차량 이동 등)는 false를 반환합니다.
+--- 물리 결과를 따라가는 카메라는 PostPhysics에서 갱신해야 한 프레임 늦지 않습니다.
+---@param Group MacawTickGroup
+---@return boolean
+function Component:SetTickGroup(Group) end
 
 ---@param Name string
 ---@param Value number
@@ -186,7 +204,7 @@ function Component:ResetDrive() end
 ---@return boolean
 function Component:SetWheelMesh(WheelIndex, Mesh) end
 
---- 바퀴 본을 움직일 같은 액터의 스켈레탈 메시 컴포넌트를 지정합니다. 차체 자신은 지정할 수 없습니다. nil이면 해제합니다.
+--- 바퀴 본을 움직일 같은 액터의 충돌이 꺼진 스켈레탈 메시 컴포넌트를 지정합니다. 차체 자신은 지정할 수 없습니다. nil이면 해제합니다.
 ---@param Mesh MacawComponent? 스켈레탈 메시 컴포넌트
 ---@return boolean
 function Component:SetWheelSkeletalMesh(Mesh) end
@@ -197,6 +215,34 @@ function Component:SetWheelSkeletalMesh(Mesh) end
 ---@param BoneName string?
 ---@return boolean
 function Component:SetWheelBone(WheelIndex, BoneName) end
+
+---@class MacawWheelGeometry
+---@field Offset Vector 차체 바디 로컬 바퀴 중심(m)
+---@field Radius number 바퀴 반지름(m)
+---@field Width number 바퀴 폭(m)
+
+--- 차종 교체용으로 모든 바퀴의 위치·반지름·폭을 바꿉니다. 바퀴 수와 서스펜션 값은 유지합니다.
+--- 값이 바뀌면 차량을 다시 등록하므로 기어·입력 상태가 초기화됩니다.
+---@param Wheels MacawWheelGeometry[] 현재 바퀴 수와 같은 길이의 배열
+---@return boolean
+function Component:SetWheelGeometry(Wheels) end
+
+--- 스켈레탈 메시 컴포넌트의 메시와 스켈레톤을 함께 바꿉니다. 포즈는 새 바인드 포즈로 초기화됩니다.
+---@param MeshPath string 콘텐츠 상대 스켈레탈 메시 에셋 경로
+---@param SkeletonPath string 콘텐츠 상대 스켈레톤 에셋 경로
+---@return boolean
+function Component:SetSkeletalMesh(MeshPath, SkeletonPath) end
+
+--- 게임(Game·PIE) 월드에서 프리미티브를 그리지 않게 합니다. 충돌과 물리는 그대로이며, 에디터에서는 계속 보입니다.
+---@param Hidden boolean
+---@return boolean
+function Component:SetHiddenInGame(Hidden) end
+
+--- 이 컴포넌트의 스케일만 바꿉니다. Actor:SetActorTransform과 달리 다른 컴포넌트에 비율을 전파하지 않습니다.
+--- 물리 바디가 있으면 새 크기로 다시 만들며, 차량 차체라면 차량도 다시 등록됩니다.
+---@param Scale Vector 각 축이 0보다 큰 스케일
+---@return boolean
+function Component:SetComponentScale(Scale) end
 
 ---@return integer Gear 후진 -1, 중립 0, 전진 1부터
 ---@return number ForwardSpeed m/s
@@ -222,11 +268,23 @@ function Component:SetPhysicsVelocity(Linear, Angular) end
 ---@field Velocity MacawVector
 Actor = {}
 
+--- 이 스크립트를 실행하는 Lua 스크립트 컴포넌트입니다.
+---@type MacawComponent
+Script = {}
+
 ---@return boolean
 function Actor:IsValid() end
 
 ---@return string
 function Actor:GetName() end
+
+---@return MacawTickGroup
+function Actor:GetTickGroup() end
+
+--- 액터 기본 Tick 그룹을 바꿉니다. 다음 프레임부터 적용됩니다.
+---@param Group MacawTickGroup
+---@return boolean
+function Actor:SetTickGroup(Group) end
 
 ---@return MacawTransform
 function Actor:GetActorTransform() end

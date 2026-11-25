@@ -165,7 +165,8 @@ namespace Engine {
     }
 
     bool UVehicleMovementComponent::SetWheelSkeletalMesh(Engine::USkeletalMeshComponent* Mesh) {
-        if (Mesh != nullptr && (GetOwner() == nullptr || Mesh->GetOwner() != GetOwner() || Mesh == GetUpdatedComponent())) {
+        // 충돌이 켜진 메시는 본마다 키네마틱 바디를 만들어 차체와 겹치므로 차체를 계속 밀어냅니다.
+        if (Mesh != nullptr && (GetOwner() == nullptr || Mesh->GetOwner() != GetOwner() || Mesh == GetUpdatedComponent() || Mesh->IsCollisionEnabled())) {
             return false;
         }
 
@@ -176,7 +177,7 @@ namespace Engine {
     Engine::USkeletalMeshComponent* UVehicleMovementComponent::GetWheelSkeletalMesh() const {
         auto* Mesh{mWheelSkeletalMesh.Get()};
 
-        return Mesh != nullptr && Mesh->GetOwner() == GetOwner() && Mesh != GetUpdatedComponent() ? Mesh : nullptr;
+        return Mesh != nullptr && Mesh->GetOwner() == GetOwner() && Mesh != GetUpdatedComponent() && !Mesh->IsCollisionEnabled() ? Mesh : nullptr;
     }
 
     bool UVehicleMovementComponent::SetWheelBone(Uint32 WheelIndex, const Core::FString& BoneName) {

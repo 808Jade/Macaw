@@ -145,7 +145,10 @@ namespace Engine {
             return;
         }
 
-        if (!IsOwnerVisible() || !ShouldCreateRenderState()) {
+        const Engine::EWorldType WorldType{GetWorld()->GetWorldType()};
+        const bool HiddenInThisWorld{mHiddenInGame && (WorldType == Engine::EWorldType::Game || WorldType == Engine::EWorldType::PIE)};
+
+        if (!IsOwnerVisible() || HiddenInThisWorld || !ShouldCreateRenderState()) {
             if (mRenderStateCreated) {
                 GetWorld()->GetScene()->RemovePrimitive(GetGuid());
 
@@ -295,6 +298,17 @@ namespace Engine {
     void Engine::UPrimitiveComponent::SetReceivesDecals(bool ReceivesDecals) {
         mReceivesDecals = ReceivesDecals;
         MarkRenderStateDirty();
+    }
+
+    bool Engine::UPrimitiveComponent::IsHiddenInGame() const {
+        return mHiddenInGame;
+    }
+
+    void Engine::UPrimitiveComponent::SetHiddenInGame(bool HiddenInGame) {
+        if (mHiddenInGame != HiddenInGame) {
+            mHiddenInGame = HiddenInGame;
+            MarkRenderStateDirty();
+        }
     }
 
     /**

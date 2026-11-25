@@ -348,7 +348,18 @@ namespace Engine {
      * @brief 물리 에셋이나 메시 경계 바디 셋업이 있으면 물리 상태가 필요하다고 판단합니다.
      */
     bool USkeletalMeshComponent::ShouldCreatePhysicsState() const {
-        return GetPhysicsAsset() != nullptr || Engine::UMeshComponent::ShouldCreatePhysicsState();
+        return mCollisionEnabled && (GetPhysicsAsset() != nullptr || Engine::UMeshComponent::ShouldCreatePhysicsState());
+    }
+
+    bool USkeletalMeshComponent::IsCollisionEnabled() const {
+        return mCollisionEnabled;
+    }
+
+    void USkeletalMeshComponent::SetCollisionEnabled(bool Enabled) {
+        if (mCollisionEnabled != Enabled) {
+            mCollisionEnabled = Enabled;
+            RecreatePhysicsState();
+        }
     }
 
     /**
@@ -356,6 +367,10 @@ namespace Engine {
      */
     void USkeletalMeshComponent::OnCreatePhysicsState() {
         PhysicsRuntime::FPhysicsScene* Scene{GetWorld() != nullptr ? GetWorld()->GetPhysicsScene() : nullptr};
+
+        if (!mCollisionEnabled) {
+            return;
+        }
 
         if (Scene != nullptr && GetPhysicsAsset() != nullptr) {
             InitArticulated(*Scene);
