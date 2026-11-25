@@ -434,7 +434,7 @@ namespace Editor {
         }
 
         ImGui::SameLine();
-        ImGui::TextDisabled(mSkeleton != nullptr ? "Click bone | Drag: orbit | Middle: pan | Wheel: zoom | F: frame | W/E: move/rotate" : "Drag: orbit | Middle: pan | Wheel: zoom | F: frame");
+        ImGui::TextDisabled(mSkeleton != nullptr ? "Click bone | LMB: orbit | MMB: pan | Wheel: zoom | RMB + WASD/QE: fly | RMB + Wheel: speed | Shift: fast | F: frame | W/E: move/rotate" : "LMB: orbit | MMB: pan | Wheel: zoom | RMB + WASD/QE: fly | RMB + Wheel: speed | Shift: fast | F: frame");
         DrawMaterials();
 
         if (mSkeletalMesh != nullptr) {
@@ -504,7 +504,29 @@ namespace Editor {
             mMouseCaptured = false;
         }
 
-        if (mMouseCaptured) {
+        // 오른쪽 버튼을 누른 동안은 비행(제자리 시선 회전 + WASD/QE 이동, 휠은 속도 조절), 왼쪽은 궤도 회전, 가운데는 이동이다.
+        const bool Flying{mMouseCaptured && Input.IsDown(EKey::MouseRight) && !Input.IsDown(EKey::MouseMiddle)};
+
+        if (Flying) {
+            const ImGuiIO& Io{ImGui::GetIO()};
+            Viewer::FFlyInput Fly{};
+
+            Fly.mMouseDelta = Delta;
+            Fly.mWheel = Hovered ? Input.GetMouseWheel() : 0.0f;
+            Fly.mDeltaTime = Io.DeltaTime;
+            Fly.mFast = Input.IsDown(EKey::Shift);
+
+            if (!Io.WantTextInput) {
+                Fly.mForward = Input.IsDown(EKey::W);
+                Fly.mBackward = Input.IsDown(EKey::S);
+                Fly.mRight = Input.IsDown(EKey::D);
+                Fly.mLeft = Input.IsDown(EKey::A);
+                Fly.mUp = Input.IsDown(EKey::E);
+                Fly.mDown = Input.IsDown(EKey::Q);
+            }
+
+            mFlyCamera.Update(mViewer.GetCamera(), Fly);
+        } else if (mMouseCaptured) {
             if (Input.IsDown(EKey::MouseMiddle)) {
                 mViewer.GetCamera().Pan(Delta, Size.y);
             } else {
@@ -512,7 +534,7 @@ namespace Editor {
             }
         }
 
-        if (Hovered && Input.GetMouseWheel() != 0.0f) {
+        if (Hovered && !Flying && Input.GetMouseWheel() != 0.0f) {
             mViewer.GetCamera().Zoom(Input.GetMouseWheel());
         }
 
@@ -520,7 +542,7 @@ namespace Editor {
             FrameMesh();
         }
 
-        if (mSkeleton != nullptr && Hovered && !ImGui::GetIO().WantTextInput && !mGizmo.IsDragging()) {
+        if (mSkeleton != nullptr && Hovered && !ImGui::GetIO().WantTextInput && !mGizmo.IsDragging() && !Input.IsDown(EKey::MouseRight)) {
             if (Input.WasPressed(EKey::W)) {
                 mGizmoMode = Editor::EGizmoMode::Translate;
             } else if (Input.WasPressed(EKey::E)) {

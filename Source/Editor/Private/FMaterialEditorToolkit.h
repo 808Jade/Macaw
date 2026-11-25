@@ -11,6 +11,7 @@
 #include "Editor/FAssetPicker.h"
 #include "Engine/EPrimitiveType.h"
 #include "Viewer/FAssetViewer.h"
+#include "Viewer/FFlyCameraController.h"
 
 namespace Asset {
     class UMaterial;
@@ -145,6 +146,11 @@ namespace Editor {
         Editor::FAssetPicker mAssetPicker{};
 
         Viewer::FAssetViewer mViewer;
+
+        /**
+         * @brief 오른쪽 버튼을 누른 동안 시선 회전과 WASD/QE 이동을 처리하는 비행 카메라 컨트롤러입니다.
+         */
+        Viewer::FFlyCameraController mFlyCamera{};
         Engine::EPrimitiveType mPreviewPrimitive{Engine::EPrimitiveType::Sphere};
         Core::FString mViewportError{};
         bool mNeedsFrame{true};
