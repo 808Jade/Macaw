@@ -21,6 +21,10 @@
 
 #include "USkeletalMesh.generated.h"
 
+namespace Core {
+    class FArchive;
+}
+
 namespace Asset {
     class USkeleton;
 
@@ -221,6 +225,22 @@ namespace Asset {
          * @param[out] OutClothingAssets 연결된 천 에셋의 비소유 주소이며 기존 내용은 지우고 같은 에셋은 한 번만 넣습니다.
          */
         void GetClothingAssetsInUse(Core::TArray<const PhysicsRuntime::UClothingAssetCommon*>& OutClothingAssets) const;
+
+        /**
+         * @brief 천 에셋을 메시에서 빼고, 그 에셋을 따르던 섹션의 연결을 지웁니다.
+         * @details 뒤쪽 천 에셋의 번호가 하나씩 당겨지므로 다른 섹션의 에셋 번호도 맞춥니다.
+         *          이 에셋으로 천을 만든 컴포넌트는 부르기 전에 천을 해제해야 합니다.
+         * @param[in] AssetGuid 뺄 천 에셋의 식별자입니다.
+         * @return 에셋을 찾아 뺐으면 true입니다.
+         */
+        bool RemoveClothingAsset(const Core::FGuid& AssetGuid);
+
+        /**
+         * @brief 천 에셋과 섹션 연결 데이터를 저장하거나 불러옵니다.
+         * @details 불러올 때는 기존 천 데이터를 지우고 파일의 것으로 바꿉니다. 물리 에셋은 경로만 들어 있습니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         */
+        void SerializeClothingData(Core::FArchive& Archive);
 
     private:
 

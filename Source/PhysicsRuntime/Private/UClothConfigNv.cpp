@@ -5,6 +5,7 @@
  */
 
 #include "PhysicsRuntime/UClothConfigNv.h"
+#include "Core/Archive.h"
 
 namespace PhysicsRuntime {
 
@@ -30,5 +31,58 @@ namespace PhysicsRuntime {
      */
     float UClothConfigNv::NeedsSelfCollisionIndices() const {
         return UseSelfCollisions() ? mSelfCollisionRadius * mSelfCollisionCullScale : 0.0f;
+    }
+
+    /**
+     * @brief 모든 설정 값을 저장하거나 불러옵니다.
+     */
+    void UClothConfigNv::SerializeConfig(Core::FArchive& Archive) {
+        // 값이 바뀌면 이 번호를 올리고 예전 번호를 읽는 분기를 둡니다.
+        Uint32 Version{1};
+
+        Archive.Serialize("ClothConfigVersion", Version);
+
+        if (Archive.HasError() || Version != 1) {
+            Archive.SetError("Unsupported cloth config version");
+
+            return;
+        }
+
+        Uint32 WindMethod{static_cast<Uint32>(mClothingWindMethod)};
+        Archive.Serialize("WindMethod", WindMethod);
+
+        if (Archive.IsLoading()) {
+            mClothingWindMethod = WindMethod == static_cast<Uint32>(EClothingWindMethodNv::Accurate) ? EClothingWindMethodNv::Accurate : EClothingWindMethodNv::Legacy;
+        }
+
+        for (FClothConstraintSetupNv* Setup : {&mVerticalConstraint, &mHorizontalConstraint, &mBendConstraint, &mShearConstraint}) {
+            Archive.Serialize("Stiffness", Setup->mStiffness);
+            Archive.Serialize("StiffnessMultiplier", Setup->mStiffnessMultiplier);
+            Archive.Serialize("StretchLimit", Setup->mStretchLimit);
+            Archive.Serialize("CompressionLimit", Setup->mCompressionLimit);
+        }
+
+        Archive.Serialize("SelfCollisionRadius", mSelfCollisionRadius);
+        Archive.Serialize("SelfCollisionStiffness", mSelfCollisionStiffness);
+        Archive.Serialize("SelfCollisionCullScale", mSelfCollisionCullScale);
+        Archive.Serialize("Damping", mDamping);
+        Archive.Serialize("Friction", mFriction);
+        Archive.Serialize("WindDragCoefficient", mWindDragCoefficient);
+        Archive.Serialize("WindLiftCoefficient", mWindLiftCoefficient);
+        Archive.Serialize("LinearDrag", mLinearDrag);
+        Archive.Serialize("AngularDrag", mAngularDrag);
+        Archive.Serialize("LinearInertiaScale", mLinearInertiaScale);
+        Archive.Serialize("AngularInertiaScale", mAngularInertiaScale);
+        Archive.Serialize("CentrifugalInertiaScale", mCentrifugalInertiaScale);
+        Archive.Serialize("SolverFrequency", mSolverFrequency);
+        Archive.Serialize("StiffnessFrequency", mStiffnessFrequency);
+        Archive.Serialize("GravityScale", mGravityScale);
+        Archive.Serialize("GravityOverride", mGravityOverride);
+        Archive.Serialize("UseGravityOverride", mUseGravityOverride);
+        Archive.Serialize("TetherStiffness", mTetherStiffness);
+        Archive.Serialize("TetherLimit", mTetherLimit);
+        Archive.Serialize("CollisionThickness", mCollisionThickness);
+        Archive.Serialize("AnimDriveSpringStiffness", mAnimDriveSpringStiffness);
+        Archive.Serialize("AnimDriveDamperStiffness", mAnimDriveDamperStiffness);
     }
 }

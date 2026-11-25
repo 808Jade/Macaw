@@ -17,6 +17,10 @@
 
 #include "UClothingAssetCommon.generated.h"
 
+namespace Core {
+    class FArchive;
+}
+
 namespace PhysicsRuntime {
 
     /**
@@ -101,6 +105,13 @@ namespace PhysicsRuntime {
         void SetPhysicsAsset(UPhysicsAsset* PhysicsAsset, const Core::TArray<Core::FString>& SkeletonBoneNames);
 
         /**
+         * @brief 식별자, 상세 단계 데이터, 사용 뼈, 물리 에셋 경로, 설정을 저장하거나 불러옵니다.
+         * @details 물리 에셋은 경로만 저장하므로, 불러온 뒤 에셋 관리자가 경로로 찾아 mPhysicsAsset에 넣습니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         */
+        void SerializeClothingData(Core::FArchive& Archive);
+
+        /**
          * @brief 시뮬레이션 좌표의 기준이 될 뼈를 정합니다.
          * @note NvCloth는 컴포넌트 좌표에서 시뮬레이션하므로 항상 루트 뼈를 씁니다.
          */
@@ -143,6 +154,11 @@ namespace PhysicsRuntime {
          * @details 물리 에셋이 먼저 사라지면 비어 있는 것으로 보고 충돌을 쓰지 않습니다.
          */
         CoreUObject::TObjectRef<UPhysicsAsset> mPhysicsAsset{};
+
+        /**
+         * @brief 천이 부딪힐 물리 에셋의 Content 상대 경로이며, 저장하지 않은 물리 에셋이면 비어 있습니다.
+         */
+        Core::FString mPhysicsAssetPath{};
 
     private:
 

@@ -9,6 +9,10 @@
 #include "Core/Types.h"
 #include "Core/Math/FVector4.h"
 
+namespace Core {
+    class FArchive;
+}
+
 namespace PhysicsRuntime {
 
     /**
@@ -48,4 +52,11 @@ namespace PhysicsRuntime {
          */
         float mWeight{};
     };
+
+    /**
+     * @brief 정점 하나의 삼각형 대응을 저장하거나 불러옵니다.
+     * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+     * @param[in,out] Data 저장하거나 채울 대응입니다.
+     */
+    void SerializeMeshToMeshVertData(Core::FArchive& Archive, FMeshToMeshVertData& Data);
 }

@@ -7,10 +7,179 @@
 #include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "PhysicsRuntime/ClothingMeshUtils.h"
 #include "CoreUObject/Reflection/NewObject.h"
+#include "Core/Archive.h"
 
 #include <algorithm>
 
 namespace PhysicsRuntime {
+
+    namespace {
+        /**
+         * @brief 한 배열에 허용하는 최대 원소 수이며 깨진 파일이 큰 메모리를 잡지 않게 합니다.
+         */
+        constexpr Uint32 MaxSerializedCount{50000000u};
+
+        /**
+         * @brief 배열 개수를 저장하거나 읽고 원소마다 직렬화 함수를 부릅니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         * @param[in] Name 배열 이름입니다.
+         * @param[in,out] Values 저장하거나 채울 배열이며 불러올 때 개수만큼 기본값으로 채웁니다.
+         * @param[in] SerializeElement 원소 하나를 직렬화하는 함수입니다.
+         */
+        template <typename TElement, typename TFunction>
+        void SerializeArray(Core::FArchive& Archive, std::string_view Name, Core::TArray<TElement>& Values, TFunction&& SerializeElement) {
+            Uint32 Count{Archive.IsLoading() ? 0u : static_cast<Uint32>(Values.size())};
+
+            if (Archive.HasError() || !Archive.BeginArray(Name, Count) || Count > MaxSerializedCount) {
+                Archive.SetError("Invalid clothing array count");
+
+                return;
+            }
+
+            if (Archive.IsLoading()) {
+                Values.clear();
+                Values.resize(Count);
+            }
+
+            for (TElement& Value : Values) {
+                SerializeElement(Value);
+
+                if (Archive.HasError()) {
+                    return;
+                }
+            }
+
+            Archive.EndArray();
+        }
+
+        /**
+         * @brief 번호 하나를 64비트로 저장하거나 읽습니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         * @param[in] Name 값 이름입니다.
+         * @param[in,out] Value 저장하거나 채울 번호입니다.
+         */
+        void SerializeIndex(Core::FArchive& Archive, std::string_view Name, Index_t& Value) {
+            Uint64 Stored{static_cast<Uint64>(Value)};
+
+            Archive.Serialize(Name, Stored);
+
+            if (Archive.IsLoading()) {
+                Value = static_cast<Index_t>(Stored);
+            }
+        }
+
+        /**
+         * @brief 가중치 맵 하나를 저장하거나 읽습니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         * @param[in,out] Map 저장하거나 채울 맵입니다.
+         */
+        void SerializeWeightMap(Core::FArchive& Archive, FPointWeightMap& Map) {
+            SerializeArray(Archive, "Values", Map.mValues, [&Archive](float& Value) {
+                Archive.Serialize("Value", Value);
+            });
+            Archive.Serialize("Name", Map.mName);
+
+            Uint32 Target{static_cast<Uint32>(Map.mCurrentTarget)};
+            Archive.Serialize("Target", Target);
+            Archive.Serialize("Enabled", Map.mEnabled);
+
+            if (Archive.IsLoading()) {
+                Map.mCurrentTarget = static_cast<EWeightMapTargetCommon>(Target);
+            }
+        }
+
+        /**
+         * @brief 충돌체 목록을 저장하거나 읽습니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         * @param[in,out] Data 저장하거나 채울 목록입니다.
+         */
+        void SerializeCollisionData(Core::FArchive& Archive, FClothCollisionData& Data) {
+            SerializeArray(Archive, "Spheres", Data.mSpheres, [&Archive](FClothCollisionPrim_Sphere& Sphere) {
+                SerializeIndex(Archive, "BoneIndex", Sphere.mBoneIndex);
+                Archive.Serialize("Radius", Sphere.mRadius);
+                Archive.Serialize("LocalPosition", Sphere.mLocalPosition);
+            });
+            SerializeArray(Archive, "SphereConnections", Data.mSphereConnections, [&Archive](FClothCollisionPrim_SphereConnection& Connection) {
+                SerializeIndex(Archive, "Sphere0", Connection.mSphereIndices[0]);
+                SerializeIndex(Archive, "Sphere1", Connection.mSphereIndices[1]);
+            });
+            SerializeArray(Archive, "Convexes", Data.mConvexes, [&Archive](FClothCollisionPrim_Convex& Convex) {
+                SerializeArray(Archive, "Planes", Convex.mPlanes, [&Archive](FVector4& Plane) {
+                    Archive.Serialize("Plane", Plane);
+                });
+                SerializeIndex(Archive, "BoneIndex", Convex.mBoneIndex);
+            });
+        }
+
+        /**
+         * @brief 시뮬레이션 메시 하나를 저장하거나 읽습니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         * @param[in,out] Mesh 저장하거나 채울 시뮬레이션 메시입니다.
+         */
+        void SerializePhysicalMesh(Core::FArchive& Archive, FClothPhysicalMeshData& Mesh) {
+            SerializeArray(Archive, "Vertices", Mesh.mVertices, [&Archive](FVector& Vertex) {
+                Archive.Serialize("Vertex", Vertex);
+            });
+            SerializeArray(Archive, "Normals", Mesh.mNormals, [&Archive](FVector& Normal) {
+                Archive.Serialize("Normal", Normal);
+            });
+            SerializeArray(Archive, "VertexColors", Mesh.mVertexColors, [&Archive](FVector4& Color) {
+                Archive.Serialize("Color", Color);
+            });
+            SerializeArray(Archive, "Indices", Mesh.mIndices, [&Archive](Uint32& Index) {
+                Archive.Serialize("Index", Index);
+            });
+
+            // 가중치 맵은 대상 번호를 키로 저장합니다.
+            Core::TArray<std::pair<Uint32, FPointWeightMap>> WeightMaps{};
+
+            if (!Archive.IsLoading()) {
+                WeightMaps.assign(Mesh.mWeightMaps.begin(), Mesh.mWeightMaps.end());
+            }
+
+            SerializeArray(Archive, "WeightMaps", WeightMaps, [&Archive](std::pair<Uint32, FPointWeightMap>& Entry) {
+                Archive.Serialize("Key", Entry.first);
+                SerializeWeightMap(Archive, Entry.second);
+            });
+
+            if (Archive.IsLoading()) {
+                Mesh.mWeightMaps.clear();
+                Mesh.mWeightMaps.insert(WeightMaps.begin(), WeightMaps.end());
+            }
+
+            SerializeArray(Archive, "InverseMasses", Mesh.mInverseMasses, [&Archive](float& InverseMass) {
+                Archive.Serialize("InverseMass", InverseMass);
+            });
+            SerializeArray(Archive, "BoneData", Mesh.mBoneData, [&Archive](FClothVertBoneData& BoneData) {
+                SerializeIndex(Archive, "NumInfluences", BoneData.mNumInfluences);
+
+                for (Index_t Influence{}; Influence < BoneData.mBoneIndices.size(); ++Influence) {
+                    Archive.Serialize("BoneIndex", BoneData.mBoneIndices[Influence]);
+                    Archive.Serialize("BoneWeight", BoneData.mBoneWeights[Influence]);
+                }
+            });
+            SerializeIndex(Archive, "MaxBoneWeights", Mesh.mMaxBoneWeights);
+            SerializeIndex(Archive, "NumFixedVerts", Mesh.mNumFixedVerts);
+            SerializeArray(Archive, "SelfCollisionIndices", Mesh.mSelfCollisionIndices, [&Archive](Uint32& Index) {
+                Archive.Serialize("Index", Index);
+            });
+        }
+    }
+
+    /**
+     * @brief 정점 하나의 삼각형 대응을 저장하거나 불러옵니다.
+     */
+    void SerializeMeshToMeshVertData(Core::FArchive& Archive, FMeshToMeshVertData& Data) {
+        Archive.Serialize("PositionBaryCoordsAndDist", Data.mPositionBaryCoordsAndDist);
+        Archive.Serialize("NormalBaryCoordsAndDist", Data.mNormalBaryCoordsAndDist);
+        Archive.Serialize("TangentBaryCoordsAndDist", Data.mTangentBaryCoordsAndDist);
+
+        for (Uint32& SourceIndex : Data.mSourceMeshVertIndices) {
+            Archive.Serialize("SourceIndex", SourceIndex);
+        }
+
+        Archive.Serialize("Weight", Data.mWeight);
+    }
 
     /**
      * @brief 에셋 내부 상수입니다.
@@ -161,6 +330,63 @@ namespace PhysicsRuntime {
         }
 
         RefreshBoneMapping(SkeletonBoneNames);
+    }
+
+    /**
+     * @brief 식별자, 상세 단계 데이터, 사용 뼈, 물리 에셋 경로, 설정을 저장하거나 불러옵니다.
+     */
+    void UClothingAssetCommon::SerializeClothingData(Core::FArchive& Archive) {
+        // 값이 바뀌면 이 번호를 올리고 예전 번호를 읽는 분기를 둡니다.
+        Uint32 Version{1};
+
+        Archive.Serialize("ClothingAssetVersion", Version);
+
+        if (Archive.HasError() || Version != 1) {
+            Archive.SetError("Unsupported clothing asset version");
+
+            return;
+        }
+
+        // 섹션 연결 데이터가 이 식별자로 천 에셋을 찾으므로 그대로 되살립니다.
+        Core::FGuid Guid{GetGuid()};
+        Archive.Serialize("Guid", Guid);
+
+        if (Archive.IsLoading() && !RestoreGuid(Guid)) {
+            Archive.SetError("Invalid clothing asset guid");
+
+            return;
+        }
+
+        SerializeArray(Archive, "Lods", mLodData, [&Archive](FClothLODDataCommon& Lod) {
+            SerializePhysicalMesh(Archive, Lod.mPhysicalMeshData);
+            SerializeArray(Archive, "PointWeightMaps", Lod.mPointWeightMaps, [&Archive](FPointWeightMap& Map) {
+                SerializeWeightMap(Archive, Map);
+            });
+            SerializeArray(Archive, "TransitionUp", Lod.mTransitionUpSkinData, [&Archive](FMeshToMeshVertData& Data) {
+                SerializeMeshToMeshVertData(Archive, Data);
+            });
+            SerializeArray(Archive, "TransitionDown", Lod.mTransitionDownSkinData, [&Archive](FMeshToMeshVertData& Data) {
+                SerializeMeshToMeshVertData(Archive, Data);
+            });
+            SerializeCollisionData(Archive, Lod.mCollisionData);
+        });
+        SerializeArray(Archive, "LodMap", mLodMap, [&Archive](Index_t& LodIndex) {
+            SerializeIndex(Archive, "LodIndex", LodIndex);
+        });
+        SerializeArray(Archive, "UsedBoneNames", mUsedBoneNames, [&Archive](Core::FString& BoneName) {
+            Archive.Serialize("BoneName", BoneName);
+        });
+        SerializeArray(Archive, "UsedBoneIndices", mUsedBoneIndices, [&Archive](Index_t& BoneIndex) {
+            SerializeIndex(Archive, "BoneIndex", BoneIndex);
+        });
+        SerializeIndex(Archive, "ReferenceBoneIndex", mReferenceBoneIndex);
+        Archive.Serialize("PhysicsAssetPath", mPhysicsAssetPath);
+
+        if (Archive.IsLoading() && mClothConfig == nullptr) {
+            mClothConfig = CoreUObject::NewObject<UClothConfigNv>();
+        }
+
+        mClothConfig->SerializeConfig(Archive);
     }
 
     /**

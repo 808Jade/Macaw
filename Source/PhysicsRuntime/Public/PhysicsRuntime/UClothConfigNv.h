@@ -12,6 +12,10 @@
 
 #include "UClothConfigNv.generated.h"
 
+namespace Core {
+    class FArchive;
+}
+
 namespace PhysicsRuntime {
 
     /**
@@ -90,6 +94,12 @@ namespace PhysicsRuntime {
          * @return 천끼리 부딪히지 않으면 0이고, 아니면 반지름에 컬링 배율을 곱한 값(m)입니다.
          */
         float NeedsSelfCollisionIndices() const;
+
+        /**
+         * @brief 모든 설정 값을 저장하거나 불러옵니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         */
+        void SerializeConfig(Core::FArchive& Archive);
 
     public:
 

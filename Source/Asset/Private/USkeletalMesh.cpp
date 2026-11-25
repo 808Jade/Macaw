@@ -9,6 +9,7 @@
 #include "Asset/USkeleton.h"
 #include "Asset/FPhysicsAssetUtils.h"
 #include "CoreUObject/Reflection/NewObject.h"
+#include "Core/Archive.h"
 
 #include <algorithm>
 #include <cmath>
@@ -380,6 +381,93 @@ namespace Asset {
         mClothVertexBuffer.Reset();
 
         return true;
+    }
+
+    /**
+     * @brief 천 에셋을 메시에서 빼고, 그 에셋을 따르던 섹션의 연결을 지웁니다.
+     */
+    bool Asset::USkeletalMesh::RemoveClothingAsset(const Core::FGuid& AssetGuid) {
+        const auto Found{std::find_if(mMeshClothingAssets.begin(), mMeshClothingAssets.end(), [&AssetGuid](const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset) {
+            return ClothingAsset != nullptr && ClothingAsset->GetGuid() == AssetGuid;
+        })};
+
+        if (Found == mMeshClothingAssets.end()) {
+            return false;
+        }
+
+        const Index_t RemovedIndex{static_cast<Index_t>(Found - mMeshClothingAssets.begin())};
+        mMeshClothingAssets.erase(Found);
+
+        for (Asset::FClothingSectionData& SectionData : mSectionClothingData) {
+            if (SectionData.mAssetGuid == AssetGuid) {
+                SectionData = Asset::FClothingSectionData{};
+            } else if (SectionData.IsValid() && SectionData.mCorrespondClothAssetIndex != InvalidIndex && SectionData.mCorrespondClothAssetIndex > RemovedIndex) {
+                --SectionData.mCorrespondClothAssetIndex;
+            }
+        }
+
+        // 정점이 따르던 입자 삼각형이 바뀌었으므로 다음 리소스 준비 때 천 정점 버퍼를 다시 만듭니다.
+        mClothVertexBuffer.Reset();
+
+        return true;
+    }
+
+    /**
+     * @brief 천 에셋과 섹션 연결 데이터를 저장하거나 불러옵니다.
+     */
+    void Asset::USkeletalMesh::SerializeClothingData(Core::FArchive& Archive) {
+        constexpr Uint32 MaxClothingAssets{4096u};
+        Uint32 NumAssets{Archive.IsLoading() ? 0u : static_cast<Uint32>(mMeshClothingAssets.size())};
+
+        if (Archive.HasError() || !Archive.BeginArray("ClothingAssets", NumAssets) || NumAssets > MaxClothingAssets) {
+            Archive.SetError("Invalid clothing asset count");
+
+            return;
+        }
+
+        if (Archive.IsLoading()) {
+            mMeshClothingAssets.clear();
+
+            for (Uint32 AssetIndex{}; AssetIndex < NumAssets; ++AssetIndex) {
+                mMeshClothingAssets.push_back(CoreUObject::NewObject<PhysicsRuntime::UClothingAssetCommon>());
+            }
+        }
+
+        for (const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset : mMeshClothingAssets) {
+            ClothingAsset->SerializeClothingData(Archive);
+
+            if (Archive.HasError()) {
+                return;
+            }
+        }
+
+        Archive.EndArray();
+
+        Uint32 NumSections{Archive.IsLoading() ? 0u : static_cast<Uint32>(mSectionClothingData.size())};
+
+        if (Archive.HasError() || !Archive.BeginArray("SectionClothingData", NumSections) || NumSections > static_cast<Uint32>(GetMeshData().GetSubMeshes().size())) {
+            Archive.SetError("Invalid clothing section count");
+
+            return;
+        }
+
+        if (Archive.IsLoading()) {
+            mSectionClothingData.assign(NumSections, Asset::FClothingSectionData{});
+        }
+
+        for (Asset::FClothingSectionData& SectionData : mSectionClothingData) {
+            SectionData.Serialize(Archive);
+
+            if (Archive.HasError()) {
+                return;
+            }
+        }
+
+        Archive.EndArray();
+
+        if (Archive.IsLoading()) {
+            mClothVertexBuffer.Reset();
+        }
     }
 
     /**

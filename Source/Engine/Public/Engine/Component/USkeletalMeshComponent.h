@@ -698,11 +698,13 @@ namespace Engine {
         /**
          * @brief 천 입자의 최대 거리에 곱할 배율이며 매 프레임 천 시뮬레이션 입력에 넣습니다.
          */
+        UPROPERTY(Edit, Serialize, Name = "ClothMaxDistanceScale", Getter = GetClothMaxDistanceScale, Setter = SetClothMaxDistanceScale)
         float mClothMaxDistanceScale{1.0f};
 
         /**
          * @brief 천 섹션을 그릴 때 시뮬레이션 위치를 섞는 비율입니다.
          */
+        UPROPERTY(Edit, Serialize, Name = "ClothBlendWeight", Getter = GetClothBlendWeight, Setter = SetClothBlendWeight)
         float mClothBlendWeight{1.0f};
 
         /**

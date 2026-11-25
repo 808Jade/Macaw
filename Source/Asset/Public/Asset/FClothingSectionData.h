@@ -10,6 +10,10 @@
 #include "Core/Types.h"
 #include "PhysicsRuntime/FMeshToMeshVertData.h"
 
+namespace Core {
+    class FArchive;
+}
+
 namespace Asset {
 
     /**
@@ -22,6 +26,12 @@ namespace Asset {
          * @return 연결되어 있으면 true입니다.
          */
         bool IsValid() const;
+
+        /**
+         * @brief 연결 데이터를 저장하거나 불러옵니다.
+         * @param[in,out] Archive 저장 또는 불러오기 방향을 가진 아카이브입니다.
+         */
+        void Serialize(Core::FArchive& Archive);
 
         /**
          * @brief 섹션이 따르는 천 에셋의 식별자입니다.

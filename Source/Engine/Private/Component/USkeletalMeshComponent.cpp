@@ -676,6 +676,20 @@ namespace Engine {
             return;
         }
 
+        // 불러온 천 에셋의 사용 뼈를 이 스켈레톤의 뼈 번호로 다시 찾습니다.
+        if (mSkeleton != nullptr) {
+            Core::TArray<Core::FString> SkeletonBoneNames{};
+            SkeletonBoneNames.reserve(mSkeleton->GetBones().size());
+
+            for (const Asset::FMeshImportBone& Bone : mSkeleton->GetBones()) {
+                SkeletonBoneNames.push_back(Bone.GetName());
+            }
+
+            for (const std::unique_ptr<PhysicsRuntime::UClothingAssetCommon>& ClothingAsset : MeshClothingAssets) {
+                ClothingAsset->RefreshBoneMapping(SkeletonBoneNames);
+            }
+        }
+
         // 섹션에 연결된 천 에셋만 천으로 만듭니다.
         Core::TArray<const PhysicsRuntime::UClothingAssetCommon*> AssetsInUse{};
         mSkeletalMesh->GetClothingAssetsInUse(AssetsInUse);
