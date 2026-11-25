@@ -1,6 +1,9 @@
 local State = {
     mAlternatePunch = false,
     mAlternateHit = false,
+    mRagdollEnabledRegions = {},
+    mRagdollTargets = {},
+    mRagdollWeights = {},
 }
 
 local Settings = {
@@ -17,6 +20,8 @@ local Settings = {
     WalkableFloorZ = 0.7,
     CameraDistance = 4.0,
     LookSensitivity = 0.003,
+    RagdollBlendInSeconds = 0.12,
+    RagdollBlendOutSeconds = 0.25,
 }
 
 local Clip = {
@@ -35,6 +40,21 @@ local Clip = {
 local UnitY = Vector.new(0, 1, 0)
 local UnitZ = Vector.new(0, 0, 1)
 local Back = Vector.new(-1, 0, 0)
+
+local LeftArmBodies = {"upperarm_l", "lowerarm_l", "hand_l"}
+local RightArmBodies = {"upperarm_r", "lowerarm_r", "hand_r"}
+local LeftLegBodies = {"thigh_l", "calf_l", "foot_l"}
+local RightLegBodies = {"thigh_r", "calf_r", "foot_r"}
+local NeckBodies = {"neck_02"}
+local TorsoBodies = {"spine_02", "spine_04", "clavicle_l", "clavicle_r"}
+local RagdollRegions = {
+    {mKey = string.byte("1"), mBodyGroups = {LeftArmBodies}},
+    {mKey = string.byte("2"), mBodyGroups = {RightArmBodies}},
+    {mKey = string.byte("3"), mBodyGroups = {LeftLegBodies}},
+    {mKey = string.byte("4"), mBodyGroups = {RightLegBodies}},
+    {mKey = string.byte("5"), mBodyGroups = {NeckBodies}},
+    {mKey = string.byte("6"), mBodyGroups = {TorsoBodies, NeckBodies, LeftArmBodies, RightArmBodies}},
+}
 
 local function Clamp(Value, Minimum, Maximum)
     return math.max(Minimum, math.min(Value, Maximum))
@@ -63,8 +83,71 @@ local function UpdateAnimation()
     State.mMesh:SetAnimGraphBool("IsDead", State.mDead)
 end
 
+local function UpdateRagdollTargets()
+    local Changed = false
+    for Index, Region in ipairs(RagdollRegions) do
+        if Input.WasPressed(Region.mKey) then
+            State.mRagdollEnabledRegions[Index] = not State.mRagdollEnabledRegions[Index]
+            Changed = true
+        end
+    end
+
+    if not Changed then
+        return
+    end
+
+    State.mRagdollTargets = {}
+    for Index, Region in ipairs(RagdollRegions) do
+        if State.mRagdollEnabledRegions[Index] then
+            for _, BodyGroup in ipairs(Region.mBodyGroups) do
+                for _, Bone in ipairs(BodyGroup) do
+                    State.mRagdollTargets[Bone] = true
+                end
+            end
+        end
+    end
+end
+
+local function UpdatePartialRagdoll(Step)
+    UpdateRagdollTargets()
+
+    for Bone in pairs(State.mRagdollTargets) do
+        if State.mRagdollWeights[Bone] == nil and State.mMesh:SetBodySimulatePhysics(Bone, true) then
+            State.mMesh:SetBodyPhysicsBlendWeight(Bone, 0.0)
+            State.mRagdollWeights[Bone] = 0.0
+        end
+    end
+
+    for Bone, Weight in pairs(State.mRagdollWeights) do
+        local Enabled = State.mRagdollTargets[Bone]
+        local NextWeight = Enabled and math.min(Weight + Step / Settings.RagdollBlendInSeconds, 1.0) or math.max(Weight - Step / Settings.RagdollBlendOutSeconds, 0.0)
+        if NextWeight ~= Weight then
+            State.mMesh:SetBodyPhysicsBlendWeight(Bone, NextWeight)
+        end
+
+        if not Enabled and NextWeight == 0.0 then
+            State.mMesh:SetBodySimulatePhysics(Bone, false)
+            State.mRagdollWeights[Bone] = nil
+        else
+            State.mRagdollWeights[Bone] = NextWeight
+        end
+    end
+end
+
+local function ResetPartialRagdoll()
+    for Bone in pairs(State.mRagdollWeights) do
+        State.mMesh:SetBodyPhysicsBlendWeight(Bone, 0.0)
+        State.mMesh:SetBodySimulatePhysics(Bone, false)
+    end
+
+    State.mRagdollEnabledRegions = {}
+    State.mRagdollTargets = {}
+    State.mRagdollWeights = {}
+end
+
 
 local function ResetPlayer()
+    ResetPartialRagdoll()
     Actor:SetActorTransform(State.mSpawn)
     State.mVelocity = Vector.new(0, 0, 0)
     State.mVerticalSpeed = 0
@@ -348,6 +431,7 @@ function Tick(DeltaTime)
     end
 
     UpdateControls()
+    UpdatePartialRagdoll(Step)
 
     if State.mBusyAge > 0.12 and State.mBusy == "Action" and State.mMesh:IsAnimGraphPlayerFinished("Action Player") then
         State.mBusy = ""
@@ -362,4 +446,8 @@ function Tick(DeltaTime)
     MovePlayer(Step)
     UpdateAnimation()
     UpdateCamera(Step)
+end
+
+function EndPlay()
+    ResetPartialRagdoll()
 end
