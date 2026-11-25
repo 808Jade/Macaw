@@ -707,11 +707,12 @@ namespace Asset {
             // 3: 바디마다 CollisionEnabled와 충돌 비활성 쌍 목록을 저장한다. 2 이하는 모든 바디가 충돌하고 비활성 쌍이 없다.
             // 4: 에디터 미리보기 스켈레탈 메시 경로를 저장한다. 3 이하는 에셋 이름 규칙으로 메시를 찾는다.
             // 5: 바디마다 선형 감쇠, 회전 감쇠, 질량, 관성 배율을 저장한다. 4 이하는 바디 셋업의 기본값을 쓴다.
-            Uint32 Version{5};
+            // 6: 바디마다 바람 영향(WindInfluence)을 저장한다. 5 이하는 0(바람을 받지 않음)이다.
+            Uint32 Version{6};
 
             Archive.Serialize("PhysicsAssetVersion", Version);
 
-            if (Archive.HasError() || Version < 1 || Version > 5) {
+            if (Archive.HasError() || Version < 1 || Version > 6) {
                 Archive.SetError("Unsupported physics asset version");
 
                 return;
@@ -768,6 +769,16 @@ namespace Asset {
                         BodySetup->SetAngularDamping(Core::FFrequency::FromBase(AngularDamping));
                         BodySetup->SetMassInKg(Core::FMass::FromBase(Mass));
                         BodySetup->SetInertiaScale(InertiaScale);
+                    }
+                }
+
+                if (Version >= 6) {
+                    float WindInfluence{BodySetup->GetWindInfluence()};
+
+                    Archive.Serialize("WindInfluence", WindInfluence);
+
+                    if (Archive.IsLoading()) {
+                        BodySetup->SetWindInfluence(WindInfluence);
                     }
                 }
 

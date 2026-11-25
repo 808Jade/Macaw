@@ -186,6 +186,25 @@ namespace PhysicsRuntime {
         }
 
         /**
+         * @brief 이 바디가 바람에 반응하는 정도를 반환합니다.
+         * @return 바람 속도와 바디 속도의 차이에 곱하는 계수(1/s)이며, 0이면 바람의 영향을 받지 않습니다.
+         * @note 독립 시뮬레이션(Rigid Body 노드)의 Dynamic 바디에만 쓰며, 질량과 무관하게 가속도로 적용합니다.
+         */
+        float GetWindInfluence() const {
+            return mWindInfluence;
+        }
+
+        /**
+         * @brief 이 바디가 바람에 반응하는 정도를 설정합니다.
+         * @param[in] Influence 0 이상의 유한한 값입니다. 유효하지 않으면 무시합니다.
+         */
+        void SetWindInfluence(float Influence) {
+            if (std::isfinite(Influence) && Influence >= 0.0f) {
+                mWindInfluence = Influence;
+            }
+        }
+
+        /**
          * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
          * @param[in,out] Actor 형상을 붙일 PhysX 강체입니다.
          * @param[in] Scale 형상 크기와 중심에 반영할 컴포넌트 스케일입니다.
@@ -240,6 +259,11 @@ namespace PhysicsRuntime {
          * @brief 관성 모멘트에 곱하는 배율입니다.
          */
         float mInertiaScale{1.0f};
+
+        /**
+         * @brief 바람에 반응하는 정도(1/s)입니다. 0이면 바람을 받지 않습니다. 피직스 에셋 파일이 따로 저장합니다.
+         */
+        float mWindInfluence{0.0f};
     };
 
 }

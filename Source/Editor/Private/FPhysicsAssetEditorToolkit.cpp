@@ -295,6 +295,7 @@ struct FPhysicsAssetEditorToolkit::FBaselineBody {
     float mAngularDamping{0.5f};
     float mMassInKg{0.0f};
     float mInertiaScale{1.0f};
+    float mWindInfluence{0.0f};
 };
 
 struct FPhysicsAssetEditorToolkit::FBaseline {
@@ -328,6 +329,7 @@ void FPhysicsAssetEditorToolkit::EnsureBaseline() {
         Body.mAngularDamping = Setup->GetAngularDamping().GetBase();
         Body.mMassInKg = Setup->GetMassInKg().GetBase();
         Body.mInertiaScale = Setup->GetInertiaScale();
+        Body.mWindInfluence = Setup->GetWindInfluence();
     }
 
     for (const auto& Template : PhysicsAsset->mConstraintSetup) {
@@ -2407,7 +2409,11 @@ void FPhysicsAssetEditorToolkit::DrawBodyEditor() {
             {"Inertia Scale", "Multiplies the moment of inertia. Larger values make the body rotate more slowly.", 0.05f, 0.01f, 1000.0f, "%.2f",
                 [](const PhysicsRuntime::UBodySetup& Setup) { return Setup.GetInertiaScale(); },
                 [](PhysicsRuntime::UBodySetup& Setup, float Value) { Setup.SetInertiaScale(Value); },
-                [](const FBaselineBody& Body) { return Body.mInertiaScale; }}};
+                [](const FBaselineBody& Body) { return Body.mInertiaScale; }},
+            {"Wind Influence", "How strongly world wind pushes this body (1/s). 0 ignores wind. Used by the Rigid Body node.", 0.05f, 0.0f, 100.0f, "%.2f",
+                [](const PhysicsRuntime::UBodySetup& Setup) { return Setup.GetWindInfluence(); },
+                [](PhysicsRuntime::UBodySetup& Setup, float Value) { Setup.SetWindInfluence(Value); },
+                [](const FBaselineBody& Body) { return Body.mWindInfluence; }}};
 
         // 기준에 없는 바디는 새 바디의 기본값과 비교한다.
         const FBaselineBody DefaultBody{};

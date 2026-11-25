@@ -12,6 +12,7 @@
 #include "Core/Math/FMatrix.h"
 #include "Engine/Animation/UAnimInstance.h"
 #include "Engine/Component/USkeletalMeshComponent.h"
+#include "Engine/FWindField.h"
 #include "Engine/UWorld.h"
 #include "PhysicsRuntime/FRigidBodySimulation.h"
 #include "PhysicsRuntime/PhysicsStats.h"
@@ -154,6 +155,22 @@ namespace Engine {
 
             if (mBodyToBone[Body] != InvalidIndex && mSimulation->HasBody(Body) && !mSimulation->IsSimulated(Body) && (InputGlobal[mBodyToBone[Body]] * ComponentToWorld).TryGetTransform(World)) {
                 mSimulation->SetKinematicTarget(Body, World);
+            }
+        }
+
+        // 월드의 바람장에서 바람 영향이 있는 Dynamic 바디의 현재 위치의 바람을 읽어 준다. 그래프 변수가 필요 없다.
+        if (const Engine::UWorld* World{Component->GetWorld()}) {
+            const Engine::FWindField& Wind{World->GetWindField()};
+            const bool HasWind{Wind.GetSourceCount() > 0};
+
+            for (Index_t Body{}; Body < mBodyToBone.size(); ++Body) {
+                if (mSimulation->GetWindInfluence(Body) <= 0.0f) {
+                    continue;
+                }
+
+                FTransform BodyWorld{};
+
+                mSimulation->SetBodyWind(Body, HasWind && mSimulation->GetBodyTransform(Body, BodyWorld) ? Wind.Sample(BodyWorld.mLocation) : FVector{});
             }
         }
 
