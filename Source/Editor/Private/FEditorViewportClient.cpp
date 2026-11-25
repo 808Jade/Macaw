@@ -8,6 +8,7 @@
 #include "Editor/FEditorViewportClient.h"
 #include "Engine/Component/UCameraComponent.h"
 #include "Engine/Component/UHeightFogComponent.h"
+#include "Engine/Component/UWindSourceComponent.h"
 #include "Engine/Component/UDecalComponent.h"
 #include "Engine/Component/ULightComponentBase.h"
 #include "RenderCore/IRendererModule.h"
@@ -28,6 +29,7 @@
 #include "Engine/AParticleSystemActor.h"
 #include "Engine/APawn.h"
 #include "Engine/ASkyAtmosphereActor.h"
+#include "Engine/AWindSourceActor.h"
 #include "Engine/UWorld.h"
 #include "Engine/FWorldHit.h"
 #include "Core/Math/FVector2.h"
@@ -627,6 +629,10 @@ namespace Editor {
                         Light->DrawVisualization(mDrawInterface, Highlight);
                     }
 
+                    if (const auto* Wind{CoreUObject::Cast<Engine::UWindSourceComponent>(Component.get())}; Wind != nullptr) {
+                        Wind->DrawVisualization(mDrawInterface, Highlight);
+                    }
+
                     if (auto* Fog{CoreUObject::Cast<Engine::UHeightFogComponent>(Component.get())}; Fog != nullptr && Highlight) {
                         const FVector Location{Fog->GetTransform().mLocation};
 
@@ -680,6 +686,8 @@ namespace Editor {
             Icon = EActorIcon::Pawn;
         } else if (Actor.IsA<Engine::ASkyAtmosphereActor>()) {
             Icon = EActorIcon::SkyAtmosphere;
+        } else if (Actor.IsA<Engine::AWindSourceActor>()) {
+            Icon = EActorIcon::Wind;
         } else if (Actor.GetClass() == Engine::AActor::StaticClass() && Root->GetClass() == Engine::USceneComponent::StaticClass()) {
             for (const auto& Component : Actor.GetComponents()) {
                 if (Component->IsA<Engine::UPrimitiveComponent>()) {
@@ -692,7 +700,7 @@ namespace Editor {
             return false;
         }
 
-        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"/Engine/Editor/Icon/EmptyActor.png", "/Engine/Editor/Icon/S_DecalActorIcon.png", "/Engine/Editor/Icon/S_LevelSequence.png", "/Engine/Editor/Icon/S_Emitter.png", "/Engine/Editor/Icon/S_Pawn.png", "/Engine/Editor/Icon/S_SkyAtmosphere.png"};
+        static constexpr Core::TStaticArray<const char*, static_cast<Index_t>(EActorIcon::Count)> Paths{"/Engine/Editor/Icon/EmptyActor.png", "/Engine/Editor/Icon/S_DecalActorIcon.png", "/Engine/Editor/Icon/S_LevelSequence.png", "/Engine/Editor/Icon/S_Emitter.png", "/Engine/Editor/Icon/S_Pawn.png", "/Engine/Editor/Icon/S_SkyAtmosphere.png", "/Engine/Editor/Icon/S_Wind.png"};
         const Index_t Index{static_cast<Index_t>(Icon)};
         CoreUObject::TObjectRef<Asset::UTexture2D>& Texture{mActorIconTextures[Index]};
 

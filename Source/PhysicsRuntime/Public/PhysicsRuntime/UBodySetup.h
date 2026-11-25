@@ -19,6 +19,7 @@
 
 namespace physx {
     class PxRigidActor;
+    class PxMaterial;
 }
 
 namespace PhysicsRuntime {
@@ -185,15 +186,35 @@ namespace PhysicsRuntime {
         }
 
         /**
+         * @brief 이 바디가 바람에 반응하는 정도를 반환합니다.
+         * @return 바람 속도와 바디 속도의 차이에 곱하는 계수(1/s)이며, 0이면 바람의 영향을 받지 않습니다.
+         * @note 독립 시뮬레이션(Rigid Body 노드)의 Dynamic 바디에만 쓰며, 질량과 무관하게 가속도로 적용합니다.
+         */
+        float GetWindInfluence() const {
+            return mWindInfluence;
+        }
+
+        /**
+         * @brief 이 바디가 바람에 반응하는 정도를 설정합니다.
+         * @param[in] Influence 0 이상의 유한한 값입니다. 유효하지 않으면 무시합니다.
+         */
+        void SetWindInfluence(float Influence) {
+            if (std::isfinite(Influence) && Influence >= 0.0f) {
+                mWindInfluence = Influence;
+            }
+        }
+
+        /**
          * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
          * @param[in,out] Actor 형상을 붙일 PhysX 강체입니다.
          * @param[in] Scale 형상 크기와 중심에 반영할 컴포넌트 스케일입니다.
          * @param[in] Runtime 형상의 재질 생성과 볼록 메시 쿠킹을 제공하는 PhysX 런타임입니다.
+         * @param[in] MaterialOverride nullptr이 아니면 바디 셋업의 재질 대신 모든 형상에 이 재질을 씁니다. 형상이 재질을 참조하므로 호출이 끝난 뒤 호출자가 해제해도 됩니다.
          * @return 강체에 붙인 형상의 개수입니다.
          * @note 스케일을 반영한 크기가 유효하지 않은 형상은 건너뜁니다. 회전한 상자·캡슐에 비균등 스케일을 주면 근사합니다.
          *       볼록 형상은 호출할 때마다 쿠킹하며, 쿠킹한 메시는 형상만 참조하므로 바디가 해제될 때 함께 해제됩니다.
          */
-        Index_t AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const PhysicsRuntime::FPhysicsRuntime& Runtime) const;
+        Index_t AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const PhysicsRuntime::FPhysicsRuntime& Runtime, const physx::PxMaterial* MaterialOverride = nullptr) const;
 
     private:
 
@@ -238,6 +259,11 @@ namespace PhysicsRuntime {
          * @brief 관성 모멘트에 곱하는 배율입니다.
          */
         float mInertiaScale{1.0f};
+
+        /**
+         * @brief 바람에 반응하는 정도(1/s)입니다. 0이면 바람을 받지 않습니다. 피직스 에셋 파일이 따로 저장합니다.
+         */
+        float mWindInfluence{0.0f};
     };
 
 }

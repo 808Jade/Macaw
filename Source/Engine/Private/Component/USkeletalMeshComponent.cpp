@@ -1072,8 +1072,15 @@ namespace Engine {
         mClothingSimulationContext.mMaxDistanceScale = mClothMaxDistanceScale;
 
         // 바람이 불면 바람에 맞추는 정도를 매 프레임 조금씩 흔들어 돌풍처럼 보이게 합니다.
-        mClothingSimulationContext.mWindVelocity = mClothWindVelocity;
-        mClothingSimulationContext.mWindAdaption = mClothWindVelocity.LengthSquared() > 0.0f ? static_cast<float>(std::rand() % 20) * 0.1f : 2.0f;
+        // 월드 바람은 컴포넌트 위치에서 한 번 읽어 직접 지정한 바람에 더한다. 합이 0이면 천 에셋의 기본 바람을 쓴다.
+        FVector TotalWind{mClothWindVelocity};
+
+        if (mUseWorldWind && World != nullptr) {
+            TotalWind += World->GetWindField().Sample(GetTransform().mLocation);
+        }
+
+        mClothingSimulationContext.mWindVelocity = TotalWind;
+        mClothingSimulationContext.mWindAdaption = TotalWind.LengthSquared() > 0.0f ? static_cast<float>(std::rand() % 20) * 0.1f : 2.0f;
 
         mClothingSimulationContext.mTeleportMode = DeltaTime > MaxPhysicsDelta * MaxDeltaTimeTeleportMultiplier ? PhysicsRuntime::EClothingTeleportMode::Teleport : mClothTeleportMode;
 
