@@ -132,7 +132,17 @@ namespace Asset {
             const FbxDouble3 Transparent{Lambert->TransparentColor.Get()};
 
             // 불투명도 = 1 - (투명 계수 × 투명 색상 RGB 평균)입니다. 투명 색상이 검정이거나 계수가 0이면 완전 불투명입니다.
-            const double Opacity{1.0 - Lambert->TransparencyFactor.Get() * (Transparent[0] + Transparent[1] + Transparent[2]) / 3.0};
+            double Opacity{1.0 - Lambert->TransparencyFactor.Get() * (Transparent[0] + Transparent[1] + Transparent[2]) / 3.0};
+
+            // Blender·3ds Max 등은 알파를 "Opacity" 속성에 그대로 기록합니다. Blender는 반투명 재질의 TransparentColor에
+            // 기본 색상을 넣으므로, 위 공식으로는 검은 유리(헤드라이트 커버 등)가 완전 불투명이 됩니다. 속성이 있으면 그 값을 우선합니다.
+            if (const FbxProperty OpacityProperty{Lambert->FindProperty("Opacity")}; OpacityProperty.IsValid()) {
+                const double Value{OpacityProperty.Get<FbxDouble>()};
+
+                if (std::isfinite(Value)) {
+                    Opacity = std::clamp(Value, 0.0, 1.0);
+                }
+            }
 
             // RGB는 Diffuse 색상에 DiffuseFactor를 곱한 값, A는 위에서 계산한 불투명도입니다.
             BaseColor = {static_cast<float>(Color[0] * Factor), static_cast<float>(Color[1] * Factor), static_cast<float>(Color[2] * Factor), static_cast<float>(Opacity)};

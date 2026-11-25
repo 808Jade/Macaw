@@ -390,6 +390,12 @@ namespace Editor {
 
         void UpdateCameraFocus(float DeltaTime);
 
+        /**
+         * @brief 편집 월드의 활성 카메라 시야각이 바뀌면 원근 뷰의 시야각을 같은 값으로 맞춥니다.
+         * @details 처음 관찰한 카메라나 다른 카메라로 바뀐 경우에는 값만 기록하고 에디터 시야각은 유지합니다.
+         */
+        void SyncFieldOfViewWithActiveCamera();
+
         bool TryCreateActorIcon(const Engine::AActor& Actor, Engine::FPrimitiveSceneProxy& Proxy) const;
 
         /**
@@ -502,6 +508,16 @@ namespace Editor {
          * @brief 원근 카메라의 수직 시야각입니다.
          */
         Core::FAngle mFieldOfView{};
+
+        /**
+         * @brief 시야각 변경을 감지하려고 마지막으로 관찰한 활성 카메라입니다. 비교에만 쓰며 역참조하지 않습니다.
+         */
+        const void* mObservedCamera{};
+
+        /**
+         * @brief 마지막으로 관찰한 활성 카메라의 실제 시야각입니다.
+         */
+        Core::FAngle mObservedCameraFieldOfView{};
 
         /**
          * @brief 원근 투영의 근평면 거리입니다.

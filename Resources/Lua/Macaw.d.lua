@@ -95,11 +95,11 @@ TickGroup = {
 
 ---@class MacawDepthOfFieldSettings
 ---@field Enabled boolean
----@field FocalDistance number 미터
----@field FocusWidth number 미터
----@field TransitionDistance number 미터
----@field MaxBlurRadius number 전체 해상도 픽셀
----@field FStop number
+---@field FocalDistance number 초점 평면까지의 거리, 미터
+---@field FStop number 조리개 값. 조리개 지름 = 렌즈 초점거리 / FStop
+---@field MaxBlurRadius number 블러 반경 상한, 전체 해상도 픽셀
+---@field NearBlur boolean
+---@field FarBlur boolean
 ---@field ApertureShape MacawDepthOfFieldApertureShape
 DepthOfFieldSettings = {}
 
@@ -176,6 +176,27 @@ function Component:SetDepthOfFieldSettings(Value) end
 ---@param Distance number 미터
 ---@return boolean
 function Component:SetDepthOfFieldFocalDistance(Distance) end
+
+--- 렌즈 초점거리입니다. 시야각 모드에서는 시야각과 센서 높이로 계산한 값입니다. 카메라 컴포넌트가 아니면 nil을 반환합니다.
+---@return number? mm
+function Component:GetFocalLength() end
+
+--- 렌즈 모드에서는 초점거리를, 시야각 모드에서는 이 초점거리에 해당하는 시야각을 설정합니다.
+---@param Millimeters number
+---@return boolean
+function Component:SetFocalLength(Millimeters) end
+
+---@return number? mm
+function Component:GetSensorHeight() end
+
+---@param Millimeters number
+---@return boolean
+function Component:SetSensorHeight(Millimeters) end
+
+--- true이면 시야각을 직접 지정하고, false이면 초점거리와 센서 높이로 시야각을 계산합니다.
+---@param UseFieldOfView boolean
+---@return boolean
+function Component:SetUseFieldOfView(UseFieldOfView) end
 
 ---@param Torque number N·m
 ---@param WheelIndex integer 0부터 시작하는 바퀴 인덱스
