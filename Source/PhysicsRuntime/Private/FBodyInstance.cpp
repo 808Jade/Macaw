@@ -164,6 +164,11 @@ namespace PhysicsRuntime {
         , mMassInKg{Other.mMassInKg}
         , mLinearDamping{Other.mLinearDamping}
         , mAngularDamping{Other.mAngularDamping}
+        , mInertiaScale{Other.mInertiaScale}
+        , mOverridePhysicalMaterial{Other.mOverridePhysicalMaterial}
+        , mStaticFriction{Other.mStaticFriction}
+        , mDynamicFriction{Other.mDynamicFriction}
+        , mRestitution{Other.mRestitution}
         , mCollisionPreset{Other.mCollisionPreset}
         , mCollisionEnabled{Other.mCollisionEnabled}
         , mCollisionResponse{Other.mCollisionResponse} {
@@ -186,6 +191,10 @@ namespace PhysicsRuntime {
         mLinearDamping = Other.mLinearDamping;
         mAngularDamping = Other.mAngularDamping;
         mInertiaScale = Other.mInertiaScale;
+        mOverridePhysicalMaterial = Other.mOverridePhysicalMaterial;
+        mStaticFriction = Other.mStaticFriction;
+        mDynamicFriction = Other.mDynamicFriction;
+        mRestitution = Other.mRestitution;
         mCollisionPreset = Other.mCollisionPreset;
         mCollisionEnabled = Other.mCollisionEnabled;
         mCollisionResponse = Other.mCollisionResponse;
@@ -250,7 +259,22 @@ namespace PhysicsRuntime {
             return false;
         }
 
-        if (Setup.AddShapesToRigidActor(*Actor, Transform.mScale, *Runtime) == 0) {
+        // 컴포넌트가 재질을 지정했으면 그 값으로 이 바디만의 재질을 만든다. 형상이 재질을 참조하므로 이 함수가 끝나 해제해도 형상이 있는 동안은 유지된다.
+        std::unique_ptr<physx::PxMaterial, PhysicsRuntime::FPhysXRelease> OverrideMaterial{};
+
+        if (mOverridePhysicalMaterial) {
+            const bool Finite{std::isfinite(mStaticFriction) && std::isfinite(mDynamicFriction) && std::isfinite(mRestitution)};
+
+            if (Finite) {
+                OverrideMaterial.reset(Physics.createMaterial(std::max(mStaticFriction, 0.0f), std::max(mDynamicFriction, 0.0f), std::clamp(mRestitution, 0.0f, 1.0f)));
+            }
+
+            if (OverrideMaterial == nullptr) {
+                MACAW_LOG(LogPhysics, Warning, "Cannot create the physical material override for '{}'. Using the default material.", Setup.GetName());
+            }
+        }
+
+        if (Setup.AddShapesToRigidActor(*Actor, Transform.mScale, *Runtime, OverrideMaterial.get()) == 0) {
             MACAW_LOG(LogPhysics, Warning, "Body setup '{}' has no valid collision shape at scale ({}, {}, {}).", Setup.GetName(), Transform.mScale.x, Transform.mScale.y, Transform.mScale.z);
 
             return false;

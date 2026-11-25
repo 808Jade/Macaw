@@ -96,11 +96,14 @@ namespace PhysicsRuntime {
      * @brief 충돌 형상마다 PhysX 형상을 만들어 강체에 붙입니다.
      * @details 형상 크기와 중심은 각 형상의 GetScaled 규칙으로 스케일을 반영합니다.
      */
-    Index_t PhysicsRuntime::UBodySetup::AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const PhysicsRuntime::FPhysicsRuntime& Runtime) const {
+    Index_t PhysicsRuntime::UBodySetup::AddShapesToRigidActor(physx::PxRigidActor& Actor, const FVector& Scale, const PhysicsRuntime::FPhysicsRuntime& Runtime, const physx::PxMaterial* MaterialOverride) const {
         std::unique_ptr<physx::PxMaterial, PhysicsRuntime::FPhysXRelease> CustomMaterial{};
         const physx::PxMaterial* Material{Runtime.GetDefaultMaterial()};
 
-        if (mPhysicalMaterial != nullptr) {
+        if (MaterialOverride != nullptr) {
+            // 컴포넌트가 지정한 재질이 바디 셋업의 재질보다 우선한다.
+            Material = MaterialOverride;
+        } else if (mPhysicalMaterial != nullptr) {
             CustomMaterial.reset(Runtime.CreateMaterial(*mPhysicalMaterial));
             Material = CustomMaterial.get();
         }
