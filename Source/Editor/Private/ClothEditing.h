@@ -81,7 +81,7 @@ namespace Editor {
             FVector mDefault{};
 
             /**
-             * @brief 무엇을 하는지, 올리면 어떻게 되는지, 기본값을 적은 한국어 설명입니다.
+             * @brief 무엇을 하는지와 올리면 어떻게 되는지만 적은 짧은 한국어 설명이며, 기본값과 범위는 패널이 덧붙입니다.
              */
             const char* mTooltip{};
 
@@ -214,6 +214,16 @@ namespace Editor {
          * @return 만들고 연결한 천 에셋이며 실패하면 nullptr입니다.
          */
         PhysicsRuntime::UClothingAssetCommon* CreateClothFromSection(Asset::USkeletalMesh& Mesh, const Asset::USkeleton& Skeleton, Index_t SubMeshIndex, PhysicsRuntime::UPhysicsAsset* PhysicsAsset, const Core::FString& PhysicsAssetPath, Core::FString& Error);
+
+        /**
+         * @brief 천이 연결된 섹션의 렌더 정점과 천 입자 사이 연결 데이터를 지금 계산 방식으로 다시 만듭니다.
+         * @details 칠한 값과 설정은 그대로 두고, 섹션 정점이 천 삼각형 어디에 붙는지만 다시 구합니다.
+         * @param[in,out] Mesh 섹션을 가진 메시입니다.
+         * @param[in] SubMeshIndex 천이 연결된 섹션 번호입니다.
+         * @param[out] Error 실패 원인입니다.
+         * @return 다시 만들었으면 true입니다.
+         */
+        bool RebuildSectionMapping(Asset::USkeletalMesh& Mesh, Index_t SubMeshIndex, Core::FString& Error);
 
         /**
          * @brief 설정의 실수 항목 이름과 값 위치를 모읍니다.

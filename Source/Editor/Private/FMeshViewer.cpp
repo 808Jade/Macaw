@@ -23,6 +23,8 @@
 #include "Engine/FSceneViewFamily.h"
 #include "Asset/UStaticMesh.h"
 #include "Asset/USkeletalMesh.h"
+#include "PhysicsRuntime/UClothConfigNv.h"
+#include "PhysicsRuntime/UClothingAssetCommon.h"
 #include "Asset/USkeleton.h"
 #include "Engine/FPrimitiveDrawInterface.h"
 #include "Engine/EditorMesh.h"
@@ -441,14 +443,6 @@ namespace Editor {
         }
 
         ImGui::SameLine();
-
-        bool Wireframe{mViewMode == Engine::EViewMode::Wireframe};
-
-        if (ImGui::Checkbox("Wireframe", &Wireframe)) {
-            mViewMode = Wireframe ? Engine::EViewMode::Wireframe : Engine::EViewMode::Lit;
-        }
-
-        ImGui::SameLine();
         ImGui::TextDisabled(mSkeleton != nullptr ? "Click bone | Drag: orbit | Middle: pan | Wheel: zoom | F: frame | W/E: move/rotate" : "Drag: orbit | Middle: pan | Wheel: zoom | F: frame");
         DrawMaterials();
 
@@ -473,6 +467,9 @@ namespace Editor {
      * @brief 카메라 입력을 처리하고 공통 렌더 경로로 메시와 본 도형을 그리며 아이콘·스프라이트·텍스트 표시는 제외합니다.
      */
     void Editor::FMeshViewer::DrawPreview(const Core::FInput& Input) {
+        // 미리 보기 위에 보기 방식과 표시 항목을 고르는 도구줄을 둡니다.
+        DrawViewportToolbar();
+
         const ImVec2 Size{ImGui::GetContentRegionAvail()};
 
         if (Size.x < 1.0f || Size.y < 1.0f) {
@@ -555,8 +552,11 @@ namespace Editor {
             }
         }
 
+        // 기즈모와 천 와이어프레임은 같은 편집 표시 목록에 담아 장면 위에 그립니다.
+        Engine::FPrimitiveDrawInterface Gizmo{};
+
         if (Painting) {
-            DrawClothPaint(InputView, FVector2{Origin.x, Origin.y}, PreviewMouse, Hovered, Input);
+            DrawClothPaint(InputView, FVector2{Origin.x, Origin.y}, PreviewMouse, Hovered, Input, Gizmo);
         }
 
         const Engine::FSceneView View{CalcSceneView(Extent)};
@@ -570,15 +570,117 @@ namespace Editor {
             Bones.DrawMesh({Shape.GetMesh(), Shape.GetWorld(), Color});
         }
 
-        Engine::FPrimitiveDrawInterface Gizmo{};
-
         if (mPoseBone) {
             mGizmo.BuildHandles(View, GetBonePlacement(*mPoseBone), Gizmo);
             mGizmo.DrawFeedback(Gizmo);
         }
 
         mViewer.SetViewMode(mViewMode);
-        mViewer.Render(mPoseBone ? &Gizmo : nullptr, BoneShapes.empty() ? nullptr : &Bones);
+        mViewer.Render(mPoseBone || Painting ? &Gizmo : nullptr, BoneShapes.empty() ? nullptr : &Bones);
+    }
+
+    /**
+     * @brief 미리 보기 위에 보기 방식 선택 칸과 표시 항목 메뉴를 그립니다.
+     */
+    void Editor::FMeshViewer::DrawViewportToolbar() {
+        // 보기 방식은 물리 에셋 편집기와 같은 목록과 순서를 씁니다.
+        struct FViewModeEntry {
+            const char* mName;
+            Engine::EViewMode mMode;
+        };
+        static constexpr FViewModeEntry ViewModes[]{{"Lit", Engine::EViewMode::Lit}, {"Unlit", Engine::EViewMode::Unlit}, {"Wireframe", Engine::EViewMode::Wireframe}, {"Lit (Lambert)", Engine::EViewMode::Lit_Lambert}, {"Lit (Gouraud)", Engine::EViewMode::Lit_Gouraud}};
+        const char* CurrentName{"Lit"};
+
+        for (const FViewModeEntry& Entry : ViewModes) {
+            if (Entry.mMode == mViewMode) {
+                CurrentName = Entry.mName;
+            }
+        }
+
+        ImGui::SetNextItemWidth(120.0f * ImGui::GetStyle().FontScaleMain);
+
+        if (ImGui::BeginCombo("##ViewMode", CurrentName)) {
+            for (const FViewModeEntry& Entry : ViewModes) {
+                if (ImGui::Selectable(Entry.mName, Entry.mMode == mViewMode)) {
+                    mViewMode = Entry.mMode;
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Show")) {
+            ImGui::OpenPopup("##ShowFlags");
+        }
+
+        if (ImGui::BeginPopup("##ShowFlags")) {
+            Engine::FEngineShowFlags& Flags{mViewer.GetShowFlags()};
+
+            if (mSkeleton != nullptr) {
+                ImGui::Checkbox("Show Bones", &mShowBones);
+            }
+
+            ImGui::Checkbox("Grid", &Flags.mGrid);
+            ImGui::Checkbox("World Axes", &Flags.mAxes);
+            ImGui::Checkbox("Sky", &Flags.mSky);
+            ImGui::Checkbox("Shadows", &Flags.mShadows);
+            ImGui::Checkbox("FXAA", &Flags.mFXAA);
+
+            // 천이 있는 메시면 미리 보기 천에만 쓰는 바람과 중력을 고르게 합니다. 천 에셋 설정은 바꾸지 않습니다.
+            if (mSkeletalMesh != nullptr && !mSkeletalMesh->GetMeshClothingAssets().empty()) {
+                ImGui::SeparatorText("Clothing");
+
+                if (ImGui::Checkbox("Simulate Cloth", &mClothSimulate)) {
+                    mClothPreviewStale = true;
+                }
+
+                if (ImGui::Button("Reset Cloth")) {
+                    mClothPreviewStale = true;
+                }
+
+                // 바람과 중력은 고른 천 에셋의 설정을 바로 바꿉니다. 저장하면 게임에서도 같은 값을 씁니다.
+                PhysicsRuntime::UClothingAssetCommon* const ClothingAsset{GetSelectedClothingAsset()};
+                PhysicsRuntime::UClothConfigNv* const Config{ClothingAsset != nullptr ? ClothingAsset->GetClothConfig() : nullptr};
+
+                if (Config != nullptr) {
+                    ImGui::TextDisabled("Cloth %zu settings (saved with the mesh)", mClothSelectedAsset);
+
+                    // 바람은 세기와 방향으로 나눠 보여 주고, 저장은 방향 x 세기 하나로 합니다.
+                    float WindStrength{Config->mDefaultWindVelocity.Length()};
+
+                    if (WindStrength > 1.e-4f) {
+                        mClothWindDirection = Config->mDefaultWindVelocity * (1.0f / WindStrength);
+                    }
+
+                    bool WindChanged{};
+
+                    ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleMain);
+                    WindChanged = ImGui::DragFloat("Wind Strength", &WindStrength, 0.1f, 0.0f, 50.0f, "%.1f m/s", ImGuiSliderFlags_AlwaysClamp) || WindChanged;
+                    ImGui::SetItemTooltip("이 천의 기본 바람 세기(m/s). 0 = 바람 없음\n컴포넌트의 Cloth Wind Velocity가 0이면 게임에서도 이 바람을 씀");
+
+                    ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleMain);
+                    WindChanged = ImGui::DragFloat3("Wind Direction", &mClothWindDirection.x, 0.01f, -1.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp) || WindChanged;
+                    ImGui::SetItemTooltip("바람이 부는 방향(x, y, z). 길이는 자동으로 1로 맞춤");
+
+                    if (WindChanged) {
+                        Config->mDefaultWindVelocity = mClothWindDirection.IsNearlyZero() ? FVector{} : mClothWindDirection.Normalized() * WindStrength;
+                        mClothUnsaved = true;
+                    }
+
+                    ImGui::SetNextItemWidth(160.0f * ImGui::GetStyle().FontScaleMain);
+
+                    if (ImGui::DragFloat("Gravity Scale", &Config->mGravityScale, 0.01f, 0.0f, 10.0f, "%.2fx", ImGuiSliderFlags_AlwaysClamp)) {
+                        mClothUnsaved = true;
+                    }
+
+                    ImGui::SetItemTooltip("이 천의 중력 배율. Settings > Simulation의 Gravity Scale과 같은 값");
+                }
+            }
+
+            ImGui::EndPopup();
+        }
     }
 
     /**
@@ -591,7 +693,6 @@ namespace Editor {
             const auto& Bones{mSkeleton->GetBones()};
 
             ImGui::Text("Bones: %zu", Bones.size());
-            ImGui::Checkbox("Show Bones", &mShowBones);
 
             // 아래쪽 기즈모 설정 영역을 남기고 나머지 높이를 계층 트리에 할당합니다.
             const float ControlsHeight{ImGui::GetTextLineHeightWithSpacing() + ImGui::GetFrameHeightWithSpacing() * 2.0f};

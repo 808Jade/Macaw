@@ -8,7 +8,10 @@
 #include "Editor/FMeshViewer.h"
 #include "Viewer/FMeshViewerContent.h"
 #include "Core/FilePath.h"
+#include "Core/Math/FRay.h"
 #include "Core/Math/FVector4.h"
+#include "Engine/FPrimitiveDrawInterface.h"
+#include "Engine/FSceneView.h"
 #include "Asset/FAssetManager.h"
 #include "Asset/FAssetFile.h"
 #include "Asset/FClothingSectionData.h"
@@ -26,6 +29,8 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <limits>
 #include <string>
 
 namespace Editor {
@@ -85,8 +90,15 @@ namespace Editor {
             ImGui::TextUnformatted(Field.mLabel);
             ImGui::Separator();
             ImGui::TextUnformatted(Field.mTooltip);
-            ImGui::TextDisabled("허용 범위: %g ~ %g", Field.mMin * Field.mDisplayScale, Field.mMax * Field.mDisplayScale);
-            ImGui::TextDisabled("오른쪽 클릭: 기본값으로 되돌리기 | Ctrl+클릭: 숫자 입력");
+
+            // 기본값과 범위는 표의 값에서 자동으로 만들어 설명 문장을 짧게 둡니다.
+            const float Scale{Field.mDisplayScale};
+
+            if (Field.mGetFloat != nullptr) {
+                ImGui::TextDisabled("기본 %g  |  범위 %g ~ %g", Field.mDefault.x * Scale, Field.mMin * Scale, Field.mMax * Scale);
+            } else {
+                ImGui::TextDisabled("기본 (%g, %g, %g)  |  범위 %g ~ %g", Field.mDefault.x * Scale, Field.mDefault.y * Scale, Field.mDefault.z * Scale, Field.mMin * Scale, Field.mMax * Scale);
+            }
             ImGui::PopTextWrapPos();
             ImGui::EndTooltip();
         }
@@ -239,6 +251,49 @@ namespace Editor {
         }
 
         /**
+         * @brief 광선이 삼각형과 만나는지 검사하고 만나는 거리를 구합니다. 삼각형의 앞뒤를 가리지 않습니다.
+         * @param[in] Origin 광선 시작점입니다.
+         * @param[in] Direction 광선 방향입니다.
+         * @param[in] A 삼각형 첫 꼭짓점입니다.
+         * @param[in] B 삼각형 둘째 꼭짓점입니다.
+         * @param[in] C 삼각형 셋째 꼭짓점입니다.
+         * @param[out] Distance 시작점에서 만나는 점까지 방향 길이 단위의 거리입니다.
+         * @return 시작점 앞쪽에서 만나면 true입니다.
+         */
+        bool IntersectRayTriangle(const FVector& Origin, const FVector& Direction, const FVector& A, const FVector& B, const FVector& C, float& Distance) {
+            // 삼각형 평면과의 교점을 무게중심 좌표로 바로 구하는 방법(Moller-Trumbore)입니다.
+            constexpr float Epsilon{1.e-8f};
+            const FVector EdgeAB{B - A};
+            const FVector EdgeAC{C - A};
+            const FVector P{Direction.Cross(EdgeAC)};
+            const float Determinant{EdgeAB.Dot(P)};
+
+            // 광선이 삼각형 평면과 나란하면 만나지 않습니다.
+            if (std::abs(Determinant) < Epsilon) {
+                return false;
+            }
+
+            const float InverseDeterminant{1.0f / Determinant};
+            const FVector ToOrigin{Origin - A};
+            const float U{ToOrigin.Dot(P) * InverseDeterminant};
+
+            if (U < 0.0f || U > 1.0f) {
+                return false;
+            }
+
+            const FVector Q{ToOrigin.Cross(EdgeAB)};
+            const float V{Direction.Dot(Q) * InverseDeterminant};
+
+            if (V < 0.0f || U + V > 1.0f) {
+                return false;
+            }
+
+            Distance = EdgeAC.Dot(Q) * InverseDeterminant;
+
+            return Distance > Epsilon;
+        }
+
+        /**
          * @brief 값 하나를 칠하기 대상의 단위 형식으로 문자열로 만듭니다.
          * @param[in] Format 단위를 포함한 printf 형식입니다.
          * @param[in] Value 값입니다.
@@ -306,7 +361,7 @@ namespace Editor {
 
         if (mSkeleton == nullptr) {
             ImGui::TextColored(ImVec4{1.0f, 0.75f, 0.3f, 1.0f}, "Pick a Skeleton above first.");
-            ShowTextTooltip("천 입자는 뼈를 따라 움직이므로, 천을 만들거나 미리 보려면 스켈레톤이 있어야 합니다.");
+            ShowTextTooltip("천은 뼈를 따라 움직이므로 스켈레톤이 필요함");
         }
 
         DrawClothSections();
@@ -325,14 +380,14 @@ namespace Editor {
                 mClothPreviewStale = true;
             }
 
-            ShowTextTooltip("켜면 미리 보기에서 천이 중력과 뼈 움직임에 따라 움직입니다.\n설정을 바꾸거나 칠하면 바로 다시 만들어 결과를 보여 줍니다.\nSkeleton 칸에서 뼈를 골라 돌리면 천이 따라옵니다.");
+            ShowTextTooltip("미리 보기에서 천을 움직임. 값을 바꾸면 바로 반영");
             ImGui::SameLine();
 
             if (ImGui::Button("Restart")) {
                 mClothPreviewStale = true;
             }
 
-            ShowTextTooltip("천을 지금 포즈의 스키닝 위치로 되돌려 처음부터 다시 움직입니다.");
+            ShowTextTooltip("천을 처음 모양으로 되돌려 다시 시작");
             ImGui::EndDisabled();
 
             if (mClothingSystem == nullptr) {
@@ -354,7 +409,7 @@ namespace Editor {
 
                 // 탭 설명은 탭 내용을 그리기 전에 붙여야 탭 머리에 마우스를 올렸을 때 나옵니다.
                 const bool SettingsOpen{ImGui::BeginTabItem("Settings")};
-                ShowTextTooltip("천이 얼마나 늘어나고, 처지고, 흔들리고, 바람을 받는지 정합니다.");
+                ShowTextTooltip("늘어남, 처짐, 흔들림, 바람");
 
                 if (SettingsOpen) {
                     if (PhysicsRuntime::UClothConfigNv* Config{ClothingAssets[mClothSelectedAsset]->GetClothConfig()}) {
@@ -365,7 +420,7 @@ namespace Editor {
                 }
 
                 PaintTabOpen = ImGui::BeginTabItem("Paint");
-                ShowTextTooltip("입자마다 얼마나 움직일 수 있는지 같은 값을 미리 보기에 붓으로 칠합니다.");
+                ShowTextTooltip("입자별 값(움직일 수 있는 거리 등)을 붓으로 칠함");
 
                 if (PaintTabOpen) {
                     DrawClothPaintSettings(*ClothingAssets[mClothSelectedAsset]);
@@ -373,7 +428,7 @@ namespace Editor {
                 }
 
                 const bool CollisionOpen{ImGui::BeginTabItem("Collision")};
-                ShowTextTooltip("천이 부딪힐 몸 충돌체(물리 에셋)를 고릅니다.");
+                ShowTextTooltip("천이 부딪힐 물리 에셋");
 
                 if (CollisionOpen) {
                     DrawClothCollision(*ClothingAssets[mClothSelectedAsset]);
@@ -409,7 +464,7 @@ namespace Editor {
         }
 
         ImGui::EndDisabled();
-        ShowTextTooltip("천 에셋, 설정, 칠한 값을 메시 파일에 저장합니다.\n저장하지 않으면 에디터를 닫을 때 사라집니다.\n레벨에 놓인 같은 메시는 레벨을 다시 열거나 PIE를 다시 시작하면 바뀐 천을 씁니다.");
+        ShowTextTooltip("천과 설정, 칠한 값을 메시 파일에 저장");
         ImGui::SameLine();
 
         if (mClothUnsaved) {
@@ -470,14 +525,26 @@ namespace Editor {
                     mClothSelectedAsset = AssetIndex;
                 }
 
-                ShowTextTooltip("누르면 아래 칸에서 이 천의 설정, 칠하기, 충돌을 편집합니다.");
+                ShowTextTooltip("이 천을 아래 탭에서 편집");
             } else {
                 ImGui::TextDisabled("-");
             }
 
             ImGui::TableSetColumnIndex(3);
 
-            if (!HasCloth) {
+            if (HasCloth) {
+                if (ImGui::SmallButton("Rebuild")) {
+                    Core::FString Error{};
+
+                    if (Editor::ClothEditing::RebuildSectionMapping(Mesh, SubMeshIndex, Error)) {
+                        MarkClothChanged("Rebuilt the render mapping of section " + std::to_string(SubMeshIndex) + ". Save the mesh to keep it.");
+                    } else {
+                        ShowClothMessage(Error);
+                    }
+                }
+
+                ShowTextTooltip("렌더 정점과 천 입자의 연결을 다시 만듦.\n칠한 값과 설정은 그대로");
+            } else {
                 ImGui::BeginDisabled(mSkeleton == nullptr);
 
                 if (ImGui::SmallButton("Create Cloth")) {
@@ -495,7 +562,7 @@ namespace Editor {
                 }
 
                 ImGui::EndDisabled();
-                ShowTextTooltip("이 섹션의 정점으로 천을 만듭니다.\n같은 자리의 정점을 합쳐 입자로 만들고, 위쪽 20%는 몸에 고정(최대 거리 0), 나머지는 0.5 m까지 움직이게 시작합니다.\n어디를 고정할지는 Paint 탭에서 고칩니다.");
+                ShowTextTooltip("이 섹션을 천으로 만듦.\n처음엔 위쪽 20%만 고정, Paint 탭에서 고침");
             }
 
             ImGui::PopID();
@@ -512,11 +579,11 @@ namespace Editor {
         const float Scale{ImGui::GetStyle().FontScaleMain * ImGui::GetStyle().FontScaleDpi};
         bool Committed{};
 
-        ImGui::TextDisabled("Hover a name for help. Changed values are orange.");
+        ImGui::TextDisabled("Hover for help | Orange = changed | Right-click: reset | Ctrl+click: type");
 
         // 강성은 네 종류 연결마다 같은 네 값이 있으므로 행과 열로 된 표로 보여 줍니다.
         if (ImGui::CollapsingHeader(ClothEditing::StiffnessGroup, ImGuiTreeNodeFlags_DefaultOpen)) {
-            ShowTextTooltip("천을 이루는 네 종류 연결(세로, 가로, 굽힘, 전단)의 세기와 느슨한 구간입니다.\n행 이름과 열 이름에 마우스를 올리면 설명이 나옵니다.");
+            ShowTextTooltip("네 종류 연결의 세기. 행·열 이름에 설명 있음");
 
             const auto& Rows{ClothEditing::GetStiffnessRows()};
             const auto& Columns{ClothEditing::GetStiffnessColumns()};
@@ -597,7 +664,7 @@ namespace Editor {
                 ImGui::TableSetColumnIndex(0);
                 ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted("Override Gravity");
-                ShowTextTooltip("켜면 월드 중력과 Gravity Scale 대신 아래 Gravity 값을 중력으로 씁니다.\n기본값은 꺼짐입니다.");
+                ShowTextTooltip("켜면 아래 Gravity 값을 중력으로 씀");
                 ImGui::TableSetColumnIndex(1);
 
                 if (ImGui::Checkbox("##OverrideGravity", &Config.mUseGravityOverride)) {
@@ -634,7 +701,7 @@ namespace Editor {
             Committed = true;
         }
 
-        ShowTextTooltip("이 천의 모든 설정을 기본값으로 되돌립니다.");
+        ShowTextTooltip("모든 설정을 기본값으로");
 
         if (Committed) {
             // 천끼리 충돌 거리가 바뀌었을 수 있으므로 부딪힐 입자를 다시 고릅니다.
@@ -651,7 +718,13 @@ namespace Editor {
      */
     void Editor::FMeshViewer::DrawClothPaintSettings(PhysicsRuntime::UClothingAssetCommon&) {
         ImGui::Checkbox("Paint in Viewport", &mClothPaintEnabled);
-        ShowTextTooltip("켜면 미리 보기에 천 입자가 색 점으로 보이고, 왼쪽 버튼이 칠하기로 바뀝니다.\n카메라 회전은 오른쪽 버튼, 이동은 가운데 버튼으로 합니다.\n칠하는 동안 천은 처음 모양으로 멈춰 있습니다.");
+        ShowTextTooltip("켜면 왼쪽 버튼으로 칠함. 회전은 오른쪽 버튼");
+
+        ImGui::Checkbox("Cull Back Faces", &mClothCullBackFaces);
+        ShowTextTooltip("뒤쪽 면 와이어프레임을 숨김");
+        ImGui::SameLine();
+        ImGui::Checkbox("Front Facing Only", &mClothFrontFacingOnly);
+        ShowTextTooltip("카메라를 향한 입자만 칠함");
 
         const ClothEditing::FPaintTargetInfo& Info{ClothEditing::GetPaintTargetInfo(mClothPaintTarget)};
 
@@ -687,41 +760,48 @@ namespace Editor {
 
         if (Tool != ClothEditing::EClothPaintTool::Smooth) {
             ImGui::DragFloat("Value", &mClothPaintValue, Info.mSpeed, 0.0f, Info.mMax, Info.mFormat, ImGuiSliderFlags_AlwaysClamp);
-            ShowTextTooltip("칠할 값입니다. 단위와 뜻은 Target에 마우스를 올리면 나옵니다.");
+            ShowTextTooltip("칠할 값. 단위는 Target 설명 참고");
         } else {
             ImGui::SliderFloat("Strength", &mClothSmoothStrength, 0.0f, 1.0f, "%.2f");
-            ShowTextTooltip("한 프레임에 이웃 평균 쪽으로 옮기는 비율입니다.\n높이면 빨리 고르게 되고, 낮추면 조금씩 다듬어집니다.");
+            ShowTextTooltip("다듬는 세기");
         }
 
         if (Tool == ClothEditing::EClothPaintTool::Fill) {
             ImGui::DragFloat("Threshold", &mClothFillThreshold, Info.mSpeed, 0.0f, Info.mMax, Info.mFormat, ImGuiSliderFlags_AlwaysClamp);
-            ShowTextTooltip("누른 입자 값과 이만큼까지 차이 나는 이어진 입자를 함께 채웁니다.\n0이면 값이 똑같은 입자만 채웁니다.");
+            ShowTextTooltip("시작 값과 이만큼 차이 나는 입자까지 채움");
         } else {
-            ImGui::SliderFloat("Brush Radius", &mClothPaintRadius, 2.0f, 300.0f, "%.0f px");
-            ShowTextTooltip("미리 보기 화면에서 붓 원의 반지름입니다(픽셀).");
+            ImGui::SliderFloat("Brush Radius", &mClothPaintRadius, 0.001f, 0.5f, "%.3f m", ImGuiSliderFlags_Logarithmic);
+            ShowTextTooltip("붓 반지름(m). 가리킨 표면 둘레만 칠함\n아주 작아도 가장 가까운 입자 하나는 칠함");
         }
 
-        // 색 범례: 왼쪽 빨강이 0, 오른쪽 초록이 지금 칠한 값 중 가장 큰 값입니다.
+        // 색 범례: 자홍색 칸이 0이고, 그 옆 막대는 0보다 큰 값이 검정에서 흰색(가장 큰 값)으로 밝아지는 모습입니다.
         ImGui::Spacing();
+
+        const float BarHeight{ImGui::GetTextLineHeight()};
+        const ImVec2 ZeroMin{ImGui::GetCursorScreenPos()};
+
+        ImGui::GetWindowDrawList()->AddRectFilled(ZeroMin, ImVec2{ZeroMin.x + BarHeight, ZeroMin.y + BarHeight}, IM_COL32(255, 0, 255, 255));
+        ImGui::Dummy(ImVec2{BarHeight, BarHeight});
+        ShowTextTooltip("값 0");
+        ImGui::SameLine();
         ImGui::TextUnformatted("0");
         ImGui::SameLine();
 
         const ImVec2 BarMin{ImGui::GetCursorScreenPos()};
         const float BarWidth{std::max(ImGui::GetContentRegionAvail().x - 90.0f, 40.0f)};
-        const float BarHeight{ImGui::GetTextLineHeight()};
-        const ImU32 Red{IM_COL32(255, 0, 60, 255)};
-        const ImU32 Green{IM_COL32(0, 255, 60, 255)};
+        const ImU32 Black{IM_COL32(0, 0, 0, 255)};
+        const ImU32 White{IM_COL32(255, 255, 255, 255)};
 
-        ImGui::GetWindowDrawList()->AddRectFilledMultiColor(BarMin, ImVec2{BarMin.x + BarWidth, BarMin.y + BarHeight}, Red, Green, Green, Red);
+        ImGui::GetWindowDrawList()->AddRectFilledMultiColor(BarMin, ImVec2{BarMin.x + BarWidth, BarMin.y + BarHeight}, Black, White, White, Black);
         ImGui::Dummy(ImVec2{BarWidth, BarHeight});
-        ShowTextTooltip("미리 보기의 점 색입니다. 빨강은 0, 초록은 지금 칠한 값 중 가장 큰 값입니다.");
+        ShowTextTooltip("0보다 큰 값. 밝을수록 큼");
         ImGui::SameLine();
         ImGui::TextUnformatted(FormatValue(Info.mFormat, mClothPaintMaxValue).c_str());
 
         if (IsClothPainting() && mClothHoveredParticle != InvalidIndex) {
             ImGui::Text("Particle %zu: %s", mClothHoveredParticle, FormatValue(Info.mFormat, mClothHoveredValue).c_str());
         } else {
-            ImGui::TextDisabled("Hover a point in the preview to read its value.");
+            ImGui::TextDisabled("Point at the cloth in the preview to read a particle value.");
         }
 
         ImGui::TextDisabled("Left drag: paint | Shift + drag: paint 0 | Right drag: orbit | Middle: pan");
@@ -772,16 +852,16 @@ namespace Editor {
         }
 
         ImGui::EndDisabled();
-        ShowTextTooltip("이 물리 에셋의 구와 캡슐이 천을 밀어냅니다. 상자와 볼록 껍질은 쓰지 않습니다.\n구는 최대 32개, 캡슐도 최대 32개까지 쓰고 나머지는 버립니다.\n천이 닿는 부위(다리, 엉덩이, 몸통)만 담은 작은 천 전용 물리 에셋을 쓰는 것이 좋습니다.");
+        ShowTextTooltip("이 물리 에셋의 구·캡슐이 천을 밀어냄 (각 최대 32개)");
 
         ImGui::TextWrapped("Spheres and capsules of this physics asset push the cloth away. Up to 32 spheres and 32 capsules are used.");
         ImGui::TextDisabled("Thickness and Friction are in Settings > Collision.");
     }
 
     /**
-     * @brief 칠하기 대상 천 입자를 가중치 색으로 그리고, 왼쪽 버튼으로 고른 도구를 적용합니다.
+     * @brief 칠할 천 메시를 가중치 색 와이어프레임으로 그리고, 왼쪽 버튼으로 고른 도구를 적용합니다.
      */
-    void Editor::FMeshViewer::DrawClothPaint(const Engine::FSceneView& View, const FVector2& Origin, const FVector2& Mouse, bool Hovered, const Core::FInput& Input) {
+    void Editor::FMeshViewer::DrawClothPaint(const Engine::FSceneView& View, const FVector2& Origin, const FVector2& Mouse, bool Hovered, const Core::FInput& Input, Engine::FPrimitiveDrawInterface& DrawInterface) {
         using Core::EKey;
 
         PhysicsRuntime::UClothingAssetCommon* const ClothingAsset{GetSelectedClothingAsset()};
@@ -793,53 +873,97 @@ namespace Editor {
 
         PhysicsRuntime::FClothPhysicalMeshData& PhysMesh{ClothingAsset->mLodData[0].mPhysicalMeshData};
         PhysicsRuntime::FPointWeightMap& Map{PhysMesh.AddWeightMap(Editor::ClothEditing::GetPaintTarget(mClothPaintTarget))};
+        const Core::TArray<FVector>& Vertices{PhysMesh.mVertices};
+        const Core::TArray<Uint32>& Indices{PhysMesh.mIndices};
+        const Index_t NumParticles{Vertices.size()};
 
         // 처음 칠하는 맵은 입자 수만큼 0으로 채웁니다.
-        if (Map.mValues.size() != PhysMesh.mVertices.size()) {
-            Map.mValues.resize(PhysMesh.mVertices.size(), 0.0f);
+        if (Map.mValues.size() != NumParticles) {
+            Map.mValues.resize(NumParticles, 0.0f);
         }
 
-        const auto Tool{static_cast<ClothEditing::EClothPaintTool>(mClothPaintTool)};
-        const bool Dragging{Hovered && Input.IsDown(EKey::MouseLeft) && !Input.IsDown(EKey::MouseRight) && !Input.IsDown(EKey::MouseMiddle)};
-        const bool Pressed{Hovered && Input.WasPressed(EKey::MouseLeft) && !Input.IsDown(EKey::MouseRight) && !Input.IsDown(EKey::MouseMiddle)};
-        const float PaintValue{Input.IsDown(EKey::Shift) ? 0.0f : mClothPaintValue};
-        const float RadiusSquared{mClothPaintRadius * mClothPaintRadius};
-        ImDrawList* const DrawList{ImGui::GetWindowDrawList()};
+        // 마우스 위치에서 화면 안쪽으로 광선을 만듭니다. 광선의 시작점이 카메라 위치입니다.
+        FRay Ray{};
+        const bool HasRay{View.Deproject(Mouse, Ray)};
+        const FVector CameraPosition{HasRay ? Ray.mOrigin : FVector{}};
 
-        // 입자를 화면 좌표로 한 번 투영해 두고 붓 안의 입자와 마우스에 가장 가까운 입자를 찾습니다.
-        Core::TArray<FVector2> ScreenPositions(PhysMesh.mVertices.size());
-        Core::TArray<bool> Visible(PhysMesh.mVertices.size(), false);
-        Core::TArray<Index_t> InBrush{};
-        float ClosestSquared{RadiusSquared};
+        // 삼각형 면 방향은 감는 순서에 따라 뒤집힐 수 있으므로, 세 입자 법선의 합과 같은 쪽을 보게 맞춥니다.
+        const auto GetFaceNormal{[&](Uint32 IndexA, Uint32 IndexB, Uint32 IndexC) {
+            FVector Normal{(Vertices[IndexB] - Vertices[IndexA]).Cross(Vertices[IndexC] - Vertices[IndexA])};
 
-        for (Index_t VertIndex{}; VertIndex < PhysMesh.mVertices.size(); ++VertIndex) {
-            const FVector4 Clip{FVector4{PhysMesh.mVertices[VertIndex], 1.0f} * View.mViewProjection};
+            if (PhysMesh.mNormals.size() == NumParticles && Normal.Dot(PhysMesh.mNormals[IndexA] + PhysMesh.mNormals[IndexB] + PhysMesh.mNormals[IndexC]) < 0.0f) {
+                Normal = -Normal;
+            }
 
-            // 카메라 뒤의 입자는 건너뜁니다.
-            if (Clip.w <= 1.e-6f) {
+            return Normal;
+        }};
+
+        // 입자가 카메라를 향하는지는 입자 법선과 입자에서 카메라로 가는 방향의 내적으로 봅니다.
+        const auto FacesCamera{[&](Index_t Particle) {
+            return PhysMesh.mNormals.size() != NumParticles || PhysMesh.mNormals[Particle].Dot(CameraPosition - Vertices[Particle]) > 0.0f;
+        }};
+
+        // 광선이 천 표면에 처음 맞은 점을 찾습니다. 앞자락을 가리키면 그 뒤의 뒷자락은 맞지 않습니다.
+        float ClosestHit{std::numeric_limits<float>::max()};
+        FVector HitPoint{};
+        FVector HitNormal{};
+        bool HasHit{};
+
+        for (Index_t BaseIndex{}; HasRay && Hovered && BaseIndex + 2 < Indices.size(); BaseIndex += 3) {
+            const Uint32 IndexA{Indices[BaseIndex]};
+            const Uint32 IndexB{Indices[BaseIndex + 1]};
+            const Uint32 IndexC{Indices[BaseIndex + 2]};
+
+            if (IndexA >= NumParticles || IndexB >= NumParticles || IndexC >= NumParticles) {
                 continue;
             }
 
-            const FVector2 Screen{(Clip.x / Clip.w * 0.5f + 0.5f) * View.mSize.x, (0.5f - Clip.y / Clip.w * 0.5f) * View.mSize.y};
-            const float DistanceSquared{(Screen.x - Mouse.x) * (Screen.x - Mouse.x) + (Screen.y - Mouse.y) * (Screen.y - Mouse.y)};
+            float Distance{};
 
-            ScreenPositions[VertIndex] = Screen;
-            Visible[VertIndex] = true;
-
-            if (Hovered && DistanceSquared <= RadiusSquared) {
-                InBrush.push_back(VertIndex);
-            }
-
-            if (Hovered && DistanceSquared <= ClosestSquared) {
-                ClosestSquared = DistanceSquared;
-                mClothHoveredParticle = VertIndex;
+            if (IntersectRayTriangle(Ray.mOrigin, Ray.mDirection, Vertices[IndexA], Vertices[IndexB], Vertices[IndexC], Distance) && Distance < ClosestHit) {
+                ClosestHit = Distance;
+                HitPoint = Ray.mOrigin + Ray.mDirection * Distance;
+                HitNormal = GetFaceNormal(IndexA, IndexB, IndexC).Normalized();
+                HasHit = true;
             }
         }
 
+        // 맞은 점에서 3D 반지름 안의 입자를 붓 안으로 보고, 그중 맞은 점에 가장 가까운 입자를 마우스 아래 입자로 둡니다.
+        Core::TArray<Index_t> InBrush{};
+        const float RadiusSquared{mClothPaintRadius * mClothPaintRadius};
+        float ClosestParticle{std::numeric_limits<float>::max()};
+
+        for (Index_t Particle{}; HasHit && Particle < NumParticles; ++Particle) {
+            if (mClothFrontFacingOnly && !FacesCamera(Particle)) {
+                continue;
+            }
+
+            const float DistanceSquared{(Vertices[Particle] - HitPoint).LengthSquared()};
+
+            if (DistanceSquared <= RadiusSquared) {
+                InBrush.push_back(Particle);
+            }
+
+            if (DistanceSquared < ClosestParticle) {
+                ClosestParticle = DistanceSquared;
+                mClothHoveredParticle = Particle;
+            }
+        }
+
+        // 붓이 입자 사이 간격보다 작으면 공 안에 입자가 하나도 없을 수 있으므로, 맞은 점에 가장 가까운 입자는 항상 붓에 넣습니다.
+        if (mClothHoveredParticle != InvalidIndex && std::find(InBrush.begin(), InBrush.end(), mClothHoveredParticle) == InBrush.end()) {
+            InBrush.push_back(mClothHoveredParticle);
+        }
+
         // 고른 도구를 적용합니다. 다듬기와 채우기는 삼각형 변으로 이어진 이웃이 필요합니다.
+        const auto Tool{static_cast<ClothEditing::EClothPaintTool>(mClothPaintTool)};
+        const bool Dragging{HasHit && Input.IsDown(EKey::MouseLeft) && !Input.IsDown(EKey::MouseRight) && !Input.IsDown(EKey::MouseMiddle)};
+        const bool Pressed{HasHit && Input.WasPressed(EKey::MouseLeft) && !Input.IsDown(EKey::MouseRight) && !Input.IsDown(EKey::MouseMiddle)};
+        const float PaintValue{Input.IsDown(EKey::Shift) ? 0.0f : mClothPaintValue};
+
         if (Tool == ClothEditing::EClothPaintTool::Brush && Dragging && !InBrush.empty()) {
-            for (const Index_t VertIndex : InBrush) {
-                Map.mValues[VertIndex] = PaintValue;
+            for (const Index_t Particle : InBrush) {
+                Map.mValues[Particle] = PaintValue;
             }
 
             mClothPaintDirty = true;
@@ -859,34 +983,43 @@ namespace Editor {
 
         mClothPaintMaxValue = MaxValue;
 
-        // 0은 빨강, 가장 큰 값은 초록으로 그리고 마우스 아래 입자는 크게 그립니다.
-        for (Index_t VertIndex{}; VertIndex < PhysMesh.mVertices.size(); ++VertIndex) {
-            if (!Visible[VertIndex]) {
+        // 값 색: 0은 자홍색, 0보다 크면 검정에서 흰색으로 밝아지며 가장 큰 값이 흰색입니다.
+        const auto GetWeightColor{[&](Index_t Particle) {
+            const float Value{Map.mValues[Particle]};
+
+            if (Value <= 0.0f) {
+                return FVector{1.0f, 0.0f, 1.0f};
+            }
+
+            const float Ratio{std::clamp(Value / MaxValue, 0.0f, 1.0f)};
+
+            return FVector{Ratio, Ratio, Ratio};
+        }};
+
+        // 삼각형마다 세 변을 그립니다. 변 하나를 반으로 나눠 각 절반을 가까운 끝 입자의 색으로 칠해 값이 바뀌는 곳이 보이게 합니다.
+        for (Index_t BaseIndex{}; BaseIndex + 2 < Indices.size(); BaseIndex += 3) {
+            const Uint32 Corners[3]{Indices[BaseIndex], Indices[BaseIndex + 1], Indices[BaseIndex + 2]};
+
+            if (Corners[0] >= NumParticles || Corners[1] >= NumParticles || Corners[2] >= NumParticles) {
                 continue;
             }
 
-            const float Ratio{std::clamp(Map.mValues[VertIndex] / MaxValue, 0.0f, 1.0f)};
-            const ImU32 Color{IM_COL32(static_cast<int>(255.0f * (1.0f - Ratio)), static_cast<int>(255.0f * Ratio), 60, 255)};
-            const ImVec2 Center{Origin.x + ScreenPositions[VertIndex].x, Origin.y + ScreenPositions[VertIndex].y};
+            // 카메라 반대쪽을 향한 삼각형은 그리지 않아 반대쪽 면이 비쳐 보이지 않게 합니다.
+            if (mClothCullBackFaces && HasRay) {
+                const FVector Center{(Vertices[Corners[0]] + Vertices[Corners[1]] + Vertices[Corners[2]]) * (1.0f / 3.0f)};
 
-            DrawList->AddCircleFilled(Center, VertIndex == mClothHoveredParticle ? 5.0f : 2.5f, Color);
-        }
-
-        if (Hovered) {
-            if (Tool != ClothEditing::EClothPaintTool::Fill) {
-                DrawList->AddCircle(ImVec2{Origin.x + Mouse.x, Origin.y + Mouse.y}, mClothPaintRadius, IM_COL32(255, 255, 255, 200), 0, 1.5f);
+                if (GetFaceNormal(Corners[0], Corners[1], Corners[2]).Dot(CameraPosition - Center) <= 0.0f) {
+                    continue;
+                }
             }
 
-            // 마우스 옆에 아래 입자의 값을 보여 줍니다.
-            if (mClothHoveredParticle != InvalidIndex) {
-                mClothHoveredValue = Map.mValues[mClothHoveredParticle];
+            for (Index_t Corner{}; Corner < 3; ++Corner) {
+                const Uint32 Start{Corners[Corner]};
+                const Uint32 End{Corners[(Corner + 1) % 3]};
+                const FVector Middle{(Vertices[Start] + Vertices[End]) * 0.5f};
 
-                const Core::FString Text{FormatValue(ClothEditing::GetPaintTargetInfo(mClothPaintTarget).mFormat, mClothHoveredValue)};
-                const ImVec2 TextPosition{Origin.x + Mouse.x + 14.0f, Origin.y + Mouse.y + 14.0f};
-                const ImVec2 TextSize{ImGui::CalcTextSize(Text.c_str())};
-
-                DrawList->AddRectFilled(ImVec2{TextPosition.x - 3.0f, TextPosition.y - 2.0f}, ImVec2{TextPosition.x + TextSize.x + 3.0f, TextPosition.y + TextSize.y + 2.0f}, IM_COL32(0, 0, 0, 180), 3.0f);
-                DrawList->AddText(TextPosition, IM_COL32(255, 255, 255, 255), Text.c_str());
+                DrawInterface.DrawLine(Vertices[Start], Middle, GetWeightColor(Start));
+                DrawInterface.DrawLine(Middle, Vertices[End], GetWeightColor(End));
             }
         }
 
@@ -896,6 +1029,52 @@ namespace Editor {
             mClothPaintDirty = false;
             MarkClothChanged("Painted " + Core::FString{ClothEditing::GetPaintTargetInfo(mClothPaintTarget).mName} + ". Turn off Paint in Viewport to see the cloth move.");
         }
+
+        if (!HasHit) {
+            return;
+        }
+
+        // 붓은 맞은 점에서 표면에 붙은 원으로 그립니다. 채우기는 입자 하나를 고르므로 원 대신 그 입자만 표시합니다.
+        const FVector BrushColor{0.2f, 0.85f, 1.0f};
+
+        if (Tool != ClothEditing::EClothPaintTool::Fill) {
+            const FVector Helper{std::abs(HitNormal.z) < 0.9f ? FVector{0.0f, 0.0f, 1.0f} : FVector{1.0f, 0.0f, 0.0f}};
+            const FVector AxisU{HitNormal.Cross(Helper).Normalized()};
+            const FVector AxisV{HitNormal.Cross(AxisU)};
+            constexpr Index_t NumSegments{48};
+            constexpr float TwoPi{6.28318530718f};
+
+            for (Index_t Segment{}; Segment < NumSegments; ++Segment) {
+                const float AngleA{TwoPi * static_cast<float>(Segment) / static_cast<float>(NumSegments)};
+                const float AngleB{TwoPi * static_cast<float>(Segment + 1) / static_cast<float>(NumSegments)};
+                const FVector PointA{HitPoint + (AxisU * std::cos(AngleA) + AxisV * std::sin(AngleA)) * mClothPaintRadius};
+                const FVector PointB{HitPoint + (AxisU * std::cos(AngleB) + AxisV * std::sin(AngleB)) * mClothPaintRadius};
+
+                DrawInterface.DrawLine(PointA, PointB, BrushColor, false, 2.0f);
+            }
+        }
+
+        // 마우스 아래 입자는 화면에 크게 표시하고, 마우스 옆에 그 값을 보여 줍니다.
+        if (mClothHoveredParticle != InvalidIndex) {
+            mClothHoveredValue = Map.mValues[mClothHoveredParticle];
+
+            const FVector4 Clip{FVector4{Vertices[mClothHoveredParticle], 1.0f} * View.mViewProjection};
+            ImDrawList* const DrawList{ImGui::GetWindowDrawList()};
+
+            if (Clip.w > 1.e-6f) {
+                const ImVec2 Center{Origin.x + (Clip.x / Clip.w * 0.5f + 0.5f) * View.mSize.x, Origin.y + (0.5f - Clip.y / Clip.w * 0.5f) * View.mSize.y};
+
+                DrawList->AddCircle(Center, 6.0f, IM_COL32(50, 220, 255, 255), 0, 2.0f);
+            }
+
+            const Core::FString Text{FormatValue(ClothEditing::GetPaintTargetInfo(mClothPaintTarget).mFormat, mClothHoveredValue)};
+            const ImVec2 TextPosition{Origin.x + Mouse.x + 14.0f, Origin.y + Mouse.y + 14.0f};
+            const ImVec2 TextSize{ImGui::CalcTextSize(Text.c_str())};
+
+            DrawList->AddRectFilled(ImVec2{TextPosition.x - 3.0f, TextPosition.y - 2.0f}, ImVec2{TextPosition.x + TextSize.x + 3.0f, TextPosition.y + TextSize.y + 2.0f}, IM_COL32(0, 0, 0, 180), 3.0f);
+            DrawList->AddText(TextPosition, IM_COL32(255, 255, 255, 255), Text.c_str());
+        }
+
     }
 
     /**
@@ -914,6 +1093,7 @@ namespace Editor {
         mClothPreviewContext.mDeltaSeconds = std::min(DeltaTime, MaxPhysicsDelta);
         mClothPreviewContext.mPredictedLod = 0;
         mClothPreviewContext.mMaxDistanceScale = 1.0f;
+        // 미리 보기에는 컴포넌트 바람이 없으므로, 게임에서 컴포넌트 바람이 0일 때처럼 천 에셋의 기본 바람을 씁니다.
         mClothPreviewContext.mWindVelocity = FVector{};
         mClothPreviewContext.mWindAdaption = 2.0f;
         mClothPreviewContext.mTeleportMode = PhysicsRuntime::EClothingTeleportMode::None;

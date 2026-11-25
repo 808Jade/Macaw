@@ -43,6 +43,7 @@ namespace RenderCore {
 }
 
 namespace Engine {
+    class FPrimitiveDrawInterface;
     class FSceneInterface;
     class FRenderTarget;
 }
@@ -219,15 +220,17 @@ namespace Editor {
         void DrawClothCollision(PhysicsRuntime::UClothingAssetCommon& ClothingAsset);
 
         /**
-         * @brief 칠하기 대상 천 입자를 가중치 색으로 그리고, 왼쪽 버튼으로 고른 도구를 적용합니다.
-         * @details 입자는 바인드 포즈 위치에 그리며, 버튼을 놓으면 칠한 값을 천 에셋에 반영합니다.
+         * @brief 칠할 천 메시를 가중치 색 와이어프레임으로 그리고, 왼쪽 버튼으로 고른 도구를 적용합니다.
+         * @details 마우스 광선이 천 표면에 처음 맞은 점을 붓 중심으로 삼고, 그 점에서 3D 반지름 안의 입자만 바꿉니다.
+         *          천 메시는 바인드 포즈 위치에 그리며, 버튼을 놓으면 칠한 값을 천 에셋에 반영합니다.
          * @param[in] View 미리 보기의 뷰입니다.
          * @param[in] Origin 미리 보기 이미지 왼쪽 위의 화면 위치입니다.
          * @param[in] Mouse 미리 보기 안의 마우스 위치입니다.
          * @param[in] Hovered 마우스가 미리 보기 위에 있는지 나타냅니다.
          * @param[in] Input 이번 프레임의 입력입니다.
+         * @param[in,out] DrawInterface 와이어프레임과 붓 원을 담을 편집 표시 목록입니다.
          */
-        void DrawClothPaint(const Engine::FSceneView& View, const FVector2& Origin, const FVector2& Mouse, bool Hovered, const Core::FInput& Input);
+        void DrawClothPaint(const Engine::FSceneView& View, const FVector2& Origin, const FVector2& Mouse, bool Hovered, const Core::FInput& Input, Engine::FPrimitiveDrawInterface& DrawInterface);
 
         /**
          * @brief 천 칠하기를 쓸 수 있는 상태인지 검사합니다.
@@ -321,6 +324,11 @@ namespace Editor {
          * @param Bone 기즈모 변환을 적용할 스켈레톤 본 인덱스입니다.
          */
         void ApplyBoneGizmo(Index_t Bone);
+
+        /**
+         * @brief 미리 보기 위에 보기 방식 선택 칸과 표시 항목 메뉴를 그립니다.
+         */
+        void DrawViewportToolbar();
 
         /**
          * @brief 카메라 입력을 처리하고 공통 렌더 경로로 메시와 본 도형을 그리며 아이콘·스프라이트·텍스트 표시는 제외합니다.
@@ -476,6 +484,11 @@ namespace Editor {
         bool mClothPreviewStale{true};
 
         /**
+         * @brief Show 메뉴에서 바람 세기를 0으로 내렸다가 다시 올릴 때 쓸 바람 방향입니다.
+         */
+        FVector mClothWindDirection{1.0f, 0.0f, 0.0f};
+
+        /**
          * @brief 미리 보기에서 천 가중치를 칠하는지 나타냅니다.
          */
         bool mClothPaintEnabled{};
@@ -521,9 +534,19 @@ namespace Editor {
         float mClothPaintValue{};
 
         /**
-         * @brief 붓의 화면 반지름(픽셀)입니다.
+         * @brief 붓의 3D 반지름(m)이며 천 표면에 맞은 점에서 이 거리 안의 입자를 칠합니다.
          */
-        float mClothPaintRadius{30.0f};
+        float mClothPaintRadius{0.05f};
+
+        /**
+         * @brief 카메라 반대쪽을 향한 삼각형의 와이어프레임을 그리지 않을지 나타냅니다.
+         */
+        bool mClothCullBackFaces{true};
+
+        /**
+         * @brief 카메라를 향한 입자만 칠할지 나타냅니다.
+         */
+        bool mClothFrontFacingOnly{true};
 
         /**
          * @brief 칠한 뒤 아직 천 에셋에 반영하지 않은 값이 있는지 나타냅니다.

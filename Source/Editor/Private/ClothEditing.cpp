@@ -6,6 +6,7 @@
 
 #include "ClothEditing.h"
 #include "Asset/FClothingAssetFactory.h"
+#include "Asset/FClothingSectionData.h"
 #include "Asset/USkeletalMesh.h"
 #include "Asset/USkeleton.h"
 #include "PhysicsRuntime/FClothPhysicalMeshData.h"
@@ -90,6 +91,36 @@ namespace Editor::ClothEditing {
         return &ClothingAsset;
     }
 
+    /**
+     * @brief 천이 연결된 섹션의 렌더 정점과 천 입자 사이 연결 데이터를 다시 만듭니다.
+     */
+    bool RebuildSectionMapping(Asset::USkeletalMesh& Mesh, Index_t SubMeshIndex, Core::FString& Error) {
+        const Asset::FClothingSectionData* const SectionData{Mesh.GetSectionClothingData(SubMeshIndex)};
+        const auto& ClothingAssets{Mesh.GetMeshClothingAssets()};
+
+        if (SectionData == nullptr || !SectionData->IsValid() || SectionData->mCorrespondClothAssetIndex >= ClothingAssets.size()) {
+            Error = "Section " + std::to_string(SubMeshIndex) + " has no cloth.";
+
+            return false;
+        }
+
+        PhysicsRuntime::UClothingAssetCommon& ClothingAsset{*ClothingAssets[SectionData->mCorrespondClothAssetIndex]};
+        const Index_t AssetLodIndex{SectionData->mAssetLodIndex};
+        const Core::TArray<Index_t> PreviousLodMap{ClothingAsset.mLodMap};
+
+        // 연결 함수는 이미 연결된 상세 단계를 거부하므로, 연결 표를 비운 뒤 다시 연결하고 실패하면 되돌립니다.
+        ClothingAsset.mLodMap.clear();
+
+        if (!Asset::FClothingAssetFactory::BindToSkeletalMesh(Mesh, ClothingAsset, SubMeshIndex, AssetLodIndex)) {
+            ClothingAsset.mLodMap = PreviousLodMap;
+            Error = "Cannot rebuild the cloth mapping of section " + std::to_string(SubMeshIndex) + ". See the Console for details.";
+
+            return false;
+        }
+
+        return true;
+    }
+
     namespace {
         /**
          * @brief 강성 항목 하나를 만듭니다.
@@ -115,92 +146,96 @@ namespace Editor::ClothEditing {
 
         static const Core::TArray<FClothConfigField> Fields{
             // 강성 표는 세로, 가로, 굽힘, 전단 순서로 한 행에 세기, 배율, 늘어남 한계, 줄어듦 한계 네 칸입니다.
-            MakeStiffnessField("vertical.stiffness", "Vertical Stiffness", "%.2f", 0.0f, 1.0f, "세로 연결의 세기입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mVerticalConstraint.mStiffness; }),
-            MakeStiffnessField("vertical.stiffnessmultiplier", "Vertical Multiplier", "%.2f", 0.0f, 1.0f, "세로 연결의 느슨한 구간 배율입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mVerticalConstraint.mStiffnessMultiplier; }),
-            MakeStiffnessField("vertical.stretchlimit", "Vertical Stretch Limit", "%.2fx", 1.0f, 10.0f, "세로 연결의 늘어남 한계입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mVerticalConstraint.mStretchLimit; }),
-            MakeStiffnessField("vertical.compressionlimit", "Vertical Compress Limit", "%.2fx", 0.01f, 1.0f, "세로 연결의 줄어듦 한계입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mVerticalConstraint.mCompressionLimit; }),
-            MakeStiffnessField("horizontal.stiffness", "Horizontal Stiffness", "%.2f", 0.0f, 1.0f, "가로 연결의 세기입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mHorizontalConstraint.mStiffness; }),
-            MakeStiffnessField("horizontal.stiffnessmultiplier", "Horizontal Multiplier", "%.2f", 0.0f, 1.0f, "가로 연결의 느슨한 구간 배율입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mHorizontalConstraint.mStiffnessMultiplier; }),
-            MakeStiffnessField("horizontal.stretchlimit", "Horizontal Stretch Limit", "%.2fx", 1.0f, 10.0f, "가로 연결의 늘어남 한계입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mHorizontalConstraint.mStretchLimit; }),
-            MakeStiffnessField("horizontal.compressionlimit", "Horizontal Compress Limit", "%.2fx", 0.01f, 1.0f, "가로 연결의 줄어듦 한계입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mHorizontalConstraint.mCompressionLimit; }),
-            MakeStiffnessField("bend.stiffness", "Bend Stiffness", "%.2f", 0.0f, 1.0f, "굽힘 연결의 세기입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mBendConstraint.mStiffness; }),
-            MakeStiffnessField("bend.stiffnessmultiplier", "Bend Multiplier", "%.2f", 0.0f, 1.0f, "굽힘 연결의 느슨한 구간 배율입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mBendConstraint.mStiffnessMultiplier; }),
-            MakeStiffnessField("bend.stretchlimit", "Bend Stretch Limit", "%.2fx", 1.0f, 10.0f, "굽힘 연결의 늘어남 한계입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mBendConstraint.mStretchLimit; }),
-            MakeStiffnessField("bend.compressionlimit", "Bend Compress Limit", "%.2fx", 0.01f, 1.0f, "굽힘 연결의 줄어듦 한계입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mBendConstraint.mCompressionLimit; }),
-            MakeStiffnessField("shear.stiffness", "Shear Stiffness", "%.2f", 0.0f, 1.0f, "전단 연결의 세기입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mShearConstraint.mStiffness; }),
-            MakeStiffnessField("shear.stiffnessmultiplier", "Shear Multiplier", "%.2f", 0.0f, 1.0f, "전단 연결의 느슨한 구간 배율입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mShearConstraint.mStiffnessMultiplier; }),
-            MakeStiffnessField("shear.stretchlimit", "Shear Stretch Limit", "%.2fx", 1.0f, 10.0f, "전단 연결의 늘어남 한계입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mShearConstraint.mStretchLimit; }),
-            MakeStiffnessField("shear.compressionlimit", "Shear Compress Limit", "%.2fx", 0.01f, 1.0f, "전단 연결의 줄어듦 한계입니다. 기본값 1.", [](UClothConfigNv& C) { return &C.mShearConstraint.mCompressionLimit; }),
+            MakeStiffnessField("vertical.stiffness", "Vertical Stiffness", "%.2f", 0.0f, 1.0f, "되돌리는 세기", [](UClothConfigNv& C) { return &C.mVerticalConstraint.mStiffness; }),
+            MakeStiffnessField("vertical.stiffnessmultiplier", "Vertical Multiplier", "%.2f", 0.0f, 1.0f, "느슨한 구간 배율", [](UClothConfigNv& C) { return &C.mVerticalConstraint.mStiffnessMultiplier; }),
+            MakeStiffnessField("vertical.stretchlimit", "Vertical Stretch Limit", "%.2fx", 1.0f, 10.0f, "늘어남 한계", [](UClothConfigNv& C) { return &C.mVerticalConstraint.mStretchLimit; }),
+            MakeStiffnessField("vertical.compressionlimit", "Vertical Compress Limit", "%.2fx", 0.01f, 1.0f, "줄어듦 한계", [](UClothConfigNv& C) { return &C.mVerticalConstraint.mCompressionLimit; }),
+            MakeStiffnessField("horizontal.stiffness", "Horizontal Stiffness", "%.2f", 0.0f, 1.0f, "되돌리는 세기", [](UClothConfigNv& C) { return &C.mHorizontalConstraint.mStiffness; }),
+            MakeStiffnessField("horizontal.stiffnessmultiplier", "Horizontal Multiplier", "%.2f", 0.0f, 1.0f, "느슨한 구간 배율", [](UClothConfigNv& C) { return &C.mHorizontalConstraint.mStiffnessMultiplier; }),
+            MakeStiffnessField("horizontal.stretchlimit", "Horizontal Stretch Limit", "%.2fx", 1.0f, 10.0f, "늘어남 한계", [](UClothConfigNv& C) { return &C.mHorizontalConstraint.mStretchLimit; }),
+            MakeStiffnessField("horizontal.compressionlimit", "Horizontal Compress Limit", "%.2fx", 0.01f, 1.0f, "줄어듦 한계", [](UClothConfigNv& C) { return &C.mHorizontalConstraint.mCompressionLimit; }),
+            MakeStiffnessField("bend.stiffness", "Bend Stiffness", "%.2f", 0.0f, 1.0f, "되돌리는 세기", [](UClothConfigNv& C) { return &C.mBendConstraint.mStiffness; }),
+            MakeStiffnessField("bend.stiffnessmultiplier", "Bend Multiplier", "%.2f", 0.0f, 1.0f, "느슨한 구간 배율", [](UClothConfigNv& C) { return &C.mBendConstraint.mStiffnessMultiplier; }),
+            MakeStiffnessField("bend.stretchlimit", "Bend Stretch Limit", "%.2fx", 1.0f, 10.0f, "늘어남 한계", [](UClothConfigNv& C) { return &C.mBendConstraint.mStretchLimit; }),
+            MakeStiffnessField("bend.compressionlimit", "Bend Compress Limit", "%.2fx", 0.01f, 1.0f, "줄어듦 한계", [](UClothConfigNv& C) { return &C.mBendConstraint.mCompressionLimit; }),
+            MakeStiffnessField("shear.stiffness", "Shear Stiffness", "%.2f", 0.0f, 1.0f, "되돌리는 세기", [](UClothConfigNv& C) { return &C.mShearConstraint.mStiffness; }),
+            MakeStiffnessField("shear.stiffnessmultiplier", "Shear Multiplier", "%.2f", 0.0f, 1.0f, "느슨한 구간 배율", [](UClothConfigNv& C) { return &C.mShearConstraint.mStiffnessMultiplier; }),
+            MakeStiffnessField("shear.stretchlimit", "Shear Stretch Limit", "%.2fx", 1.0f, 10.0f, "늘어남 한계", [](UClothConfigNv& C) { return &C.mShearConstraint.mStretchLimit; }),
+            MakeStiffnessField("shear.compressionlimit", "Shear Compress Limit", "%.2fx", 0.01f, 1.0f, "줄어듦 한계", [](UClothConfigNv& C) { return &C.mShearConstraint.mCompressionLimit; }),
 
             FClothConfigField{.mKey = "solverfrequency", .mLabel = "Solver Frequency", .mGroup = "Simulation", .mFormat = "%.0f Hz", .mMin = 30.0f, .mMax = 1000.0f, .mSpeed = 1.0f, .mDefault = FVector{120.0f, 0.0f, 0.0f},
-                .mTooltip = "1초에 천의 연결을 몇 번 풀지입니다.\n높이면 천이 덜 늘어나고 안정되지만 계산이 늘어납니다.\n낮추면 잘 늘어나고 통통 튑니다.\n기본값 120 Hz.",
+                .mTooltip = "1초에 푸는 횟수.\n높이면 덜 늘어나고 안정되지만 느려짐",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mSolverFrequency; }},
             FClothConfigField{.mKey = "stiffnessfrequency", .mLabel = "Stiffness Frequency", .mGroup = "Simulation", .mFormat = "%.0f Hz", .mMin = 1.0f, .mMax = 1000.0f, .mSpeed = 1.0f, .mDefault = FVector{100.0f, 0.0f, 0.0f},
-                .mTooltip = "세기, 감쇠, 끌림 값을 '1초에 이 횟수만큼 적용한 결과'로 보는 기준입니다.\n낮추면 같은 세기 값이라도 연결이 약해지고, 높이면 강해집니다.\n기본값 100 Hz.",
+                .mTooltip = "세기·감쇠 값의 기준 횟수.\n낮추면 같은 값이라도 약해짐",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mStiffnessFrequency; }},
             FClothConfigField{.mKey = "gravityscale", .mLabel = "Gravity Scale", .mGroup = "Simulation", .mFormat = "%.2fx", .mMin = 0.0f, .mMax = 10.0f, .mSpeed = 0.01f, .mDefault = FVector{1.0f, 0.0f, 0.0f},
-                .mTooltip = "월드 중력에 곱하는 배율입니다.\n0이면 무중력처럼 떠 있고, 2면 두 배로 무겁게 처집니다.\nOverride Gravity를 켜면 쓰지 않습니다.\n기본값 1.",
+                .mTooltip = "중력 배율. 0 = 무중력",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mGravityScale; }},
             FClothConfigField{.mKey = "gravityoverride", .mLabel = "Gravity", .mGroup = "Simulation", .mFormat = "%.2f m/s2", .mMin = -50.0f, .mMax = 50.0f, .mSpeed = 0.05f, .mDefault = FVector{0.0f, 0.0f, 0.0f},
-                .mTooltip = "월드 중력 대신 쓸 중력 가속도입니다(m/s2, x y z).\n예를 들어 (0, 0, -9.81)이면 보통 중력입니다.\nOverride Gravity를 켰을 때만 씁니다.",
+                .mTooltip = "월드 중력 대신 쓸 중력(m/s2).\nOverride Gravity가 켜졌을 때만 씀",
                 .mGetVector = [](UClothConfigNv& C) { return &C.mGravityOverride; }},
 
             FClothConfigField{.mKey = "damping", .mLabel = "Damping", .mGroup = "Damping & Drag", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 0.99f, .mSpeed = 0.005f, .mDefault = FVector{0.4f, 0.4f, 0.4f},
-                .mTooltip = "입자 속도를 매번 줄이는 비율입니다(x y z 축별).\n높이면 천이 꿀 속처럼 천천히 움직이고 흔들림이 빨리 멈춥니다.\n0이면 줄이지 않습니다. 1보다 작아야 합니다.\n기본값 0.4.",
+                .mTooltip = "움직임을 줄이는 비율.\n높이면 흔들림이 빨리 멈춤",
                 .mGetVector = [](UClothConfigNv& C) { return &C.mDamping; }},
             FClothConfigField{.mKey = "lineardrag", .mLabel = "Linear Drag", .mGroup = "Damping & Drag", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 0.99f, .mSpeed = 0.005f, .mDefault = FVector{0.2f, 0.2f, 0.2f},
-                .mTooltip = "몸이 움직일 때 천이 몸을 따라 끌려가는 정도입니다(축별).\n높이면 걷거나 뛸 때 천이 몸에 더 바짝 따라옵니다.\n기본값 0.2.",
+                .mTooltip = "몸이 움직일 때 천이 따라오는 정도",
                 .mGetVector = [](UClothConfigNv& C) { return &C.mLinearDrag; }},
             FClothConfigField{.mKey = "angulardrag", .mLabel = "Angular Drag", .mGroup = "Damping & Drag", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 0.99f, .mSpeed = 0.005f, .mDefault = FVector{0.2f, 0.2f, 0.2f},
-                .mTooltip = "몸이 돌 때 천이 같이 돌려지는 정도입니다(축별).\n높이면 회전할 때 천이 덜 뒤처집니다.\n기본값 0.2.",
+                .mTooltip = "몸이 돌 때 천이 따라 도는 정도",
                 .mGetVector = [](UClothConfigNv& C) { return &C.mAngularDrag; }},
 
             FClothConfigField{.mKey = "linearinertia", .mLabel = "Linear Inertia", .mGroup = "Inertia", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.005f, .mDefault = FVector{1.0f, 1.0f, 1.0f},
-                .mTooltip = "몸이 갑자기 움직이거나 멈출 때 그 가속을 천에 얼마나 전할지입니다(축별).\n1이 물리적으로 맞고, 0이면 몸이 갑자기 움직여도 천이 휘날리지 않습니다.\n기본값 1.",
+                .mTooltip = "몸의 가속을 천에 전하는 비율.\n0 = 갑자기 움직여도 안 휘날림",
                 .mGetVector = [](UClothConfigNv& C) { return &C.mLinearInertiaScale; }},
             FClothConfigField{.mKey = "angularinertia", .mLabel = "Angular Inertia", .mGroup = "Inertia", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.005f, .mDefault = FVector{1.0f, 1.0f, 1.0f},
-                .mTooltip = "몸이 갑자기 돌기 시작하거나 멈출 때 그 회전 가속을 천에 얼마나 전할지입니다(축별).\n기본값 1.",
+                .mTooltip = "몸의 회전 가속을 천에 전하는 비율",
                 .mGetVector = [](UClothConfigNv& C) { return &C.mAngularInertiaScale; }},
             FClothConfigField{.mKey = "centrifugalinertia", .mLabel = "Centrifugal Inertia", .mGroup = "Inertia", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.005f, .mDefault = FVector{1.0f, 1.0f, 1.0f},
-                .mTooltip = "몸이 돌 때 바깥으로 쏠리는 힘(원심력)을 천에 얼마나 전할지입니다(축별).\n0이면 빙글 돌아도 치마가 바깥으로 퍼지지 않습니다.\n기본값 1.",
+                .mTooltip = "원심력을 천에 전하는 비율.\n0 = 돌아도 치마가 안 퍼짐",
                 .mGetVector = [](UClothConfigNv& C) { return &C.mCentrifugalInertiaScale; }},
 
             FClothConfigField{.mKey = "tetherstiffness", .mLabel = "Tether Stiffness", .mGroup = "Tether", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.005f, .mDefault = FVector{1.0f, 0.0f, 0.0f},
-                .mTooltip = "고정된 입자(최대 거리 0)와 각 입자를 잇는 보이지 않는 끈의 세기입니다.\n1이면 끈 길이 이상 멀어지지 못하고, 낮추면 고무줄처럼 늘어납니다.\n기본값 1.",
+                .mTooltip = "고정 입자에서 멀어지지 않게 잡는 끈의 세기.\n낮추면 고무줄처럼 늘어남",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mTetherStiffness; }},
             FClothConfigField{.mKey = "tetherlimit", .mLabel = "Tether Limit", .mGroup = "Tether", .mFormat = "%.2fx", .mMin = 0.0f, .mMax = 4.0f, .mSpeed = 0.005f, .mDefault = FVector{1.0f, 0.0f, 0.0f},
-                .mTooltip = "끈 길이에 곱하는 배율입니다.\n1이면 처음 모양에서의 거리, 1.2면 그보다 20% 더 멀어질 수 있습니다.\n0이면 끈을 쓰지 않습니다.\n기본값 1.",
+                .mTooltip = "끈 길이 배율. 0 = 끈 없음",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mTetherLimit; }},
 
-            FClothConfigField{.mKey = "collisionthickness", .mLabel = "Thickness", .mGroup = "Collision", .mFormat = "%.2f cm", .mDisplayScale = 100.0f, .mMin = 0.0f, .mMax = 0.1f, .mSpeed = 0.05f, .mDefault = FVector{0.01f, 0.0f, 0.0f},
-                .mTooltip = "몸 충돌체 표면에서 천을 이만큼 띄웁니다.\n높이면 천이 몸을 덜 뚫지만 몸에서 떠 보입니다.\n기본값 1 cm.",
+            FClothConfigField{.mKey = "collisionthickness", .mLabel = "Thickness", .mGroup = "Collision", .mFormat = "%.3f m", .mMin = 0.0f, .mMax = 0.1f, .mSpeed = 0.0005f, .mDefault = FVector{0.01f, 0.0f, 0.0f},
+                .mTooltip = "충돌체에서 천을 띄우는 거리.\n높이면 덜 뚫지만 떠 보임",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mCollisionThickness; }},
             FClothConfigField{.mKey = "friction", .mLabel = "Friction", .mGroup = "Collision", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.005f, .mDefault = FVector{0.1f, 0.0f, 0.0f},
-                .mTooltip = "천이 몸 충돌체에 닿았을 때 미끄러지지 않게 잡는 정도입니다.\n높이면 천이 몸에 붙어 덜 미끄러집니다.\n기본값 0.1.",
+                .mTooltip = "충돌체에서 덜 미끄러지는 정도",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mFriction; }},
 
-            FClothConfigField{.mKey = "selfcollisionradius", .mLabel = "Radius", .mGroup = "Self Collision", .mFormat = "%.2f cm", .mDisplayScale = 100.0f, .mMin = 0.0f, .mMax = 0.1f, .mSpeed = 0.05f, .mDefault = FVector{0.0f, 0.0f, 0.0f},
-                .mTooltip = "천끼리 부딪힐 때 입자마다 둘 구의 반지름입니다.\n0이면 천끼리 부딪히지 않습니다.\n켜면 천이 자기 자신을 덜 뚫지만 계산이 크게 늘어납니다.\n기본값 0.",
+            FClothConfigField{.mKey = "selfcollisionradius", .mLabel = "Radius", .mGroup = "Self Collision", .mFormat = "%.3f m", .mMin = 0.0f, .mMax = 0.1f, .mSpeed = 0.0005f, .mDefault = FVector{0.0f, 0.0f, 0.0f},
+                .mTooltip = "천끼리 충돌용 입자 반지름. 0 = 끔\n켜면 계산이 크게 늘어남",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mSelfCollisionRadius; }},
             FClothConfigField{.mKey = "selfcollisionstiffness", .mLabel = "Stiffness", .mGroup = "Self Collision", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.005f, .mDefault = FVector{0.0f, 0.0f, 0.0f},
-                .mTooltip = "천끼리 겹쳤을 때 서로 밀어내는 세기입니다.\n0이면 천끼리 부딪히지 않습니다.\n기본값 0.",
+                .mTooltip = "천끼리 겹치면 밀어내는 세기. 0 = 끔",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mSelfCollisionStiffness; }},
             FClothConfigField{.mKey = "selfcollisioncullscale", .mLabel = "Cull Scale", .mGroup = "Self Collision", .mFormat = "%.2fx", .mMin = 0.0f, .mMax = 4.0f, .mSpeed = 0.005f, .mDefault = FVector{1.0f, 0.0f, 0.0f},
-                .mTooltip = "반지름 x 이 값 안에 이미 고른 입자가 있으면 그 입자는 천끼리 충돌 계산에서 뺍니다.\n높이면 계산할 입자가 줄어 빨라지지만 덜 정확해집니다.\n낮추면 정확해지지만 느려집니다.\n기본값 1.",
+                .mTooltip = "가까운 입자를 계산에서 빼는 범위.\n높이면 빠르지만 덜 정확",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mSelfCollisionCullScale; }},
 
             FClothConfigField{.mKey = "winddrag", .mLabel = "Drag", .mGroup = "Wind", .mFormat = "%.4f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.0001f, .mDefault = FVector{0.0002f, 0.0f, 0.0f},
-                .mTooltip = "바람이 천 면을 바람 방향으로 미는 정도입니다.\n높이면 바람에 옆으로 더 밀립니다.\nWind Method가 Accurate일 때만 씁니다.\n기본값 0.0002.",
+                .mTooltip = "바람에 밀리는 정도. Accurate에서만 씀",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mWindDragCoefficient; }},
             FClothConfigField{.mKey = "windlift", .mLabel = "Lift", .mGroup = "Wind", .mFormat = "%.4f", .mMin = 0.0f, .mMax = 1.0f, .mSpeed = 0.0001f, .mDefault = FVector{0.0002f, 0.0f, 0.0f},
-                .mTooltip = "바람이 천 면을 바람과 수직 방향으로 띄우는 정도입니다.\n높이면 바람에 천이 더 잘 떠오릅니다.\nWind Method가 Accurate일 때만 씁니다.\n기본값 0.0002.",
+                .mTooltip = "바람에 떠오르는 정도. Accurate에서만 씀",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mWindLiftCoefficient; }},
 
+            FClothConfigField{.mKey = "defaultwind", .mLabel = "Default Wind", .mGroup = "Wind", .mFormat = "%.1f m/s", .mMin = -50.0f, .mMax = 50.0f, .mSpeed = 0.1f, .mDefault = FVector{0.0f, 0.0f, 0.0f},
+                .mTooltip = "이 천에 기본으로 부는 바람(m/s, x y z).\n컴포넌트의 Cloth Wind Velocity가 0이면 이 값을 씀",
+                .mGetVector = [](UClothConfigNv& C) { return &C.mDefaultWindVelocity; }},
+
             FClothConfigField{.mKey = "animdrivespring", .mLabel = "Spring", .mGroup = "Anim Drive", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 10.0f, .mSpeed = 0.01f, .mDefault = FVector{1.0f, 0.0f, 0.0f},
-                .mTooltip = "Anim Drive Multiplier를 칠한 입자를 애니메이션 위치로 당기는 세기입니다.\n높이면 천이 애니메이션 모양을 더 잘 유지합니다.\n칠한 맵이 없으면 쓰지 않습니다.\n기본값 1.",
+                .mTooltip = "칠한 입자를 애니메이션 위치로 당기는 세기",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mAnimDriveSpringStiffness; }},
             FClothConfigField{.mKey = "animdrivedamper", .mLabel = "Damper", .mGroup = "Anim Drive", .mFormat = "%.2f", .mMin = 0.0f, .mMax = 10.0f, .mSpeed = 0.01f, .mDefault = FVector{1.0f, 0.0f, 0.0f},
-                .mTooltip = "애니메이션 위치로 당길 때 입자와 애니메이션의 속도 차이를 줄이는 세기입니다.\n높이면 당겨질 때 덜 출렁입니다.\n기본값 1.",
+                .mTooltip = "당길 때 출렁임을 줄이는 세기",
                 .mGetFloat = [](UClothConfigNv& C) { return &C.mAnimDriveDamperStiffness; }},
         };
 
@@ -212,10 +247,10 @@ namespace Editor::ClothEditing {
      */
     const Core::TArray<FClothLabel>& GetStiffnessRows() {
         static const Core::TArray<FClothLabel> Rows{
-            {"Vertical", "중력 방향(아래로 늘어지는 방향)으로 이웃한 입자 사이의 연결입니다.\n낮추면 천이 아래로 잘 늘어납니다."},
-            {"Horizontal", "중력과 수직인 방향으로 이웃한 입자 사이의 연결입니다.\n낮추면 천이 옆으로 잘 늘어납니다."},
-            {"Bend", "한 칸 건너 이웃한 입자 사이의 연결이며 천이 접히는 정도를 정합니다.\n낮추면 잘 구겨지고, 높이면 빳빳해집니다."},
-            {"Shear", "대각선으로 이웃한 입자 사이의 연결이며 비틀림을 막습니다.\n낮추면 네모 칸이 마름모처럼 잘 찌그러집니다."},
+            {"Vertical", "중력 방향 연결. 낮추면 아래로 잘 늘어남"},
+            {"Horizontal", "가로 방향 연결. 낮추면 옆으로 잘 늘어남"},
+            {"Bend", "접힘을 막는 연결. 낮추면 잘 구겨짐"},
+            {"Shear", "대각선 연결. 낮추면 잘 비틀림"},
         };
 
         return Rows;
@@ -226,10 +261,10 @@ namespace Editor::ClothEditing {
      */
     const Core::TArray<FClothLabel>& GetStiffnessColumns() {
         static const Core::TArray<FClothLabel> Columns{
-            {"Stiffness", "한 번 풀 때 늘어나거나 줄어든 연결을 원래 길이로 얼마나 되돌릴지입니다.\n1이면 바로 되돌리고, 0이면 되돌리지 않습니다.\n0~1, 기본값 1."},
-            {"Multiplier", "연결 길이가 아래 두 한계 사이(느슨한 구간)에 있을 때 세기에 곱하는 값입니다.\n1이면 느슨한 구간 없이 똑같이 당기고, 낮추면 그 구간에서는 고무처럼 느슨해집니다.\n0~1, 기본값 1."},
-            {"Stretch", "원래 길이의 몇 배까지 늘어난 것을 느슨한 구간으로 볼지입니다.\n예: 1.1이면 10%까지는 Multiplier만큼 약하게 당깁니다.\n1이면 느슨한 구간이 없습니다. 1 이상, 기본값 1."},
-            {"Compress", "원래 길이의 몇 배까지 줄어든 것을 느슨한 구간으로 볼지입니다.\n예: 0.9이면 10%까지 줄어드는 것은 Multiplier만큼 약하게 밀어냅니다.\n1이면 느슨한 구간이 없습니다. 0~1, 기본값 1."},
+            {"Stiffness", "늘어난 연결을 되돌리는 세기.\n1 = 바로 되돌림, 0 = 안 되돌림"},
+            {"Multiplier", "느슨한 구간(두 한계 사이)에서 세기에 곱하는 값.\n낮추면 그 구간이 고무처럼 느슨"},
+            {"Stretch", "원래 길이의 몇 배까지 느슨하게 둘지. 1 = 없음"},
+            {"Compress", "원래 길이의 몇 배까지 줄어도 느슨하게 둘지. 1 = 없음"},
         };
 
         return Columns;
@@ -240,14 +275,14 @@ namespace Editor::ClothEditing {
      */
     const Core::TArray<FClothLabel>& GetConfigGroups() {
         static const Core::TArray<FClothLabel> Groups{
-            {"Simulation", "얼마나 자주 풀지와 중력을 정합니다."},
-            {"Damping & Drag", "천의 움직임이 얼마나 빨리 잦아들고 몸을 얼마나 따라오는지 정합니다."},
-            {"Inertia", "몸이 가속하거나 돌 때 그 힘을 천에 얼마나 전할지 정합니다."},
-            {"Tether", "고정된 입자에서 너무 멀리 늘어나지 않게 잡는 끈을 정합니다."},
-            {"Collision", "천이 몸 충돌체(물리 에셋의 구와 캡슐)에 닿을 때를 정합니다."},
-            {"Self Collision", "천이 자기 자신과 부딪히는 것을 정합니다. 반지름과 세기가 모두 0보다 커야 켜집니다."},
-            {"Wind", "바람을 받는 방식과 정도를 정합니다. 바람 세기는 컴포넌트의 Cloth Wind Velocity로 줍니다."},
-            {"Anim Drive", "칠한 입자를 애니메이션 위치로 당기는 힘을 정합니다."},
+            {"Simulation", "푸는 횟수와 중력"},
+            {"Damping & Drag", "흔들림이 잦아드는 정도, 몸을 따라오는 정도"},
+            {"Inertia", "몸의 가속·회전이 천에 전해지는 정도"},
+            {"Tether", "고정 입자에서 너무 멀어지지 않게 잡는 끈"},
+            {"Collision", "몸 충돌체(구·캡슐)에 닿을 때"},
+            {"Self Collision", "천끼리 부딪힘. 반지름·세기가 모두 0보다 커야 켜짐"},
+            {"Wind", "바람 받는 방식과 이 천의 기본 바람"},
+            {"Anim Drive", "칠한 입자를 애니메이션 위치로 당기는 힘"},
         };
 
         return Groups;
@@ -257,7 +292,7 @@ namespace Editor::ClothEditing {
      * @brief 바람 방식 선택 칸의 설명을 반환합니다.
      */
     const char* GetWindMethodTooltip() {
-        return "Legacy: 입자마다 바람 속도 쪽으로 직접 가속을 줍니다.\n바람이 없어도 공기 저항처럼 작용해 천이 조금 느리게 움직입니다.\n\nAccurate: 천 면이 바람을 받는 방향을 보고 Drag와 Lift로 계산합니다.\n바람이 없으면 아무 힘도 주지 않습니다.";
+        return "Legacy: 입자를 바람 쪽으로 직접 끎. 바람이 없어도 공기 저항처럼 작용\nAccurate: 천 면 방향으로 Drag·Lift를 계산";
     }
 
     /**
@@ -295,10 +330,10 @@ namespace Editor::ClothEditing {
      */
     const FPaintTargetInfo& GetPaintTargetInfo(int TargetIndex) {
         static const FPaintTargetInfo Targets[NumPaintTargets]{
-            {"Max Distance", "%.3f m", 1.0f, 0.002f, "입자가 애니메이션(스키닝) 위치에서 벗어날 수 있는 최대 거리입니다(m).\n0이면 입자가 몸에 고정되어 애니메이션만 따라갑니다.\n어깨, 허리처럼 붙어 있어야 할 곳은 0, 치맛자락처럼 날려야 할 곳은 크게 칠합니다."},
-            {"Backstop Distance", "%.3f m", 1.0f, 0.002f, "입자가 몸 안쪽으로 파고들지 못하게 막는 구를 표면에서 몸 안쪽으로 얼마나 떨어뜨릴지입니다(m).\nBackstop Radius와 함께 칠해야 효과가 있습니다."},
-            {"Backstop Radius", "%.3f m", 1.0f, 0.002f, "몸 안쪽을 막는 구의 반지름입니다(m).\n0이면 막지 않습니다. 입자는 이 구 안으로 들어가지 못합니다."},
-            {"Anim Drive Multiplier", "%.2f", 1.0f, 0.005f, "입자를 애니메이션 위치로 당기는 세기의 배율입니다.\n0이면 당기지 않고, 1이면 설정의 Anim Drive Spring 세기 그대로 당깁니다."},
+            {"Max Distance", "%.3f m", 1.0f, 0.002f, "애니메이션 위치에서 벗어날 수 있는 거리(m).\n0 = 몸에 고정"},
+            {"Backstop Distance", "%.3f m", 1.0f, 0.002f, "몸 안쪽을 막는 구를 안쪽으로 미는 거리(m).\nBackstop Radius와 함께 칠함"},
+            {"Backstop Radius", "%.3f m", 1.0f, 0.002f, "몸 안쪽을 막는 구의 반지름(m). 0 = 안 막음"},
+            {"Anim Drive Multiplier", "%.2f", 1.0f, 0.005f, "애니메이션 위치로 당기는 세기 배율.\n0 = 안 당김, 1 = Spring 그대로"},
         };
 
         return Targets[std::clamp(TargetIndex, 0, NumPaintTargets - 1)];
@@ -332,9 +367,9 @@ namespace Editor::ClothEditing {
      */
     const Core::TArray<FClothLabel>& GetPaintTools() {
         static const Core::TArray<FClothLabel> Tools{
-            {"Brush", "왼쪽 버튼으로 끄는 동안 붓 원 안의 입자에 Value를 칠합니다.\nShift를 누르고 끌면 0을 칠합니다."},
-            {"Smooth", "왼쪽 버튼으로 끄는 동안 붓 원 안의 입자 값을 이웃 입자 값의 평균 쪽으로 다듬습니다.\n값이 계단처럼 끊기는 경계를 부드럽게 만들 때 씁니다."},
-            {"Fill", "왼쪽 버튼으로 입자 하나를 누르면, 그 입자 값과 Threshold 이하로 차이 나는 이어진 입자를 모두 Value로 채웁니다.\n넓은 영역을 한 번에 칠할 때 씁니다."},
+            {"Brush", "끄는 동안 붓 안 입자에 Value를 칠함. Shift = 0"},
+            {"Smooth", "끄는 동안 붓 안 값을 이웃 평균으로 다듬음"},
+            {"Fill", "누른 곳과 값이 비슷한 이어진 입자를 한 번에 채움"},
         };
 
         return Tools;
