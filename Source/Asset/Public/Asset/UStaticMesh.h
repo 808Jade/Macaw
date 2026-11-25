@@ -11,6 +11,7 @@
 #include "Asset/FMeshData.h"
 #include "RenderCore/TIndexBuffer.h"
 #include "RenderCore/TVertexBuffer.h"
+#include "PhysicsRuntime/FKAggregateGeom.h"
 #include "PhysicsRuntime/FKConvexElem.h"
 
 #include <d3d11.h>
@@ -92,6 +93,20 @@ namespace Asset {
          * @return 모든 형상이 유효하여 적용했으면 true입니다.
          */
         bool SetConvexElems(Core::TArray<PhysicsRuntime::FKConvexElem> ConvexElems);
+
+        /**
+         * @brief 사용자가 편집한 단순 충돌 형상(구, 상자, 캡슐)을 반환합니다.
+         * @return 객체가 보유한 데이터의 참조이며, 비어 있으면 바디 셋업은 볼록 형상이나 경계 상자를 사용합니다.
+         */
+        const PhysicsRuntime::FKAggregateGeom& GetSimpleShapes() const;
+
+        /**
+         * @brief 단순 충돌 형상을 바꾸고 바디 셋업을 다시 만듭니다.
+         * @param[in] Shapes 메시 로컬 공간의 구, 상자, 캡슐 목록입니다. 볼록 형상은 무시합니다. 비우면 볼록 형상이나 경계 상자로 되돌립니다.
+         * @return 모든 형상의 값이 유한하고 크기가 0보다 커서 적용했으면 true입니다.
+         * @note 단순 형상이 하나라도 있으면 임포트한 볼록 형상 대신 이 형상만 충돌에 씁니다.
+         */
+        bool SetSimpleShapes(PhysicsRuntime::FKAggregateGeom Shapes);
 
         /**
          * @brief 메시의 CPU 정점 속성·인덱스 데이터 참조를 반환합니다.
@@ -188,6 +203,11 @@ namespace Asset {
          * @brief 임포트할 때 메시 형태로 만든 볼록 충돌 형상 목록이며, 메시 에셋 파일에 함께 저장합니다.
          */
         Core::TArray<PhysicsRuntime::FKConvexElem> mConvexElems{};
+
+        /**
+         * @brief 에디터에서 편집한 단순 충돌 형상이며 메시 에셋 파일에 함께 저장합니다. 볼록 형상 목록은 쓰지 않습니다.
+         */
+        PhysicsRuntime::FKAggregateGeom mSimpleShapes{};
 
         /**
          * @brief 물리 바디를 만들 때 쓰는 충돌 형상이며, 메시 데이터나 볼록 형상을 바꿀 때마다 다시 만듭니다.

@@ -199,6 +199,17 @@ namespace Editor {
         void DrawClothing();
 
         /**
+         * @brief 정적 메시의 단순 충돌 형상(상자, 구, 캡슐)을 편집하는 칸을 그립니다. 추가, 삭제, 값 편집, 메시 경계에 맞추기, 저장입니다.
+         */
+        void DrawCollision();
+
+        /**
+         * @brief 정적 메시의 충돌 형상을 메시 로컬 공간의 선으로 그립니다. 고른 형상은 주황색입니다.
+         * @param[in,out] Draw 선을 추가할 편집 표시 목록입니다.
+         */
+        void BuildCollisionLines(Engine::FPrimitiveDrawInterface& Draw) const;
+
+        /**
          * @brief 섹션마다 머티리얼, 천 상태, 천 만들기 버튼을 표로 그리고 천을 고르게 합니다.
          */
         void DrawClothSections();
@@ -459,6 +470,31 @@ namespace Editor {
          * @brief 천 칸에서 고른 천 에셋 번호입니다.
          */
         Index_t mClothSelectedAsset{};
+
+        /**
+         * @brief 충돌 형상을 미리 보기에 그릴지 나타냅니다.
+         */
+        bool mShowCollision{true};
+
+        /**
+         * @brief 충돌 칸에서 고른 형상의 종류입니다. 0은 없음, 1은 구, 2는 상자, 3은 캡슐입니다.
+         */
+        Uint32 mCollisionShapeType{};
+
+        /**
+         * @brief 충돌 칸에서 고른 형상의 같은 종류 안의 번호입니다.
+         */
+        Index_t mCollisionShapeIndex{};
+
+        /**
+         * @brief 저장하지 않은 충돌 형상 편집이 있는지 나타냅니다.
+         */
+        bool mCollisionUnsaved{};
+
+        /**
+         * @brief 충돌 칸의 마지막 저장 결과나 오류 안내입니다.
+         */
+        Core::FString mCollisionMessage{};
 
         /**
          * @brief 엔진이 소유하는 천 시스템이며 없으면 미리 보기에서 천이 움직이지 않습니다.

@@ -115,6 +115,10 @@ namespace Editor {
         mPath = MeshPath;
         mError.clear();
         mClothSelectedAsset = 0;
+        mCollisionShapeType = 0;
+        mCollisionShapeIndex = 0;
+        mCollisionUnsaved = false;
+        mCollisionMessage.clear();
         mClothUnsaved = false;
         mClothPaintEnabled = false;
         mClothPreviewStale = true;
@@ -459,6 +463,9 @@ namespace Editor {
                 // 천 칸을 닫으면 칠하기도 끝내 왼쪽 버튼을 카메라와 뼈 선택에 돌려줍니다.
                 mClothPaintEnabled = false;
             }
+        } else {
+            // 정적 메시는 충돌 형상(상자, 구, 캡슐)을 편집할 수 있다.
+            DrawCollision();
         }
 
         if (!mError.empty()) {
@@ -600,8 +607,15 @@ namespace Editor {
             mGizmo.DrawFeedback(Gizmo);
         }
 
+        // 정적 메시의 충돌 형상도 같은 편집 표시 목록에 담는다.
+        const bool ShowCollision{mSkeletalMesh == nullptr && mMesh != nullptr && mShowCollision};
+
+        if (ShowCollision) {
+            BuildCollisionLines(Gizmo);
+        }
+
         mViewer.SetViewMode(mViewMode);
-        mViewer.Render(mPoseBone || Painting ? &Gizmo : nullptr, BoneShapes.empty() ? nullptr : &Bones);
+        mViewer.Render(mPoseBone || Painting || ShowCollision ? &Gizmo : nullptr, BoneShapes.empty() ? nullptr : &Bones);
     }
 
     /**
