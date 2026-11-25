@@ -326,13 +326,15 @@ namespace Asset {
          *          스켈레탈 메시는 메시 데이터 뒤에 본 데이터가 이어지므로 이 섹션을 쓰지 않습니다.
          * @param[in,out] Archive 모드에 따라 값을 읽거나 쓸 아카이브입니다.
          * @param[in,out] ConvexElems 읽거나 직렬화할 볼록 충돌 형상 목록입니다.
+         * @param[in,out] SimpleShapes 읽거나 직렬화할 단순 충돌 형상(구, 상자, 캡슐)입니다. 볼록 형상 목록은 쓰지 않습니다.
          */
-        void SerializeCollision(Serialization::FMemoryArchive& Archive, Core::TArray<PhysicsRuntime::FKConvexElem>& ConvexElems) {
-            Uint32 Version{1};
+        void SerializeCollision(Serialization::FMemoryArchive& Archive, Core::TArray<PhysicsRuntime::FKConvexElem>& ConvexElems, PhysicsRuntime::FKAggregateGeom& SimpleShapes) {
+            // 2: 볼록 형상 뒤에 단순 형상(구, 상자, 캡슐)을 저장한다. 1은 볼록 형상만 있다.
+            Uint32 Version{2};
 
             Archive.Serialize("CollisionVersion", Version);
 
-            if (Archive.HasError() || Version != 1) {
+            if (Archive.HasError() || Version < 1 || Version > 2) {
                 Archive.SetError("Unsupported mesh collision version");
 
                 return;
@@ -357,6 +359,54 @@ namespace Asset {
             }
 
             Archive.EndArray();
+
+            if (Version < 2 || Archive.HasError()) {
+                return;
+            }
+
+            // 단순 형상 목록 하나를 읽거나 씁니다. 개수는 남은 바이트로 검증합니다.
+            const auto SerializeList{[&Archive](std::string_view Name, auto& Elems, std::size_t MinimumBytes, auto&& SerializeElement) {
+                Uint32 Size{Archive.IsLoading() ? 0 : static_cast<Uint32>(Elems.size())};
+
+                if (Archive.HasError() || !Archive.BeginArray(Name, Size) || (Archive.IsLoading() && Size > Archive.GetRemainingBytes() / MinimumBytes)) {
+                    Archive.SetError("Invalid simple collision count");
+
+                    return;
+                }
+
+                if (Archive.IsLoading()) {
+                    Elems.clear();
+                    Elems.resize(Size);
+                }
+
+                for (auto& Elem : Elems) {
+                    SerializeElement(Elem);
+
+                    if (Archive.HasError()) {
+                        return;
+                    }
+                }
+
+                Archive.EndArray();
+            }};
+
+            SerializeList("Spheres", SimpleShapes.mSphereElems, 16, [&Archive](PhysicsRuntime::FKSphereElem& Elem) {
+                Archive.Serialize("Center", Elem.mCenter);
+                Archive.Serialize("Radius", Elem.mRadius);
+            });
+
+            SerializeList("Boxes", SimpleShapes.mBoxElems, 36, [&Archive](PhysicsRuntime::FKBoxElem& Elem) {
+                Archive.Serialize("Center", Elem.mCenter);
+                Archive.Serialize("Rotation", Elem.mRotation);
+                Archive.Serialize("HalfExtent", Elem.mHalfExtent);
+            });
+
+            SerializeList("Capsules", SimpleShapes.mSphylElems, 32, [&Archive](PhysicsRuntime::FKSphylElem& Elem) {
+                Archive.Serialize("Center", Elem.mCenter);
+                Archive.Serialize("Rotation", Elem.mRotation);
+                Archive.Serialize("Radius", Elem.mRadius);
+                Archive.Serialize("Length", Elem.mLength);
+            });
         }
 
         /**
@@ -657,11 +707,12 @@ namespace Asset {
             // 3: 바디마다 CollisionEnabled와 충돌 비활성 쌍 목록을 저장한다. 2 이하는 모든 바디가 충돌하고 비활성 쌍이 없다.
             // 4: 에디터 미리보기 스켈레탈 메시 경로를 저장한다. 3 이하는 에셋 이름 규칙으로 메시를 찾는다.
             // 5: 바디마다 선형 감쇠, 회전 감쇠, 질량, 관성 배율을 저장한다. 4 이하는 바디 셋업의 기본값을 쓴다.
-            Uint32 Version{5};
+            // 6: 바디마다 바람 영향(WindInfluence)을 저장한다. 5 이하는 0(바람을 받지 않음)이다.
+            Uint32 Version{6};
 
             Archive.Serialize("PhysicsAssetVersion", Version);
 
-            if (Archive.HasError() || Version < 1 || Version > 5) {
+            if (Archive.HasError() || Version < 1 || Version > 6) {
                 Archive.SetError("Unsupported physics asset version");
 
                 return;
@@ -718,6 +769,16 @@ namespace Asset {
                         BodySetup->SetAngularDamping(Core::FFrequency::FromBase(AngularDamping));
                         BodySetup->SetMassInKg(Core::FMass::FromBase(Mass));
                         BodySetup->SetInertiaScale(InertiaScale);
+                    }
+                }
+
+                if (Version >= 6) {
+                    float WindInfluence{BodySetup->GetWindInfluence()};
+
+                    Archive.Serialize("WindInfluence", WindInfluence);
+
+                    if (Archive.IsLoading()) {
+                        BodySetup->SetWindInfluence(WindInfluence);
                     }
                 }
 
@@ -962,7 +1023,8 @@ namespace Asset {
             SerializeMesh(Archive, Mesh);
             if (Archive.GetRemainingBytes() != 0 && !Archive.HasError()) {
                 Core::TArray<PhysicsRuntime::FKConvexElem> Collision{};
-                SerializeCollision(Archive, Collision);
+                PhysicsRuntime::FKAggregateGeom SimpleCollision{};
+                SerializeCollision(Archive, Collision, SimpleCollision);
             }
         } else if (Type == Asset::EAssetType::SkeletalMesh) {
             Asset::FMeshData MeshData{};
@@ -1334,18 +1396,19 @@ namespace Asset {
         Serialization::FMemoryArchive Archive{static_cast<const Core::TArray<Uint8>&>(Payload)};
         Asset::FMeshData Data{};
         Core::TArray<PhysicsRuntime::FKConvexElem> ConvexElems{};
+        PhysicsRuntime::FKAggregateGeom SimpleShapes{};
 
         SerializeMesh(Archive, Data);
 
         // 충돌 섹션은 이후 버전에서 추가했으므로 없으면 경계 상자를 사용합니다.
         if (!Archive.HasError() && Archive.GetRemainingBytes() != 0) {
-            SerializeCollision(Archive, ConvexElems);
+            SerializeCollision(Archive, ConvexElems, SimpleShapes);
         }
 
         auto Mesh{CoreUObject::NewObject<Asset::UStaticMesh>()};
 
-        // 메시 데이터를 설정하면 볼록 형상이 지워지므로 볼록 형상은 그 뒤에 설정합니다.
-        if (Archive.HasError() || Archive.GetRemainingBytes() != 0 || !Mesh->SetMeshData(std::move(Data)) || !Mesh->SetConvexElems(std::move(ConvexElems))) {
+        // 메시 데이터를 설정하면 충돌 형상이 지워지므로 충돌 형상은 그 뒤에 설정합니다.
+        if (Archive.HasError() || Archive.GetRemainingBytes() != 0 || !Mesh->SetMeshData(std::move(Data)) || !Mesh->SetConvexElems(std::move(ConvexElems)) || !Mesh->SetSimpleShapes(std::move(SimpleShapes))) {
             Error = Archive.HasError() ? Archive.GetError() : "Invalid mesh asset data";
 
             return nullptr;
@@ -1716,9 +1779,10 @@ namespace Asset {
         Serialization::FMemoryArchive Archive{Payload};
         Asset::FMeshData Data{Mesh.GetMeshData()};
         Core::TArray<PhysicsRuntime::FKConvexElem> ConvexElems{Mesh.GetConvexElems()};
+        PhysicsRuntime::FKAggregateGeom SimpleShapes{Mesh.GetSimpleShapes()};
 
         SerializeMesh(Archive, Data);
-        SerializeCollision(Archive, ConvexElems);
+        SerializeCollision(Archive, ConvexElems, SimpleShapes);
 
         if (Archive.HasError()) {
             Error = Archive.GetError();

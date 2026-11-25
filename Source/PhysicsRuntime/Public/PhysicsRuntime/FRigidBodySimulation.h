@@ -119,6 +119,21 @@ namespace PhysicsRuntime {
         void SetKinematicTarget(Index_t BodyIndex, const FTransform& World);
 
         /**
+         * @brief 바디가 반응하는 정도(UBodySetup의 WindInfluence)를 반환합니다.
+         * @param[in] BodyIndex 피직스 에셋 안의 바디 번호입니다.
+         * @return 바람 영향 계수(1/s)이며, 없는 바디나 Kinematic 바디면 0입니다.
+         */
+        float GetWindInfluence(Index_t BodyIndex) const;
+
+        /**
+         * @brief Dynamic 바디 위치의 바람 속도를 지정합니다. 다음 Advance의 모든 스텝에서 같은 값을 씁니다.
+         * @param[in] BodyIndex 피직스 에셋 안의 바디 번호입니다.
+         * @param[in] WindVelocity 월드 좌표의 바람 속도(m/s)입니다. 영벡터면 바람이 없는 것입니다.
+         * @note 스텝마다 `(바람 속도 - 바디 속도) × 바람 영향`을 가속도로 바디에 줍니다. 바람 영향이 0이거나 Kinematic 바디면 무시합니다.
+         */
+        void SetBodyWind(Index_t BodyIndex, const FVector& WindVelocity);
+
+        /**
          * @brief 경과 시간을 누적해 고정 스텝만큼 시뮬레이션합니다.
          * @param[in] DeltaSeconds 이번에 더할 경과 시간(초)입니다.
          * @note 스텝 수는 런타임 설정의 고정 스텝 간격과 프레임당 최대 스텝 수를 따릅니다. 한 프레임에 스텝이 여러 번이면
@@ -170,6 +185,16 @@ namespace PhysicsRuntime {
              * @brief 목표를 한 번이라도 지정했는지 나타냅니다.
              */
             bool mHasTarget{};
+
+            /**
+             * @brief 바람에 반응하는 정도(1/s)입니다. 0이면 바람을 받지 않습니다.
+             */
+            float mWindInfluence{};
+
+            /**
+             * @brief 이 바디 위치의 바람 속도(m/s)입니다. 호출자가 Advance 전에 지정합니다.
+             */
+            FVector mWind{};
         };
 
     private:

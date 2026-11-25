@@ -516,6 +516,31 @@ namespace PhysicsRuntime {
         float mInertiaScale{1.0f};
 
         /**
+         * @brief true이면 메시나 바디 셋업의 재질 대신 아래 마찰과 반발 값으로 이 컴포넌트의 재질을 만듭니다. 바디를 만들 때 적용합니다.
+         * @note 두 형상이 접촉하면 PhysX가 두 재질의 값을 합쳐(기본은 평균) 쓰므로 바닥과 물체의 값이 모두 영향을 줍니다.
+         */
+        UPROPERTY(Edit, Serialize, Category = "Physics")
+        bool mOverridePhysicalMaterial{};
+
+        /**
+         * @brief 정지 마찰 계수입니다. 물체가 멈춘 상태에서 밀기 시작할 때 필요한 힘을 정합니다.
+         */
+        UPROPERTY(Edit, Serialize, Category = "Physics")
+        float mStaticFriction{0.5f};
+
+        /**
+         * @brief 동적 마찰 계수입니다. 미끄러지는 동안 속도를 줄이는 정도를 정합니다.
+         */
+        UPROPERTY(Edit, Serialize, Category = "Physics")
+        float mDynamicFriction{0.5f};
+
+        /**
+         * @brief 반발 계수입니다. 0이면 튕기지 않고 1이면 에너지를 잃지 않고 튕깁니다.
+         */
+        UPROPERTY(Edit, Serialize, Category = "Physics")
+        float mRestitution{0.6f};
+
+        /**
          * @brief 충돌 프리셋이며, 참여 방식이나 응답을 직접 바꾸면 Custom입니다.
          * @note 직렬화할 때 먼저 읽도록 참여 방식과 응답보다 앞에 둡니다.
          */

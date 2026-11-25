@@ -89,6 +89,7 @@ namespace PhysicsRuntime {
 
             Entry.mBoneName = Setup->GetBoneName();
             Entry.mSimulated = Setup->ShouldSimulatePhysics();
+            Entry.mWindInfluence = Entry.mSimulated ? Setup->GetWindInfluence() : 0.0f;
             NameToBody[Entry.mBoneName] = Body.get();
             Entry.mBody = std::move(Body);
             ++Created;
@@ -185,6 +186,18 @@ namespace PhysicsRuntime {
         Entry.mTarget = World;
     }
 
+    float FRigidBodySimulation::GetWindInfluence(Index_t BodyIndex) const {
+        return HasBody(BodyIndex) ? mEntries[BodyIndex].mWindInfluence : 0.0f;
+    }
+
+    void FRigidBodySimulation::SetBodyWind(Index_t BodyIndex, const FVector& WindVelocity) {
+        if (!HasBody(BodyIndex) || mEntries[BodyIndex].mWindInfluence <= 0.0f) {
+            return;
+        }
+
+        mEntries[BodyIndex].mWind = WindVelocity.IsFinite() ? WindVelocity : FVector{};
+    }
+
     void FRigidBodySimulation::Advance(Core::FTime DeltaTime) {
         if (!IsInitialized() || !DeltaTime.IsFinite()) {
             return;
@@ -223,6 +236,15 @@ namespace PhysicsRuntime {
                 Interpolated.mRotation = Entry.mPreviousTarget.mRotation.Slerp(Entry.mTarget.mRotation, Alpha).Normalized();
                 Interpolated.mScale = Entry.mTarget.mScale;
                 Entry.mBody->SetBodyTransform(Interpolated);
+            }
+
+            // 바람: 스텝마다 상대 속도에 비례하는 가속도를 준다. 힘은 한 스텝이 끝나면 지워지므로 매 스텝 다시 준다.
+            for (FEntry& Entry : mEntries) {
+                if (Entry.mBody == nullptr || Entry.mWindInfluence <= 0.0f || Entry.mWind.IsNearlyZero()) {
+                    continue;
+                }
+
+                Entry.mBody->AddForce((Entry.mWind - Entry.mBody->GetLinearVelocity()) * Entry.mWindInfluence, true);
             }
 
             mScene->Simulate(FixedStep);

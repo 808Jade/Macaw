@@ -825,6 +825,12 @@ namespace Engine {
         FVector mClothWindVelocity{};
 
         /**
+         * @brief true이면 월드의 바람장에서 이 컴포넌트 위치의 바람을 읽어 위의 ClothWindVelocity에 더합니다. 바람 원천이 없으면 영향이 없습니다.
+         */
+        UPROPERTY(Edit, Serialize, Name = "UseWorldWind")
+        bool mUseWorldWind{true};
+
+        /**
          * @brief 기준 뼈가 한 프레임에 이 거리(m)보다 멀리 움직이면 천을 순간 이동시키며 0이면 검사하지 않습니다.
          */
         Core::FLength mTeleportDistanceThreshold{Core::FLength::FromBase(3.0f)};

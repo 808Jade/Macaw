@@ -95,6 +95,7 @@ namespace Asset {
 
         mMeshData = std::move(MeshData);
         mConvexElems.clear();
+        mSimpleShapes = PhysicsRuntime::FKAggregateGeom{};
 
         ReleaseResources();
         RebuildBodySetup();
@@ -134,7 +135,42 @@ namespace Asset {
     }
 
     /**
-     * @brief 볼록 충돌 형상이 있으면 그것으로, 없으면 메시 경계 상자로 바디 셋업을 다시 만듭니다.
+     * @brief 사용자가 편집한 단순 충돌 형상을 반환합니다.
+     */
+    const PhysicsRuntime::FKAggregateGeom& Asset::UStaticMesh::GetSimpleShapes() const {
+        return mSimpleShapes;
+    }
+
+    /**
+     * @brief 단순 충돌 형상을 바꾸고 바디 셋업을 다시 만듭니다.
+     */
+    bool Asset::UStaticMesh::SetSimpleShapes(PhysicsRuntime::FKAggregateGeom Shapes) {
+        Shapes.mConvexElems.clear();
+
+        // 값이 NaN이거나 크기가 0 이하이면 PhysX 형상을 만들 수 없으므로 거부한다.
+        const bool Valid{std::all_of(Shapes.mSphereElems.begin(), Shapes.mSphereElems.end(), [](const PhysicsRuntime::FKSphereElem& Elem) {
+                             return Elem.mCenter.IsFinite() && Elem.mRadius.IsFinite() && Elem.mRadius > Core::FLength{};
+                         }) &&
+                         std::all_of(Shapes.mBoxElems.begin(), Shapes.mBoxElems.end(), [](const PhysicsRuntime::FKBoxElem& Elem) {
+                             return Elem.mCenter.IsFinite() && Elem.mRotation.IsFinite() && Elem.mHalfExtent.IsFinite() && Elem.mHalfExtent.x > 0.0f && Elem.mHalfExtent.y > 0.0f && Elem.mHalfExtent.z > 0.0f;
+                         }) &&
+                         std::all_of(Shapes.mSphylElems.begin(), Shapes.mSphylElems.end(), [](const PhysicsRuntime::FKSphylElem& Elem) {
+                             return Elem.mCenter.IsFinite() && Elem.mRotation.IsFinite() && Elem.mRadius.IsFinite() && Elem.mRadius > Core::FLength{} && Elem.mLength.IsFinite() && Elem.mLength >= Core::FLength{};
+                         })};
+
+        if (!Valid) {
+            return false;
+        }
+
+        mSimpleShapes = std::move(Shapes);
+
+        RebuildBodySetup();
+
+        return true;
+    }
+
+    /**
+     * @brief 단순 형상이 있으면 그것으로, 없으면 볼록 형상, 그것도 없으면 메시 경계 상자로 바디 셋업을 다시 만듭니다.
      */
     void Asset::UStaticMesh::RebuildBodySetup() {
         if (!IsValid()) {
@@ -151,6 +187,14 @@ namespace Asset {
 
         PhysicsRuntime::FKAggregateGeom& Geometry{mBodySetup->GetAggGeom()};
         Geometry = PhysicsRuntime::FKAggregateGeom{};
+
+        if (!mSimpleShapes.IsEmpty()) {
+            Geometry.mSphereElems = mSimpleShapes.mSphereElems;
+            Geometry.mBoxElems = mSimpleShapes.mBoxElems;
+            Geometry.mSphylElems = mSimpleShapes.mSphylElems;
+
+            return;
+        }
 
         if (!mConvexElems.empty()) {
             Geometry.mConvexElems = mConvexElems;

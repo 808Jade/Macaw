@@ -45,6 +45,7 @@ namespace Editor {
             ParticleSystem,
             Pawn,
             SkyAtmosphere,
+            Wind,
             Count
         };
 
