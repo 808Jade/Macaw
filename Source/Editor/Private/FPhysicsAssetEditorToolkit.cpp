@@ -291,6 +291,10 @@ struct FPhysicsAssetEditorToolkit::FBaselineBody {
     Core::TArray<PhysicsRuntime::FKSphylElem> mSphyls{};
     bool mSimulatePhysics{true};
     bool mCollisionEnabled{true};
+    float mLinearDamping{0.1f};
+    float mAngularDamping{0.5f};
+    float mMassInKg{0.0f};
+    float mInertiaScale{1.0f};
 };
 
 struct FPhysicsAssetEditorToolkit::FBaseline {
@@ -320,6 +324,10 @@ void FPhysicsAssetEditorToolkit::EnsureBaseline() {
         Body.mSphyls = Setup->GetAggGeom().mSphylElems;
         Body.mSimulatePhysics = Setup->ShouldSimulatePhysics();
         Body.mCollisionEnabled = Setup->IsCollisionEnabled();
+        Body.mLinearDamping = Setup->GetLinearDamping().GetBase();
+        Body.mAngularDamping = Setup->GetAngularDamping().GetBase();
+        Body.mMassInKg = Setup->GetMassInKg().GetBase();
+        Body.mInertiaScale = Setup->GetInertiaScale();
     }
 
     for (const auto& Template : PhysicsAsset->mConstraintSetup) {
@@ -2365,6 +2373,83 @@ void FPhysicsAssetEditorToolkit::DrawBodyEditor() {
             }
 
             ApplyEdit();
+        }
+    }
+
+    // 감쇠, 질량, 관성: 시뮬레이션되는 바디의 움직임을 다듬는다. 감쇠와 관성 배율을 키우면 가는 바디의 떨림이 줄고,
+    // 질량이 0이면 형상 부피와 기본 밀도로 계산한다. 선택한 바디의 값이 서로 다르면 "Multiple Values"를 표시한다.
+    {
+        struct FDynamicsField {
+            const char* mLabel;
+            const char* mTooltip;
+            float mSpeed;
+            float mMin;
+            float mMax;
+            const char* mFormat;
+            float (*mGet)(const PhysicsRuntime::UBodySetup&);
+            void (*mSet)(PhysicsRuntime::UBodySetup&, float);
+            float (*mBaseline)(const FBaselineBody&);
+        };
+
+        static const FDynamicsField Fields[]{
+            {"Linear Damping", "Slows the translation. 0 never loses speed on its own.", 0.01f, 0.0f, 100.0f, "%.3f",
+                [](const PhysicsRuntime::UBodySetup& Setup) { return Setup.GetLinearDamping().GetBase(); },
+                [](PhysicsRuntime::UBodySetup& Setup, float Value) { Setup.SetLinearDamping(Core::FFrequency::FromBase(Value)); },
+                [](const FBaselineBody& Body) { return Body.mLinearDamping; }},
+            {"Angular Damping", "Slows the rotation. Raise it to reduce jitter on thin bodies.", 0.01f, 0.0f, 100.0f, "%.3f",
+                [](const PhysicsRuntime::UBodySetup& Setup) { return Setup.GetAngularDamping().GetBase(); },
+                [](PhysicsRuntime::UBodySetup& Setup, float Value) { Setup.SetAngularDamping(Core::FFrequency::FromBase(Value)); },
+                [](const FBaselineBody& Body) { return Body.mAngularDamping; }},
+            {"Mass (kg)", "0 computes the mass from the shape volume and the default density.", 0.001f, 0.0f, 1000.0f, "%.3f",
+                [](const PhysicsRuntime::UBodySetup& Setup) { return Setup.GetMassInKg().GetBase(); },
+                [](PhysicsRuntime::UBodySetup& Setup, float Value) { Setup.SetMassInKg(Core::FMass::FromBase(Value)); },
+                [](const FBaselineBody& Body) { return Body.mMassInKg; }},
+            {"Inertia Scale", "Multiplies the moment of inertia. Larger values make the body rotate more slowly.", 0.05f, 0.01f, 1000.0f, "%.2f",
+                [](const PhysicsRuntime::UBodySetup& Setup) { return Setup.GetInertiaScale(); },
+                [](PhysicsRuntime::UBodySetup& Setup, float Value) { Setup.SetInertiaScale(Value); },
+                [](const FBaselineBody& Body) { return Body.mInertiaScale; }}};
+
+        // 기준에 없는 바디는 새 바디의 기본값과 비교한다.
+        const FBaselineBody DefaultBody{};
+
+        for (const FDynamicsField& Field : Fields) {
+            float Value{Field.mGet(*Setups.front())};
+            const bool Mixed{std::any_of(Setups.begin(), Setups.end(), [&](const PhysicsRuntime::UBodySetup* Setup) {
+                return std::abs(Field.mGet(*Setup) - Value) > 1e-6f;
+            })};
+
+            if (DragComponents(Field.mLabel, 1, &Value, &Mixed, Field.mSpeed, Field.mMin, Field.mMax, Field.mFormat) != 0) {
+                Component->DestroyPhysicsState();
+
+                for (PhysicsRuntime::UBodySetup* Setup : Setups) {
+                    Field.mSet(*Setup, Value);
+                }
+
+                ApplyEdit();
+            }
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", Field.mTooltip);
+            }
+
+            const auto BaselineOf{[&](const PhysicsRuntime::UBodySetup* Setup) {
+                const FBaselineBody* Body{FindBaselineBody(Setup->GetBoneName())};
+
+                return Field.mBaseline(Body != nullptr ? *Body : DefaultBody);
+            }};
+            const bool Differs{std::any_of(Setups.begin(), Setups.end(), [&](const PhysicsRuntime::UBodySetup* Setup) {
+                return std::abs(Field.mGet(*Setup) - BaselineOf(Setup)) > 1e-6f;
+            })};
+
+            if (ResetButton(Field.mLabel, Differs)) {
+                Component->DestroyPhysicsState();
+
+                for (PhysicsRuntime::UBodySetup* Setup : Setups) {
+                    Field.mSet(*Setup, BaselineOf(Setup));
+                }
+
+                ApplyEdit();
+            }
         }
     }
 

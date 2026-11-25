@@ -185,6 +185,7 @@ namespace PhysicsRuntime {
         mMassInKg = Other.mMassInKg;
         mLinearDamping = Other.mLinearDamping;
         mAngularDamping = Other.mAngularDamping;
+        mInertiaScale = Other.mInertiaScale;
         mCollisionPreset = Other.mCollisionPreset;
         mCollisionEnabled = Other.mCollisionEnabled;
         mCollisionResponse = Other.mCollisionResponse;
@@ -720,6 +721,30 @@ namespace PhysicsRuntime {
     }
 
     /**
+     * @brief 동적 강체의 관성 배율을 반환합니다.
+     */
+    float PhysicsRuntime::FBodyInstance::GetInertiaScale() const {
+        return mInertiaScale;
+    }
+
+    /**
+     * @brief 동적 강체의 관성 배율을 설정하고 실제 바디의 관성을 다시 계산합니다.
+     */
+    bool PhysicsRuntime::FBodyInstance::SetInertiaScale(float Scale) {
+        if (!std::isfinite(Scale) || Scale <= 0.0f) {
+            return false;
+        }
+
+        mInertiaScale = Scale;
+
+        if (physx::PxRigidDynamic* Dynamic{GetPxRigidDynamic()}) {
+            UpdateMassProperties(*Dynamic);
+        }
+
+        return true;
+    }
+
+    /**
      * @brief 충돌 프리셋을 반환합니다.
      */
     PhysicsRuntime::ECollisionPreset PhysicsRuntime::FBodyInstance::GetCollisionPreset() const {
@@ -880,6 +905,13 @@ namespace PhysicsRuntime {
 
         if (!Updated) {
             MACAW_LOG(LogPhysics, Warning, "Cannot update the mass properties of a dynamic body.");
+
+            return;
+        }
+
+        // 위에서 형상으로 관성을 새로 계산했으므로 배율을 한 번만 곱해도 호출을 반복해도 값이 누적되지 않는다.
+        if (mInertiaScale != 1.0f) {
+            Dynamic.setMassSpaceInertiaTensor(Dynamic.getMassSpaceInertiaTensor() * mInertiaScale);
         }
     }
 

@@ -66,6 +66,7 @@ namespace PhysicsRuntime {
             Body->SetLinearDamping(Setup->GetLinearDamping());
             Body->SetAngularDamping(Setup->GetAngularDamping());
             Body->SetMassInKg(Setup->GetMassInKg());
+            Body->SetInertiaScale(Setup->GetInertiaScale());
             Body->mInstanceBodyIndex = BodyIndex;
 
             PhysicsRuntime::FInitBodySpawnParams SpawnParams{};
