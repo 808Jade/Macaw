@@ -1,5 +1,5 @@
 /**
- * @file FTerrainMeshBuilder.h
+ * @file FLandscapeMeshBuilder.h
  * @brief 하이트맵에서 지형의 CPU 메시 데이터를 만드는 생성기입니다.
  * @ingroup Asset
  */
@@ -18,7 +18,7 @@ namespace Asset {
      * @brief 하이트맵의 픽셀 하나를 정점 하나로 하는 격자 메시를 만듭니다.
      * @ingroup Asset
      */
-    class FTerrainMeshBuilder {
+    class FLandscapeMeshBuilder {
     public:
         /**
          * @brief 하이트맵으로 위치·법선·탄젠트·UV·인덱스를 채웁니다.

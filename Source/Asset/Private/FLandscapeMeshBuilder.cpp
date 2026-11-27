@@ -1,10 +1,10 @@
 /**
- * @file FTerrainMeshBuilder.cpp
+ * @file FLandscapeMeshBuilder.cpp
  * @brief 하이트맵 지형 메시 생성의 구현입니다.
  * @ingroup Asset
  */
 
-#include "Asset/FTerrainMeshBuilder.h"
+#include "Asset/FLandscapeMeshBuilder.h"
 #include "Asset/FHeightmap.h"
 #include "Asset/FMeshData.h"
 #include "Core/Math/FVector.h"
@@ -18,7 +18,7 @@ namespace Asset {
     /**
      * @brief 하이트맵으로 위치·법선·탄젠트·UV·인덱스를 채웁니다.
      */
-    bool Asset::FTerrainMeshBuilder::Build(const Asset::FHeightmap& Heightmap, Core::FLength CellSize, Core::FLength MaxHeight, Asset::FMeshData& MeshData, Core::FString& Error) {
+    bool Asset::FLandscapeMeshBuilder::Build(const Asset::FHeightmap& Heightmap, Core::FLength CellSize, Core::FLength MaxHeight, Asset::FMeshData& MeshData, Core::FString& Error) {
         Error.clear();
 
         const Uint32 Width{Heightmap.GetWidth()};
@@ -34,7 +34,7 @@ namespace Asset {
         const float Amplitude{MaxHeight.GetBase()};
 
         if (!std::isfinite(Spacing) || Spacing <= 0.0f || !std::isfinite(Amplitude) || Amplitude < 0.0f) {
-            Error = "The terrain cell size must be positive and the maximum height must not be negative";
+            Error = "The landscape cell size must be positive and the maximum height must not be negative";
 
             return false;
         }
